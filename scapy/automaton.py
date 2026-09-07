@@ -1042,9 +1042,10 @@ class Automaton(metaclass=Automaton_metaclass):
                     # start atmt
                     atmt_server.runbg()
                     # housekeeping
-                    for atmt, clientsocket in clients:
+                    for atmt, clientsocket in clients[:]:
                         if not atmt.isrunning():
                             atmt.destroy()
+                            clients.remove((atmt, clientsocket))
             except KeyboardInterrupt:
                 print("X Exiting.")
                 ssock.shutdown(socket.SHUT_RDWR)

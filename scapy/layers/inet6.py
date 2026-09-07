@@ -168,7 +168,8 @@ def getmacbyip6(ip6, chainCC=0):
         mac = in6_getnsmac(inet_pton(socket.AF_INET6, ip6))
         return mac
 
-    iff, a, nh = conf.route6.route(ip6)
+    scope = ip6.scope if isinstance(ip6, _ScopedIP) else None
+    iff, a, nh = conf.route6.route(ip6, dev=scope)
 
     if iff == conf.loopback_name:
         return "ff:ff:ff:ff:ff:ff"
@@ -176,7 +177,9 @@ def getmacbyip6(ip6, chainCC=0):
     if nh != '::':
         ip6 = nh  # Found next hop
 
-    mac = conf.netcache.in6_neighbor.get(ip6)
+    cache_key = "%s%%%s" % (ip6, iff) if scope is not None else ip6
+
+    mac = conf.netcache.in6_neighbor.get(cache_key)
     if mac:
         return mac
 
@@ -187,7 +190,7 @@ def getmacbyip6(ip6, chainCC=0):
             mac = res[ICMPv6NDOptDstLLAddr].lladdr
         else:
             mac = res.src
-        conf.netcache.in6_neighbor[ip6] = mac
+        conf.netcache.in6_neighbor[cache_key] = mac
         return mac
 
     return None
@@ -265,6 +268,11 @@ class IP6ListField(StrField):
                 if c <= 0:
                     break
                 c -= 1
+            if len(remain) < 16:
+                # not enough bytes for a full IPv6 address: a truncated or
+                # misaligned list. Leave the remainder for the next layer
+                # instead of feeding a short buffer to inet_ntop().
+                break
             addr = inet_ntop(socket.AF_INET6, remain[:16])
             lst.append(addr)
             remain = remain[16:]
@@ -1197,20 +1205,10 @@ def defragment6(packets):
         warning("defragment6: some fragmented packets have been removed from list")  # noqa: E501
 
     # reorder fragments
-    res = []
-    while lst:
-        min_pos = 0
-        min_offset = lst[0][IPv6ExtHdrFragment].offset
-        for p in lst:
-            cur_offset = p[IPv6ExtHdrFragment].offset
-            if cur_offset < min_offset:
-                min_pos = 0
-                min_offset = cur_offset
-        res.append(lst[min_pos])
-        del lst[min_pos]
+    res = sorted(lst, key=lambda p: p[IPv6ExtHdrFragment].offset)
 
     # regenerate the fragmentable part
-    fragmentable = b""
+    fragmentable = bytearray()
     frag_hdr_len = 8
     for p in res:
         q = p[IPv6ExtHdrFragment]
@@ -1220,8 +1218,8 @@ def defragment6(packets):
         frag_data_len = p[IPv6].plen
         if frag_data_len is not None:
             frag_data_len -= frag_hdr_len
-        fragmentable += b"X" * (offset - len(fragmentable))
-        fragmentable += raw(q.payload)[:frag_data_len]
+        fragmentable.extend(b"X" * (offset - len(fragmentable)))
+        fragmentable.extend(raw(q.payload)[:frag_data_len])
 
     # Regenerate the unfragmentable part.
     q = res[0].copy()
@@ -1229,7 +1227,7 @@ def defragment6(packets):
     q[IPv6ExtHdrFragment].underlayer.nh = nh
     q[IPv6ExtHdrFragment].underlayer.plen = len(fragmentable)
     del q[IPv6ExtHdrFragment].underlayer.payload
-    q /= conf.raw_layer(load=fragmentable)
+    q /= conf.raw_layer(load=bytes(fragmentable))
     del q.plen
 
     if q[IPv6].underlayer:

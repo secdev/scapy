@@ -244,7 +244,7 @@ def _create_fifo() -> Tuple[str, Any]:
     else:
         f = get_temp_file()
         os.unlink(f)
-        os.mkfifo(f)
+        os.mkfifo(f, 0o600)
         return f, f
 
 
@@ -1657,6 +1657,7 @@ class RawPcapNgReader(RawPcapReader):
         }
         self.endian = "!"  # Will be overwritten by first SHB
         self.process_information = []  # type: List[Dict[str, Any]]
+        self._tls_state = None  # type: Optional[Tuple[Dict[str, bytes], bool]]
 
         if magic != b"\x0a\x0d\x0d\x0a":  # PcapNg:
             raise Scapy_Exception(
@@ -1776,29 +1777,33 @@ class RawPcapNgReader(RawPcapReader):
     def _read_options(self, options):
         # type: (bytes) -> Dict[int, Union[bytes, List[bytes]]]
         opts = dict()  # type: Dict[int, Union[bytes, List[bytes]]]
-        while len(options) >= 4:
+        offset = 0
+        while len(options) - offset >= 4:
             try:
-                code, length = struct.unpack(self.endian + "HH", options[:4])
+                code, length = struct.unpack_from(
+                    self.endian + "HH", options, offset
+                )
             except struct.error:
                 warning("PcapNg: options header is too small "
-                        "%d !" % len(options))
+                        "%d !" % (len(options) - offset))
                 raise EOFError
-            if code != 0 and 4 + length <= len(options):
+            value_offset = offset + 4
+            if code != 0 and value_offset + length <= len(options):
                 # https://www.ietf.org/archive/id/draft-tuexen-opsawg-pcapng-05.html#name-options-format
                 if code in [1, 2988, 2989, 19372, 19373]:
                     if code not in opts:
                         opts[code] = []
-                    opts[code].append(options[4:4 + length])  # type: ignore
+                    opts[code].append(  # type: ignore
+                        options[value_offset:value_offset + length]
+                    )
                 else:
-                    opts[code] = options[4:4 + length]
+                    opts[code] = options[value_offset:value_offset + length]
             if code == 0:
                 if length != 0:
                     warning("PcapNg: invalid option "
                             "length %d for end-of-option" % length)
                 break
-            if length % 4:
-                length += (4 - (length % 4))
-            options = options[4 + length:]
+            offset = value_offset + length + (-length % 4)
         return opts
 
     def _read_block_idb(self, block, _):
@@ -1998,24 +2003,34 @@ class RawPcapNgReader(RawPcapReader):
                         "the TLS layer is not loaded! Scapy won't be able "
                         "to decrypt the packets.")
             else:
-                from scapy.layers.tls.session import load_nss_keys
+                from scapy.layers.tls.session import parse_nss_keys
 
-                # Write Key Log to a file and parse it
-                filename = get_temp_file()
-                with open(filename, "wb") as fd:
-                    fd.write(secrets_data)
-                    fd.close()
-
-                keys = load_nss_keys(filename)
+                try:
+                    keys = parse_nss_keys(secrets_data.decode())
+                except UnicodeDecodeError as ex:
+                    warning("Cannot read NSS Key Log: %s", str(ex))
+                    keys = {}
                 if not keys:
                     warning("PcapNg: invalid TLS Key Log in DSB!")
                 else:
                     # Note: these attributes are only available when the TLS
                     #       layer is loaded.
+                    if self._tls_state is None:
+                        self._tls_state = (
+                            conf.tls_nss_keys,
+                            conf.tls_session_enable,
+                        )
                     conf.tls_nss_keys = keys
                     conf.tls_session_enable = True
         else:
             warning("PcapNg: Unknown DSB secrets type (0x%x)!", secrets_type)
+
+    def close(self):
+        # type: () -> None
+        if self._tls_state is not None:
+            conf.tls_nss_keys, conf.tls_session_enable = self._tls_state
+            self._tls_state = None
+        RawPcapReader.close(self)
 
     def _read_block_pib(self, block, _):
         # type: (bytes, int) -> None
@@ -2194,9 +2209,12 @@ class GenericPcapWriter(object):
         ifname = getattr(packet, "sniffed_on", None)
         direction = getattr(packet, "direction", None)
         if not isinstance(packet, bytes):
-            linktype: int = conf.l2types.layer2num[
-                packet.__class__
-            ]
+            # The class may not be bound to any linktype (e.g. conf.raw_layer),
+            # in which case fall back to the one write_header() settled on.
+            linktype: int = conf.l2types.layer2num.get(
+                packet.__class__,
+                self.linktype,
+            )
         else:
             linktype = self.linktype
         if ifname is not None:

@@ -110,9 +110,18 @@ assert  elem1 == elem2
 # OpcDaCl_cancel
 # OpcDaCl_cancelLE
 
-# + Test Fack Packet
-# No example yet
-# OpcDaFack
++ Test Fack Packet
+= OpcDaFack
+opcDaFackPacket_Dissect = hex_bytes(b'0000000010000010000000080000010002aaaaaaaabbbbbbbb')
+fack = OpcDaFack(opcDaFackPacket_Dissect)
+assert fack.selackLen == 2
+assert fack.selack == [0xaaaaaaaa, 0xbbbbbbbb]
+assert raw(fack) == opcDaFackPacket_Dissect
+
+= OpcDaFackLE
+fackLE = OpcDaFackLE(opcDaFackPacket_Dissect)
+assert len(fackLE.selack) == 2
+assert raw(fackLE) == opcDaFackPacket_Dissect
 
 # + Test Cancel ack Packet
 # No example yet
@@ -180,3 +189,12 @@ elem2 = raw(ocDaAlter_contextLEPacket_Build)
 # + Test Orphaned Packet
 # No example yet
 # OpcDaOrphaned
+
++ Test STDOBJREF
+= STDOBJREF dissection
+stdObjRef_Dissect = hex_bytes(b'0100000002000000112233445566778899aabbccddeeff000102030405060708090a0b0c0d0e0f10')
+std = STDOBJREF(stdObjRef_Dissect)
+assert std.flags == 1
+assert std.cPublicRefs == 2
+assert str(std.IPID) == '04030201-0605-0807-090a-0b0c0d0e0f10'
+assert raw(std) == stdObjRef_Dissect

@@ -151,7 +151,6 @@ from scapy.layers.gssapi import (
     SSP,
 )
 from scapy.layers.inet import TCP, UDP
-from scapy.layers.smb import _NV_VERSION
 from scapy.layers.tls.cert import (
     Cert,
     CertList,
@@ -2521,7 +2520,9 @@ class KRB_InnerToken(Packet):
         PacketField(
             "root",
             KRB_AP_REQ(),
-            lambda x, _parent: _InitialContextTokens[_parent.TOK_ID](x),
+            lambda x, _parent: _InitialContextTokens.get(
+                _parent.TOK_ID, conf.raw_layer
+            )(x),
         ),
     ]
 
@@ -2677,6 +2678,44 @@ class KRB_GSS_Wrap(Packet):
 _InitialContextTokens[b"\x05\x04"] = KRB_GSS_Wrap
 
 
+# [MS-NRPC] 3.5.4.3.1 in theory, dsgetdc.h (WinSDK) for details
+
+_GetDcName_Flags = [
+    "DS_RETURN_FLAT_NAME",  # 0x80000000
+    "DS_RETURN_DNS_NAME",  # 0x40000000
+    "reserved2",  # 0x20000000
+    "reserved3",  # 0x10000000
+    "reserved4",  # 0x08000000
+    "reserved5",  # 0x04000000
+    "DS_DIRECTORY_SERVICE_13_REQUIRED",  # 0x02000000 - Windows Server 2025 or later
+    "DS_KEY_LIST_SUPPORT_REQUIRED",  # 0x01000000
+    "DS_DIRECTORY_SERVICE_10_REQUIRED",  # 0x00800000 - Windows Server 2016 or later
+    "DS_DIRECTORY_SERVICE_9_REQUIRED",  # 0x00400000 - Windows Server 2012R2 or later
+    "DS_DIRECTORY_SERVICE_8_REQUIRED",  # 0x00200000 - Windows Server 2012 or later
+    "DS_WEB_SERVICE_REQUIRED",  # 0x00100000
+    "DS_DIRECTORY_SERVICE_6_REQUIRED",  # 0x00080000 - Windows Server 2008 or later
+    "DS_TRY_NEXTCLOSEST_SITE",  # 0x00040000
+    "DS_IS_DNS_NAME",  # 0x00020000
+    "DS_IS_FLAT_NAME",  # 0x00010000
+    "DS_ONLY_LDAP_NEEDED",  # 0x00008000
+    "DS_AVOID_SELF",  # 0x00004000
+    "DS_GOOD_TIMESERV_PREFERRED",  # 0x00002000
+    "DS_WRITABLE_REQUIRED",  # 0x00001000
+    "DS_TIMESERV_REQUIRED",  # 0x00000800
+    "DS_KDC_REQUIRED",  # 0x00000400
+    "DS_IP_REQUIRED",  # 0x00000200
+    "DS_BACKGROUND_ONLY",  # 0x00000100
+    "DS_PDC_REQUIRED",  # 0x00000080
+    "DS_GC_SERVER_REQUIRED",  # 0x00000040
+    "DS_DIRECTORY_SERVICE_PREFERRED",  # 0x00000020
+    "DS_DIRECTORY_SERVICE_REQUIRED",  # 0x00000010
+    "reserved-28",  # 0x00000008
+    "reserved-29",  # 0x00000004
+    "reserved-30",  # 0x00000002
+    "DS_FORCE_REDISCOVERY",  # 0x00000001
+]
+
+
 # Kerberos IAKERB - draft-ietf-kitten-iakerb-03
 
 
@@ -2688,12 +2727,12 @@ class IAKERB_HEADER(ASN1_Packet):
             ASN1F_STRING("cookie", None, explicit_tag=0xA2),
         ),
         # [MS-SPNG] addition. This is mentioned on [kitten] IETF mailing list
-        # (but I've sent an email to dochelp for questions)
+        # (and dochelp@ answered with details, should be updated soon)
         ASN1F_optional(
             ASN1F_FLAGS(
-                "dclocatorHint",
-                "",
-                FlagsField("", 0, -32, _NV_VERSION).names,
+                "headerFlags",
+                None,
+                _GetDcName_Flags,
                 explicit_tag=0xA3,
             )
         ),
@@ -2982,7 +3021,7 @@ class KDC_PROXY_MESSAGE(ASN1_Packet):
             ASN1F_FLAGS(
                 "dclocatorHint",
                 None,
-                FlagsField("", 0, -32, _NV_VERSION).names,
+                _GetDcName_Flags,
                 explicit_tag=0xA2,
             )
         ),
@@ -3090,7 +3129,8 @@ class IAKerbSocket(SuperSocket):
                 root=IAKERB_HEADER(
                     targetRealm=ASN1_UTF8_STRING(
                         self.realm,
-                    )
+                    ),
+                    headerFlags="DS_FORCE_REDISCOVERY",
                 )
                 / x,
             ),

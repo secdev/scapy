@@ -642,7 +642,10 @@ class CandumpReader:
         data = data.replace(b' ', b'')
         data = data.strip()
 
-        if len(data) <= 8 and fd_flags is None:
+        is_remote = data.startswith(b'R') and fd_flags is None
+        if is_remote:
+            pkt = CAN(identifier=int(idn, 16), flags="remote_transmission_request")
+        elif len(data) <= 8 and fd_flags is None:
             pkt = CAN(identifier=int(idn, 16), data=hex_bytes(data))
         else:
             pkt = CANFD(identifier=int(idn, 16), fd_flags=fd_flags,
@@ -650,6 +653,8 @@ class CandumpReader:
 
         if le is not None:
             pkt.length = int(le[1:])
+        elif is_remote:
+            pkt.length = int(data[1:] or b'0')
         else:
             pkt.length = len(pkt.data)
 

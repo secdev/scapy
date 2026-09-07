@@ -12,7 +12,6 @@ load_layer("can", globals_dict=globals())
 conf.contribs['CAN']['swap-bytes'] = False
 load_contrib("automotive.xcp.xcp",  globals_dict=globals())
 
-
 = Test padding
 
 conf.contribs["XCP"]["add_padding_for_can"] = True

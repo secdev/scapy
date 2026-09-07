@@ -51,3 +51,8 @@ assert pkt[HSRPv2].ipVer == 6 and pkt[HSRPv2].padding == None
 assert pkt[HSRPv2].version == 2 and pkt[HSRPv2].opcode == 0 and pkt[HSRPv2].state == 16
 assert pkt[HSRPv2].hellotime == 3000 and pkt[HSRPv2].holdtime == 10000
 assert pkt[HSRPv2TextAuth].type == 3 and pkt[HSRPv2TextAuth].auth == b"cisco\x00\x00\x00"
+
+= HSRP without underlayer does not crash
+pkt = HSRP(b"\x00\x01" + b"\x00" * 26 + b"\x41" * 20)
+assert pkt.version == 0 and pkt.opcode == 1
+assert Raw in pkt and pkt[Raw].load.endswith(b"A" * 20)

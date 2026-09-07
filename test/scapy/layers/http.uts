@@ -272,6 +272,21 @@ pkt.clear_cache()
 bytes(pkt)
 assert bytes(pkt) == b'HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=ISO-8859-1\r\nDate: Tue, 16 Jun 2026 17:47:46 GMT\r\nExpires: -1\r\nTransfer-Encoding: chunked\r\nVary: Accept-Encoding\r\n\r\n14\r\n00000000000000000000\r\n0\r\n\r\n'
 
+= TCPSession separates coalesced HTTP messages with Content-Length
+~ http
+
+from scapy.layers.http import HTTP, HTTPRequest
+from scapy.sessions import TCPSession
+
+first_bytes = b"GET /first HTTP/1.1\r\nHost: example\r\nContent-Length: 0\r\n\r\n"
+second_bytes = b"POST /second HTTP/1.1\r\nHost: example\r\nContent-Length: 0\r\n\r\n"
+session = TCPSession(app=True)
+first = session.process(first_bytes + second_bytes, cls=HTTP)
+second = session.process(b"", cls=HTTP)
+
+assert first[HTTPRequest].Path == b"/first"
+assert second[HTTPRequest].Path == b"/second"
+
 = Test chunked with gzip
 
 conf.contribs["http"]["auto_compression"] = False
@@ -363,6 +378,28 @@ with run_httpserver(mech=HTTP_AUTH_MECHS.NTLM, ssp=NTLMSSP(IDENTITIES={"user": M
 
 assert resp.Status_Code == b"401"
 
+= HTTP - HTTP_Client follows standard URL authority parsing
+~ http-client
+
+from scapy.layers.http import HTTP_Client, HTTPResponse
+
+class URLParsingClient(HTTP_Client):
+    def _connect_or_reuse(self, host, port=None, tls=False, timeout=5):
+        self.connected = (host, port, tls)
+    def sr1(self, req, **kwargs):
+        self.sent_request = req
+        return HTTPResponse(Status_Code=b"200")
+
+client = URLParsingClient(verb=False)
+resp = client.request(
+    "http://127.0.0.1:8081@allowed.example:8080/resource?item=1#fragment"
+)
+
+assert resp.Status_Code == b"200"
+assert client.connected == ("allowed.example", 8080, False)
+assert client.sent_request.Host == b"allowed.example:8080"
+assert client.sent_request.Path == b"/resource?item=1"
+
 = HTTP - HTTP_client asks HTTP_server with NTLMSSP
 ~ http-client
 
@@ -396,6 +433,33 @@ with run_httpserver(mech=HTTP_AUTH_MECHS.BASIC, BASIC_IDENTITIES={"user": "passw
 
 assert html == "<!doctype html><html><body><h1>OK</h1></body></html>"
 
+= HTTP - HTTP_Client discards a timed-out connection
+~ http-client
+
+from scapy.layers.http import HTTP_Client, HTTPResponse
+
+class _TimeoutClient(HTTP_Client):
+    def __init__(self):
+        super().__init__(verb=False)
+        self.connection_count = 0
+        self.close_count = 0
+        self.responses = [None, HTTPResponse(Status_Code=b"200")]
+    def _connect_or_reuse(self, host, port=None, tls=False, timeout=5):
+        key = (host, port, tls)
+        if self._sockinfo != key:
+            self.connection_count += 1
+            self._sockinfo = key
+    def sr1(self, req, **kwargs):
+        return self.responses.pop(0)
+    def close(self):
+        self.close_count += 1
+
+client = _TimeoutClient()
+assert client.request("http://example.test:80/first", timeout=0.01) is None
+assert client.request("http://example.test:80/second").Status_Code == b"200"
+assert client.close_count == 1
+assert client.connection_count == 2
+
 
 = HTTP - HTTP_Server with native python client without auth
 ~ http-client
@@ -407,6 +471,31 @@ with run_httpserver(mech=HTTP_AUTH_MECHS.NONE):
         html = f.read().decode('utf-8')
 
 assert html == "<!doctype html><html><body><h1>OK</h1></body></html>"
+
+= HTTP - HTTP_Server authenticates every Basic request on a reused connection
+~ http-client
+
+import base64
+import http.client
+
+headers = {
+    "Authorization": "Basic " + base64.b64encode(b"user:password").decode(),
+}
+
+with run_httpserver(mech=HTTP_AUTH_MECHS.BASIC, BASIC_IDENTITIES={"user": "password"}):
+    client = http.client.HTTPConnection("127.0.0.1", 8080, timeout=2)
+    try:
+        client.request("GET", "/", headers=headers)
+        first_response = client.getresponse()
+        first_status = first_response.status
+        first_response.read()
+        client.request("GET", "/")
+        second_status = client.getresponse().status
+    finally:
+        client.close()
+
+assert first_status == 200
+assert second_status == 401
 
 + Test HTTPS client/server
 

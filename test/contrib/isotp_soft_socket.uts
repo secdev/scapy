@@ -2878,6 +2878,14 @@ with ISOTPSoftSocket(TestSocket(CAN), rx_id=0x123) as s:
     s.impl._rx_timer_handler()
     assert s.impl.rx_state == 2 # Still waiting due to extension
 
+= Premature short consecutive frame keeps the receive timeout
+with ISOTPSoftSocket(TestSocket(CAN), rx_id=0x123, listen_only=True) as s:
+    s.impl._recv_ff(dhex("10 20 41 41 41 41 41 41"), 1.23)
+    timeout = s.impl.rx_timeout_handle
+    s.impl._recv_cf(dhex("21 42"))
+    assert s.impl.rx_state == 3
+    assert s.impl.rx_timeout_handle is timeout
+
 = _tx_timer_handler edge cases
 with ISOTPSoftSocket(TestSocket(CAN), tx_id=0x123) as s:
     s.impl.tx_state = 1 # ISOTP_SENDING
@@ -2912,6 +2920,17 @@ with ISOTPSoftSocket(TestSocket(CAN), rx_id=0x123) as s:
     s.impl.rx_sn = 2
     s.impl._recv_cf(b"\x21\xAA") # Wrong SN
     assert s.impl.rx_state == 0
+
+= Long receive extends the existing reassembly buffer
+from scapy.contrib.isotp import ISOTPSoftSocket
+from scapy.layers.can import CAN
+from test.testsocket import TestSocket
+
+with ISOTPSoftSocket(TestSocket(CAN), rx_id=0x123, listen_only=True) as s:
+    s.impl._recv_ff(bytes.fromhex("10 00 00 00 13 88 41 41"), 1.23)
+    reassembly_buffer = s.impl.rx_buf
+    s.impl._recv_cf(bytes.fromhex("21 41 41 41 41 41 41 41"))
+    assert s.impl.rx_buf is reassembly_buffer
 
 = begin_send busy / too much data
 with ISOTPSoftSocket(TestSocket(CAN), tx_id=0x123) as s:

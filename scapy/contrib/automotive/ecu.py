@@ -294,6 +294,9 @@ class Ecu(object):
         self.lookahead = lookahead
         self.log = defaultdict(list)  # type: Dict[str, List[Any]]
         self.__supported_responses = list()  # type: List[EcuResponse]
+        self.__supported_response_index = defaultdict(
+            list
+        )  # type: Dict[Tuple[Type[Packet], bytes], List[EcuResponse]]
         self.__unanswered_packets = PacketList()
 
     def reset(self):
@@ -372,18 +375,26 @@ class Ecu(object):
             if not self.store_supported_responses:
                 continue
 
-            for sup_resp in self.__supported_responses:
-                if resp == sup_resp.key_response:
-                    if sup_resp.states is not None and \
-                            self.state not in sup_resp.states:
-                        sup_resp.states.append(current_state)
-                    added = True
-                    break
+            if len(self.__supported_responses) <= 1:
+                known_responses = self.__supported_responses
+            else:
+                response_key = (resp.__class__, bytes(resp))
+                known_responses = self.__supported_response_index[response_key]
+
+            for sup_resp in known_responses:
+                if resp != sup_resp.key_response:
+                    continue
+                if sup_resp.states is not None and self.state not in sup_resp.states:
+                    sup_resp.states.append(current_state)
+                added = True
+                break
 
             if added:
                 continue
 
             ecu_resp = EcuResponse(current_state, responses=resp)
+            response_key = (resp.__class__, bytes(resp))
+            self.__supported_response_index[response_key].append(ecu_resp)
             if self.verbose:
                 print("[+] ", repr(ecu_resp))
             self.__supported_responses.append(ecu_resp)

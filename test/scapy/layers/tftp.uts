@@ -70,6 +70,28 @@ tftp_read = TFTP_read("file.txt", "1.2.3.4", sport=0x2807,
 res = tftp_read.run()
 assert res == (b"P" * 512 + b"<3")
 
+= TFTP_read extends one response buffer after the first block
+from scapy.automaton import ATMT
+from scapy.layers.tftp import TFTP_read
+from scapy.packet import Raw
+
+client = object.__new__(TFTP_read)
+client.res = bytearray()
+client.awaiting = 1
+client.blocksize = 512
+
+def receive_full_block():
+    try:
+        TFTP_read.RECEIVING.atmt_origfunc(client, Raw(b"A" * 512))
+    except ATMT.NewStateRequested:
+        pass
+
+receive_full_block()
+receive_full_block()
+response_buffer = client.res
+receive_full_block()
+assert client.res is response_buffer
+
 = TFTP_read() automaton error
 ~ linux
 

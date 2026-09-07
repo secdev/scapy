@@ -13,7 +13,6 @@ This implements:
 """
 
 import abc
-import collections
 import operator
 import itertools
 import socket
@@ -1674,7 +1673,7 @@ class DNS_am(AnsweringMachine):
                 k += b"."
             return k
 
-        self.match = collections.defaultdict(lambda: (joker, joker6))
+        self.match = {}
         if match:
             if isinstance(match, (list, set)):
                 self.match.update({normk(k): (None, None) for k in match})
@@ -1808,7 +1807,10 @@ class DNS_am(AnsweringMachine):
                 # A or AAAA
                 if rq.qtype == 28:
                     # AAAA
-                    rdata = self.match[rqname][1]
+                    try:
+                        rdata = self.match[rqname][1]
+                    except KeyError:
+                        rdata = self.joker6
                     if rdata is None and not self.relay:
                         # 'None' resolves to the default IPv6
                         iface = resolve_iface(self.optsniff.get("iface", conf.iface))
@@ -1824,7 +1826,10 @@ class DNS_am(AnsweringMachine):
                         resp[IPv6].src = rdata
                 elif rq.qtype == 1:
                     # A
-                    rdata = self.match[rqname][0]
+                    try:
+                        rdata = self.match[rqname][0]
+                    except KeyError:
+                        rdata = self.joker
                     if rdata is None and not self.relay:
                         # 'None' resolves to the default IPv4
                         iface = resolve_iface(self.optsniff.get("iface", conf.iface))

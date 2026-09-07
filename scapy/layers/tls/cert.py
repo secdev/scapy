@@ -918,6 +918,7 @@ class _CertMaker(_PKIObjMaker):
             if conf.debug_dissector:
                 raise
             raise Exception("Unable to import certificate")
+        cert.remove_payload()
         obj.import_from_asn1pkt(cert)
         return obj
 

@@ -47,7 +47,11 @@ and ask, don't be shy!
 
 If you use AI tools to help find or draft a bug report (or a PR), please mention that and make sure you have personally verified the steps and details before submitting. Please keep reports succinct !
 
-Purely AI-generated or overly verbose reports are not supported and might be closed. A quick human check keeps triage efficient for everyone.
+Purely AI-generated or overly verbose reports are not supported and might be closed. Please also **avoid answering to maintainers comments with AI**. It's important to keep the human input to keep triage efficient for everyone.
+
+For a report, verify the bug against the current development code. For a PR, follow [Coding style & conventions](#coding-style--conventions) and [Tests](#tests): add tests (or explain why they aren't relevant), and check that every commit has the required `AI-Assisted` tag. To run the optional flake8 check with the same Python version as CI, install tox for Python 3.12 and use `python3.12 -m tox -e flake8`; `tox.ini` does not select that interpreter for this environment.
+
+If you're configuring an agent for Scapy, see [AGENTS.md](AGENTS.md).
 
 ### Enhancements / feature requests
 
@@ -60,7 +64,7 @@ of function calls, packet creations, etc.).
 
 ## Submitting pull requests
 
-### Coding style & conventions
+### Commit conventions
 
 -   All commits should include the `AI-Assisted: (yes/no) [tool]` tag. This is used to disclose the AI tools that are used when authoring. You must check the commits you produce, or your PR might be closed. The tag may look like such:
 
@@ -74,24 +78,22 @@ of function calls, packet creations, etc.).
     ```
     This guideline is adapted with thanks to [Wireshark's AI usage statement](https://www.wireshark.org/docs/wsdg_html_chunked/ChSrcContribute.html).
 
--   The code should be PEP-8 compliant; you can check your code with
-    [pep8](https://pypi.python.org/pypi/pep8) and the command `tox -e flake8`
+### Coding style
 
--   [Pylint](http://www.pylint.org/) can help you write good Python
-    code (even if respecting Pylint rules is sometimes either too hard
-    or even undesirable; human brain needed!).
-
--   [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
-    is a nice read!
+-   Make readable code. Add comments, use functions where they are needed but most importantly do not add functions where they are not needed.
+-   Make consistent code. Keep the style of the files you're editing consistent. Keep the protocols fields names consistent with the ones in the RFCs or specifications. Keep the case of variables consistent with what's usually used (e.g. most protocols use snake case, but Windows protocols typically use pascal case, etc.).
+-   Re-use what exists in Scapy. Before creating a new custom `Field`, make sure that you cannot find a different way to achieve the same behavior by using only native fields, or by extending an existing field. When coding, AI can be very good tool to find code patterns that already exist. Create new files only when adding new concepts (new protocols, new features, etc.).
+-   **The code should be PEP-8 compliant**; you can check your code with [flake8](https://pypi.python.org/pypi/flake8) and the command `tox -e flake8`. The CI will make sure of that on all new code.
 
 ### Tests
 
-We require adding tests for all new features or bug fixes, or a justification as to why they are not relevant. We know it's annoying, but Scapy is all about parsing and dissecting weird protocols us maintainers will never encounter. Having good tests is the only way to keep the code maintainable.
+We require adding tests for almost all new features or bug fixes, or a justification as to why they are not relevant. We know it's annoying, but Scapy is all about parsing and dissecting weird protocols us maintainers will never encounter. Having good tests is the only way to keep the code maintainable.
 
 - If you are fixing a bug, provide a one-liner that reproduced the bug you are fixing.
 - If you are introducing dissectors, provide at least a very simple "dissect" / "build" of real packets with simple assertions.
 - Tests can be very simple. It's much better to have dumb tests that break when one does changes than no tests.
 - Do not use the variable `_` in your tests, as it could break them.
+- The only case where it is acceptable to skip adding tests is when you have a single-line fix (or similar) that requires a very big and complicated test to fix. Maintainers may still ask you to add some, to their discretion.
 
 If you find yourself in a situation where your tests locally succeed  but 
 fail if executed on the CI, try to enable the debugging option for the 

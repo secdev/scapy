@@ -1633,6 +1633,42 @@ if shutil.which("editcap"):
     assert b"BEGIN PRIVATE KEY" in packets[28].inner.msg[0].data
     conf = bck_conf
 
+= pcapng Decryption Secrets Block state follows the reader lifecycle
+
+import io
+import struct
+
+def pcapng_block(block_type, body):
+    body += b"\x00" * (-len(body) % 4)
+    length = 12 + len(body)
+    return (
+        struct.pack("<II", block_type, length)
+        + body
+        + struct.pack("<I", length)
+    )
+
+old_keys = conf.tls_nss_keys
+old_session_enable = conf.tls_session_enable
+previous_keys = {"EXISTING": {b"identifier": b"secret"}}
+conf.tls_nss_keys = previous_keys
+conf.tls_session_enable = False
+key_log_path = scapy_path("doc/notebooks/tls/raw_data/tls_nss_example.keys.txt")
+with open(key_log_path, "rb") as key_log_file:
+    key_log = key_log_file.read()
+
+section = bytes.fromhex("4d3c2b1a") + struct.pack("<HHq", 1, 0, -1)
+secrets = struct.pack("<II", 0x544c534b, len(key_log)) + key_log
+capture = pcapng_block(0x0a0d0d0a, section) + pcapng_block(10, secrets)
+reader = PcapReader(io.BytesIO(capture))
+assert len(reader.read_all()) == 0
+assert conf.tls_nss_keys is not previous_keys
+assert conf.tls_session_enable is True
+reader.close()
+assert conf.tls_nss_keys is previous_keys
+assert conf.tls_session_enable is False
+conf.tls_nss_keys = old_keys
+conf.tls_session_enable = old_session_enable
+
 = pcapng file with a non-UTF-8 Decryption Secrets Block
 
 # GH3936

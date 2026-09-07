@@ -1133,6 +1133,43 @@ ret = autorun_get_text_interactive_session(cmds)
 ret
 assert "Daft Punk" in ret[0]
 
+= Test autorun timeout path surfaces exceptions from failing tests
+~ autorun
+
+# Regression for two bugs whose interaction hung UTScapy forever on:
+#   1. CPython gh-130250: traceback.print_last(file=...) passed `file`
+#      positionally into print_exception, binding it to `tb` and
+#      crashing with AttributeError on tb.tb_frame.
+#   2. scapy autorun_commands_timeout._runner swallowed exceptions from
+#      autorun_commands, leaving Queue.get() to block forever.
+
+out, res = autorun_get_text_interactive_session(
+    "assert False, 'the dead flag blues'\n", timeout=10,
+)
+assert res is False, "expected False from failing test, got %r" % (res,)
+assert "AssertionError" in out, "expected AssertionError in output, got:\n" + out
+assert "the dead flag blues" in out, "expected assertion message in output, got:\n" + out
+assert "tb_frame" not in out, "CPython gh-130250 leak: " + out
+
+= Test autorun timeout path propagates unexpected runner exceptions
+
+import scapy.autorun as _ar
+_orig = _ar.autorun_commands
+def _boom(*a, **kw):
+    raise RuntimeError("simulated internal failure")
+
+_ar.autorun_commands = _boom
+try:
+    raised = None
+    try:
+        _ = autorun_get_text_interactive_session("1+1\n", timeout=5)
+    except RuntimeError as e:
+        raised = e
+    assert raised is not None, "expected RuntimeError to propagate, got none"
+    assert "simulated internal failure" in str(raised)
+finally:
+    _ar.autorun_commands = _orig
+
 = Test utility TEX functions
 
 assert tex_escape("{scapy}\\^$~#_&%|><") == "{\\tt\\char123}scapy{\\tt\\char125}{\\tt\\char92}\\^{}\\${\\tt\\char126}\\#\\_\\&\\%{\\tt\\char124}{\\tt\\char62}{\\tt\\char60}"
@@ -2062,6 +2099,33 @@ o.send(REFPACKET)
 pkts = sniff(opened_socket=[o], timeout=3)
 assert len(pkts) == 10
 
+= sniff() sets packet provenance before lfilter
+
+def test_lfilter_provenance():
+    class ProvenanceSocket(SuperSocket):
+        nonblocking_socket = True
+        def __init__(self):
+            self.packet = Ether() / IP() / UDP()
+        def recv(self, size=MTU):
+            packet, self.packet = self.packet, None
+            return packet
+        @staticmethod
+        def select(sockets, remain=None):
+            return [sock for sock in sockets if sock.packet is not None]
+    source = ProvenanceSocket()
+    observed = []
+    def record_provenance(packet):
+        observed.append(packet.sniffed_on)
+        return False
+    sniff(
+        opened_socket={source: "untrusted"},
+        lfilter=record_provenance,
+        timeout=0.01,
+    )
+    assert observed == ["untrusted"]
+
+test_lfilter_provenance()
+
 = GH issue 3306
 ~ netaccess needs_root
 
@@ -2358,6 +2422,20 @@ assert len(l) == 0 or ARP in l[0]
 file = BytesIO(b'\n\r\r\n\x1c\x00\x00\x00M<+\x1a\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x1c\x00\x00\x00\x01\x00\x00\x00\x14\x00\x00\x00\x01\x00\x00\x00\x00\x00\x04\x00\x14\x00\x00\x00\x06\x00\x00\x00,\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x08\x00Helloooo,\x00\x00\x00')
 l = rdpcap(file)
 assert len(l) == 1 and l[0].comment == b'Helloooo'
+
+= PcapNg repeatable comments do not copy the unread option suffix
+class RejectUnreadSuffixCopies(bytes):
+    def __getitem__(self, key):
+        if isinstance(key, slice) and key.start and key.stop is None:
+            raise AssertionError("copied unread pcapng options")
+        return super(RejectUnreadSuffixCopies, self).__getitem__(key)
+
+reader = object.__new__(RawPcapNgReader)
+reader.endian = "<"
+options = RejectUnreadSuffixCopies(
+    struct.pack("<HHc3x", 1, 1, b"x") * 32 + struct.pack("<HH", 0, 0)
+)
+assert len(reader._read_options(options)[1]) == 32
 
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
@@ -2700,6 +2778,21 @@ fd = get_temp_file()
 with RawPcapWriter(fd) as w:
     w.write(b"test")
     assert w.linktype == 1
+
+= Check PcapWriter with a layer that is not bound to any linktype
+~ pcap
+
+from io import BytesIO
+
+f = BytesIO()
+w = PcapWriter(f, linktype=DLT_RAW, sync=True)
+w.write(Raw(b"test"))
+assert w.linktype == DLT_RAW
+
+f.seek(0) or None
+r = RawPcapReader(f)
+assert r.linktype == DLT_RAW
+assert [x for (x, y) in r] == [b"test"]
 
 = Check tcpdump()
 ~ tcpdump
@@ -3839,6 +3932,21 @@ assert Net("1.2.3.0/24") == Net("1.2.3.0", "1.2.3.255")
 
 assert hash(Net("1.2.3.0/24")) == hash(Net("1.2.3.0", "1.2.3.255"))
 
+= Net with a scope identifier
+
+iface = conf.iface.network_name
+
+# The scope may be passed inline or as an argument, and both must be stored.
+# Do not compare Net objects here: Net.__eq__ ignores .scope.
+assert Net("224.0.0.1%%%s" % iface).scope == iface
+assert Net("224.0.0.1", scope=iface).scope == iface
+assert Net("224.0.0.1/24", scope=iface).scope == iface
+assert Net("224.0.0.1", "224.0.0.9", scope=iface).scope == iface
+assert Net("224.0.0.1").scope is None
+
+# The scope is carried over to every address the Net generates.
+assert list(Net("224.0.0.0/31", scope=iface))[1].scope == iface
+
 = Net using name
 ~ netaccess
 
@@ -4360,6 +4468,44 @@ try:
     assert False
 except BER_Decoding_Error:
     pass
+
+
+= Decode an INTEGER with one bulk numeric conversion
+
+from builtins import int as builtin_int
+import scapy.asn1.ber as ber_module
+
+class _CountingIntMeta(type):
+    # The decode path also asks isinstance(tag, int), so the stand-in has to
+    # answer that the way the real int would.
+    def __instancecheck__(cls, obj):
+        return isinstance(obj, builtin_int)
+
+class CountingInt(builtin_int, metaclass=_CountingIntMeta):
+    calls = 0
+    @classmethod
+    def from_bytes(cls, value, byteorder, signed=False):
+        CountingInt.calls += 1
+        return builtin_int.from_bytes(value, byteorder, signed=signed)
+
+wide = b"\x02\x08" + b"\x01" * 8
+ber_module.int = CountingInt
+try:
+    decoded, remainder = BERcodec_INTEGER.do_dec(wide)
+finally:
+    del ber_module.int
+
+assert decoded.val == builtin_int.from_bytes(b"\x01" * 8, "big", signed=True)
+assert remainder == b""
+assert CountingInt.calls == 1
+
+= Decode INTEGER boundary values
+
+assert BERcodec_INTEGER.do_dec(b"\x02\x01\x7f")[0].val == 127
+assert BERcodec_INTEGER.do_dec(b"\x02\x01\x80")[0].val == -128
+assert BERcodec_INTEGER.do_dec(b"\x02\x02\x00\x80")[0].val == 128
+assert BERcodec_INTEGER.do_dec(b"\x02\x01\xff")[0].val == -1
+assert BERcodec_INTEGER.do_dec(b"\x02\x00")[0].val == 0
 
 
 = BER tests - 2

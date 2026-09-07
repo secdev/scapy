@@ -123,6 +123,13 @@ z = raw(TCP()/NBTSession())
 assert z == b'\x00\x8b\x00\x8b\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x00\x00\x00\x00\x00\x00\x00\x00'
 assert NBTSession in TCP(z)
 
+= TCPSession strips padding from each coalesced NetBIOS keepalive
+message = bytes(NBTSession(TYPE=0x85, LENGTH=0))
+frame = Ether()/IP()/TCP(sport=35000, dport=445, seq=1, flags="PA")/Raw(message * 4)
+packet = TCPSession().process(Ether(bytes(frame)))
+assert packet.layers().count(NBTSession) == 4
+assert Padding not in packet
+
 = OSS-Fuzz Findings
 
 # Note: the packet is corrupted
@@ -130,3 +137,32 @@ with no_debug_dissector():
     raw_packet = b'E\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x05\x00\x00\x00'
     packet = NBNSQueryResponse(raw_packet)
     assert packet.summary() == "NBNSQueryResponse"
+
+= nbns_resolve caches default results by query name
+~ mock
+
+from unittest import mock
+from scapy.layers.netbios import _nbns_cache, nbns_resolve
+
+_nbns_queries = []
+_nbns_cache.flush()
+
+def _answer_nbns(requests, **kwargs):
+    packet = requests[0] if isinstance(requests, list) else requests
+    name = packet.QUESTION_NAME
+    _nbns_queries.append(name)
+    address = "203.0.113.66" if name == b"ALPHA" else "192.0.2.44"
+    return NBNSHeader(RESPONSE=1, NM_FLAGS=0x50, ANCOUNT=1) / NBNSQueryResponse(
+        RR_NAME=name,
+        ADDR_ENTRY=[NBNS_ADD_ENTRY(NB_ADDRESS=address)],
+    )
+
+try:
+    with mock.patch("scapy.layers.netbios.sr1", side_effect=_answer_nbns), mock.patch(
+        "scapy.layers.netbios.conf.route.get_if_bcast", return_value=["192.0.2.255"]
+    ):
+        assert nbns_resolve("ALPHA", iface="test") == ["203.0.113.66"]
+        assert nbns_resolve("BETA", iface="test") == ["192.0.2.44"]
+    assert _nbns_queries == [b"ALPHA", b"BETA"]
+finally:
+    _nbns_cache.flush()

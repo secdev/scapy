@@ -456,7 +456,7 @@ def nbns_resolve(
     qname = NBNSQueryRequest.QUESTION_NAME.any2i(None, qname)
 
     # Check cache
-    cache_ident = qname + b"raw" if raw else b""
+    cache_ident = (qname, raw)
     result = _nbns_cache.get(cache_ident)
     if result:
         return result

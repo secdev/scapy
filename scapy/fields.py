@@ -2433,12 +2433,9 @@ class _BitField(Field[I, int]):
         nb_bytes = (self.size + bn - 1) // 8 + 1
         w = s[:nb_bytes]
 
-        # split the substring byte by byte
-        _bytes = struct.unpack('!%dB' % nb_bytes, w)
-
-        b = 0
-        for c in range(nb_bytes):
-            b |= int(_bytes[c]) << (nb_bytes - c - 1) * 8
+        if len(w) < nb_bytes:
+            raise struct.error("unpack requires a buffer of %d bytes" % nb_bytes)
+        b = int.from_bytes(w, byteorder="big")
 
         # get rid of high order bits
         b &= (1 << (nb_bytes * 8 - bn)) - 1

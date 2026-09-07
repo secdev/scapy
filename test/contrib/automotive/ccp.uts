@@ -15,6 +15,11 @@ from test.testsocket import TestSocket, cleanup_testsockets
 = Load module
 load_contrib("automotive.ccp", globals_dict=globals())
 
+= Reject a DTO without the five-byte response body
+cro = CCP(identifier=0x700)/CRO(cmd=0x1b, ctr=0x5a)/GET_CCP_VERSION()
+dto = CCP(bytes.fromhex("0000070003000000ff005a"))
+assert not dto.answers(cro)
+
 = Build CRO CONNECT
 
 cro = CCP(identifier=0x700)/CRO(ctr=1)/CONNECT(station_address=0x02)

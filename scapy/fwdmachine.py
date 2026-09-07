@@ -82,6 +82,8 @@ class ForwardMachine:
         but "2.2.2.2" by default in TPROXY (if you are using the provided
         'vethrelay.sh' script).
     :param tls: enable TLS (in both the server and client)
+    :param no_check_certificate: with TLS, do not check the certificate of the
+        upstream server.
     :param crtfile: (optional) if provided, uses a certificate instead of self signed
         ones.
     :param keyfile: (optional) path to the key file
@@ -115,6 +117,7 @@ class ForwardMachine:
         remote_af: Optional[socket.AddressFamily] = None,
         bind_address: str = None,
         tls: bool = False,
+        no_check_certificate: bool = False,
         crtfile: Optional[str] = None,
         keyfile: Optional[str] = None,
         keyfilepwd: Optional[str] = None,
@@ -129,6 +132,7 @@ class ForwardMachine:
         self.remote_af = remote_af if remote_af is not None else af
         self.proto = proto
         self.tls = tls
+        self.no_check_certificate = no_check_certificate
         self.crtfile = crtfile
         self.keyfile = keyfile
         self.keyfilepwd = keyfilepwd
@@ -396,10 +400,12 @@ class ForwardMachine:
         # Wrap both server and peer sockets in SSL
         if ctx.tls:
             # Build client SSL context
-            clisslcontext = ssl.SSLContext(ssl.PROTOCOL_TLS)
-            clisslcontext.load_default_certs()
-            clisslcontext.check_hostname = False
-            clisslcontext.verify_mode = ssl.CERT_NONE
+            if self.no_check_certificate:
+                clisslcontext = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                clisslcontext.check_hostname = False
+                clisslcontext.verify_mode = ssl.CERT_NONE
+            else:
+                clisslcontext = ssl.create_default_context()
 
             # This acts as follows:
             # - start the server-side TLS handshake
@@ -416,7 +422,9 @@ class ForwardMachine:
                 ss = _clisock[0]
                 ctx.tls_sni_name = server_name  # the requested SNI
                 # Use that SNI to wrap the client socket
-                ss = clisslcontext.wrap_socket(ss, server_hostname=server_name)
+                ss = clisslcontext.wrap_socket(
+                    ss, server_hostname=server_name or dest[0]
+                )
                 # Get certificate chain
                 cas = ss._sslobj.get_unverified_chain()
                 if self.crtfile is None:

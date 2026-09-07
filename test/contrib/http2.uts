@@ -229,6 +229,8 @@ assert s.origin() == string
 s = b"\xdeT'"
 i, ibl = h2.HPackZString.huffman_conv2bitstring(s)
 assert 'Test' == h2.HPackZString.huffman_decode(i, ibl)
+assert 'Test' == h2.HPackZString.huffman_decode(s, len(s) * 8)
+assert raw(h2.HPackZString.from_encoded(s)) == s
 
 s = (b'\x18\xc61\x8cc' * 8191) + b'\x18\xc61\x8c\x7f'
 i, ibl = h2.HPackZString.huffman_conv2bitstring(s)
