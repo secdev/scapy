@@ -681,6 +681,18 @@ fd.close()
 cert = Cert(filename)
 assert "2011" in cert.notBefore_str and "2046" in cert.notAfter_str
 
+= Cert class : Ignore other objects after a PEM certificate
+
+cert_path = scapy_path("/test/scapy/layers/tls/pki/srv_cert.pem")
+key_path = scapy_path("/test/scapy/layers/tls/pki/srv_key.pem")
+with open(cert_path, "rb") as fd:
+    cert_pem = fd.read()
+
+with open(key_path, "rb") as fd:
+    key_pem = fd.read()
+
+assert Cert(cert_pem + key_pem).der == Cert(cert_pem).der
+
 + CSR
 
 = CSR class - Parse CSR in PKCS#10 format - Normal
