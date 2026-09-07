@@ -1,8 +1,11 @@
-.. note:: This document is under a `Creative Commons Attribution - Non-Commercial - Share Alike 2.5 <http://creativecommons.org/licenses/by-nc-sa/2.5/>`_ license.
+..
+  Note: Copyright (c) 2026, Robert Bosch GmbH.
+  The content of this documentation file is contributed by and
+  copyright of Robert Bosch GmbH, created by Friedrich Wiemer.
 
-#####
+######
 CAN XL
-#####
+######
 
 CAN XL (ISO 11898-1:2024) is the newest member of the CAN protocol family,
 offering up to 2048 bytes of payload per frame and a priority-based

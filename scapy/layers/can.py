@@ -2,6 +2,9 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
+# 
+# The CAN XL parts are created by Friedrich Wiemer
+# Copyright (C) 2026, Robert Bosch GmbH
 
 
 """A minimal implementation of the CANopen protocol, based on
@@ -46,7 +49,8 @@ __all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
            "CandumpReader", "SignalHeader", "CAN_MTU", "CAN_MAX_IDENTIFIER",
            "CAN_MAX_DLEN", "CAN_INV_FILTER", "CANFD", "CAN_FD_MTU",
            "CAN_FD_MAX_DLEN", "CANXL", "CANXL_MTU", "CANXL_MAX_DLEN",
-           "CANXL_MIN_DLEN"]
+           "CANXL_MIN_DLEN", "CANXL_HDR_SIZE", "CANXL_XLF", "CANXL_FDF",
+           "CANXL_IDE", "CANXL_SEC", "CANXL_RRS"]
 
 # CONSTANTS
 CAN_MAX_IDENTIFIER = (1 << 29) - 1  # Maximum 29-bit identifier
@@ -122,10 +126,7 @@ class CAN(Packet):
                       **kargs  # type: Any
                       ):  # type: (...) -> Type[Packet]
         if _pkt:
-            # CAN XL: byte 4 is the flags byte with XLF (bit 7) always set.
-            # In CAN/CANFD byte 4 is the length field (max 64 = 0x40),
-            # so bit 7 is never set — this is an unambiguous discriminator.
-            if len(_pkt) > 4 and _pkt[4] & 0x80:
+            if CANXL.is_canxl_frame(_pkt):
                 return CANXL
             fdf_set = len(_pkt) > 5 and _pkt[5] & 0x04 and \
                 not _pkt[5] & 0xf8
@@ -246,6 +247,18 @@ class CANXL(CAN):
         >>> pkt.show(style="11898-1")
     """
     name = "CAN XL"
+
+    @staticmethod
+    def is_canxl_frame(pkt):
+        # type: (bytes) -> bool
+        """Detect CAN XL frame by XLF flag (bit 7 of byte 4).
+
+        CAN XL: byte 4 is the flags byte with XLF (bit 7) always set.
+        In CAN/CANFD byte 4 is the length field (max 64 = 0x40),
+        so bit 7 is never set - this is an unambiguous discriminator.
+        """
+        return len(pkt) > 4 and bool(pkt[4] & 0x80)
+
     fields_desc = [
         # prio word (4 bytes, LE on socket, swapped to BE by pre_dissect)
         BitField('reserved2', 0, 8),       # bits 31-24
@@ -339,8 +352,9 @@ class CANXL(CAN):
         # type: (bytes) -> Type[Packet]
         # Override the default to unconditionally return raw_layer,
         # bypassing any bind_layers() registrations.  CAN XL payload
-        # dispatch should be based on SDT or SEC+AOT; the CANsec
-        # contrib monkey-patches this method to add SEC-based dispatch.
+        # dispatch should be based on SDT or on add-on service flags
+        # (e.g. SEC); contrib modules implementing an add-on service
+        # may monkey-patch this method to add their own dispatch logic.
         return conf.raw_layer
 
     # -- ISO 11898-1:2024 property accessors ---------------------------------
