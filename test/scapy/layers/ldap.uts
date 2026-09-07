@@ -259,3 +259,57 @@ assert pkt.ComputerName == b"USER-PC"
 assert pkt.MailslotName == b"\\MAILSLOT\\NET\\GETDC725"
 assert pkt.NtVersion == 0x2000000b
 assert pkt.UnicodeComputerName == "USER-PC"
+
+= LDAPHero keeps SID labels within their authenticated endpoint
+
+def ldaphero_skips_unprotected_sid_resolution():
+    from scapy.modules import ldaphero
+    from scapy.layers.windows.security import WELL_KNOWN_SIDS, WINNT_SID
+    class UnexpectedRPCClient:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("DCE/RPC client used without an SSP")
+    hero = ldaphero.LDAPHero.__new__(ldaphero.LDAPHero)
+    hero.ssp = None
+    hero.sids = dict(WELL_KNOWN_SIDS)
+    hero.sidscombo = {}
+    saved_client = ldaphero.DCERPC_Client
+    ldaphero.DCERPC_Client = UnexpectedRPCClient
+    try:
+        hero.resolvesids([WINNT_SID.fromstr("S-1-5-21-1-2-3-500")])
+    finally:
+        ldaphero.DCERPC_Client = saved_client
+    assert "S-1-5-18" in hero.sidscombo.values()
+
+ldaphero_skips_unprotected_sid_resolution()
+
+def ldaphero_clears_endpoint_labels_on_disconnect():
+    from scapy.modules import ldaphero
+    from scapy.layers.windows.security import WELL_KNOWN_SIDS
+    class ClosedClient:
+        def close(self):
+            pass
+    class Menu:
+        def entryconfig(self, *args, **kwargs):
+            pass
+    hero = ldaphero.LDAPHero.__new__(ldaphero.LDAPHero)
+    hero.connected = True
+    hero.client = ClosedClient()
+    hero.tprint = lambda *args, **kwargs: None
+    hero.menu_connection = Menu()
+    hero.menu_browse = Menu()
+    hero.menu_view = Menu()
+    hero.sids = {"attacker SID": "Administrator"}
+    hero.sidscombo = {"Administrator": "attacker SID"}
+    hero.guids = {"attacker GUID": {"name": "user"}}
+    hero.guidscombo = {"user": "attacker GUID"}
+    hero.guidscomboobject = {"user": "attacker GUID"}
+    hero.loadedSchemaIDGuids = True
+    hero.disconnect()
+    assert hero.sids == dict(WELL_KNOWN_SIDS)
+    assert hero.sidscombo == {}
+    assert hero.guids == {}
+    assert hero.guidscombo == {"None": None}
+    assert hero.guidscomboobject == {"None": None}
+    assert hero.loadedSchemaIDGuids is False
+
+ldaphero_clears_endpoint_labels_on_disconnect()
