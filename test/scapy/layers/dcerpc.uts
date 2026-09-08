@@ -617,6 +617,15 @@ assert pkts[22][ept_map_Response].valueof("ITowers")[0].tower_octet_string == b'
 
 % The fact that all of this actually works is crazy to me.
 
+= Server faults a request received before bind
+from scapy.layers.dcerpc import DCERPC_Transport, DceRpc5Fault
+from scapy.layers.msrpce.rpcserver import DCERPC_Server
+
+server = DCERPC_Server(DCERPC_Transport.NCACN_IP_TCP, port=135, verb=False)
+request = hex_bytes("050000031000000018000000000000000000000000000000")
+server.recv(request)
+assert DceRpc5Fault in server.get_response()
+
 = Functional: Define a MS-RPC server
 % Same as in dcerpc.rst
 

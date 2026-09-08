@@ -143,6 +143,8 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
         and call it if available.
         """
         opnum = req[DceRpc5Request].opnum
+        if self.session.rpc_bind_interface is None:
+            return None
         intf = self.session.rpc_bind_interface.uuid
         if (intf, opnum) in self.dcerpc_commands:
             # call handler
