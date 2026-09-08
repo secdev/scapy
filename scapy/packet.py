@@ -105,7 +105,7 @@ class Packet(
         "process_information"
     ]
     name = None
-    fields_desc = []  # type: ClassVar[List[AnyField]]
+    fields_desc = []  # type: ClassVar[List[Union[AnyField, Type[Packet]]]]
     deprecated_fields = {}  # type: Dict[str, Tuple[str, str]]
     overload_fields = {}  # type: Dict[Type[Packet], Dict[str, Any]]
     payload_guess = []  # type: List[Tuple[Dict[str, Any], Type[Packet]]]
@@ -189,7 +189,7 @@ class Packet(
         # We use this strange initialization so that the fields
         # are initialized in their declaration order.
         # It is required to always support MultipleTypeField
-        for field in self.fields_desc:
+        for field in cast(List[AnyField], self.fields_desc):
             fname = field.name
             try:
                 value = fields.pop(fname)
@@ -322,7 +322,7 @@ class Packet(
         """
 
         if self.class_dont_cache.get(self.__class__, False):
-            self.do_init_fields(self.fields_desc)
+            self.do_init_fields(cast(List[AnyField], self.fields_desc))
         else:
             self.do_init_cached_fields(for_dissect_only=for_dissect_only)
 
@@ -354,7 +354,7 @@ class Packet(
         # Build the fields information
         default_fields = Packet.class_default_fields.get(cls_name)
         if default_fields is None:
-            self.prepare_cached_fields(self.fields_desc)
+            self.prepare_cached_fields(cast(List[AnyField], self.fields_desc))
             default_fields = Packet.class_default_fields.get(cls_name)
 
         # Use fields information from cache
@@ -398,7 +398,7 @@ class Packet(
             if isinstance(f, MultipleTypeField):
                 # Abort
                 self.class_dont_cache[cls_name] = True
-                self.do_init_fields(self.fields_desc)
+                self.do_init_fields(cast(List[AnyField], self.fields_desc))
                 return
 
             class_default_fields[f.name] = copy.deepcopy(f.default)
@@ -783,7 +783,7 @@ class Packet(
             if self.raw_packet_cache is not None:
                 return self.raw_packet_cache
         p = b""
-        for f in self.fields_desc:
+        for f in cast(List[AnyField], self.fields_desc):
             val = self.getfieldval(f.name)
             if isinstance(val, RawVal):
                 p += bytes(val)
@@ -864,7 +864,7 @@ class Packet(
         p = b""
         pl = []
         q = b""
-        for f in self.fields_desc:
+        for f in cast(List[AnyField], self.fields_desc):
             if isinstance(f, ConditionalField) and not f._evalcond(self):
                 continue
             p = f.addfield(self, p, self.getfieldval(f.name))
@@ -1092,7 +1092,7 @@ class Packet(
         # type: (bytes) -> bytes
         _raw = s
         self.raw_packet_cache_fields = {}
-        for f in self.fields_desc:
+        for f in cast(List[AnyField], self.fields_desc):
             s, fval = f.getfield(self, s)
             # Skip unused ConditionalField
             if f.isconditional and fval is None:
@@ -1304,7 +1304,7 @@ class Packet(
         # type: (Any) -> bool
         if not isinstance(other, self.__class__):
             return False
-        for f in self.fields_desc:
+        for f in cast(List[AnyField], self.fields_desc):
             if f not in other.fields_desc:
                 return False
             if self.getfieldval(f.name) != other.getfieldval(f.name):
@@ -1516,7 +1516,7 @@ values.
                               ct.punct("###["),
                               ct.layer_name(self.name),
                               ct.punct("]###"))
-        fields = self.fields_desc.copy()
+        fields = cast(List[AnyField], self.fields_desc).copy()
         while fields:
             f = fields.pop(0)
             if isinstance(f, ConditionalField) and not f._evalcond(self):
@@ -1750,7 +1750,7 @@ values.
             ret = self.__class__.__name__ if self.show_summary else ""
         if self.__class__ in conf.emph:
             impf = []
-            for f in self.fields_desc:
+            for f in cast(List[AnyField], self.fields_desc):
                 if f in conf.emph:
                     impf.append("%s=%s" % (f.name, f.i2repr(self, self.getfieldval(f.name))))  # noqa: E501
             ret = "%s [%s]" % (ret, " ".join(impf))
@@ -1788,7 +1788,10 @@ values.
         f = []
         iterator: Iterator[Tuple[str, Any]]
         if json:
-            iterator = ((x.name, self.getfieldval(x.name)) for x in self.fields_desc)
+            iterator = (
+                (x.name, self.getfieldval(x.name))
+                for x in cast(List[AnyField], self.fields_desc)
+            )
         else:
             iterator = iter(self.fields.items())
         for fn, fv in iterator:
@@ -2436,7 +2439,7 @@ def _pkt_ls(obj,  # type: Union[Packet, Type[Packet]]
     if not issubtype(obj, Packet) and not is_pkt:
         raise ValueError
     fields = []
-    for f in obj.fields_desc:
+    for f in cast(List[AnyField], obj.fields_desc):
         cur_fld = f
         attrs = []  # type: List[str]
         long_attrs = []  # type: List[str]
@@ -2594,7 +2597,7 @@ def rfc(cls, ret=False, legend=True):
 
     # Generate packet groups
     def _iterfields() -> Iterator[Tuple[str, int]]:
-        for f in cls.fields_desc:
+        for f in cast(List[AnyField], cls.fields_desc):
             # Fancy field name
             fname = f.name.upper().replace("_", " ")
             fsize = int(f.sz * 8)
@@ -2710,7 +2713,7 @@ def fuzz(p,  # type: _P
     while not isinstance(q, NoPayload):
         new_default_fields = {}
         multiple_type_fields = []  # type: List[str]
-        for f in q.fields_desc:
+        for f in cast(List[AnyField], q.fields_desc):
             if isinstance(f, PacketListField):
                 for r in getattr(q, f.name):
                     fuzz(r, _inplace=1)
