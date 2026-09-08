@@ -197,6 +197,79 @@ def OER_tag_parts(identifier):
     return tag_class, tag_number
 
 
+def resolve_oer_size_bounds(field=None, size_len=None):
+    # type: (Any, Optional[int]) -> Tuple[Optional[int], Optional[int]]
+    """Resolve OER SIZE bounds from ``size_len`` or field constraints."""
+    if size_len is None and field is not None:
+        size_len = field.size_len
+    # ``size_len=0`` means unset (same as the historical ``if size_len:`` check).
+    if size_len:
+        return size_len, size_len
+    if field is not None:
+        return field.constraints.minimum, field.constraints.maximum
+    return None, None
+
+
+def oer_int_wire_params(field=None, size_len=None, unsigned=None):
+    # type: (Any, Optional[int], Optional[bool]) -> Tuple[Optional[int], bool, Optional[int], Optional[int]]  # noqa: E501
+    """Derive OER INTEGER width and signedness from field constraints.
+
+    Per X.696 sections 10.3-10.4, extensible integer constraints are encoded
+    as unbounded. A nonnegative lower bound without a fitting fixed upper
+    bound uses variable-width unsigned encoding. A fixed eight-octet width
+    is used only when ``maximum <= 2**64 - 1``.
+    """
+    if size_len is None and field is not None:
+        size_len = field.size_len
+    if unsigned is None:
+        unsigned = bool(field.constraints.unsigned) if field is not None else False
+    if field is not None:
+        minimum, maximum = field.constraints.minimum, field.constraints.maximum
+        extensible = bool(field.constraints.extensible)
+    else:
+        minimum, maximum = None, None
+        extensible = False
+
+    # Extension values may lie outside the root range.
+    val_min = None if extensible else minimum
+    val_max = None if extensible else maximum
+
+    if size_len is not None:
+        if (not unsigned and minimum is not None and minimum >= 0 and
+                not extensible):
+            unsigned = True
+        return size_len, unsigned, val_min, val_max
+
+    if extensible:
+        return None, unsigned, None, None
+
+    if minimum is not None and minimum >= 0:
+        unsigned = True
+        if maximum is not None:
+            if maximum <= 0xFF:
+                size_len = 1
+            elif maximum <= 0xFFFF:
+                size_len = 2
+            elif maximum <= 0xFFFFFFFF:
+                size_len = 4
+            elif maximum <= 0xFFFFFFFFFFFFFFFF:
+                size_len = 8
+            # else: range exceeds 2^64-1 → variable unsigned
+    elif minimum is not None and maximum is not None:
+        unsigned = False
+        for sl, lo, hi in (
+            (1, -128, 127),
+            (2, -32768, 32767),
+            (4, -2147483648, 2147483647),
+            (8, -9223372036854775808, 9223372036854775807),
+        ):
+            if minimum >= lo and maximum <= hi:
+                size_len = sl
+                break
+
+    return size_len, unsigned, val_min, val_max
+
+
 _K = TypeVar('_K')
 
 
@@ -308,7 +381,6 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
     @classmethod
     def enc(cls, i, field=None, size_len=None, oer_unsigned=None, **_kwargs):
         # type: (int, Any, Optional[int], Optional[bool], **Any) -> bytes
-        from scapy.asn1.constraints import oer_int_wire_params
         size_len, oer_unsigned, minimum, maximum = oer_int_wire_params(
             field, size_len, oer_unsigned,
         )
@@ -354,7 +426,6 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[int], bytes]
-        from scapy.asn1.constraints import oer_int_wire_params
         size_len, oer_unsigned, minimum, maximum = oer_int_wire_params(
             field, size_len, oer_unsigned,
         )
@@ -442,7 +513,6 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[str], bytes]
-        from scapy.asn1.constraints import resolve_oer_size_bounds
         minimum, maximum = resolve_oer_size_bounds(field, size_len)
         if minimum is not None and maximum is not None and minimum == maximum:
             number_of_bytes = (minimum + 7) // 8
@@ -486,7 +556,6 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
     @classmethod
     def enc(cls, _s, field=None, size_len=None, **_kwargs):
         # type: (AnyStr, Any, Optional[int], **Any) -> bytes
-        from scapy.asn1.constraints import resolve_oer_size_bounds
         minimum, maximum = resolve_oer_size_bounds(field, size_len)
         s = bytes_encode(_s)
         nbits = len(s)
@@ -522,7 +591,6 @@ class OERcodec_STRING(OERcodec_Object[str]):
     @classmethod
     def enc(cls, _s, field=None, size_len=None, **_kwargs):
         # type: (Union[str, bytes], Any, Optional[int], **Any) -> bytes
-        from scapy.asn1.constraints import resolve_oer_size_bounds
         minimum, maximum = resolve_oer_size_bounds(field, size_len)
         s = bytes_encode(_s)
         length = len(s)
@@ -560,7 +628,6 @@ class OERcodec_STRING(OERcodec_Object[str]):
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[Any], bytes]
-        from scapy.asn1.constraints import resolve_oer_size_bounds
         minimum, maximum = resolve_oer_size_bounds(field, size_len)
         if minimum is not None and maximum is not None and minimum == maximum:
             _OER_check_len(cls.__name__, s, minimum)
