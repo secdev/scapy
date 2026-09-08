@@ -168,7 +168,8 @@ class _TLSAutomaton(Automaton):
 
         if (byte0 == 0x17 and
                 (self.cur_session.advertised_tls_version >= 0x0304 or
-                 self.cur_session.tls_version >= 0x0304)):
+                 (self.cur_session.tls_version is not None and
+                  self.cur_session.tls_version >= 0x0304))):
             p = TLS13(
                 self.remain_in,
                 tls_session=self.cur_session,
