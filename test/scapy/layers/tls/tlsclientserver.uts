@@ -415,6 +415,118 @@ except:
 + TLS client automaton tests against builtin ssl using Post Handshake Authentication
 ~ client post_handshake_auth
 
+= TLS 1.3 client rejects an invalid server CertificateVerify
+~ crypto_advanced
+
+import contextlib, io, ipaddress, socket
+from datetime import datetime, timedelta, timezone
+from cryptography import x509 as crypto_x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
+from scapy.layers.tls.cert import PrivKey
+
+server_key = scapy_path("/test/scapy/layers/tls/pki/srv_key.pem")
+with open(server_key, "rb") as cert_key_file:
+    cert_key = serialization.load_pem_private_key(cert_key_file.read(), None)
+
+with open(scapy_path("/test/scapy/layers/tls/pki/ca_key.pem"), "rb") as ca_key_file:
+    ca_key = serialization.load_pem_private_key(ca_key_file.read(), None)
+
+ca_name = crypto_x509.Name([
+    crypto_x509.NameAttribute(NameOID.COMMON_NAME, "CertificateVerify test CA")
+])
+cert_name = crypto_x509.Name([
+    crypto_x509.NameAttribute(NameOID.COMMON_NAME, "127.0.0.1")
+])
+now = datetime.now(timezone.utc)
+ca_cert = (crypto_x509.CertificateBuilder()
+           .subject_name(ca_name)
+           .issuer_name(ca_name)
+           .public_key(ca_key.public_key())
+           .serial_number(crypto_x509.random_serial_number())
+           .not_valid_before(now - timedelta(days=1))
+           .not_valid_after(now + timedelta(days=1))
+           .add_extension(crypto_x509.BasicConstraints(ca=True, path_length=None), True)
+           .add_extension(crypto_x509.SubjectKeyIdentifier.from_public_key(ca_key.public_key()), False)
+           .add_extension(crypto_x509.KeyUsage(False, False, False, False, False, True, True, None, None), True)
+           .sign(ca_key, hashes.SHA256()))
+ca_certfile = get_temp_file()
+with open(ca_certfile, "wb") as ca_cert_file:
+    ca_cert_file.write(ca_cert.public_bytes(serialization.Encoding.PEM))
+
+trusted_server_cert = (crypto_x509.CertificateBuilder()
+                       .subject_name(cert_name)
+                       .issuer_name(ca_name)
+                       .public_key(cert_key.public_key())
+                       .serial_number(crypto_x509.random_serial_number())
+                       .not_valid_before(now - timedelta(days=1))
+                       .not_valid_after(now + timedelta(days=1))
+                       .add_extension(crypto_x509.BasicConstraints(ca=False, path_length=None), True)
+                       .add_extension(crypto_x509.SubjectKeyIdentifier.from_public_key(cert_key.public_key()), False)
+                       .add_extension(crypto_x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()), False)
+                       .add_extension(crypto_x509.KeyUsage(True, False, True, False, False, False, False, None, None), True)
+                       .add_extension(crypto_x509.SubjectAlternativeName([
+                           crypto_x509.IPAddress(ipaddress.ip_address("127.0.0.1"))
+                       ]), False)
+                       .add_extension(crypto_x509.ExtendedKeyUsage([
+                           ExtendedKeyUsageOID.SERVER_AUTH
+                       ]), False)
+                       .sign(ca_key, hashes.SHA256()))
+trusted_server_certfile = get_temp_file()
+with open(trusted_server_certfile, "wb") as cert_file:
+    cert_file.write(trusted_server_cert.public_bytes(serialization.Encoding.PEM))
+
+def run_server_certificate_verify_case(signing_key):
+    marker = b"server proof accepted"
+    probe = socket.socket()
+    probe.bind(("127.0.0.1", 0))
+    port = probe.getsockname()[1]
+    probe.close()
+    server = TLSServerAutomaton(
+        server="127.0.0.1",
+        sport=port,
+        mycert=trusted_server_certfile,
+        mykey=signing_key,
+        is_echo_server=True,
+        max_client_idle_time=0.3,
+        debug=0,
+    )
+    server_thread = threading.Thread(target=server.run, daemon=True)
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output):
+        server_thread.start()
+        for _ in range(100):
+            if server.serversocket is not None:
+                break
+            time.sleep(0.01)
+        client = TLSClientAutomaton(
+            server="127.0.0.1",
+            dport=port,
+            version="tls13",
+            cafile=ca_certfile,
+            data=[marker, b"stop_server", b"quit"],
+            debug=0,
+        )
+        client.run()
+        server_thread.join(timeout=0.5)
+        if server_thread.is_alive():
+            server.mykey = PrivKey(server_key)
+            stopper = TLSClientAutomaton(
+                server="127.0.0.1",
+                dport=port,
+                version="tls13",
+                cafile=ca_certfile,
+                data=[b"stop_server", b"quit"],
+                debug=0,
+            )
+            stopper.run()
+            server_thread.join(timeout=1)
+    return ("> Received: %r" % marker) in output.getvalue()
+
+mismatched_key = scapy_path("/test/scapy/layers/tls/pki/cli_key.pem")
+assert not run_server_certificate_verify_case(mismatched_key)
+assert run_server_certificate_verify_case(server_key)
+
 = Load native server util functions
 
 # Imports

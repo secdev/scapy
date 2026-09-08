@@ -427,6 +427,7 @@ class tlsSession(object):
         # authentication, while server_rsa_key is used only for RSAkx.)
         self.server_key = None
         self.server_rsa_key = None
+        self.server_cert_verify_valid = None
         # self.server_ecdsa_key = None
 
         # A dictionary containing keys extracted from a NSS Keys Log using

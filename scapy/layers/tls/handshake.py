@@ -1277,6 +1277,7 @@ class TLSCertificateVerify(_TLSHandshake):
             # should be TLS 1.3 only
             if s.server_certs and len(s.server_certs) > 0:
                 sig_test = self.sig._verify_sig(m, s.server_certs[0])
+                s.server_cert_verify_valid = sig_test
                 if not sig_test:
                     pkt_info = pkt.firstlayer().summary()
                     log_runtime.info("TLS: invalid CertificateVerify signature [%s]", pkt_info)  # noqa: E501
