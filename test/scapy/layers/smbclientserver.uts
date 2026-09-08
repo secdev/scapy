@@ -481,6 +481,53 @@ with run_smbserver(readonly=False, encryptshare=True):
    finally:
       cli.close()
 
+= smbclient: reject guest session when transport protection is required
+
+import socket
+
+from scapy.error import Scapy_Exception
+from scapy.layers.smbclient import smbclient
+from scapy.layers.smbserver import SMB_Server
+
+socket.TCP_KEEPIDLE = getattr(socket, "TCP_KEEPIDLE", socket.TCP_KEEPALIVE)
+socket.TCP_KEEPINTVL = getattr(socket, "TCP_KEEPINTVL", 0x101)
+
+def run_guest_session(**requirement):
+   with socket.socket() as sock:
+      sock.bind(("127.0.0.1", 0))
+      port = sock.getsockname()[1]
+   server = SMB_Server.spawn(
+      port=port,
+      iface=conf.loopback_name,
+      bg=True,
+      verb=False,
+      MAX_DIALECT=0x0302,
+   )
+   client = None
+   try:
+      client = smbclient(
+         "127.0.0.1",
+         guest=True,
+         port=port,
+         cli=False,
+         timeout=3,
+         MAX_DIALECT=0x0302,
+         **requirement,
+      )
+      return None
+   except Exception as ex:
+      return ex
+   finally:
+      if client is not None:
+         client.close()
+      server.close()
+
+assert run_guest_session() is None
+for requirement in ({"REQUIRE_SIGNATURE": True}, {"REQUIRE_ENCRYPTION": True}):
+   error = run_guest_session(**requirement)
+   assert isinstance(error, Scapy_Exception)
+   assert "guest session" in str(error).lower()
+
 
 + Windows-only SMB tests
 ~ windows

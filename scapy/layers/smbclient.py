@@ -597,6 +597,9 @@ class SMB_Client(Automaton):
                 if SMB2_Session_Setup_Response in pkt:
                     # [MS-SMB2] sect 3.2.5.3.1
                     if pkt.SessionFlags.IS_GUEST:
+                        if self.REQUIRE_SIGNATURE or self.REQUIRE_ENCRYPTION:
+                            self.ErrorStatus = "Guest session lacks required protection"
+                            raise self.AUTH_FAILED()
                         # "If the security subsystem indicates that the session
                         # was established by a guest user, Session.SigningRequired
                         # MUST be set to FALSE and Session.IsGuest MUST be set to TRUE."
