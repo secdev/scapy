@@ -1722,12 +1722,14 @@ wrong_target = KerberosSSP(
     ST=client.ssps[0].ST,
     KEY=client.ssps[0].KEY,
 )
-wrong_ctx, wrong_tok, wrong_status = wrong_target.GSS_Init_sec_context(
-    None,
-    req_flags=0,
-)
-assert wrong_status == GSS_S_BAD_MECH
-assert wrong_tok is None
+try:
+    wrong_target.GSS_Init_sec_context(
+        None,
+        req_flags=0,
+    )
+    assert False, "should have raised"
+except ValueError:
+    pass
 
 = GSS_Init_sec_context (negTokenInit: KRB_AP_REQ)
 

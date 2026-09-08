@@ -46,14 +46,9 @@ from scapy.layers.ntlm import (
 )
 from scapy.layers.smb import (
     SMBNegotiate_Request,
-    SMBNegotiate_Response_Extended_Security,
-    SMBNegotiate_Response_Security,
     SMBSession_Null,
     SMBSession_Setup_AndX_Request,
     SMBSession_Setup_AndX_Request_Extended_Security,
-    SMBSession_Setup_AndX_Response,
-    SMBSession_Setup_AndX_Response_Extended_Security,
-    SMBTree_Connect_AndX,
     SMB_Header,
 )
 from scapy.layers.windows.security import SECURITY_DESCRIPTOR
@@ -604,9 +599,9 @@ class SMB_Server(Automaton):
                 self.SequenceWindow[1] - self.SequenceWindow[0]
                 >= 2 * self.ClientCreditCount
             ):
-                # "the server will not allow the difference between the smallest available
-                # sequence number and the largest available sequence number to exceed
-                # 2*[Credit Granted]"
+                # "the server will not allow the difference between the smallest
+                # available sequence number and the largest available sequence number
+                # to exceed 2*[Credit Granted]"
                 CreditGranted = 0
             self.smb_header.CreditRequest = CreditGranted
             self.ClientCreditCount += CreditGranted
