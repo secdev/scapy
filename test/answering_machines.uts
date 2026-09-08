@@ -443,3 +443,39 @@ test_am(
     secret="SECRET",
     IDENTITIES={"user": "password"}
 )
+
+= Radius_am unsupported EAP - Test Access-Reject
+
+def check_radius_eap_reply_fail(x):
+    assert x[Radius].code == 3
+    assert isinstance(x[Radius].attributes[0], RadiusAttr_Message_Authenticator)
+
+radius_eap_request = (
+    IP(src="192.0.2.10", dst="192.0.2.20") /
+    UDP(sport=50000, dport=1812) /
+    Radius(
+        code=1,
+        id=7,
+        authenticator=b"A" * 16,
+        attributes=[
+            RadiusAttr_User_Name(value=b"victim"),
+            RadiusAttr_Message_Authenticator(value=b"\x00" * 16),
+            RadiusAttr_EAP_Message(
+                value=EAP(code="Response", id=1, type="Identity", identity=b"victim")
+            ),
+        ],
+    )
+)
+radius_eap_request[RadiusAttr_Message_Authenticator].value = radius_eap_request[
+    RadiusAttr_Message_Authenticator
+].compute_message_authenticator(
+    radius_eap_request[Radius], radius_eap_request[Radius].authenticator, b"SECRET"
+)
+
+test_am(
+    Radius_am,
+    radius_eap_request,
+    check_radius_eap_reply_fail,
+    secret="SECRET",
+    IDENTITIES={"victim": "known-good-password"}
+)
