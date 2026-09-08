@@ -1434,7 +1434,7 @@ def dns_resolve(qname, qtype="A", raw=False, tcp=False, verbose=1, timeout=3, **
     qname = DNSQR.qname.any2i(None, qname)
     # Check cache
     cache_ident = b";".join(
-        [qname, struct.pack("!B", qtype)] +
+        [qname, struct.pack("!H", qtype)] +
         ([b"raw"] if raw else [])
     )
     result = _dns_cache.get(cache_ident)
