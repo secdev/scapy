@@ -5586,10 +5586,10 @@ class KerberosSSP(SSP):
                 Context.STSessionKey = self.KEY
 
                 target_spn = self.SPN or target_name
-                if target_spn and not _spn_are_equal(
-                    Context.ST.getSPN(), target_spn
-                ):
-                    raise ValueError("SPN from ST doesn't match the passed SPN/target_name.")
+                if target_spn and not _spn_are_equal(Context.ST.getSPN(), target_spn):
+                    raise ValueError(
+                        "SPN from ST doesn't match the passed SPN/target_name."
+                    )
 
                 if Context.flags & GSS_C_FLAGS.GSS_C_DELEG_FLAG:
                     raise ValueError(
