@@ -1336,9 +1336,9 @@ for data, minimum, maximum in [
     (bytes.fromhex("afbc4583"), 1, 20),
 ]:
     enc = UPER_Encoder()
-    UPER_octet_string_enc(enc, data, minimum, maximum)
+    UPERcodec_STRING._octet_string_enc(enc, data, minimum, maximum)
     dec = UPER_Decoder(enc.as_bytes())
-    assert UPER_octet_string_dec(dec, minimum, maximum) == data
+    assert UPERcodec_STRING._octet_string_dec(dec, minimum, maximum) == data
     assert dec.remaining_bytes() == b""
 
 True
@@ -3086,15 +3086,32 @@ assert raw(UPERClassChoice(c=None)) == b""
 True
 
 = uper enumerated bounds
-_raises(UPER_Encoding_Error, lambda: UPER_enumerated_enc(UPER_Encoder(), 0, []))
+_raises(
+    UPER_Encoding_Error,
+    lambda: UPERcodec_ENUMERATED.encode_into(
+        UPER_Encoder(), 0, uper_enum_values=[],
+    ),
+)
 
-_raises(UPER_Decoding_Error, lambda: UPER_enumerated_dec(UPER_Decoder(b"\x00"), []))
+_raises(
+    UPER_Decoding_Error,
+    lambda: UPERcodec_ENUMERATED.dec_from_decoder(
+        UPER_Decoder(b"\x00"), uper_enum_values=[],
+    ),
+)
 
 # Three values are indexed on two bits, which can carry an index they do not
 # define
-_raises(UPER_Decoding_Error, lambda: UPER_enumerated_dec(UPER_Decoder(b"\xc0"), [0, 1, 2]))
+_raises(
+    UPER_Decoding_Error,
+    lambda: UPERcodec_ENUMERATED.dec_from_decoder(
+        UPER_Decoder(b"\xc0"), uper_enum_values=[0, 1, 2],
+    ),
+)
 
-assert UPER_enumerated_dec(UPER_Decoder(b"\x40"), [0, 1, 2]) == 1
+assert UPERcodec_ENUMERATED.dec_from_decoder(
+    UPER_Decoder(b"\x40"), uper_enum_values=[0, 1, 2],
+).val == 1
 
 True
 

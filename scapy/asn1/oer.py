@@ -415,19 +415,21 @@ class OERcodec_BOOLEAN(OERcodec_Object[int]):
         return cls.asn1_object(0 if s[0] == 0 else 1), s[1:]
 
 
-def _oer_bitstr_to_bytes(bitstr):
-    # type: (bytes) -> bytes
-    padded = bitstr + b"0" * (-len(bitstr) % 8)
-    return bytes([int(padded[i:i + 8], 2) for i in range(0, len(padded), 8)])
-
-
-def _oer_bytes_to_bitstr(data):
-    # type: (bytes) -> str
-    return "".join(binrepr(x).zfill(8) for x in data)
-
-
 class OERcodec_BIT_STRING(OERcodec_Object[str]):
     tag = ASN1_Class_UNIVERSAL.BIT_STRING
+
+    @staticmethod
+    def _bitstr_to_bytes(bitstr):
+        # type: (bytes) -> bytes
+        padded = bitstr + b"0" * (-len(bitstr) % 8)
+        return bytes([
+            int(padded[i:i + 8], 2) for i in range(0, len(padded), 8)
+        ])
+
+    @staticmethod
+    def _bytes_to_bitstr(data):
+        # type: (bytes) -> str
+        return "".join(binrepr(x).zfill(8) for x in data)
 
     @classmethod
     def do_dec(cls,
@@ -447,7 +449,7 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
             _OER_check_len(cls.__name__, s, number_of_bytes)
             return (
                 cls.tag.asn1_object(
-                    _oer_bytes_to_bitstr(s[:number_of_bytes])[:minimum]
+                    cls._bytes_to_bitstr(s[:number_of_bytes])[:minimum]
                 ),
                 s[number_of_bytes:],
             )
@@ -462,7 +464,7 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
                     "OERcodec_BIT_STRING: too many unused_bits advertised",
                     remaining=s
                 )
-            fs = _oer_bytes_to_bitstr(s[1:length])
+            fs = cls._bytes_to_bitstr(s[1:length])
             if unused_bits > 0:
                 fs = fs[:-unused_bits]
             s = s[length:]
@@ -497,7 +499,7 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
                     (cls.__name__, nbits, minimum),
                     encoded=_s
                 )
-            return _oer_bitstr_to_bytes(s)
+            return cls._bitstr_to_bytes(s)
         if minimum is not None and nbits < minimum:
             raise OER_Encoding_Error(
                 "%s: got %i bits while expecting >= %i" %
@@ -510,7 +512,7 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
                 (cls.__name__, nbits, maximum),
                 encoded=_s,
             )
-        body = chb(-nbits % 8) + _oer_bitstr_to_bytes(s)
+        body = chb(-nbits % 8) + cls._bitstr_to_bytes(s)
         return OER_len_enc(len(body)) + body
 
 
