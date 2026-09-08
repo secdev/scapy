@@ -358,6 +358,40 @@ tree_con = Ether(b'RT\x00\x1c\x91\x8dRT\x00O9T\x08\x00E\x00\x00\xb0\x91\n@\x00\x
 assert tree_con.Path == '\\\\scaleout.domain.local\\share1'
 assert tree_con[SMB2_Tree_Connect_Request].Flags.REDIRECT_TO_OWNER
 
++ SMB2 client malformed negotiation
+
+= Empty encryption capabilities do not abort negotiation
+
+import socket
+from scapy.automaton import Automaton
+from scapy.layers.smb2 import DirectTCP, SMBStreamSocket
+from scapy.layers.smb2 import SMB2_Encryption_Capabilities, SMB2_Header
+from scapy.layers.smb2 import SMB2_Negotiate_Context, SMB2_Negotiate_Protocol_Response
+from scapy.layers.smbclient import SMB_Client
+
+response = DirectTCP() / SMB2_Header(Flags="SMB2_FLAGS_SERVER_TO_REDIR")
+response /= SMB2_Negotiate_Protocol_Response(
+    DialectRevision=0x0311,
+    NegotiateContexts=[
+        SMB2_Negotiate_Context(ContextType=2) / SMB2_Encryption_Capabilities(Ciphers=[])
+    ],
+)
+client, peer = socket.socketpair()
+peer.sendall(raw(response))
+machine = SMB_Client(SMBStreamSocket(client, DirectTCP))
+machine.add_breakpoints(machine.NEGOTIATED)
+try:
+    try:
+        machine.run()
+        assert False
+    except Automaton.Breakpoint:
+        pass
+finally:
+    machine.forcestop()
+    machine.destroy()
+    client.close()
+    peer.close()
+
 = SMB2 Tree connect response
 
 tree_con_resp = Ether(b'RT\x00O9TRT\x00\x1c\x91\x8d\x08\x00E\x00\x00\xfeM\xfb@\x00\x80\x06)\xe1\xc0\xa8\x00h\xc0\xa8\x00e\x01\xbd\xc2@gX\xca\xb8\xd6a\x0fJP\x18 \x13\x83\x0e\x00\x00\x00\x00\x00\xd2\xfeSMB@\x00\x01\x00\xcc\x00\x00\xc0\x03\x00\x01\x00\x19\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x00\x00\x00\x00!\x00\x00\x00\x00$\x08\x00\x1a\xc0\nRt\xe7\x04\x1b;\xd3gV\xe0\x1e\x87\xd1\t\x00\x01\x00\x8a\x00\x00\x00\x82\x00\x00\x00SRdr0\x00\x00\x00\x03\x00\x00\x00`\x00\x00\x00"\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\xc0\xa8\x00il\x00\\\x00s\x00h\x00a\x00r\x00\x01\x00\x00\x00\x00\x00\x00\x00\xc0\xa8d\x8f\x1e\xd4.mk\xa0\xa3py\xa4\x9c\x8dJ\xc8\xd0\x9a\xfd\xc1\x00\x00\x02\x00\x06\x00\x00\x00\x00\x00\x02\x00\x02\x00\x01\x00\x00\x00\\\x00\\\x00S\x00C\x00A\x00L\x00E\x00O\x00U\x00T\x00\\\x00s\x00h\x00a\x00r\x00e\x001\x00')

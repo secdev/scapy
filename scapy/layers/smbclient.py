@@ -430,7 +430,7 @@ class SMB_Client(Automaton):
                         for ngctx in pkt.NegotiateContexts:
                             if ngctx.ContextType == 0x0002:
                                 # SMB2_ENCRYPTION_CAPABILITIES
-                                if ngctx.Ciphers[0] != 0:
+                                if ngctx.Ciphers and ngctx.Ciphers[0] != 0:
                                     self.session.CipherId = SMB2_ENCRYPTION_CIPHERS[
                                         ngctx.Ciphers[0]
                                     ]
