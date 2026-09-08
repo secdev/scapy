@@ -357,13 +357,19 @@ class TFTP_WRQ_server(Automaton):
         self.sport = sport
 
     def master_filter(self, pkt):
-        return TFTP in pkt and (not self.ip or pkt[IP].dst == self.ip)
+        return (
+            TFTP in pkt and
+            (not self.ip or pkt[IP].dst == self.ip) and
+            (self.client is None or
+             self.client == (pkt[IP].src, pkt[UDP].sport))
+        )
 
     @ATMT.state(initial=1)
     def BEGIN(self):
         self.blksize = 512
         self.blk = 1
         self.filedata = b""
+        self.client = None
         self.my_tid = self.sport or random.randint(10000, 65500)
         bind_bottom_up(UDP, TFTP, dport=self.my_tid)
 
@@ -377,6 +383,7 @@ class TFTP_WRQ_server(Automaton):
         ip = pkt[IP]
         self.ip = ip.dst
         self.dst = ip.src
+        self.client = (ip.src, pkt[UDP].sport)
         self.filename = pkt[TFTP_WRQ].filename
         options = pkt.getlayer(TFTP_Options)
         self.l3 = IP(src=ip.dst, dst=ip.src) / UDP(sport=self.my_tid, dport=pkt.sport) / TFTP()  # noqa: E501

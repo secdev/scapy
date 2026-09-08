@@ -209,6 +209,19 @@ tftp_wrq = TFTP_WRQ_server(ip="1.2.3.4", sport=0x2807,
                            recvsock=MockWRQSocket)
 assert tftp_wrq.run() == (b"scapy.txt", (b"P" * 512 + b"<3"))
 
+= TFTP_WRQ_server rejects DATA from a different peer
+~ linux
+
+class MockWRQSocket(MockTFTPSocket):
+    packets = [IP(src="192.0.2.10", dst="1.2.3.4") / UDP(sport=41000, dport=0x2807) / TFTP() / TFTP_WRQ(filename="scapy.txt"),
+               IP(src="203.0.113.77", dst="1.2.3.4") / UDP(sport=52000, dport=0x2807) / TFTP() / TFTP_DATA(block=1) / "attacker",
+               IP(src="192.0.2.10", dst="1.2.3.4") / UDP(sport=41000, dport=0x2807) / TFTP() / TFTP_DATA(block=1) / "victim"]
+
+tftp_wrq = TFTP_WRQ_server(ip="1.2.3.4", sport=0x2807,
+                           ll=MockWRQSocket,
+                           recvsock=MockWRQSocket)
+assert tftp_wrq.run() == (b"scapy.txt", b"victim")
+
 = TFTP_WRQ_server() automaton with options
 ~ linux
 
