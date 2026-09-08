@@ -3624,6 +3624,7 @@ class KerberosClient(Automaton):
         )
         if self.renew:
             kdcreq.kdcOptions.set(30, 1)  # set 'renew' (bit 30)
+        self.request_nonce = kdcreq.nonce.val
         return kdcreq
 
     def calc_fast_armorkey(self):
@@ -4415,6 +4416,8 @@ class KerberosClient(Automaton):
         # Decrypt AS-REP response
         enc = pkt.root.encPart
         res = enc.decrypt(self.replykey)
+        if res.nonce.val != self.request_nonce:
+            raise ValueError("KDC reply nonce does not match request")
         self.result = self.RES_AS_MODE(
             pkt.root,
             res.key.toKey(),
@@ -4480,6 +4483,9 @@ class KerberosClient(Automaton):
             res = enc.decrypt(self.replykey, key_usage_number=9, cls=EncTGSRepPart)
         else:
             res = enc.decrypt(self.replykey)
+
+        if res.nonce.val != self.request_nonce:
+            raise ValueError("KDC reply nonce does not match request")
 
         # Store result
         self.result = self.RES_TGS_MODE(
@@ -5578,6 +5584,12 @@ class KerberosSSP(SSP):
                 # We were passed a ST and its key
                 Context.ST = self.ST
                 Context.STSessionKey = self.KEY
+
+                target_spn = self.SPN or target_name
+                if target_spn and not _spn_are_equal(
+                    Context.ST.getSPN(), target_spn
+                ):
+                    raise ValueError("SPN from ST doesn't match the passed SPN/target_name.")
 
                 if Context.flags & GSS_C_FLAGS.GSS_C_DELEG_FLAG:
                     raise ValueError(

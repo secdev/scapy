@@ -1595,6 +1595,63 @@ assert _k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT) == RESU
 + GSS-API KerberosSSP tests
 ~ mock
 
+= KerberosClient binds decrypted replies to the request nonce
+
+from datetime import datetime, timezone
+from types import SimpleNamespace
+
+def nonce_client():
+    client = object.__new__(KerberosClient)
+    client.etypes = [EncryptionType.AES256_CTS_HMAC_SHA1_96]
+    client.realm = "DOMAIN.LOCAL"
+    client.renew = False
+    client._base_kdc_req(datetime.now(timezone.utc))
+    client._process_padatas_and_key = lambda *args, **kwargs: None
+    client.pre_auth = True
+    client.fast_rep = None
+    client.fast = False
+    client.x509 = None
+    client.pa_type = None
+    client.subkey = None
+    client.upn = "User1@DOMAIN.LOCAL"
+    return client
+
+class NonceReply:
+    def __init__(self, nonce):
+        self.etype = ASN1_INTEGER(EncryptionType.AES256_CTS_HMAC_SHA1_96)
+        self.value = SimpleNamespace(
+            nonce=ASN1_INTEGER(nonce),
+            key=SimpleNamespace(
+                toKey=lambda: Key(
+                    EncryptionType.AES256_CTS_HMAC_SHA1_96, key=b"0" * 32
+                )
+            ),
+        )
+    def decrypt(self, *args, **kwargs):
+        return self.value
+
+for decrypt_name in ("decrypt_as_rep", "decrypt_tgs_rep"):
+    client = nonce_client()
+    client.replykey = Key(
+        EncryptionType.AES256_CTS_HMAC_SHA1_96, key=b"1" * 32
+    )
+    reply = NonceReply(client.request_nonce + 1)
+    packet = SimpleNamespace(
+        root=SimpleNamespace(
+            padata=[],
+            encPart=reply,
+            getUPN=lambda: "User1@DOMAIN.LOCAL",
+        )
+    )
+    try:
+        getattr(client, decrypt_name)(packet)
+        assert False, "KDC reply with a different nonce was accepted"
+    except ValueError as ex:
+        assert str(ex) == "KDC reply nonce does not match request"
+    reply.value.nonce = ASN1_INTEGER(client.request_nonce)
+    getattr(client, decrypt_name)(packet)
+    assert client.result.kdcrep is reply.value
+
 = Create randomness-mock context manager
 
 # mock the random to get consistency
@@ -1656,6 +1713,21 @@ server = SPNEGOSSP([
         KEY=Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=bytes.fromhex("133614b285c1d76d4ec78d642e9c6f7451d7652cf6c5fe635af6e89050d42517")),
     ),
 ])
+
+= GSS_Init_sec_context rejects a preset ticket for another target
+
+wrong_target = KerberosSSP(
+    UPN="User1@DOMAIN.LOCAL",
+    SPN="cifs/dc2",
+    ST=client.ssps[0].ST,
+    KEY=client.ssps[0].KEY,
+)
+wrong_ctx, wrong_tok, wrong_status = wrong_target.GSS_Init_sec_context(
+    None,
+    req_flags=0,
+)
+assert wrong_status == GSS_S_BAD_MECH
+assert wrong_tok is None
 
 = GSS_Init_sec_context (negTokenInit: KRB_AP_REQ)
 
@@ -2078,7 +2150,10 @@ assert isinstance(asreq, KRB_AS_REQ)
 data = bytes.fromhex("a18201513082014da0030a0101a10806062b0601050205a282013a048201366082013206062b06010502050501300ea1030c012ea307030500010000007e82011430820110a003020105a10302011ea411180f32303236303732343133343033355aa505020307fa67a603020119a90c1b0a57494e32354832494e53aa1f301da003020102a11630141b066b72627467741b0a57494e32354832494e53ac81b50481b23081af304fa103020113a248044630443020a003020112a1191b1757494e32354832494e5341646d696e6973747261746f723020a003020111a1191b1757494e32354832494e5341646d696e6973747261746f72303ba10302016fa23404323030300b0609608648016503040203300b0609608648016503040202300b0609608648016503040201300706052b0e03021a3009a103020102a20204003009a103020110a20204003009a10302010fa2020400")
 data = GSSAPI_BLOB(data)
 
-with KrbRandomPatcher():
+# Match the nonce in the captured AS-REP below.
+with KrbRandomPatcher(), mock.patch(
+    "scapy.volatile.random.randrange", return_value=0x5E690AD2
+):
     clicontext, tok, negState = client.GSS_Init_sec_context(
         clicontext,
         data,
@@ -2105,7 +2180,10 @@ assert isinstance(asreq, KRB_AS_REQ)
 data = bytes.fromhex("a182063e3082063aa0030a0101a28206310482062d6082062906062b06010502050501300ea1030c012ea307030500010000006b82060b30820607a003020105a10302010ba231302f302da103020113a226042430223020a003020112a1191b1757494e32354832494e5341646d696e6973747261746f72a30c1b0a57494e32354832494e53a41a3018a003020101a111300f1b0d41646d696e6973747261746f72a582047a6182047630820472a003020105a10c1b0a57494e32354832494e53a21f301da003020102a11630141b066b72627467741b0a57494e32354832494e53a382043a30820436a003020112a282042d048204299b7247030c43fc2748def398d5707efea45ac00b3a7c4d468ce0cc22a92d80e9c0627cb4cd66b7b0bd475c504127d725d67899cc5af44007ebbf1562b0ad0b4b6b8a75f7c29c3e3fed9e687b68003706053a7e5ec6681c6b43c1968b83f876db3347950f76e95b1b7e984142a5b6f67ed2b091373809441fe618c3d2572c8ef018e64418b530af7152d8cf4aa792b1d9378356c17147721335c11cd89564369a4087b581fc229b5b92959a0eb0038532f8ddfc3fd09070e11d736535ec7d968a9d8f3a1d342c6cdff7a426809497423877c0d97419caf7ebcda5e132773f745150f449f11093ddac37301662388d7aa8bc78d3449fa9a84014fa8541a4804802055076da8b3e81be8fb77633ee3404a39d0dcc8aa51bb267f45fb8bbbb0543a3482120563f7a98762bca1dfd13fb8ade8c96fc7bef5afb2445290111a403e86d07871aea1db4c557478321054436db7441cb48cbf3b6f3a25c325a8366a2599a66aad64749a66a920dfcc990892bb0d3dcb3cb1384826646be0480079f7ad22a43454237acc9fa43ec4763fef8dbd2d781cbeb6c3f2f5ca0dce8af64dabfac6ef4b21c1d7d50c6ef390e971c32ade4fdef0a9aba7c9d6e4a9975b5cd0439a4af99826a48d13b3a3ec0dbdf3a2f5d52e4db83db6e5c696631b576bbfb568fe21a07f1406b25b72a943660530f8d49e6b8f199be0a209a1076c7a0e9919887ee4073478eb762f6a537ed54ca1eb082003820556893d5dce164f6ac3739a7c5b4af6df0fe2af157bdd09e276c914282d83b095e748592d1300b799a6169719d5d4ba2be8330c1e36cd3309a71bfd039c84caa7cfb19a3283f8e4409006033dcd64d5e5fa1402ad448c19492afd69eeeb9b19ceb1a8f5d9918d83f227f7c7f6e675048c31edb167ef22d8ebe8b8064e8551e565ab8d8668f913f8e724534bb73c18cfae5d8e5fa23fb942720732c1e3fed6b967f5260e1b96979266dac7bb5d524a7320a6baaa49e058d159efa45a5001539fc45007288f7623822bc72c34cffd7ad59b8c6df16589ae0bd7acfbb4ae8b4e32699e8541973484608b269b48c1ae53d451f4f1c74003d46198b3d45eb43aaa935edaa3a0da25bc70ecb0928d877a3ae716817ca3946d38b6124a0214716944de23c0e45303b591031ba4ade80c0a7bd0fd01165036d2c11011e3214fc282bd9d5de0d7154625053365c654ac8306a123734d0e62fd5d153b503ebeae38f5e9288774a6249ab66d1d509d53bef8e04002b63b24ec12c9e5ac1a2eafee2b6904ea7cedc65685f17a948cb4ed7babc58204a2196cc5df87e6b1e99deacec070faf804e6f413cd2c81e3dcf11677b3ac320594782d826d8b2d414f65d2eec3b911fc7118ea4942c54c4dd6d3950d1d0b915b3ad32b59e8570a59f92c6cddf397fc20422e144bbe635cfe09705404e0ba6468abf3dcaf8b6ab5f9666d176ce121123f32a676013dd71d60de9f159f4588dbb5d7190991f979d8cf8a682011e3082011aa003020112a28201110482010df1c7e81eecf4ae260c4251a1db6f70b9627668e1255ed9ff100687b91d0d2f32e3ced32857bb1e20bb9a7702d3664cf2542254076dee803e1e4b5a868f78459bda1c6c96eef67ae8d9e5a78d5ba6ce91cd5b3ab3dc6aa00d43fd894be71b9bd131276a0e993395d43fd88420fa61ee93b851558737be1279d8bccecace6ba75a1963579d620fda0b199377608ac5864d630fdb964093c440623ab727ee0c983b0460d73f34966af4331628e10c403c28ce2839673fe774f1fb92efc9f324138b8635a20e9a935164c180055b8affa88ef3025a10ab5a03b7c6e93d83c88b3879a7a78aa41662723d69adac6db03cce4a13dd600f26c65358cea1f8202c5f2c0dc0093747037aef8c9f8f4c0cd4")
 data = GSSAPI_BLOB(data)
 
-with KrbRandomPatcher():
+# Match the nonce in the captured TGS-REP below.
+with KrbRandomPatcher(), mock.patch(
+    "scapy.volatile.random.randrange", return_value=0x3616A462
+):
     clicontext, tok, negState = client.GSS_Init_sec_context(
         clicontext,
         data,
