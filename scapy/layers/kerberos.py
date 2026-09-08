@@ -2811,6 +2811,8 @@ class KerberosTCPHeader(Packet):
         length = struct.unpack("!I", data[:4])[0]
         if len(data) == length + 4:
             return cls(data)
+        if len(data) > length + 4:
+            return cls(data[:length + 4]) / conf.padding_layer(data[length + 4:])
 
 
 bind_layers(KerberosTCPHeader, Kerberos)
@@ -2997,6 +2999,8 @@ class KpasswdTCPHeader(Packet):
         length = struct.unpack("!I", data[:4])[0]
         if len(data) == length + 4:
             return cls(data)
+        if len(data) > length + 4:
+            return cls(data[:length + 4]) / conf.padding_layer(data[length + 4:])
 
 
 bind_layers(KpasswdTCPHeader, Kpasswd)

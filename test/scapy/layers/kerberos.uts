@@ -2,6 +2,26 @@
 
 + Kerberos dissection tests
 
+= Reassemble coalesced Kerberos TCP records
+
+from scapy.packet import Padding
+
+record = bytes(
+    KerberosTCPHeader()
+    / KRB_ERROR(
+        realm="EXAMPLE.COM",
+        sname=PrincipalName(nameString=["krbtgt", "EXAMPLE.COM"]),
+    )
+)
+pkt = KerberosTCPHeader.tcp_reassemble(record + record, {}, {})
+assert KerberosTCPHeader in pkt
+assert Padding in pkt and pkt[Padding].load == record
+
+record = bytes(KpasswdTCPHeader() / KPASSWD_REQ())
+pkt = KpasswdTCPHeader.tcp_reassemble(record + record, {}, {})
+assert KpasswdTCPHeader in pkt
+assert Padding in pkt and pkt[Padding].load == record
+
 # https://www.cloudshark.org/captures/fa35bc16bbb0?filter=kerberos
 
 = Parse AS-REQ
