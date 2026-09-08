@@ -35,6 +35,17 @@ test_am(BOOTP_am,
         check_BOOTP_am_reply)
 
 
+= BOOTP_am ignores new clients when its address pool is exhausted
+bootp_am = BOOTP_am(pool=["192.168.1.128", "192.168.1.129"], verbose=False)
+for index in range(2):
+    request = Ether(bytes(Ether(src=f"02:00:00:00:00:0{index}") /
+                          IP() / UDP() / BOOTP(op=1)))
+    assert bootp_am.make_reply(request) is not None
+
+request = Ether(bytes(Ether(src="02:00:00:00:00:02") / IP() / UDP() / BOOTP(op=1)))
+assert bootp_am.make_reply(request) is None
+
+
 = DHCP_am
 def check_DHCP_am_reply(packet):
     assert DHCP in packet and len(packet[DHCP].options)
