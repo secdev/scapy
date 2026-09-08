@@ -513,7 +513,17 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_CERTIFICATEVERIFY(self):
-        pass
+        if self.client_auth and not self.cur_session.client_cert_verify_valid:
+            raise self.INVALID_CERTIFICATEVERIFY()
+
+    @ATMT.state()
+    def INVALID_CERTIFICATEVERIFY(self):
+        self.vprint("Invalid CertificateVerify!")
+        self.add_record()
+        self.add_msg(TLSAlert(level=2, descr=51))
+        self.flush_records()
+        self.socket.close()
+        raise self.WAITING_CLIENT()
 
     @ATMT.condition(HANDLED_CERTIFICATEVERIFY, prio=1)
     def should_handle_ChangeCipherSpec(self):
@@ -998,7 +1008,8 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def TLS13_HANDLED_CLIENT_CERTIFICATEVERIFY(self):
-        pass
+        if self.client_auth and not self.cur_session.client_cert_verify_valid:
+            raise self.INVALID_CERTIFICATEVERIFY()
 
     @ATMT.condition(TLS13_HANDLED_CLIENT_CERTIFICATEVERIFY)
     def tls13_should_handle_ClientFinished(self):

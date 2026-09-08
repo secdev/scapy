@@ -446,6 +446,7 @@ class tlsSession(object):
         # to provide the key associated with the first certificate.
         self.client_certs = []
         self.client_key = None
+        self.client_cert_verify_valid = None
 
         # Ephemeral key exchange parameters
 

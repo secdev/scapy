@@ -402,6 +402,64 @@ test_tls_client("1305", "0304", key_update=True)
 
 test_tls_client("1305", "0304", client_auth=True, sess_in_out=True)
 
+= Reject a CertificateVerify made with a key unrelated to the client certificate
+~ crypto_advanced
+
+def run_tls13_client_auth_exchange(client_key):
+    marker = b"certificate proof accepted"
+    server_cert = scapy_path("/test/scapy/layers/tls/pki/srv_cert.pem")
+    server_key = scapy_path("/test/scapy/layers/tls/pki/srv_key.pem")
+    client_cert = scapy_path("/test/scapy/layers/tls/pki/cli_cert.pem")
+    probe = socket.socket()
+    probe.bind(("127.0.0.1", 0))
+    port = probe.getsockname()[1]
+    probe.close()
+    server = TLSServerAutomaton(
+        server="127.0.0.1",
+        sport=port,
+        mycert=server_cert,
+        mykey=server_key,
+        client_auth=True,
+        debug=0,
+    )
+    server_thread = threading.Thread(target=server.run, daemon=True)
+    with captured_output() as (out, _):
+        server_thread.start()
+        time.sleep(0.1)
+        client = TLSClientAutomaton(
+            server="127.0.0.1",
+            dport=port,
+            version="tls13",
+            mycert=client_cert,
+            mykey=client_key,
+            data=[marker, b"stop_server", b"quit"],
+            debug=0,
+        )
+        client_thread = threading.Thread(target=client.run, daemon=True)
+        client_thread.start()
+        client_thread.join(timeout=2)
+        time.sleep(0.1)
+        if client_thread.is_alive():
+            client.stop(wait=False)
+        if server_thread.is_alive():
+            stopper = TLSClientAutomaton(
+                server="127.0.0.1",
+                dport=port,
+                version="tls13",
+                mycert=client_cert,
+                mykey=scapy_path("/test/scapy/layers/tls/pki/cli_key.pem"),
+                data=[b"stop_server", b"quit"],
+                debug=0,
+            )
+            stopper.run()
+            server_thread.join(timeout=1)
+    return "> Received: %r" % marker in out.s
+
+server_key = scapy_path("/test/scapy/layers/tls/pki/srv_key.pem")
+client_key = scapy_path("/test/scapy/layers/tls/pki/cli_key.pem")
+assert not run_tls13_client_auth_exchange(server_key)
+assert run_tls13_client_auth_exchange(client_key)
+
 = Clear session file
 
 file_sess = scapy_path("/test/session")

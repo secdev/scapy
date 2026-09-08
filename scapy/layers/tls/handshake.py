@@ -1270,6 +1270,7 @@ class TLSCertificateVerify(_TLSHandshake):
         if s.connection_end == "server":
             if s.client_certs and len(s.client_certs) > 0:
                 sig_test = self.sig._verify_sig(m, s.client_certs[0])
+                s.client_cert_verify_valid = sig_test
                 if not sig_test:
                     pkt_info = pkt.firstlayer().summary()
                     log_runtime.info("TLS: invalid CertificateVerify signature [%s]", pkt_info)  # noqa: E501
