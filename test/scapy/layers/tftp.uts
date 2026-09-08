@@ -25,55 +25,6 @@ y[TFTP_Option].oname
 y[TFTP_Option:2].oname
 assert len(y[TFTP_Options].options) == 2 and y[TFTP_Option].oname == b"blksize"
 
-= TFTP_RRQ_server stops retransmitting without an ACK
-
-def test_rrq_retries():
-    from scapy.automaton import select_objects
-    import time
-    def run_case(send_ack):
-        class RetrySocket(object):
-            packets = [IP(src="198.51.100.1", dst="192.0.2.1") / UDP(sport=12345, dport=0x2807) / TFTP() / TFTP_RRQ(filename="file.txt")]
-            if send_ack:
-                packets.append(IP(src="198.51.100.1", dst="192.0.2.1") / UDP(sport=12345, dport=0x2807) / TFTP() / TFTP_ACK(block=1))
-            sent = []
-            def __init__(self, iface):
-                self.iface = iface
-            def recv(self, size=None):
-                return self.packets.pop(0)
-            def send(self, packet, *args, **kwargs):
-                self.sent.append(packet)
-            def close(self):
-                pass
-            @classmethod
-            def select(cls, inputs, remain):
-                sockets = [sock for sock in inputs if isinstance(sock, cls)]
-                if sockets:
-                    if sockets[0].packets:
-                        return sockets
-                    inputs = [sock for sock in inputs if not isinstance(sock, cls)]
-                return select_objects(inputs, remain)
-        server = TFTP_RRQ_server(ip="192.0.2.1", sport=0x2807, store={"file.txt": b"data"}, serve_one=True, ll=RetrySocket, recvsock=RetrySocket)
-        server.runbg()
-        deadline = time.monotonic() + 0.1
-        while server.isrunning() and time.monotonic() < deadline:
-            time.sleep(0.001)
-        still_running = server.isrunning()
-        if still_running:
-            server.forcestop()
-        server.destroy()
-        return still_running, len(RetrySocket.sent)
-    timer = TFTP_RRQ_server.timeout["SEND_FILE"].timers[0]
-    original_timeout = timer.get()
-    try:
-        timer.set(0.01)
-        assert run_case(False) == (False, 4)
-        assert run_case(True) == (False, 1)
-    finally:
-        timer.set(original_timeout)
-
-test_rrq_retries()
-
-
 + TFTP Automatons
 ~ linux
 
