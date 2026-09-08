@@ -786,6 +786,9 @@ class TLSServerAutomaton(_TLSAutomaton):
             if isinstance(m, (TLS13ClientHello, TLSClientHello)):
                 for e in m.ext:
                     if isinstance(e, TLS_Ext_PreSharedKey_CH):
+                        if not e.identities or len(e.identities) != len(e.binders):
+                            self.vprint("Malformed pre_shared_key extension!")
+                            raise self.CLOSE_NOTIFY()
                         psk_identity = e.identities[0].identity
                         obfuscated_age = e.identities[0].obfuscated_ticket_age
                         binder = e.binders[0].binder
