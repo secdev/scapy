@@ -296,10 +296,6 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                     ) = self.session.ssp.GSS_Accept_sec_context(
                         self.session.sspcontext, req.auth_verifier.auth_value
                     )
-                    self.session.auth_level = RPC_C_AUTHN_LEVEL(
-                        req.auth_verifier.auth_level
-                    )
-                    self.session.auth_context_id = req.auth_verifier.auth_context_id
                     if DceRpc5Auth3 in req:
                         # Auth 3 stops here (no server response) !
                         if status != 0:
@@ -307,6 +303,10 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                         if pad is not None:
                             self.recv(pad)
                         return
+                    self.session.auth_context_id = req.auth_verifier.auth_context_id
+                    self.session.auth_level = RPC_C_AUTHN_LEVEL(
+                        req.auth_verifier.auth_level
+                    )
                     # auth_verifier here contains the SSP nego packets
                     # (whereas it usually contains the verifiers)
                     if auth_value is not None:

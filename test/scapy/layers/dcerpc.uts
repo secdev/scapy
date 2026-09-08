@@ -645,6 +645,27 @@ class MyRPCServer(DCERPC_Server):
             ndr64=self.ndr64,
         )
 
+= Auth3 cannot lower the protection level negotiated during bind
+
+class TestSSP:
+    def GSS_Accept_sec_context(self, context, token):
+        return object(), None, 0
+
+server = DCERPC_Server(
+    DCERPC_Transport.NCACN_IP_TCP,
+    verb=False,
+    ssp=TestSSP(),
+)
+server.session.rpc_bind_interface = find_dcerpc_interface("wkssvc")
+server.session.auth_level = DCE_C_AUTHN_LEVEL.PKT_INTEGRITY
+auth3 = DceRpc5() / DceRpc5Auth3()
+auth3.auth_verifier = CommonAuthVerifier(
+    auth_level=DCE_C_AUTHN_LEVEL.CONNECT,
+    auth_value=Raw(b"authenticate"),
+)
+server.recv(auth3)
+assert server.session.auth_level == DCE_C_AUTHN_LEVEL.PKT_INTEGRITY
+
 = Functional: Define wrapper over samba's rpcclient
 ~ linux samba
 
