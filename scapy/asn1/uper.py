@@ -79,6 +79,61 @@ def UPER_bits_for_range(size):
 UPER_FRAGMENT_SIZE = 16384
 
 
+def resolve_uper_int_bounds(field=None,  # type: Any
+                            size_len=None,  # type: Optional[int]
+                            minimum=None,  # type: Optional[int]
+                            maximum=None,  # type: Optional[int]
+                            unsigned=None,  # type: Optional[bool]
+                            extensible=None  # type: Optional[bool]
+                            ):
+    # type: (...) -> Tuple[Optional[int], Optional[int], bool]
+    """Resolve UPER INTEGER root range and extensibility from field/kwargs.
+
+    When no explicit ``minimum``/``maximum`` is set, a fixed ``size_len`` of
+    1, 2, 4, or 8 with ``unsigned=True`` implies ``0 .. 256**n - 1``.
+    """
+    if size_len is None and field is not None:
+        size_len = field.size_len
+    if minimum is None and maximum is None and field is not None:
+        minimum, maximum = field.constraints.minimum, field.constraints.maximum
+    if unsigned is None:
+        unsigned = bool(field.constraints.unsigned) if field is not None else False
+    if extensible is None:
+        extensible = bool(field.constraints.extensible) if field is not None else False
+    if minimum is None and maximum is None:
+        if size_len in (1, 2, 4, 8) and unsigned:
+            minimum, maximum = 0, (256 ** size_len) - 1
+    return minimum, maximum, extensible
+
+
+def resolve_uper_size_bounds(field=None,  # type: Any
+                             size_len=None,  # type: Optional[int]
+                             minimum=None,  # type: Optional[int]
+                             maximum=None,  # type: Optional[int]
+                             extensible=None  # type: Optional[bool]
+                             ):
+    # type: (...) -> Tuple[Optional[int], Optional[int], bool]
+    """Resolve UPER SIZE bounds; ``size_len`` is a fixed SIZE."""
+    if size_len is None and field is not None:
+        size_len = field.size_len
+    if minimum is None and maximum is None and field is not None:
+        minimum, maximum = field.constraints.minimum, field.constraints.maximum
+    if extensible is None:
+        extensible = bool(field.constraints.extensible) if field is not None else False
+    if size_len:
+        return size_len, size_len, extensible
+    return minimum, maximum, extensible
+
+
+def _uper_enum_values(field=None, values=None):
+    # type: (Any, Optional[List[int]]) -> Optional[List[int]]
+    if values is not None:
+        return values
+    if field is not None and hasattr(field, "uper_enum_values"):
+        return field.uper_enum_values()
+    return None
+
+
 class UPER_Encoder(object):
     """Byte-oriented UPER bit writer.
 
@@ -543,7 +598,6 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
-        from scapy.asn1.constraints import resolve_uper_int_bounds
         minimum, maximum, extensible = resolve_uper_int_bounds(
             field, size_len, minimum, maximum, unsigned, extensible,
         )
@@ -585,7 +639,6 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[int]
-        from scapy.asn1.constraints import resolve_uper_int_bounds
         minimum, maximum, extensible = resolve_uper_int_bounds(
             field, size_len, minimum, maximum, unsigned, extensible,
         )
@@ -645,7 +698,6 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
-        from scapy.asn1.constraints import resolve_uper_size_bounds
         if isinstance(_s, tuple) and len(_s) == 2:
             data, nbits = _s
             s = bytes_encode(data)
@@ -706,7 +758,6 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[str]
-        from scapy.asn1.constraints import resolve_uper_size_bounds
         minimum, maximum, extensible = resolve_uper_size_bounds(
             field, size_len, minimum, maximum, extensible,
         )
@@ -811,7 +862,6 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
-        from scapy.asn1.constraints import resolve_uper_size_bounds
         s = bytes_encode(_s)
         minimum, maximum, extensible = resolve_uper_size_bounds(
             field, size_len, minimum, maximum, extensible,
@@ -829,7 +879,6 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[Any]
-        from scapy.asn1.constraints import resolve_uper_size_bounds
         minimum, maximum, extensible = resolve_uper_size_bounds(
             field, size_len, minimum, maximum, extensible,
         )
@@ -906,9 +955,6 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
-        from scapy.asn1.constraints import (
-            uper_enum_values as _uper_enum_values,
-        )
         if size_len is None and field is not None:
             size_len = field.size_len
         if minimum is None and maximum is None and field is not None:
@@ -961,9 +1007,6 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[int]
-        from scapy.asn1.constraints import (
-            uper_enum_values as _uper_enum_values,
-        )
         if size_len is None and field is not None:
             size_len = field.size_len
         if minimum is None and maximum is None and field is not None:
