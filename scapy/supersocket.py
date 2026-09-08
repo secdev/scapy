@@ -667,6 +667,9 @@ class IterSocket(SuperSocket):
         # type: (Optional[int], Any) -> Optional[Packet]
         try:
             pkt = next(self.iter)
+            if isinstance(pkt, bytes):
+                # Raw bytes carry no link-layer information
+                return conf.raw_layer(pkt, **kwargs)
             return pkt.__class__(bytes(pkt), **kwargs)
         except StopIteration:
             raise EOFError
