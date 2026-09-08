@@ -164,10 +164,18 @@ def check_LLMNR_am_am_reply(packet):
     assert packet[LLMNRResponse].an[0].ttl == 60
 
 test_am(LLMNR_am,
-        Ether(src="aa:aa:aa:aa:aa:aa", dst="01:00:5e:00:00:fc")/IP(src="192.168.0.1", dst="224.0.0.252")/UDP(dport=5355, sport=51938)/LLMNRQuery(qd=DNSQR(qname=b"TEST.", qtype="A")),
+        Ether(src="aa:aa:aa:aa:aa:aa", dst="01:00:5e:00:00:fc")/IP(src="192.168.0.1", dst="224.0.0.252", ttl=1)/UDP(dport=5355, sport=51938)/LLMNRQuery(qd=DNSQR(qname=b"TEST.", qtype="A")),
         check_LLMNR_am_am_reply,
         ttl=60,
         match={"TEST": "192.168.1.1"})
+
+off_link = IP(src="198.51.100.9", dst="192.0.2.10", ttl=42)/UDP(dport=5355)
+off_link /= LLMNRQuery(qd=DNSQR(qname=b"TEST.", qtype="A"))
+assert not LLMNR_am().is_request(off_link)
+
+routed_multicast = IP(src="198.51.100.9", dst="224.0.0.252", ttl=42)/UDP(dport=5355)
+routed_multicast /= LLMNRQuery(qd=DNSQR(qname=b"TEST.", qtype="A"))
+assert not LLMNR_am().is_request(routed_multicast)
 
 = mDNS_am
 def check_mDNS_am_reply(packet):

@@ -1700,18 +1700,32 @@ class DNS_am(AnsweringMachine):
 
     def is_request(self, req):
         from scapy.layers.inet6 import IPv6
+        query = req.getlayer(self.cls)
+        if query is None or query.qr != 0:
+            return False
+        if self.llmnr:
+            # [RFC 4795] sect 2.1: an LLMNR query goes to the link-scope
+            # multicast address with a hop limit of 1, so a responder must
+            # not answer one that arrived any other way. mDNS is left alone:
+            # it permits a direct unicast query and LLMNR does not.
+            network = query.underlayer.underlayer
+            if isinstance(network, IPv6):
+                if network.dst != "ff02::1:3" or network.hlim != 1:
+                    return False
+            elif isinstance(network, IP):
+                if network.dst != "224.0.0.252" or network.ttl != 1:
+                    return False
+            else:
+                return False
         return (
-            req.haslayer(self.cls) and
-            req.getlayer(self.cls).qr == 0 and (
-                (
-                    self.from_ip6 is True or
-                    (self.from_ip6 and req[IPv6].src in self.from_ip6)
-                )
-                if IPv6 in req else
-                (
-                    self.from_ip is True or
-                    (self.from_ip and req[IP].src in self.from_ip)
-                )
+            (
+                self.from_ip6 is True or
+                (self.from_ip6 and req[IPv6].src in self.from_ip6)
+            )
+            if IPv6 in req else
+            (
+                self.from_ip is True or
+                (self.from_ip and req[IP].src in self.from_ip)
             )
         )
 
