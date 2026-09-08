@@ -339,6 +339,8 @@ def snmpwalk(dst, oid="1", community="public"):
                 print(repr(r))
                 break
             print("%-40s: %r" % (r[SNMPvarbind].oid.val, r[SNMPvarbind].value))
+            if r[SNMPvarbind].endOfMibView is not None:
+                break
             oid = r[SNMPvarbind].oid
 
     except KeyboardInterrupt:
