@@ -441,6 +441,8 @@ class TFTP_RRQ_server(Automaton):
     :param serve_one: (optional) close after serving one client (default: False)
     """
 
+    MAX_RETRIES = 3
+
     def parse_args(self, store=None, joker=None, dir=None, ip=None, sport=None, serve_one=False, **kargs):  # noqa: E501
         if "iface" not in kargs and ip:
             ip = str(Net(ip))
@@ -481,6 +483,8 @@ class TFTP_RRQ_server(Automaton):
         self.l3 = IP(src=ip.dst, dst=ip.src) / UDP(sport=self.my_tid, dport=ip.sport) / TFTP()  # noqa: E501
         self.filename = pkt[TFTP_RRQ].filename.decode("utf-8", "ignore")
         self.blk = 1
+        self.retry_block = self.blk
+        self.retries = 0
         self.data = None
         if self.filename in self.store:
             self.data = self.store[self.filename]
@@ -530,6 +534,14 @@ class TFTP_RRQ_server(Automaton):
 
     @ATMT.timeout(SEND_FILE, 3)
     def timeout_waiting_ack(self):
+        if self.retry_block != self.blk:
+            self.retry_block = self.blk
+            self.retries = 0
+        if self.retries >= self.MAX_RETRIES:
+            if self.serve_one:
+                raise self.END()
+            raise self.WAIT_RRQ()
+        self.retries += 1
         raise self.SEND_FILE()
 
     @ATMT.receive_condition(SEND_FILE)
