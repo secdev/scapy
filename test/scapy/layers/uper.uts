@@ -2534,9 +2534,7 @@ _raises(
     lambda: _PerSeq.ASN1_root.m2i(_PerSeq(), b"\x80\xff"),
 )
 
-empty_seq = _BerSeq()
-
-_BerSeq.ASN1_root._dissect_sequence_children(empty_seq, b"")
+empty_seq = _BerSeq(b"\x30\x00")
 
 assert empty_seq.id is None
 

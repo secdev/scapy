@@ -7,21 +7,18 @@
 from typing import List  # noqa: F401
 
 
-def oid_decode_first_arc(first):
-    # type: (int) -> List[int]
-    """Split the first subidentifier into two registration arcs."""
-    if first < 40:
-        return [0, first]
-    if first < 80:
-        return [1, first - 40]
-    return [2, first - 80]
-
-
 def oid_subidentifiers_to_dotted(lst):
     # type: (List[int]) -> bytes
     if not lst:
         return b""
-    arcs = oid_decode_first_arc(lst[0]) + lst[1:]
+    first = lst[0]
+    if first < 40:
+        arcs = [0, first]
+    elif first < 80:
+        arcs = [1, first - 40]
+    else:
+        arcs = [2, first - 80]
+    arcs += lst[1:]
     return b".".join(str(k).encode("ascii") for k in arcs)
 
 
