@@ -8,7 +8,7 @@
 
 = NBNSQueryRequest - build & dissect
 
-z = NBNSHeader()/NBNSQueryRequest(SUFFIX="file server service", QUESTION_NAME='TEST1', QUESTION_TYPE='NB')
+z = NBNSHeader()/NBNSQueryRequest(SUFFIX="File Server Service", QUESTION_NAME='TEST1', QUESTION_TYPE='NB')
 
 assert raw(z) == b'\x00\x00\x01\x10\x00\x01\x00\x00\x00\x00\x00\x00 FEEFFDFEDBCACACACACACACACACACACA\x00\x00 \x00\x01'
 
@@ -39,6 +39,29 @@ z = NBNSHeader(b'/S\x85\x80\x00\x00\x00\x01\x00\x00\x00\x00 FAEPFEEBFEEPCACACACA
 assert z.RR_NAME == b'POTATO'
 assert z.ADDR_ENTRY[0].G == 0
 assert z.ADDR_ENTRY[0].NB_ADDRESS == "192.168.1.65"
+
+= NBNSQueryResponse - name registered on several addresses
+
+# RFC1002 sect 4.2.13: RDATA holds one {NB_FLAGS, NB_ADDRESS} pair per address
+# the name answers on, and RDLENGTH spans all of them.
+
+data = b'/S\x85\x80\x00\x00\x00\x01\x00\x00\x00\x00 FAEPFEEBFEEPCACACACACACACACACAAA\x00\x00 \x00\x01\x00\x03\xf4\x80\x00\x0c\x00\x00\xc0\xa8\x01A\x00\x00\xc0\xa8\x01B'
+z = NBNSHeader(data)
+assert z.RDLENGTH == 12
+assert len(z.ADDR_ENTRY) == 2
+assert [x.NB_ADDRESS for x in z.ADDR_ENTRY] == ["192.168.1.65", "192.168.1.66"]
+assert raw(z) == data
+
+z = NBNSHeader()/NBNSQueryResponse(RR_NAME="FRED", ADDR_ENTRY=[NBNS_ADD_ENTRY(NB_ADDRESS="192.168.0.13"), NBNS_ADD_ENTRY(NB_ADDRESS="192.168.0.14")])
+pkt = NBNSHeader(raw(z))
+assert pkt.RDLENGTH == 12
+assert [x.NB_ADDRESS for x in pkt.ADDR_ENTRY] == ["192.168.0.13", "192.168.0.14"]
+
+# RDLENGTH bounds the list: what follows the record is not an address entry
+
+pkt = NBNSHeader(data + b'\xde\xad\xbe\xef')
+assert len(pkt.ADDR_ENTRY) == 2
+assert raw(pkt) == data + b'\xde\xad\xbe\xef'
 
 = NBNSQueryResponse answers NBNSQueryRequest
 
@@ -100,6 +123,13 @@ z = raw(TCP()/NBTSession())
 assert z == b'\x00\x8b\x00\x8b\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x00\x00\x00\x00\x00\x00\x00\x00'
 assert NBTSession in TCP(z)
 
+= TCPSession strips padding from each coalesced NetBIOS keepalive
+message = bytes(NBTSession(TYPE=0x85, LENGTH=0))
+frame = Ether()/IP()/TCP(sport=35000, dport=445, seq=1, flags="PA")/Raw(message * 4)
+packet = TCPSession().process(Ether(bytes(frame)))
+assert packet.layers().count(NBTSession) == 4
+assert Padding not in packet
+
 = OSS-Fuzz Findings
 
 # Note: the packet is corrupted
@@ -107,3 +137,32 @@ with no_debug_dissector():
     raw_packet = b'E\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x05\x00\x00\x00'
     packet = NBNSQueryResponse(raw_packet)
     assert packet.summary() == "NBNSQueryResponse"
+
+= nbns_resolve caches default results by query name
+~ mock
+
+from unittest import mock
+from scapy.layers.netbios import _nbns_cache, nbns_resolve
+
+_nbns_queries = []
+_nbns_cache.flush()
+
+def _answer_nbns(requests, **kwargs):
+    packet = requests[0] if isinstance(requests, list) else requests
+    name = packet.QUESTION_NAME
+    _nbns_queries.append(name)
+    address = "203.0.113.66" if name == b"ALPHA" else "192.0.2.44"
+    return NBNSHeader(RESPONSE=1, NM_FLAGS=0x50, ANCOUNT=1) / NBNSQueryResponse(
+        RR_NAME=name,
+        ADDR_ENTRY=[NBNS_ADD_ENTRY(NB_ADDRESS=address)],
+    )
+
+try:
+    with mock.patch("scapy.layers.netbios.sr1", side_effect=_answer_nbns), mock.patch(
+        "scapy.layers.netbios.conf.route.get_if_bcast", return_value=["192.0.2.255"]
+    ):
+        assert nbns_resolve("ALPHA", iface="test") == ["203.0.113.66"]
+        assert nbns_resolve("BETA", iface="test") == ["192.0.2.44"]
+    assert _nbns_queries == [b"ALPHA", b"BETA"]
+finally:
+    _nbns_cache.flush()

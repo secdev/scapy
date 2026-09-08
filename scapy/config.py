@@ -1099,6 +1099,7 @@ class Conf(ConfClass):
         'gprs',
         'gssapi',
         'hsrp',
+        'igmp',
         'inet',
         'inet6',
         'ipsec',

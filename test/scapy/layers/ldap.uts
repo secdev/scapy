@@ -99,6 +99,30 @@ pkt2 = Ether(raw(pkt))
 pkt2.clear_cache()
 assert raw(pkt2) == pkt.original
 
+= LDAP_SearchResponse TCPSession reassembly
+
+from scapy.sessions import StringBuffer, TCPSession
+
+materialized_lengths = []
+
+class _MaterializedStringBuffer(StringBuffer):
+    def __bytes__(self):
+        materialized_lengths.append(len(self))
+        return super(_MaterializedStringBuffer, self).__bytes__()
+
+stream = raw(pkt)
+session = TCPSession(app=True)
+session.data = _MaterializedStringBuffer()
+response = None
+for offset in range(0, len(stream), 64):
+    response = session.process(Raw(stream[offset:offset + 64]), cls=LDAP)
+
+assert response is not None
+assert LDAP_SearchResponseResultDone in response
+assert sum(materialized_lengths) <= len(stream) * 3, (
+    sum(materialized_lengths), len(stream)
+)
+
 + CLDAP tests
 
 = Basic CLDAP dissection & build test
@@ -215,3 +239,77 @@ pkt = NETLOGON(b'\x13\x00\\\x00\\\x00D\x00C\x001\x00\x00\x00\x00\x00D\x00O\x00M\
 assert pkt.NtVersion == 1
 assert pkt.UnicodeLogonServer == r"\\DC1"
 assert pkt.UnicodeDomainName == "DOMAIN"
+
+= Dissect NETLOGON_LOGON_QUERY - V1+V5+V5EX_WITH_IP
+
+pkt = NETLOGON(b'\x07\x00PC\x00\\MAILSLOT\\NET\\GETDC598\x00P\x00C\x00\x00\x00\x0b\x00\x00 \xff\xff\xff\xff')
+
+print(pkt.show())
+assert pkt.ComputerName == b"PC"
+assert pkt.MailslotName == b"\\MAILSLOT\\NET\\GETDC598"
+assert pkt.NtVersion == 0x2000000b
+assert pkt.UnicodeComputerName == "PC"
+
+= Dissect NETLOGON_LOGON_QUERY - V1+V5+V5EX_WITH_IP - with Padding
+
+pkt = NETLOGON(b'\x07\x00USER-PC\x00\\MAILSLOT\\NET\\GETDC725\x00\x00U\x00S\x00E\x00R\x00-\x00P\x00C\x00\x00\x00\x0b\x00\x00 \xff\xff\xff\xff')
+
+print(pkt.show())
+assert pkt.ComputerName == b"USER-PC"
+assert pkt.MailslotName == b"\\MAILSLOT\\NET\\GETDC725"
+assert pkt.NtVersion == 0x2000000b
+assert pkt.UnicodeComputerName == "USER-PC"
+
+= LDAPHero keeps SID labels within their authenticated endpoint
+
+def ldaphero_skips_unprotected_sid_resolution():
+    from scapy.modules import ldaphero
+    from scapy.layers.windows.security import WELL_KNOWN_SIDS, WINNT_SID
+    class UnexpectedRPCClient:
+        def __init__(self, *args, **kwargs):
+            raise AssertionError("DCE/RPC client used without an SSP")
+    hero = ldaphero.LDAPHero.__new__(ldaphero.LDAPHero)
+    hero.ssp = None
+    hero.sids = dict(WELL_KNOWN_SIDS)
+    hero.sidscombo = {}
+    saved_client = ldaphero.DCERPC_Client
+    ldaphero.DCERPC_Client = UnexpectedRPCClient
+    try:
+        hero.resolvesids([WINNT_SID.fromstr("S-1-5-21-1-2-3-500")])
+    finally:
+        ldaphero.DCERPC_Client = saved_client
+    assert "S-1-5-18" in hero.sidscombo.values()
+
+ldaphero_skips_unprotected_sid_resolution()
+
+def ldaphero_clears_endpoint_labels_on_disconnect():
+    from scapy.modules import ldaphero
+    from scapy.layers.windows.security import WELL_KNOWN_SIDS
+    class ClosedClient:
+        def close(self):
+            pass
+    class Menu:
+        def entryconfig(self, *args, **kwargs):
+            pass
+    hero = ldaphero.LDAPHero.__new__(ldaphero.LDAPHero)
+    hero.connected = True
+    hero.client = ClosedClient()
+    hero.tprint = lambda *args, **kwargs: None
+    hero.menu_connection = Menu()
+    hero.menu_browse = Menu()
+    hero.menu_view = Menu()
+    hero.sids = {"attacker SID": "Administrator"}
+    hero.sidscombo = {"Administrator": "attacker SID"}
+    hero.guids = {"attacker GUID": {"name": "user"}}
+    hero.guidscombo = {"user": "attacker GUID"}
+    hero.guidscomboobject = {"user": "attacker GUID"}
+    hero.loadedSchemaIDGuids = True
+    hero.disconnect()
+    assert hero.sids == dict(WELL_KNOWN_SIDS)
+    assert hero.sidscombo == {}
+    assert hero.guids == {}
+    assert hero.guidscombo == {"None": None}
+    assert hero.guidscomboobject == {"None": None}
+    assert hero.loadedSchemaIDGuids is False
+
+ldaphero_clears_endpoint_labels_on_disconnect()

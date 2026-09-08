@@ -10,7 +10,7 @@ Stateless HKDF for TLS 1.3.
 import struct
 
 from scapy.config import conf, crypto_validator
-from scapy.layers.tls.crypto.pkcs1 import _get_hash
+from scapy.layers.tls.crypto.hash import _get_hash
 
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend

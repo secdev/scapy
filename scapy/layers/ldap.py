@@ -61,6 +61,7 @@ from scapy.asn1fields import (
 from scapy.asn1packet import ASN1_Packet
 from scapy.config import conf
 from scapy.compat import StrEnum
+from scapy.consts import WINDOWS
 from scapy.error import log_runtime
 from scapy.fields import (
     FieldLenField,
@@ -83,16 +84,17 @@ from scapy.layers.dns import dns_resolve
 from scapy.layers.inet import IP, TCP, UDP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.gssapi import (
+    _GSSAPI_Field,
     ChannelBindingType,
-    GSSAPI_BLOB,
-    GSSAPI_BLOB_SIGNATURE,
     GSS_C_FLAGS,
     GSS_C_NO_CHANNEL_BINDINGS,
+    GSS_QOP_REQ_FLAGS,
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
+    GSSAPI_BLOB_SIGNATURE,
+    GSSAPI_BLOB,
     GssChannelBindings,
     SSP,
-    _GSSAPI_Field,
 )
 from scapy.layers.netbios import NBTDatagram
 from scapy.layers.smb import (
@@ -1081,7 +1083,7 @@ class LDAP(ASN1_Packet):
         return cls
 
     @classmethod
-    def tcp_reassemble(cls, data, *args, **kwargs):
+    def tcp_reassemble(cls, data, metadata, *args, **kwargs):
         if len(data) < 4:
             return None
         # For LDAP, we would prefer to have the entire LDAP response
@@ -1105,6 +1107,8 @@ class LDAP(ASN1_Packet):
                         return None
                     return pkt
             else:
+                if length:
+                    metadata["tcp_min_len"] = len(data) - len(x) + length
                 return None
         return None
 
@@ -1474,12 +1478,20 @@ _dclocatorcache = conf.netcache.new_cache("dclocator", 600)
 
 @conf.commands.register
 def dclocator(
-    realm, qtype="A", mode="ldap", port=None, timeout=1, NtVersion=None, debug=0
+    realm: str,
+    site: str = "",
+    qtype: str = "A",
+    mode: str = "ldap",
+    port: int = None,
+    timeout: int = 1,
+    NtVersion: int = None,
+    debug: int = 0,
 ):
     """
     Perform a DC Locator as per [MS-ADTS] sect 6.3.6 or RFC4120.
 
     :param realm: the kerberos realm to locate
+    :param site: if provided, a Site name
     :param mode: Detect if a server is up and joinable thanks to one of:
 
     - 'nocheck': Do not check that servers are online.
@@ -1502,12 +1514,15 @@ def dclocator(
             | 0x20000000  # IP
         )
     # Check cache
-    cache_ident = ";".join([realm, qtype, mode, str(NtVersion)]).lower()
+    cache_ident = ";".join([realm, qtype, mode, str(NtVersion), site]).lower()
     if cache_ident in _dclocatorcache:
         return _dclocatorcache[cache_ident]
     # Perform DNS-Based discovery (6.3.6.1)
     # 1. SRV records
-    qname = "_kerberos._tcp.dc._msdcs.%s" % realm.lower()
+    if site:
+        qname = ("_kerberos._tcp.%s._sites.dc._msdcs.%s" % (site, realm)).lower()
+    else:
+        qname = "_kerberos._tcp.dc._msdcs.%s" % realm.lower()
     if debug:
         log_runtime.info("DC Locator: requesting SRV for '%s' ..." % qname)
     try:
@@ -1620,7 +1635,7 @@ def dclocator(
                             response = next(
                                 NETLOGON(x.values[0].value.val)
                                 for x in pkt.protocolOp.attributes
-                                if x.type.val == b"Netlogon"
+                                if x.type.val.lower() == b"netlogon"
                             )
                         except StopIteration:
                             pass
@@ -1717,7 +1732,7 @@ class LDAP_Exception(RuntimeError):
     def __init__(self, *args, **kwargs):
         resp = kwargs.pop("resp", None)
         if resp:
-            self.resultCode = resp.protocolOp.resultCode
+            self.resultCode = resp.protocolOp.sprintf("%resultCode%")
             self.diagnosticMessage = resp.protocolOp.diagnosticMessage.val.rstrip(
                 b"\x00"
             ).decode(errors="backslashreplace")
@@ -1838,16 +1853,21 @@ class LDAP_Client(object):
         """
         self.ssl = use_ssl
         self.sslcontext = sslcontext
+        self.timeout = timeout
+        self.host = host
 
         if port is None:
             if self.ssl:
                 port = 636
             else:
                 port = 389
+
+        # Create and configure socket
         sock = socket.socket()
-        self.timeout = timeout
-        self.host = host
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
         sock.settimeout(timeout)
+
+        # Connect
         if self.verb:
             print(
                 "\u2503 Connecting to %s on port %s%s..."
@@ -1864,6 +1884,7 @@ class LDAP_Client(object):
                     "\u2514 Connected from %s" % repr(sock.getsockname())
                 )
             )
+
         # For SSL, build and apply SSLContext
         if self.ssl:
             if self.sslcontext is None:
@@ -1876,14 +1897,16 @@ class LDAP_Client(object):
             else:
                 context = self.sslcontext
             sock = context.wrap_socket(sock, server_hostname=sni or host)
+
         # Wrap the socket in a Scapy socket
         if self.ssl:
-            self.sock = SSLStreamSocket(sock, LDAP)
             # Compute the channel binding token (CBT)
             self.chan_bindings = GssChannelBindings.fromssl(
                 ChannelBindingType.TLS_SERVER_END_POINT,
                 sslsock=sock,
             )
+
+            self.sock = SSLStreamSocket(sock, LDAP)
         else:
             self.sock = StreamSocket(sock, LDAP)
 
@@ -1891,12 +1914,14 @@ class LDAP_Client(object):
         self.messageID += 1
         if self.verb:
             print(conf.color_theme.opening(">> %s" % protocolOp.__class__.__name__))
+
         # Build packet
         pkt = LDAP(
             messageID=self.messageID,
             protocolOp=protocolOp,
             Controls=controls,
         )
+
         # If signing / encryption is used, apply
         if self.sasl_wrap:
             pkt = LDAP_SASL_Buffer(
@@ -1904,8 +1929,13 @@ class LDAP_Client(object):
                     self.sspcontext,
                     bytes(pkt),
                     conf_req_flag=self.encrypt,
+                    # LDAP on Windows doesn't use SECBUFFER_PADDING, which
+                    # isn't supported by GSS_WrapEx. We add our own flag to
+                    # tell it.
+                    qop_req=GSS_QOP_REQ_FLAGS.GSS_S_NO_SECBUFFER_PADDING,
                 )
             )
+
         # Send / Receive
         resp = self.sock.sr1(
             pkt,
@@ -1918,6 +1948,7 @@ class LDAP_Client(object):
                 resp.show()
                 print(conf.color_theme.fail("! Got unsolicited notification."))
             return resp
+
         # If signing / encryption is used, unpack
         if self.sasl_wrap:
             if resp.Buffer:
@@ -1929,6 +1960,8 @@ class LDAP_Client(object):
                 )
             else:
                 resp = None
+
+        # Verbose display
         if self.verb:
             if not resp:
                 print(conf.color_theme.fail("! Bad response."))
@@ -1994,7 +2027,17 @@ class LDAP_Client(object):
             from scapy.layers.spnego import SPNEGOSSP
 
             if not isinstance(self.ssp, SPNEGOSSP):
-                raise ValueError("Only SPNEGOSSP is supported with SASL_GSS_SPNEGO !")
+                if WINDOWS:
+                    from scapy.arch.windows.sspi import WinSSP
+
+                    if not isinstance(self.ssp, WinSSP):
+                        raise ValueError(
+                            "Only SPNEGOSSP is supported with SASL_GSS_SPNEGO !"
+                        )
+                else:
+                    raise ValueError(
+                        "Only SPNEGOSSP is supported with SASL_GSS_SPNEGO !"
+                    )
         elif mech == LDAP_BIND_MECHS.SICILY:
             from scapy.layers.ntlm import NTLMSSP
 
@@ -2117,7 +2160,8 @@ class LDAP_Client(object):
             )
             if status not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
                 raise RuntimeError(
-                    "%s: GSS_Init_sec_context failed !" % self.mech.name,
+                    "%s: GSS_Init_sec_context failed with %s !"
+                    % (self.mech.name, repr(status)),
                 )
             while token:
                 resp = self.sr1(
@@ -2135,9 +2179,11 @@ class LDAP_Client(object):
                         resp=resp,
                     )
                 val = resp.protocolOp.serverSaslCredsData
-                if not val:
-                    status = resp.protocolOp.resultCode
-                    break
+                if resp.protocolOp.resultCode not in [0, 14]:
+                    raise LDAP_Exception(
+                        "SASL authentication failed !",
+                        resp=resp,
+                    )
                 self.sspcontext, token, status = self.ssp.GSS_Init_sec_context(
                     self.sspcontext,
                     input_token=GSSAPI_BLOB(val),
@@ -2147,9 +2193,9 @@ class LDAP_Client(object):
         else:
             status = GSS_S_COMPLETE
         if status != GSS_S_COMPLETE:
-            raise LDAP_Exception(
-                "%s bind failed !" % self.mech.name,
-                resp=resp,
+            raise RuntimeError(
+                "%s: GSS_Init_sec_context failed with %s !"
+                % (self.mech.name, repr(status)),
             )
         elif self.mech == LDAP_BIND_MECHS.SASL_GSSAPI:
             # GSSAPI has 2 extra exchanges
@@ -2287,7 +2333,7 @@ class LDAP_Client(object):
                                 controlType="1.2.840.113556.1.4.319",
                                 criticality=True,
                                 controlValue=LDAP_realSearchControlValue(
-                                    size=200,  # paging to 200 per 200
+                                    size=100,  # paging to 100 per 100
                                     cookie=cookie,
                                 ),
                             )

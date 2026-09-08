@@ -388,7 +388,7 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                     self.session.out_pkt(
                         hdr
                         / cls(
-                            assoc_group_id=RandShort(),
+                            assoc_group_id=int(RandShort()),
                             sec_addr=DceRpc5PortAny(
                                 port_spec=port_spec,
                             ),

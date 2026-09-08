@@ -774,14 +774,14 @@ try:
 except Scapy_Exception:
     pass
 
-b = '\x01'
+b = b'\x01'
 try:
     p = MQTTSN(b)   # expect Scapy_Exception
     assert false
 except Scapy_Exception:
     pass
 
-b = '\x01\x02'
+b = b'\x01\x02'
 try:
     p = MQTTSN(b)   # expect Scapy_Exception
     assert false

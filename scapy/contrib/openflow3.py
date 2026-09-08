@@ -19,7 +19,7 @@ import copy
 import struct
 
 
-from scapy.compat import orb, raw
+from scapy.compat import raw
 from scapy.config import conf
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     FieldLenField, FlagsField, IntEnumField, IntField, IPField, \
@@ -579,7 +579,7 @@ class OXMPacketListField(PacketListField):
         return val
 
     def m2i(self, pkt, s):
-        t = orb(s[2])
+        t = s[2]
         nrm_t = t - t % 2
         if nrm_t not in self.index:
             self.index.append(nrm_t)
@@ -587,7 +587,7 @@ class OXMPacketListField(PacketListField):
 
     @staticmethod
     def _get_oxm_length(s):
-        return orb(s[3])
+        return s[3]
 
     def addfield(self, pkt, s, val):
         return s + b"".join(raw(x) for x in self.i2m(pkt, val))
@@ -623,7 +623,7 @@ class OXMID(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 2:
-            t = orb(_pkt[2])
+            t = _pkt[2]
             return ofp_oxm_id_cls.get(t, Raw)
         return Raw
 
@@ -692,20 +692,20 @@ class OpenFlow3(OpenFlow):
             # port 6653 has been allocated by IANA, port 6633 should no
             # longer be used
             # OpenFlow3 function may be called with None self in OFPPacketField
-            of_type = orb(_pkt[1])
+            of_type = _pkt[1]
             if of_type == 1:
-                err_type = orb(_pkt[9])
+                err_type = _pkt[9]
                 # err_type is a short int, but last byte is enough
                 if err_type == 255:
                     err_type = 65535
                 return ofp_error_cls[err_type]
             elif of_type == 18:
-                mp_type = orb(_pkt[9])
+                mp_type = _pkt[9]
                 if mp_type == 255:
                     mp_type = 65535
                 return ofp_multipart_request_cls[mp_type]
             elif of_type == 19:
-                mp_type = orb(_pkt[9])
+                mp_type = _pkt[9]
                 if mp_type == 255:
                     mp_type = 65535
                 return ofp_multipart_reply_cls[mp_type]

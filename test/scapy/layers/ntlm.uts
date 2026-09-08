@@ -135,12 +135,15 @@ class NTLMRandomPatcher:
 from scapy.layers.ntlm import NTLM_NEGOTIATE
 from scapy.layers.spnego import SPNEGO_negTokenInit, SPNEGO_negTokenResp, SPNEGO_Token, SPNEGO_negToken, SPNEGO_MechListMIC, SPNEGOSSP
 
-client = SPNEGOSSP([
-    NTLMSSP(
-        UPN="User1",
-        PASSWORD="Password1",
-    ),
-])
+client = SPNEGOSSP(
+    [
+        NTLMSSP(
+            UPN="User1",
+            PASSWORD="Password1",
+        ),
+    ],
+    SUPPORT_LATE_FALLBACK=False,
+)
 server = SPNEGOSSP([
     NTLMSSP(
         IDENTITIES={
@@ -186,8 +189,8 @@ assert ntlm_nego.NegotiateFlags.NEGOTIATE_UNICODE and ntlm_nego.NegotiateFlags.N
 assert ntlm_nego.NegotiateFlags == 0xe2898235
 assert ntlm_nego.ProductMajorVersion == 10
 assert ntlm_nego.ProductMinorVersion == 0
-assert ntlm_nego.ProductBuild == 19041
-assert bytes(ntlm_nego) == b'NTLMSSP\x00\x01\x00\x00\x005\x82\x89\xe2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n\x00aJ\x00\x00\x00\x0f'
+assert ntlm_nego.ProductBuild == 26100
+assert bytes(ntlm_nego) == b'NTLMSSP\x00\x01\x00\x00\x005\x82\x89\xe2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n\x00\xf4e\x00\x00\x00\x0f'
 
 = GSS_Accept_sec_context (SPNEGO_negTokenResp: NTLM_NEGOTIATE->NTLM_CHALLENGE)
 

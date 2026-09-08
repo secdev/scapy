@@ -19,7 +19,7 @@ Some IEs: 3GPP TS 24.008
 
 import struct
 
-from scapy.compat import chb, orb, bytes_encode
+from scapy.compat import chb, bytes_encode
 from scapy.config import conf
 from scapy.error import warning
 from scapy.fields import (
@@ -184,7 +184,7 @@ class TBCDByteField(StrFixedLenField):
     def m2i(self, pkt, val):
         ret = []
         for v in val:
-            byte = orb(v)
+            byte = v
             left = byte >> 4
             right = byte & 0xf
             if left == 0xf:
@@ -298,11 +298,11 @@ class GTPHeader(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 1:
-            if (orb(_pkt[0]) >> 5) & 0x7 == 2:
+            if (_pkt[0] >> 5) & 0x7 == 2:
                 from . import gtp_v2
                 return gtp_v2.GTPHeader
         if _pkt and len(_pkt) >= 8:
-            _gtp_type = orb(_pkt[1:2])
+            _gtp_type = _pkt[1]
             return GTPforcedTypes.get(_gtp_type, GTPHeader)
         return cls
 
@@ -323,7 +323,7 @@ class GTP_U_Header(GTPHeader):
             return GTPHeader.guess_payload_class(self, payload)
 
         if self.gtp_type == 255:
-            sub_proto = orb(payload[0])
+            sub_proto = payload[0]
             if sub_proto >= 0x45 and sub_proto <= 0x4e:
                 return IP
             elif (sub_proto & 0xf0) == 0x60:
@@ -426,7 +426,7 @@ class GTPPDUSessionContainer(Packet):
 
     def guess_payload_class(self, payload):
         if self.NextExtHdr == 0:
-            sub_proto = orb(payload[0])
+            sub_proto = payload[0]
             if sub_proto >= 0x45 and sub_proto <= 0x4e:
                 return IP
             elif (sub_proto & 0xf0) == 0x60:
@@ -610,7 +610,7 @@ class APNStrLenField(StrLenField):
         ret_s = b""
         tmp_s = s
         while tmp_s:
-            tmp_len = orb(tmp_s[0]) + 1
+            tmp_len = tmp_s[0] + 1
             if tmp_len > len(tmp_s):
                 warning("APN prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))  # noqa: E501
             ret_s += tmp_s[1:tmp_len]
@@ -956,7 +956,7 @@ def IE_Dispatcher(s):
     if len(s) < 1:
         return Raw(s)
     # Get the IE type
-    ietype = orb(s[0])
+    ietype = s[0]
     cls = ietypecls.get(ietype, Raw)
 
     # if ietype greater than 128 are TLVs

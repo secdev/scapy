@@ -480,3 +480,19 @@ with run_smbserver(readonly=False, encryptshare=True):
       raise
    finally:
       cli.close()
+
+
++ Windows-only SMB tests
+~ windows
+
+= smbclient: use WinSSP to connect to the loopback
+
+from scapy.arch.windows.sspi import WinSSP
+
+try:
+   cli = smbclient("127.0.0.1", ssp=WinSSP(), cli=False)
+   results = cli.shares()
+   print(results)
+   assert any(x[0] == "IPC$" for x in results)
+finally:
+   cli.close()

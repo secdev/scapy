@@ -15,9 +15,10 @@ SMB 1 / 2 Client Automaton
 import io
 import os
 import pathlib
+import re
 import socket
-import time
 import threading
+import time
 
 from scapy.automaton import ATMT, Automaton, ObjectPipe
 from scapy.config import conf
@@ -33,13 +34,17 @@ from scapy.volatile import RandUUID
 
 from scapy.layers.dcerpc import NDRUnion, find_dcerpc_interface
 from scapy.layers.gssapi import (
+    GSS_C_FLAGS,
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
-    GSS_C_FLAGS,
+    GSS_S_DEFECTIVE_TOKEN,
 )
 from scapy.layers.msrpce.raw.ms_srvs import (
     LPSHARE_ENUM_STRUCT,
+    NetrSessionEnum_Request,
     NetrShareEnum_Request,
+    PSESSION_ENUM_STRUCT,
+    SESSION_INFO_502_CONTAINER,
     SHARE_INFO_1_CONTAINER,
 )
 from scapy.layers.ntlm import (
@@ -75,6 +80,7 @@ from scapy.layers.smb2 import (
     SMB2_ENCRYPTION_CIPHERS,
     SMB2_Encryption_Capabilities,
     SMB2_Error_Response,
+    SMB2_FILEID,
     SMB2_Header,
     SMB2_IOCTL_Request,
     SMB2_IOCTL_Response,
@@ -220,7 +226,12 @@ class SMB_Client(Automaton):
                     Length = len(pkt.payload.Data)
                 elif typ == SMB2_IOCTL_Request:
                     # [MS-SMB2] 3.3.5.15
-                    Length = max(len(pkt.payload.Input), pkt.payload.MaxOutputResponse)
+                    try:
+                        Length = max(
+                            len(pkt.payload.Input), pkt.payload.MaxOutputResponse
+                        )
+                    except AttributeError:
+                        Length = 0
                 elif typ in [
                     SMB2_Query_Directory_Request,
                     SMB2_Change_Notify_Request,
@@ -238,7 +249,7 @@ class SMB_Client(Automaton):
             # [MS-SMB2] note <110>
             # "The Windows-based client will request credits up to a configurable
             # maximum of 128 by default."
-            pkt.CreditRequest = self.MaxCreditCount - self.CurrentCreditCount
+            pkt.CreditRequest = max(self.MaxCreditCount - self.CurrentCreditCount, 0)
         # Get first available message ID: [MS-SMB2] 3.2.4.1.3 and 3.2.4.1.5
         pkt.MID = self.SequenceWindow[0]
         return super(SMB_Client, self).send(pkt)
@@ -432,7 +443,8 @@ class SMB_Client(Automaton):
                     if self.REQUIRE_ENCRYPTION and not self.session.SupportsEncryption:
                         self.ErrorStatus = "NEGOTIATE FAILURE: encryption."
                         raise self.NEGO_FAILED()
-                self.update_smbheader(pkt)
+                if self.SMB2:
+                    self.update_smbheader(pkt)
                 raise self.NEGOTIATED(ssp_blob)
         elif SMBNegotiate_Response_Security in pkt:
             # Non-extended SMB1
@@ -482,10 +494,20 @@ class SMB_Client(Automaton):
     # DEV: add a condition on NEGOTIATED with prio=0
 
     @ATMT.condition(NEGOTIATED, prio=1)
+    def should_retry_without_blob(self, ssp_tuple):
+        _, _, status = ssp_tuple
+        if status == GSS_S_DEFECTIVE_TOKEN:
+            # Token was defective. This could be that we passed a SPNEGO initial token
+            # to a NTLM SSP (not using SPNEGO). Retry using no input blob
+            raise self.NEGOTIATED()
+
+    @ATMT.condition(NEGOTIATED, prio=2)
     def should_send_session_setup_request(self, ssp_tuple):
         _, _, status = ssp_tuple
         if status not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
-            raise ValueError("Internal error: the SSP completed with an error.")
+            raise ValueError(
+                "Internal error: the SSP completed with error: %s" % status
+            )
         raise self.SENT_SESSION_REQUEST().action_parameters(ssp_tuple)
 
     @ATMT.state()
@@ -619,7 +641,9 @@ class SMB_Client(Automaton):
             target_name="cifs/" + self.HOST if self.HOST else None,
         )
         if status != GSS_S_COMPLETE:
-            raise ValueError("Internal error: the SSP completed with an error.")
+            raise ValueError(
+                "Internal error: the SSP completed with error: %s" % status
+            )
         # Authentication was successful
         self.session.computeSMBSessionKeys(IsClient=True)
 
@@ -738,6 +762,7 @@ class SMB_SOCKET(SuperSocket):
                     )
                 ]
             ),
+            chainCC=True,
             verbose=False,
             timeout=self.timeout,
         )
@@ -761,6 +786,7 @@ class SMB_SOCKET(SuperSocket):
             SMB2_Tree_Disconnect_Request(),
             verbose=False,
             timeout=self.timeout,
+            chainCC=True,
         )
         if not resp:
             raise ValueError("TreeDisconnect timed out !")
@@ -873,6 +899,7 @@ class SMB_SOCKET(SuperSocket):
                 RequestedOplockLevel=RequestedOplockLevel,
                 Name=name,
             ),
+            chainCC=True,
             verbose=0,
             timeout=self.timeout,
         )
@@ -887,7 +914,7 @@ class SMB_SOCKET(SuperSocket):
         Close the FileId
         """
         pkt = SMB2_Close_Request(FileId=FileId)
-        resp = self.ins.sr1(pkt, verbose=0, timeout=self.timeout)
+        resp = self.ins.sr1(pkt, verbose=0, timeout=self.timeout, chainCC=True)
         if not resp:
             raise ValueError("CloseRequest timed out !")
         if SMB2_Close_Response not in resp:
@@ -903,6 +930,7 @@ class SMB_SOCKET(SuperSocket):
                 Length=Length,
                 Offset=Offset,
             ),
+            chainCC=True,
             verbose=0,
             timeout=self.timeout * 10,
         )
@@ -922,6 +950,7 @@ class SMB_SOCKET(SuperSocket):
                 Data=Data,
                 Offset=Offset,
             ),
+            chainCC=True,
             verbose=0,
             timeout=self.timeout * 10,
         )
@@ -944,7 +973,7 @@ class SMB_SOCKET(SuperSocket):
                 FileName=FileName,
                 Flags=Flags,
             )
-            resp = self.ins.sr1(pkt, verbose=0, timeout=self.timeout)
+            resp = self.ins.sr1(pkt, verbose=0, timeout=self.timeout, chainCC=True)
             Flags = 0  # only the first one is RESTART_SCANS
             if not resp:
                 raise ValueError("QueryDirectory timed out !")
@@ -977,11 +1006,29 @@ class SMB_SOCKET(SuperSocket):
             FileId=FileId,
             AdditionalInformation=AdditionalInformation,
         )
-        resp = self.ins.sr1(pkt, verbose=0, timeout=self.timeout)
+        resp = self.ins.sr1(pkt, verbose=0, timeout=self.timeout, chainCC=True)
         if not resp:
             raise ValueError("QueryInfo timed out !")
         if SMB2_Query_Info_Response not in resp:
             raise ValueError("Failed QueryInfo ! %s" % resp.NTStatus)
+        return resp.Output
+
+    def ioctl(self, CtlCode, Flags="SMB2_0_IOCTL_IS_FSCTL", Input=None):
+        """
+        Perform an IOCTL
+        """
+        pkt = SMB2_IOCTL_Request(
+            FileId=SMB2_FILEID(
+                Persistent=0xFFFFFFFFFFFFFFFF, Volatile=0xFFFFFFFFFFFFFFFF
+            ),
+            Flags=Flags,
+            CtlCode=CtlCode,
+        )
+        if Input is not None:
+            pkt.Input = bytes(Input)
+        resp = self.ins.sr1(pkt, verbose=0, chainCC=True)
+        if SMB2_IOCTL_Response not in resp:
+            raise ValueError("Failed reading IOCTL_Response ! %s" % resp.NTStatus)
         return resp.Output
 
     def changenotify(self, FileId):
@@ -1022,16 +1069,16 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
         self.close_request(self.PipeFileId)
         self.PipeFileId = None
 
-    def send(self, x):
-        """
-        Internal ObjectPipe function.
-        """
-        # Reminder: this class is an ObjectPipe, it's just a queue.
+    def send(self, x, is_sr1=True):
+        # Reminder: this class is an ObjectPipe ! It doesn't act as a real socket
+        # but just a queue. When someone calls the "send" function, they pipe
+        # some data that we must send, and tell us if they expect an answer through
+        # the is_sr1 flag.
 
         # Detect if DCE/RPC is fragmented. Then we must use Read/Write
         is_frag = x.pfc_flags & 3 != 3
 
-        if self.use_ioctl and not is_frag and self.session.Dialect >= 0x0210:
+        if self.use_ioctl and is_sr1 and not is_frag and self.session.Dialect >= 0x0210:
             # Use IOCTLRequest
             pkt = SMB2_IOCTL_Request(
                 FileId=self.PipeFileId,
@@ -1039,11 +1086,12 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
                 CtlCode="FSCTL_PIPE_TRANSCEIVE",
             )
             pkt.Input = bytes(x)
-            resp = self.ins.sr1(pkt, verbose=0)
+            resp = self.ins.sr1(pkt, verbose=0, chainCC=True)
             if SMB2_IOCTL_Response not in resp:
                 raise ValueError("Failed reading IOCTL_Response ! %s" % resp.NTStatus)
             data = bytes(resp.Output)
             super(SMB_RPC_SOCKET, self).send(data)
+
             # Handle BUFFER_OVERFLOW (big DCE/RPC response)
             while resp.NTStatus == "STATUS_BUFFER_OVERFLOW" or data[3] & 2 != 2:
                 # Retrieve DCE/RPC full size
@@ -1065,9 +1113,15 @@ class SMB_RPC_SOCKET(ObjectPipe, SMB_SOCKET):
             resp = self.ins.sr1(pkt, verbose=0)
             if SMB2_Write_Response not in resp:
                 raise ValueError("Failed sending WriteResponse ! %s" % resp.NTStatus)
+
+            # We may not be expecting an answer
+            if not is_sr1:
+                return
+
             # If fragmented, only read if it's the last.
             if is_frag and not x.pfc_flags.PFC_LAST_FRAG:
                 return
+
             # We send a Read Request afterwards
             resp = self.ins.sr1(
                 SMB2_Read_Request(
@@ -1109,6 +1163,10 @@ class smbclient(CLIUtil):
     :param HashNt: if provided, used for auth (NTLM)
     :param HashAes256Sha96: if provided, used for auth (Kerberos)
     :param HashAes128Sha96: if provided, used for auth (Kerberos)
+    :param use_krb5ccname: (bool) if true, the KRB5CCNAME environment variable will
+                            be used if available.
+    :param use_winssp: (bool) (only works on Windows). Use implicit authentication
+                        through WinSSP.
     :param ST: if provided, the service ticket to use (Kerberos)
     :param KEY: if provided, the session key associated to the ticket (Kerberos)
     :param cli: CLI mode (default True). False to use for scripting
@@ -1130,6 +1188,7 @@ class smbclient(CLIUtil):
         HashAes256Sha96: bytes = None,
         HashAes128Sha96: bytes = None,
         use_krb5ccname: bool = False,
+        use_winssp: bool = False,
         port: int = 445,
         timeout: int = 5,
         debug: int = 0,
@@ -1143,7 +1202,9 @@ class smbclient(CLIUtil):
     ):
         if cli:
             self._depcheck()
-        assert UPN or ssp or guest, "Either UPN, ssp or guest must be provided !"
+        assert (
+            UPN or ssp or guest or use_winssp
+        ), "Either UPN, ssp or guest must be provided !"
         # Do we need to build a SSP?
         if ssp is None:
             # Create the SSP (only if not guest mode)
@@ -1159,6 +1220,7 @@ class smbclient(CLIUtil):
                     KEY=KEY,
                     kerberos_required=kerberos_required,
                     use_krb5ccname=use_krb5ccname,
+                    use_winssp=use_winssp,
                 )
             else:
                 # Guest mode
@@ -1632,6 +1694,35 @@ class smbclient(CLIUtil):
         self.smbsock.close_request(fileId)
         return offset
 
+    def _listr(self, directory, regx=None, max_depth=None, depth=0, _verb=True):
+        """
+        Internal recursive function that yields the remote files
+        """
+        if max_depth is not None and depth > max_depth:
+            return
+        for x in self.ls(parent=directory):
+            if x[0] in [".", ".."]:
+                # Discard . and ..
+                continue
+            remote = directory / x[0]
+            try:
+                if x[1].FILE_ATTRIBUTE_DIRECTORY:
+                    # Sub-directory
+                    yield from self._listr(
+                        remote,
+                        regx=regx,
+                        depth=depth + 1,
+                        max_depth=max_depth,
+                        _verb=_verb,
+                    )
+                else:
+                    # Sub-file
+                    if regx is None or regx.match(str(remote)):
+                        yield remote
+            except ValueError as ex:
+                if _verb:
+                    print(conf.color_theme.red(directory), "->", str(ex))
+
     def _getr(self, directory, _root, _verb=True):
         """
         Internal recursive function to get a directory
@@ -1683,6 +1774,8 @@ class smbclient(CLIUtil):
             # Write the buffer
             if _dest is None:
                 _dest = self.localpwd / fname
+            if not _dest.parent.exists():
+                _dest.parent.mkdir()
             with _dest.open("wb") as fd:
                 size = self._get_file(file, fd)
             return fname, size
@@ -1702,6 +1795,103 @@ class smbclient(CLIUtil):
         if self._require_share(silent=True):
             return []
         return self._fs_complete(file)
+
+    @CLIUtil.addcommand()
+    def tree(self, regx: str = None, max_depth=None):
+        """
+        Show the tree of files from the current directory
+        """
+        if self._require_share():
+            return
+        if regx is not None:
+            regx = re.compile(regx)
+        if max_depth is not None:
+            max_depth = int(max_depth)
+        return self._listr(self.pwd, regx=regx, max_depth=max_depth)
+
+    @CLIUtil.addoutput(tree)
+    def tree_output(self, result):
+        """
+        Print the output of 'tree'
+        """
+        if self._require_share(silent=True):
+            return
+        for file in result:
+            print(str(file), flush=True)
+
+    @CLIUtil.addcommand()
+    def server(self, command):
+        """
+        Get information about the remote server
+        """
+        if command == "network":
+            # We get the list of interfaces
+            if self._require_share():
+                return
+            resp = self.smbsock.ioctl(CtlCode="FSCTL_QUERY_NETWORK_INTERFACE_INFO")
+            return (command, resp)
+        elif command == "sessions":
+            # We get the list of active connections via RPC
+            self.rpcclient.open_smbpipe("srvsvc")
+            self.rpcclient.bind(find_dcerpc_interface("srvsvc"))
+            ResumeHandle = None
+            results = []
+            while True:
+                req = NetrSessionEnum_Request(
+                    ClientName=None,
+                    UserName=None,
+                    InfoStruct=PSESSION_ENUM_STRUCT(
+                        Level=502,
+                        SessionInfo=NDRUnion(
+                            tag=502,
+                            value=SESSION_INFO_502_CONTAINER(Buffer=None),
+                        ),
+                    ),
+                    PreferedMaximumLength=0xFFFFFFFF,
+                    ResumeHandle=ResumeHandle,
+                )
+                resp = self.rpcclient.sr1_req(req, timeout=self.timeout)
+                resp.show()
+                ResumeHandle = resp.ResumeHandle
+                if resp.status in [0, 0x000000EA]:  # ERROR_SUCCESS / ERROR_MORE_DATA
+                    results.extend(resp.valueof("InfoStruct.SessionInfo.Buffer"))
+                    if resp.status == 0:
+                        break
+                else:
+                    break
+            self.rpcclient.close_smbpipe()
+            return (command, results)
+        else:
+            raise ValueError("Unknown server command: %s" % command)
+
+    @CLIUtil.addoutput(server)
+    def server_output(self, result):
+        """
+        Print the output of 'server'
+        """
+        command, result = result
+        if command == "network":
+            # Show the various interfaces, their IP and capabilities
+            result.interfaces = [x for x in result.interfaces if x.IfIndex != 0]
+            result.show()
+        elif command == "sessions":
+            # Show the list of active sessions
+            for sess in result:
+                print("- cname:", sess.valueof("sesi502_cname"))
+                print("  username:", sess.valueof("sesi502_username"))
+                print("  num_opens:", sess.valueof("sesi502_num_opens"))
+                print("  time:", sess.valueof("sesi502_time"))
+                print("  idle_time:", sess.valueof("sesi502_idle_time"))
+                print("  user_flags:", sess.valueof("sesi502_user_flags"))
+                print("  cltype_name:", sess.valueof("sesi502_cltype_name"))
+                print("  transport:", sess.valueof("sesi502_transport"))
+
+    @CLIUtil.addcomplete(server)
+    def server_complete(self, line):
+        """
+        Auto-complete server
+        """
+        return ["network", "sessions"]
 
     @CLIUtil.addcommand(mono=True, globsupport=True)
     def cat(self, file):

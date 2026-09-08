@@ -8,7 +8,6 @@
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitField, ByteField, XByteField, ShortField, XStrFixedLenField  # noqa: E501
 from scapy.contrib.slowprot import SlowProtocol
-from scapy.compat import orb
 
 
 class ESMC(Packet):
@@ -23,9 +22,9 @@ class ESMC(Packet):
     ]
 
     def guess_payload_class(self, payload):
-        if orb(payload[0]) == 1:
+        if payload[0] == 1:
             return QLTLV
-        if orb(payload[0]) == 2:
+        if payload[0] == 2:
             return EQLTLV
         return Packet.guess_payload_class(self, payload)
 

@@ -10,8 +10,8 @@ import os
 import glob
 import subprocess
 import re
-import time
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from scapy.consts import WINDOWS, OPENBSD
 
 # DEV: to add your file to this list, make sure you have
@@ -49,46 +49,19 @@ ALL_FILES = [
 
 NB_PROC = 1 if WINDOWS or OPENBSD else 4
 
-def append_processes(processes, filename):
-    processes.append(
-        (subprocess.Popen(
-            [sys.executable, "-c", "import %s" % filename],
-            stderr=subprocess.PIPE, encoding="utf8"),
-         time.time(),
-         filename))
-
-def check_processes(processes):
-    for i, tup in enumerate(processes):
-        proc, start_ts, file = tup
-        errs = ""
-        try:
-            _, errs = proc.communicate(timeout=0.5)
-        except subprocess.TimeoutExpired:
-            if time.time() - start_ts > 30:
-                proc.kill()
-                errs = "Timed out (>30s)!"
-        if proc.returncode is None:
-            continue
-        else:
-            print("Finished %s with %d after %f sec" %
-                  (file, proc.returncode, time.time() - start_ts))
-            if proc.returncode != 0:
-                for p in processes:
-                    p[0].kill()
-                raise Exception(
-                    "Importing the file '%s' failed !\\n%s" % (file, errs))
-            del processes[i]
-            return
-
-
 def import_all(FILES):
-    processes = list()
-    while len(processes) == NB_PROC:
-        check_processes(processes)
-    for filename in FILES:
-        check_processes(processes)
-        if len(processes) < NB_PROC:
-            append_processes(processes, filename)
+    with ThreadPoolExecutor(max_workers=NB_PROC) as executor:
+        futures = {
+            executor.submit(subprocess.run,
+                [sys.executable, "-c", "import %s" % f],
+                stderr=subprocess.PIPE, encoding="utf8", timeout=30): f
+            for f in FILES
+        }
+        for future in as_completed(futures):
+            result = future.result()
+            if result.returncode != 0:
+                raise Exception(
+                    "Importing the file '%s' failed !\n%s" % (futures[future], result.stderr))
 
 
 = Try importing all core separately
@@ -102,3 +75,20 @@ import_all(x for x in ALL_FILES if "layers" in x)
 = Try importing all contribs separately
 
 import_all(x for x in ALL_FILES if "contrib" in x)
+
+= Verify no module modifies conf.debug_dissector on import
+
+with ThreadPoolExecutor(max_workers=NB_PROC) as _executor:
+    _futures = {
+        _executor.submit(subprocess.run,
+            [sys.executable, "-c",
+             "import %s; from scapy.config import conf; "
+             "assert not conf.debug_dissector, "
+             "'%s set conf.debug_dissector as a side-effect'" % (f, f)],
+            stderr=subprocess.PIPE, encoding="utf8", timeout=30): f
+        for f in ALL_FILES
+    }
+    for _future in as_completed(_futures):
+        _result = _future.result()
+        assert _result.returncode == 0, \
+            "%s set conf.debug_dissector as a side-effect\n%s" % (_futures[_future], _result.stderr)

@@ -1031,3 +1031,127 @@ assert b[22:] == b'ABCDEFGHIJKLMNOP'
 r = OBD(b'\x09\x02\x04')
 assert p.answers(r)
 
+
++ Single layer OBD mode
+
+= Single layer mode: enable and basic dissect
+
+conf.contribs['OBD']['single_layer_mode'] = True
+
+s01 = OBD(b'\x01\x0c')
+assert isinstance(s01, OBD_S01), "Expected OBD_S01, got %s" % type(s01)
+assert s01.service == 0x01
+
+= Single layer mode: build OBD_S01
+
+s01_built = OBD_S01(pid=[0x0c])
+assert bytes(s01_built) == b'\x01\x0c', "Expected b'\\x01\\x0c', got %s" % bytes(s01_built).hex()
+
+= Single layer mode: dissect positive response
+
+s01pr = OBD(b'\x41\x0c\x0f\xa0')
+assert isinstance(s01pr, OBD_S01_PR), "Expected OBD_S01_PR, got %s" % type(s01pr)
+assert s01pr.service == 0x41
+
+= Single layer mode: NegativeResponse dissect
+
+nr = OBD(b'\x7f\x01\x22')
+assert isinstance(nr, OBD_NR), "Expected OBD_NR, got %s" % type(nr)
+assert nr.service == 0x7f
+assert nr.request_service_id == 0x01
+assert nr.response_code == 0x22
+
+= Single layer mode: NegativeResponse answers()
+
+s01_2 = OBD_S01(pid=[0x0c])
+nr2 = OBD_NR(request_service_id=0x01, response_code=0x22)
+assert nr2.answers(s01_2)
+
+= Single layer mode: hashret consistency between request and positive response
+
+s09 = OBD_S09(iid=[0x02])
+s09pr = OBD_S09_PR()
+assert s09.hashret() == s09pr.hashret(), \
+    "hashret mismatch: %s vs %s" % (s09.hashret().hex(), s09pr.hashret().hex())
+
+= Single layer mode: unknown service falls back to OBD
+
+unknown = OBD(b'\xBB\x01\x02')
+assert isinstance(unknown, OBD), "Expected OBD fallback, got %s" % type(unknown)
+
+= Single layer mode: switch back to multi-layer mode
+
+conf.contribs['OBD']['single_layer_mode'] = False
+
+s01_3 = OBD(b'\x01\x0c')
+assert s01_3.__class__ == OBD
+assert s01_3.service == 0x01
+assert isinstance(s01_3[OBD_S01], OBD_S01)
+
+= Single layer mode: cleanup
+
+conf.contribs['OBD']['single_layer_mode'] = False
+assert not conf.contribs['OBD']['single_layer_mode']
+
++ Compatibility mode OBD
+
+= Compatibility mode: setup - enable both SLM and compat mode (default)
+
+conf.contribs['OBD']['single_layer_mode'] = True
+conf.contribs['OBD']['compatibility_mode'] = True
+
+= Compatibility mode ON + SLM ON: standalone sub-packet has service field
+
+s01_sa = OBD_S01(pid=[0x0c])
+assert bytes(s01_sa)[0:1] == b'\x01', \
+    "Standalone OBD_S01 should include service byte 0x01, got %s" % bytes(s01_sa).hex()
+
+= Compatibility mode ON + SLM ON: stacked sub-packet suppresses its service field
+
+stacked = OBD() / OBD_S01(pid=[0x0c])
+stacked_bytes = bytes(stacked)
+assert stacked_bytes[0:1] == b'\x01', \
+    "Stacked OBD/OBD_S01 first byte should be 0x01 (OBD service), got %s" % stacked_bytes.hex()
+assert stacked_bytes[1:2] != b'\x01', \
+    "No duplicate service byte expected, got %s" % stacked_bytes.hex()
+assert len(stacked_bytes) == 2, \
+    "Stacked OBD/OBD_S01(pid=[0x0c]) should be 2 bytes, got %s" % stacked_bytes.hex()
+
+= Compatibility mode ON + SLM ON: dissect standalone still works
+
+s01_dis = OBD(b'\x01\x0c')
+assert isinstance(s01_dis, OBD_S01)
+
+= Compatibility mode OFF + SLM ON: stacked sub-packet always emits service field
+
+conf.contribs['OBD']['compatibility_mode'] = False
+
+stacked_nc = OBD() / OBD_S01(pid=[0x0c])
+stacked_nc_bytes = bytes(stacked_nc)
+assert len(stacked_nc_bytes) == 3, \
+    "With compat OFF, stacked OBD/OBD_S01 should produce 3 bytes (duplicate service), got %s" % stacked_nc_bytes.hex()
+assert stacked_nc_bytes[0:1] == b'\x01' and stacked_nc_bytes[1:2] == b'\x01', \
+    "With compat OFF, first two bytes should both be service 0x01, got %s" % stacked_nc_bytes.hex()
+
+= Compatibility mode OFF + SLM ON: standalone sub-packet also has service field
+
+s01_nc = OBD_S01(pid=[0x0c])
+assert bytes(s01_nc)[0:1] == b'\x01', \
+    "Standalone OBD_S01 should include service byte even with compat OFF"
+
+= Compatibility mode: SLM OFF overrides compat mode - no service field in sub-packet
+
+conf.contribs['OBD']['single_layer_mode'] = False
+conf.contribs['OBD']['compatibility_mode'] = False
+
+stacked_slm_off = OBD() / OBD_S01(pid=[0x0c])
+slm_off_bytes = bytes(stacked_slm_off)
+assert len(slm_off_bytes) == 2, \
+    "With SLM OFF, no service field in OBD_S01 regardless of compat mode, got %s" % slm_off_bytes.hex()
+
+= Compatibility mode: cleanup
+
+conf.contribs['OBD']['single_layer_mode'] = False
+conf.contribs['OBD']['compatibility_mode'] = True
+assert not conf.contribs['OBD']['single_layer_mode']
+assert conf.contribs['OBD']['compatibility_mode']

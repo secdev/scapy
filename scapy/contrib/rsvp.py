@@ -12,7 +12,7 @@ RSVP layer
 from scapy.compat import chb
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
-    IPField, ShortField, StrLenField, XByteField, XShortField
+    IPField, IntField, ShortField, StrLenField, XByteField, XShortField
 from scapy.layers.inet import IP, checksum
 
 rsvpmsgtypes = {0x01: "Path",
@@ -26,6 +26,9 @@ rsvpmsgtypes = {0x01: "Path",
 
 
 class RSVP(Packet):
+    """Common RSVP message header. The header is followed by this message's objects,
+    which chains to further RSVP_Object instances, forming the sequence of RSVP objects.
+    """
     name = "RSVP"
     fields_desc = [BitField("Version", 1, 4),
                    BitField("Flags", 1, 4),
@@ -36,6 +39,9 @@ class RSVP(Packet):
                    ShortField("Length", None)]
 
     def post_build(self, p, pay):
+        """Append payload bytes to the header, and patch in Length/checksum if unset.
+        Returns the fully packet message bytes.
+        """
         p += pay
         if self.Length is None:
             tmp_len = len(p)
@@ -47,7 +53,7 @@ class RSVP(Packet):
         return p
 
 
-rsvptypes = {0x01: "Session",
+rsvptypes = {0x01: "SESSION",
              0x03: "HOP",
              0x04: "INTEGRITY",
              0x05: "TIME_VALUES",
@@ -126,13 +132,22 @@ rsvptypes = {0x01: "Session",
 
 
 class RSVP_Object(Packet):
+    """Common RSVP object header. Followed by exactly one RSVP object data structure,
+    Dissection naturally chains into the next object if more bytes remain.
+    """
     name = "RSVP_Object"
     fields_desc = [ShortField("Length", 4),
                    ByteEnumField("Class", 0x01, rsvptypes),
                    ByteField("C_Type", 1)]
 
     def guess_payload_class(self, payload):
-        if self.Class == 0x03:
+        """Pick the data class to dissect based on Class.
+        Falls back to a generic container.
+        """
+        if self.Class == 0x01:
+            if self.C_Type == 0x07:
+                return RSVP_SESSION
+        elif self.Class == 0x03:
             return RSVP_HOP
         elif self.Class == 0x05:
             return RSVP_Time
@@ -147,49 +162,95 @@ class RSVP_Object(Packet):
 
 
 class RSVP_Data(Packet):
+    """Defines a generic/unknown RSVP object data structure for any Class value
+    that doesn't have a dedicated class implemented yet.
+    """
     name = "Data"
     overload_fields = {RSVP_Object: {"Class": 0x01}}
-    fields_desc = [StrLenField("Data", "", length_from=lambda pkt:pkt.underlayer.Length - 4)]  # noqa: E501
+    fields_desc = [
+        StrLenField(
+            "Data",
+            "",
+            length_from=lambda pkt: pkt.underlayer.Length - 4
+        ),
+    ]
+
+    def default_payload_class(self, payload):
+        return RSVP_Object
+
+
+class RSVP_SESSION(Packet):
+    """SESSION LSP_TUNNEL_IPV4 object data structure, RFC 3209 section 4.6.1.1.
+    Identifies the session for which this message is sent.
+    """
+    name = "SESSION"
+    overload_fields = {RSVP_Object: {"Class": 0x01, "C_Type": 0x07}}
+    fields_desc = [IPField("dest_addr", "0.0.0.0"),
+                   ShortField("reserved", 0),
+                   ShortField("tunnel_id", 0),
+                   IPField("ext_tunnel_id", "0.0.0.0")]
 
     def default_payload_class(self, payload):
         return RSVP_Object
 
 
 class RSVP_HOP(Packet):
+    """RSVP_HOP object data structure, RFC 2205 section A.2.
+    Identifies the IP address and the Logical Interface Handle (LIH)
+    of the interface this message was sent from.
+    """
     name = "HOP"
     overload_fields = {RSVP_Object: {"Class": 0x03}}
     fields_desc = [IPField("neighbor", "0.0.0.0"),
-                   BitField("inface", 1, 32)]
+                   IntField("inface", 1)]
 
     def default_payload_class(self, payload):
         return RSVP_Object
 
 
 class RSVP_Time(Packet):
+    """TIME_VALUES object RFC 2205 section A.4.
+    Carries the refresh period a sender will use to resend PATH/RESV messages,
+    which the receiver can use to determine when to tear down
+    the reservation if no further messages are received.
+    """
     name = "Time Val"
     overload_fields = {RSVP_Object: {"Class": 0x05}}
-    fields_desc = [BitField("refresh", 1, 32)]
+    fields_desc = [IntField("refresh", 1)]
 
     def default_payload_class(self, payload):
         return RSVP_Object
 
 
 class RSVP_SenderTSPEC(Packet):
+    """SENDER_TSPEC object RFC 2210 section 3.1.
+    Carries the sender's traffic specification for the reservation.
+    """
     name = "Sender_TSPEC"
     overload_fields = {RSVP_Object: {"Class": 0x0c}}
-    fields_desc = [ByteField("Msg_Format", 0),
-                   ByteField("reserve", 0),
-                   ShortField("Data_Length", 4),
-                   ByteField("Srv_hdr", 1),
-                   ByteField("reserve2", 0),
-                   ShortField("Srv_Length", 4),
-                   StrLenField("Tokens", "", length_from=lambda pkt:pkt.underlayer.Length - 12)]  # noqa: E501
+    fields_desc = [
+        ByteField("Msg_Format", 0),
+        ByteField("reserve", 0),
+        ShortField("Data_Length", 4),
+        ByteField("Srv_hdr", 1),
+        ByteField("reserve2", 0),
+        ShortField("Srv_Length", 4),
+        StrLenField(
+            "Tokens",
+            "",
+            length_from=lambda pkt: pkt.underlayer.Length - 12
+        ),
+    ]
 
     def default_payload_class(self, payload):
         return RSVP_Object
 
 
 class RSVP_LabelReq(Packet):
+    """LABEL_REQUEST object RFC 3209 section 4.2.
+    Requests that a label be allocated for this LSP, and indicates
+    which layer 3 protocol the label will carry.
+    """
     name = "Label Req"
     overload_fields = {RSVP_Object: {"Class": 0x13}}
     fields_desc = [ShortField("reserve", 1),
@@ -200,18 +261,29 @@ class RSVP_LabelReq(Packet):
 
 
 class RSVP_SessionAttrb(Packet):
+    """SESSION_ATTRIBUTE object RFC 3209 section 4.7.
+    Carries session data, mainly used for setup/recovery
+    priority and human readable session name.
+    """
     name = "Session_Attribute"
     overload_fields = {RSVP_Object: {"Class": 0xCF}}
-    fields_desc = [ByteField("Setup_priority", 1),
-                   ByteField("Hold_priority", 1),
-                   ByteField("flags", 1),
-                   FieldLenField("Name_length", None, length_of="Name"),
-                   StrLenField("Name", "", length_from=lambda pkt:pkt.Name_length),  # noqa: E501
-                   ]
+    fields_desc = [
+        ByteField("Setup_priority", 1),
+        ByteField("Hold_priority", 1),
+        ByteField("flags", 1),
+        FieldLenField("Name_length", None, length_of="Name"),
+        StrLenField(
+            "Name",
+            "",
+            length_from=lambda pkt: pkt.Name_length
+        ),
+    ]
 
     def default_payload_class(self, payload):
         return RSVP_Object
 
 
+# Decode IP packets with protocol number 46 as RSVP packets,
+# and RSVP packets as RSVP_Object packets.
 bind_layers(IP, RSVP, {"proto": 46})
 bind_layers(RSVP, RSVP_Object)

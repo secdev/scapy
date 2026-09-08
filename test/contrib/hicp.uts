@@ -75,6 +75,10 @@ assert(pkt.target == "aa:aa:aa:aa:aa:aa")
 assert(pkt.ip_address == "255.255.255.255")
 assert(pkt.hostname == b"llama")
 
+= Keep a later value delimiter out of the target field
+pkt = HICP(b"Configure: aa-aa-aa-aa-aa-aa;HN = llama: one;\x00")
+assert(pkt.target == "aa:aa:aa:aa:aa:aa")
+
 + HICP Configure response
 = Build and dissect successful response to configure request
 

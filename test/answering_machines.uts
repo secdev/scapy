@@ -137,6 +137,18 @@ assert DNS_am().make_reply(
     Ether()/IP()/UDP()/DNS(b'q\xa04\x00\x00\xa0\x01\x00\xf3\x00\x01\x04\x01y')
 ) is None
 
+def check_DNS_am_unknown_names_not_cached(qtypes):
+    am = DNS_am(joker=False)
+    for i, qtype in enumerate(qtypes):
+        am.make_reply(
+            Ether()/IP()/UDP()/DNS(
+                qd=DNSQR(qname="unknown-%d.example" % i, qtype=qtype)
+            )
+        )
+    assert not am.match
+
+check_DNS_am_unknown_names_not_cached(("A", "AAAA"))
+
 = LLMNR_am
 def check_LLMNR_am_am_reply(packet):
     # assert packet[Ether].src == get_if_hwaddr(conf.iface)
@@ -340,6 +352,15 @@ test_am(LdapPing_am,
 
 + Radius_am
 ~ crypto
+
+= Radius_am - Validate request Message-Authenticator
+
+request = Ether(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00Z\x00\x8e\x00\x00@\x11|\x03\x7f\x00\x00\x01\x7f\x00\x00\x01\x9f<\x07\x14\x00F\xfeY\x01\xfb\x00>s0\x00\x13\x86x\xd7\x11\xc4\x9e\xe1=\xce&r<P\x12\xbfL!\xb2\xd5WP!\xa8)}\tYZ&*\x01\x06user\x02\x12\x8f\x00\x8e\xdb4\xb1\x1a\xaf\x1f\xc7[\x9aD\xfff\xbd')
+server = Radius_am(secret="SECRET", IDENTITIES={"user": "password"})
+assert server.make_reply(request)[Radius].code == 2
+mauth = request[RadiusAttr_Message_Authenticator]
+mauth.value = bytes([mauth.value[0] ^ 1]) + mauth.value[1:]
+assert server.make_reply(Ether(bytes(request))) is None
 
 = Radius_am PAP - Test Access-Success
 

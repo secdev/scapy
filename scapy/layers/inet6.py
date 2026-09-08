@@ -21,7 +21,7 @@ from time import gmtime, strftime
 from scapy.arch import get_if_hwaddr
 from scapy.as_resolvers import AS_resolver_riswhois
 from scapy.base_classes import Gen, _ScopedIP
-from scapy.compat import chb, orb, raw, plain_str, bytes_encode
+from scapy.compat import chb, raw, plain_str, bytes_encode
 from scapy.consts import WINDOWS, OPENBSD
 from scapy.config import conf
 from scapy.data import (
@@ -168,7 +168,8 @@ def getmacbyip6(ip6, chainCC=0):
         mac = in6_getnsmac(inet_pton(socket.AF_INET6, ip6))
         return mac
 
-    iff, a, nh = conf.route6.route(ip6)
+    scope = ip6.scope if isinstance(ip6, _ScopedIP) else None
+    iff, a, nh = conf.route6.route(ip6, dev=scope)
 
     if iff == conf.loopback_name:
         return "ff:ff:ff:ff:ff:ff"
@@ -176,7 +177,9 @@ def getmacbyip6(ip6, chainCC=0):
     if nh != '::':
         ip6 = nh  # Found next hop
 
-    mac = conf.netcache.in6_neighbor.get(ip6)
+    cache_key = "%s%%%s" % (ip6, iff) if scope is not None else ip6
+
+    mac = conf.netcache.in6_neighbor.get(cache_key)
     if mac:
         return mac
 
@@ -187,7 +190,7 @@ def getmacbyip6(ip6, chainCC=0):
             mac = res[ICMPv6NDOptDstLLAddr].lladdr
         else:
             mac = res.src
-        conf.netcache.in6_neighbor[ip6] = mac
+        conf.netcache.in6_neighbor[cache_key] = mac
         return mac
 
     return None
@@ -265,6 +268,11 @@ class IP6ListField(StrField):
                 if c <= 0:
                     break
                 c -= 1
+            if len(remain) < 16:
+                # not enough bytes for a full IPv6 address: a truncated or
+                # misaligned list. Leave the remainder for the next layer
+                # instead of feeding a short buffer to inet_ntop().
+                break
             addr = inet_ntop(socket.AF_INET6, remain[:16])
             lst.append(addr)
             remain = remain[16:]
@@ -295,7 +303,7 @@ class _IPv6GuessPayload:
 
     def default_payload_class(self, p):
         if self.nh == 58:  # ICMPv6
-            t = orb(p[0])
+            t = p[0]
             if len(p) > 2 and (t == 139 or t == 140):  # Node Info Query
                 return _niquery_guesser(p)
             if len(p) >= icmp6typesminhdrlen.get(t, float("inf")):  # Other ICMPv6 messages  # noqa: E501
@@ -305,8 +313,8 @@ class _IPv6GuessPayload:
                 return icmp6typescls.get(t, Raw)
             return Raw
         elif self.nh == 135 and len(p) > 3:  # Mobile IPv6
-            return _mip6_mhtype2cls.get(orb(p[2]), MIP6MH_Generic)
-        elif self.nh == 43 and orb(p[2]) == 4:  # Segment Routing header
+            return _mip6_mhtype2cls.get(p[2], MIP6MH_Generic)
+        elif self.nh == 43 and p[2] == 4:  # Segment Routing header
             return IPv6ExtHdrSegmentRouting
         return ipv6nhcls.get(self.nh, Raw)
 
@@ -347,7 +355,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
 
         if self.plen == 0 and self.nh == 0 and len(data) >= 8:
             # Extract Hop-by-Hop extension length
-            hbh_len = orb(data[1])
+            hbh_len = data[1]
             hbh_len = 8 + hbh_len * 8
 
             # Extract length from the Jumbogram option
@@ -357,7 +365,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             idx = 0
             offset = 4 * idx + 2
             while offset <= len(data):
-                opt_type = orb(data[offset])
+                opt_type = data[offset]
                 if opt_type == 0xc2:  # Jumbo option
                     jumbo_len = struct.unpack("I", data[offset + 2:offset + 2 + 4])[0]  # noqa: E501
                     break
@@ -481,7 +489,20 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
         elif other.nh == 43 and isinstance(other.payload, IPv6ExtHdrSegmentRouting):  # noqa: E501
             return self.payload.answers(other.payload.payload)  # Buggy if self.payload is a IPv6ExtHdrRouting  # noqa: E501
         elif other.nh == 60 and isinstance(other.payload, IPv6ExtHdrDestOpt):
-            return self.payload.answers(other.payload.payload)
+            # Extension Headers can show weird behavior.
+            # Linux's sk_buff considers the IPv6 Payload
+            # to be either TCP, UDP or ICMP. It does not
+            # consider Extension Headers to be the payload.
+            # Following similar architecture, this small
+            # modification lets packet flow with Destination
+            # Option on both, request and response packets
+            # be captured as well.
+            if UDP in self and UDP in other:
+                return self[UDP].answers(other[UDP])
+            elif TCP in self and TCP in other:
+                return self[TCP].answers(other[TCP])
+            else:
+                return self.payload.answers(other.payload.payload)
         elif self.nh == 60 and isinstance(self.payload, IPv6ExtHdrDestOpt):  # BU in reply to BRR, for instance  # noqa: E501
             return self.payload.payload.answers(other.payload)
         else:
@@ -500,7 +521,7 @@ class IPv46(IP, IPv6):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         if _pkt:
-            if orb(_pkt[0]) >> 4 == 6:
+            if _pkt[0] >> 4 == 6:
                 return IPv6
         elif kargs.get("version") == 6:
             return IPv6
@@ -768,7 +789,7 @@ class HBHOptUnknown(Packet):  # IPv6 Hop-By-Hop Option
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            o = orb(_pkt[0])  # Option type
+            o = _pkt[0]  # Option type
             if o in _hbhoptcls:
                 return _hbhoptcls[o]
         return cls
@@ -1184,20 +1205,10 @@ def defragment6(packets):
         warning("defragment6: some fragmented packets have been removed from list")  # noqa: E501
 
     # reorder fragments
-    res = []
-    while lst:
-        min_pos = 0
-        min_offset = lst[0][IPv6ExtHdrFragment].offset
-        for p in lst:
-            cur_offset = p[IPv6ExtHdrFragment].offset
-            if cur_offset < min_offset:
-                min_pos = 0
-                min_offset = cur_offset
-        res.append(lst[min_pos])
-        del lst[min_pos]
+    res = sorted(lst, key=lambda p: p[IPv6ExtHdrFragment].offset)
 
     # regenerate the fragmentable part
-    fragmentable = b""
+    fragmentable = bytearray()
     frag_hdr_len = 8
     for p in res:
         q = p[IPv6ExtHdrFragment]
@@ -1207,8 +1218,8 @@ def defragment6(packets):
         frag_data_len = p[IPv6].plen
         if frag_data_len is not None:
             frag_data_len -= frag_hdr_len
-        fragmentable += b"X" * (offset - len(fragmentable))
-        fragmentable += raw(q.payload)[:frag_data_len]
+        fragmentable.extend(b"X" * (offset - len(fragmentable)))
+        fragmentable.extend(raw(q.payload)[:frag_data_len])
 
     # Regenerate the unfragmentable part.
     q = res[0].copy()
@@ -1216,7 +1227,7 @@ def defragment6(packets):
     q[IPv6ExtHdrFragment].underlayer.nh = nh
     q[IPv6ExtHdrFragment].underlayer.plen = len(fragmentable)
     del q[IPv6ExtHdrFragment].underlayer.payload
-    q /= conf.raw_layer(load=fragmentable)
+    q /= conf.raw_layer(load=bytes(fragmentable))
     del q.plen
 
     if q[IPv6].underlayer:
@@ -1296,7 +1307,7 @@ def fragment6(pkt, fragSize):
 
     remain = fragPartStr
     res = []
-    fragOffset = 0     # offset, incremeted during creation
+    fragOffset = 0     # offset, incremented during creation
     fragId = random.randint(0, 0xffffffff)  # random id ...
     if fragHeader.id is not None:  # ... except id provided by user
         fragId = fragHeader.id
@@ -1813,7 +1824,7 @@ class _ICMPv6NDGuessPayload:
 
     def guess_payload_class(self, p):
         if len(p) > 1:
-            return icmp6ndoptscls.get(orb(p[0]), ICMPv6NDOptUnknown)
+            return icmp6ndoptscls.get(p[0], ICMPv6NDOptUnknown)
 
 
 # Beginning of ICMPv6 Neighbor Discovery Options.
@@ -2133,7 +2144,7 @@ class DomainNameListField(StrLenField):
 
     def i2m(self, pkt, x):
         def conditionalTrailingDot(z):
-            if z and orb(z[-1]) == 0:
+            if z and z[-1] == 0:
                 return z
             return z + b'\x00'
         # Build the encode names
@@ -2449,14 +2460,14 @@ def dnsrepr2names(x):
     res = []
     cur = b""
     while x:
-        tmp_len = orb(x[0])
+        tmp_len = x[0]
         x = x[1:]
         if not tmp_len:
             if cur and cur[-1:] == b'.':
                 cur = cur[:-1]
             res.append(cur)
             cur = b""
-            if x and orb(x[0]) == 0:  # single component
+            if x and x[0] == 0:  # single component
                 x = x[1:]
             continue
         if tmp_len & 0xc0:  # XXX TODO : work on that -- arno
@@ -2507,7 +2518,7 @@ class NIQueryDataField(StrField):
             # possible weird data extracted info
             res = []
             while val:
-                tmp_len = orb(val[0])
+                tmp_len = val[0]
                 val = val[1:]
                 if tmp_len == 0:
                     break
@@ -2791,7 +2802,7 @@ class ICMPv6NIReplyUnknown(ICMPv6NIReplyNOOP):
 
 def _niquery_guesser(p):
     cls = conf.raw_layer
-    type = orb(p[0])
+    type = p[0]
     if type == 139:  # Node Info Query specific stuff
         if len(p) > 6:
             qtype, = struct.unpack("!H", p[4:6])
@@ -2800,7 +2811,7 @@ def _niquery_guesser(p):
                    3: ICMPv6NIQueryIPv6,
                    4: ICMPv6NIQueryIPv4}.get(qtype, conf.raw_layer)
     elif type == 140:  # Node Info Reply specific stuff
-        code = orb(p[1])
+        code = p[1]
         if code == 0:
             if len(p) > 6:
                 qtype, = struct.unpack("!H", p[4:6])
@@ -3139,7 +3150,7 @@ class MIP6OptUnknown(_MIP6OptAlign):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
         if _pkt:
-            o = orb(_pkt[0])  # Option type
+            o = _pkt[0]  # Option type
             if o in moboptcls:
                 return moboptcls[o]
         return cls
@@ -4232,7 +4243,7 @@ bind_layers(Ether, IPv6, type=0x86dd)
 bind_layers(CookedLinux, IPv6, proto=0x86dd)
 bind_layers(GRE, IPv6, proto=0x86dd)
 bind_layers(SNAP, IPv6, code=0x86dd)
-# AF_INET6 values are platform-dependent. For a detailed explaination, read
+# AF_INET6 values are platform-dependent. For a detailed explanation, read
 # https://github.com/the-tcpdump-group/libpcap/blob/f98637ad7f086a34c4027339c9639ae1ef842df3/gencode.c#L3333-L3354  # noqa: E501
 if WINDOWS:
     bind_layers(Loopback, IPv6, type=0x18)

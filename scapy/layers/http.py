@@ -57,6 +57,7 @@ import struct
 import subprocess
 
 from enum import Enum
+from urllib.parse import urlsplit
 
 from scapy.compat import plain_str, bytes_encode
 
@@ -315,9 +316,16 @@ class _HTTPContent(Packet):
     def hashret(self):
         return b"HTTP1"
 
-    def post_dissect(self, s):
+    def do_dissect_payload(self, s):
         self._original_len = len(s)
+        _orig_s = s
+
+        # Dissect normally
+        super(_HTTPContent, self).do_dissect_payload(s)
+
+        # If enabled, perform some post-processing
         encodings = self._get_encodings()
+
         # Un-chunkify
         if conf.contribs["http"]["auto_chunk"] and "chunked" in encodings:
             data = b""
@@ -338,7 +346,11 @@ class _HTTPContent(Packet):
             if not s:
                 s = data
         if not conf.contribs["http"]["auto_compression"]:
-            return s
+            self.payload.load = s
+            self.payload.raw_packet_cache = _orig_s
+            self.payload.raw_packet_cache_fields = {}
+            return
+
         # Decompress
         try:
             if "deflate" in encodings:
@@ -374,10 +386,12 @@ class _HTTPContent(Packet):
                         "Can't import zstandard. zstd decompression "
                         "will be ignored !"
                     )
+            self.payload.load = s
+            self.payload.raw_packet_cache = _orig_s
+            self.payload.raw_packet_cache_fields = {}
         except Exception:
             # Cannot decompress - probably incomplete data
             pass
-        return s
 
     def post_build(self, pkt, pay):
         encodings = self._get_encodings()
@@ -681,7 +695,8 @@ class HTTP(Packet):
                 # Subtract the length of the "HTTP*" layer
                 elif http_packet.payload.payload or length == 0:
                     http_length = len(data) - http_packet.payload._original_len
-                    detect_end = lambda dat: len(dat) - http_length >= length
+                    metadata["http_end"] = http_end = http_length + length
+                    detect_end = lambda dat: len(dat) >= http_end
                 else:
                     # The HTTP layer isn't fully received.
                     if metadata.get("tcp_end", False):
@@ -709,10 +724,13 @@ class HTTP(Packet):
                         and http_packet.Method == b"HEAD"
                     ):
                         session["head_request"] = True
-                elif is_response and http_packet.Status_Code == b"101":
+                elif is_response and (
+                    http_packet.Status_Code == b"101"
+                    or session.pop("head_request", False)
+                ):
                     # If it's an upgrade response, it may also hold a
-                    # different protocol data.
-                    # make sure all headers are present
+                    # different protocol data. make sure all headers are present
+                    # If header_request is set, this is an answer to a HEAD.
                     detect_end = lambda dat: dat.find(b"\r\n\r\n")
                 else:
                     # If neither Content-Length nor chunked is specified,
@@ -722,9 +740,15 @@ class HTTP(Packet):
                     metadata["detect_unknown"] = True
             metadata["detect_end"] = detect_end
             if detect_end(data):
+                http_end = metadata.get("http_end")
+                if http_end is not None and len(data) > http_end:
+                    return cls(data[:http_end]) / conf.padding_layer(data[http_end:])
                 return http_packet
         else:
             if detect_end(data):
+                http_end = metadata.get("http_end")
+                if http_end is not None and len(data) > http_end:
+                    return cls(data[:http_end]) / conf.padding_layer(data[http_end:])
                 http_packet = cls(data)
                 return http_packet
 
@@ -881,26 +905,33 @@ class HTTP_Client(object):
             e.g. Method="POST"
         """
         # Parse request url
-        m = re.match(r"(https?)://([^/:]+)(?:\:(\d+))?(/.*)?", url)
-        if not m:
+        try:
+            parsed = urlsplit(url)
+            transport = parsed.scheme
+            host = parsed.hostname
+            port = parsed.port
+        except ValueError:
+            raise ValueError("Bad URL !") from None
+        if transport not in ["http", "https"] or not host:
             raise ValueError("Bad URL !")
-        transport, host, port, path = m.groups()
         if transport == "https":
             tls = True
         else:
             tls = False
 
-        path = path or "/"
-        port = port and int(port)
+        path = parsed.path or "/"
+        if parsed.query:
+            path += "?" + parsed.query
+        if port is None:
+            port = 443 if tls else 80
 
         # Connect (or reuse) socket
         self._connect_or_reuse(host, port=port, tls=tls, timeout=timeout)
 
         # Build request
+        host_hdr = "[%s]" % host if ":" in host else host
         if (tls and port != 443) or (not tls and port != 80):
-            host_hdr = "%s:%d" % (host, port)
-        else:
-            host_hdr = host
+            host_hdr = "%s:%d" % (host_hdr, port)
 
         headers.setdefault("Host", host_hdr)
         headers.setdefault("Path", path)
@@ -929,6 +960,8 @@ class HTTP_Client(object):
                 self._connect_or_reuse(host, port=port, tls=tls, timeout=timeout)
                 continue
             if not resp:
+                self.close()
+                self._sockinfo = None
                 break
             # First case: auth was required. Handle that
             if resp.Status_Code in [b"401", b"407"]:
@@ -1276,6 +1309,8 @@ class HTTP_Server(Automaton):
 
     @ATMT.receive_condition(SERVE)
     def new_request(self, pkt):
+        if self.basic:
+            raise self.AUTH(pkt)
         raise self.SERVE(pkt)
 
     # DEV: overwrite this function

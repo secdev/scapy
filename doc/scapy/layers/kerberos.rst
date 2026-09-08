@@ -76,9 +76,9 @@ This section tries to give many usage examples, but isn't exhaustive. For more d
     >>> load_module("ticketer")
     >>> t = Ticketer()
     >>> # If P12:
-    >>> t.request_tgt("Administrator@DOMAIN.LOCAL", p12="admin.pfx", ca="ca.pem")
+    >>> t.request_tgt(p12="admin.pfx", realm="DOMAIN.LOCAL", ca="ca.pem")
     >>> # One could also have used a different cert and key file:
-    >>> t.request_tgt("Administrator@DOMAIN.LOCAL", x509="admin.cert", x509key="admin.key", ca="ca.pem")
+    >>> t.request_tgt(x509="admin.cert", x509key="admin.key", realm="DOMAIN.LOCAL", ca="ca.pem")
 
 - **Request a user TGT with Kerberos armoring (FAST)**
 
@@ -158,6 +158,20 @@ The ``armor_with`` keyword allows to select a ticket to armor the request with.
       canonicalize+pre-authent+renewable+forwardable
    Start time         End time           Renew until        Auth time
    15/04/25 20:15:20  16/04/25 06:10:22  16/04/25 06:10:22  15/04/25 20:15:17
+
+- **Perform S4U2Self+U2U to get the PAC**
+
+.. code:: pycon
+
+   >>> load_module("ticketer")
+   >>> t = Ticketer()
+   >>> t.request_tgt("MyUser@domain.local", password="password")
+   >>> tgt, key, _ = t.export_krb(0)
+   >>> # Get PAC of Administrator@domain.local
+   >>> t.request_st(0, "MyUser@domain.local",
+   ...              for_user="Administrator@domain.local",
+   ...              u2u=True, additional_tickets=[tgt])
+   >>> t.export_krb(1)[0].encPart.decrypt(key).show()
 
 - **Request a ticket for a DMSA**
 

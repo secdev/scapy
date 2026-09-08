@@ -118,6 +118,40 @@ buffer.append(b"")
 assert not buffer
 assert bytes(buffer) == b""
 
+= StringBuffer limits missing ranges
+from scapy.data import MTU
+
+buffer = StringBuffer()
+buffer.append(b"A", 1)
+buffer.append(b"B", MTU + 2)
+assert len(buffer) == MTU + 2
+
+buffer = StringBuffer()
+buffer.append(b"A", 1)
+buffer.append(b"B", MTU + 3)
+assert bytes(buffer) == b"A"
+
+buffer.append(b"C", -MTU)
+assert bytes(buffer) == b"A"
+
+= StringBuffer max_gap is configurable
+from scapy.data import MTU
+
+buffer = StringBuffer(max_gap=16)
+buffer.append(b"A", 1)
+buffer.append(b"B", 18)
+assert len(buffer) == 18
+
+buffer = StringBuffer(max_gap=16)
+buffer.append(b"A", 1)
+buffer.append(b"B", 19)
+assert bytes(buffer) == b"A"
+
+buffer = StringBuffer(max_gap=MTU * 4)
+buffer.append(b"A", 1)
+buffer.append(b"B", MTU + 3)
+assert len(buffer) == MTU + 3
+
 ############
 ############
 + Test fragment() / defragment() functions

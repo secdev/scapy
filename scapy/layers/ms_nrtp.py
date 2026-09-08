@@ -712,7 +712,7 @@ def _member_type_infos_cb(pkt, lst, cur, remain):
     except StopIteration:
         return None
     typeEnum = BinaryTypeEnum(typeEnum)
-    # Return BinaryTypeEnum tainted with a pre-selected type.
+    # Return BinaryTypeEnum tainted with a preselected type.
     return functools.partial(
         NRBFAdditionalInfo,
         bintype=typeEnum,

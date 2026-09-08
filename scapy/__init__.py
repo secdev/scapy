@@ -30,12 +30,12 @@ def _parse_tag(tag):
 
     Example::
 
-        v2.3.2-346-g164a52c075c8 -> '2.3.2.dev346'
+        v2.3.2-346-g164a52c075c8 -> '2.3.2.post346'
     """
     match = re.match('^v?(.+?)-(\\d+)-g[a-f0-9]+$', tag)
     if match:
-        # remove the 'v' prefix and add a '.devN' suffix
-        return '%s.dev%s' % (match.group(1), match.group(2))
+        # remove the 'v' prefix and add a '.postN' suffix
+        return '%s.post%s' % (match.group(1), match.group(2))
     else:
         match = re.match('^v?([\\d\\.]+(rc\\d+)?)$', tag)
         if match:
@@ -93,13 +93,13 @@ def _version_from_git_describe():
     The tag prefix (``v``) and the git commit sha1 (``-g164a52c075c8``) are
     removed if present.
 
-    If the current directory is not exactly on the tag, a ``.devN`` suffix is
+    If the current directory is not exactly on the tag, a ``.postN`` suffix is
     appended where N is the number of commits made after the last tag.
 
     Example::
 
         >>> _version_from_git_describe()
-        '2.3.2.dev346'
+        '2.3.2.post346'
 
     :raises CalledProcessError: if git is unavailable
     :return: Scapy's latest tag

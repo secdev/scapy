@@ -11,7 +11,6 @@ upon the TLS version or ciphersuite, the packet has to provide a TLS context.
 import struct
 
 from scapy.fields import ByteField, ShortEnumField, ShortField, StrField
-from scapy.compat import orb
 
 _tls_type = {20: "change_cipher_spec",
              21: "alert",
@@ -203,7 +202,7 @@ class _TLSPadField(StrField):
             # because it's possible that the padding is followed by some data
             # from another TLS record (hence the last byte from s would not be
             # the last byte from the current record padding).
-            tmp_len = orb(s[pkt.padlen - 1])
+            tmp_len = s[pkt.padlen - 1]
             return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
         return s, None
 

@@ -13,7 +13,7 @@ import struct
 
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.fields import BitEnumField, ConditionalField, FlagsField, \
-    PadField, ShortField
+    StrLenField, ShortField
 from scapy.layers.inet import UDP
 from scapy.layers.ppp import PPP
 
@@ -34,7 +34,11 @@ class L2TP(Packet):
         ConditionalField(ShortField("nr", 0),
                          lambda pkt: pkt.hdr & 'sequence+control'),
         ConditionalField(
-            PadField(ShortField("offset", 0), 4, b"\x00"),
+            ShortField("offset", 0),
+            lambda pkt: not (pkt.hdr & 'control') and pkt.hdr & 'offset'
+        ),
+        ConditionalField(
+            StrLenField("pad", b"", length_from=lambda pkt: pkt.offset),
             lambda pkt: not (pkt.hdr & 'control') and pkt.hdr & 'offset'
         )
     ]

@@ -44,7 +44,6 @@ import math
 import os
 import struct
 from scapy.compat import (
-    orb,
     chb,
     int_bytes,
     bytes_int,
@@ -726,7 +725,7 @@ class _DESCBC(_SimplifiedEncryptionProfile):
             # type: (List[int]) -> bytes
             temp = b""
             for i in range(len(deskey)):
-                t = (bin(orb(deskey[i]))[2:]).rjust(8, "0")
+                t = (bin(deskey[i])[2:]).rjust(8, "0")
                 if t[:7].count("1") % 2 == 0:
                     temp += chb(int(t[:7] + "1", 2))
                 else:
@@ -760,7 +759,7 @@ class _DESCBC(_SimplifiedEncryptionProfile):
             temp56 = list()
             # removeMSBits
             for byte in block:
-                temp56.append(orb(byte) & 0b01111111)
+                temp56.append(byte & 0b01111111)
 
             # reverse
             if odd is False:

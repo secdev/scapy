@@ -6,7 +6,7 @@
 # Usage:
 #   ./test.ps1 <python version>
 # Examples:
-#   ./test.sh 3.13
+#   ./test.sh 3.14
 
 if ($args.Count -eq 0) {
     Write-Host "Usage: .\test.ps1 <pythonversion>"

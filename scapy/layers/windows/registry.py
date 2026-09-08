@@ -105,6 +105,7 @@ class RegType(IntEnum):
 
     # These constants are used to specify the type of a registry value.
 
+    REG_NONE = 0  # No defined value type
     REG_SZ = 1  # Unicode string
     REG_EXPAND_SZ = 2  # Unicode string with environment variable expansion
     REG_BINARY = 3  # Binary data
@@ -194,7 +195,7 @@ class RegEntry:
         ]:
             if not isinstance(reg_data, str):
                 raise ValueError("Data must be a 'str' for this type.")
-        elif reg_type == RegType.REG_BINARY:
+        elif reg_type in [RegType.REG_NONE, RegType.REG_BINARY]:
             if not isinstance(reg_data, bytes):
                 raise ValueError("Data must be a 'bytes' for this type.")
         elif reg_type in [
@@ -227,7 +228,7 @@ class RegEntry:
             RegType.REG_LINK,
         ]:
             return self.reg_data.encode("utf-16le")
-        elif self.reg_type == RegType.REG_BINARY:
+        elif self.reg_type in [RegType.REG_NONE, RegType.REG_BINARY]:
             return self.reg_data
         elif self.reg_type in [
             RegType.REG_DWORD,
@@ -250,14 +251,14 @@ class RegEntry:
         """
         if reg_type == RegType.REG_MULTI_SZ:
             # encode to multiple null terminated strings
-            reg_data = [x.decode("utf-16le") for x in data.split(b"\x00\x00")[:-1]]
+            reg_data = data.decode("utf-16le")[:-2].split("\x00")
         elif reg_type in [
             RegType.REG_SZ,
             RegType.REG_EXPAND_SZ,
             RegType.REG_LINK,
         ]:
             reg_data = data.decode("utf-16le")
-        elif reg_type == RegType.REG_BINARY:
+        elif reg_type in [RegType.REG_NONE, RegType.REG_BINARY]:
             reg_data = data
         elif reg_type in [
             RegType.REG_DWORD,
@@ -292,7 +293,7 @@ class RegEntry:
             RegType.REG_LINK,
         ]:
             reg_data = data
-        elif reg_type == RegType.REG_BINARY:
+        elif reg_type in [RegType.REG_NONE, RegType.REG_BINARY]:
             reg_data = bytes.fromhex(data)
         elif reg_type in [
             RegType.REG_DWORD,
@@ -311,13 +312,13 @@ class RegEntry:
 
     def __str__(self) -> str:
         return (
-            f"{self.reg_value} ({self.reg_type.name}: "
+            f"{self.reg_name} ({self.reg_type.name}: "
             + f"{self.reg_type.real_value if self.reg_type == RegType.UNK else self.reg_type.value}"  # noqa E501
             + f") {self.reg_data}"
         )
 
     def __repr__(self) -> str:
-        return f"RegEntry({self.reg_value}, {self.reg_type}, {self.reg_data})"
+        return f"RegEntry({self.reg_name}, {self.reg_type}, {self.reg_data})"
 
     def __eq__(self, value):
         return isinstance(value, RegEntry) and all(
@@ -499,6 +500,26 @@ class RRP_Client(DCERPC_Client):
             )
             raise ValueError(response.status)
 
+        if response.lpClassOut.Length > 2:
+            # There is a Class info stored. We need to
+            # get it by specifying the proper MaximumLength.
+            # By default the size is "2".
+            response = self.sr1_req(
+                BaseRegQueryInfoKey_Request(
+                    hKey=key_handle,
+                    lpClassIn=RPC_UNICODE_STRING(
+                        MaximumLength=response.lpClassOut.Length
+                    ),
+                ),
+                timeout=timeout,
+            )
+
+        if response.status != 0:
+            log_runtime.error(
+                "Got status %s while querying key info", hex(response.status)
+            )
+            raise ValueError(response.status)
+
         return response
 
     def get_key_security(
@@ -588,7 +609,6 @@ class RRP_Client(DCERPC_Client):
 
             index += 1
             results.append(response.lpNameOut.valueof("Buffer")[:-1].decode())
-
         return results
 
     def enum_values(

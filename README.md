@@ -90,6 +90,11 @@ follow the instructions to install them.
 
 <!-- stop_ppi_description -->
 
+## Packaging status
+
+[![Packaging status](https://repology.org/badge/vertical-allrepos/scapy.svg?columns=4&exclude_unsupported=1&header=
+)](https://repology.org/project/scapy/versions)
+
 ## License
 
 Scapy's code, tests and tools are licensed under GPL v2.

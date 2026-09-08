@@ -579,6 +579,8 @@ class DTO(Packet):
         new_pl_cls = self.get_dto_cls(other.cmd)
         if self.payload_cls != new_pl_cls and \
                 self.payload_cls == DEFAULT_DTO:
+            if len(self.payload) < 5:
+                return 0
             data = bytes(self.load)
             self.remove_payload()
             self.add_payload(new_pl_cls(data))

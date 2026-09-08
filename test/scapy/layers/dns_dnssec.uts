@@ -132,11 +132,20 @@ t.type == 16 and t.rdlen == 312 and t.rdata[0][:5] == b"Scapy" and t.rdata[1][-1
 
 = DNSRRTSIG basic instantiation
 t = DNSRRTSIG()
-raw(t) == b"\x00\x00\xfa\x00\x01\x00\x00\x00\x00\x00\x1b\thmac-sha1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x14\x00\x00\x00\x00\x00\x00"
+raw(t) == b"\x00\x00\xfa\x00\x01\x00\x00\x00\x00\x00\x1b\thmac-sha1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 
 = DNSRRTSIG(), check parameters
 t = DNSRRTSIG(rrname="SAMPLE-ALG.EXAMPLE.", time_signed=853804800, fudge=300)
-raw(t) == b"\nSAMPLE-ALG\x07EXAMPLE\x00\x00\xfa\x00\x01\x00\x00\x00\x00\x00\x1b\thmac-sha1\x00\x00\x002\xe4\x07\x00\x01,\x00\x14\x00\x00\x00\x00\x00\x00"
+raw(t) == b"\nSAMPLE-ALG\x07EXAMPLE\x00\x00\xfa\x00\x01\x00\x00\x00\x00\x00\x1b\thmac-sha1\x00\x00\x002\xe4\x07\x00\x01,\x00\x00\x00\x00\x00\x00\x00\x00"
+
+= DNSRRTSIG mac_len/other_len auto-computed, round-trips
+# Regression: mac_len/other_len defaulted to a hardcoded 20/0 instead of None,
+# so FieldLenField never auto-computed and a non-empty MAC did not round-trip
+# (the length prefix stayed 20, truncating the MAC to 20 bytes on re-dissect).
+t = DNSRRTSIG(mac_data=b"M" * 32, other_data=b"O" * 6)
+raw_t = raw(t)
+p = DNSRRTSIG(raw_t)
+p.mac_len == 32 and p.other_len == 6 and p.mac_data == b"M" * 32 and p.other_data == b"O" * 6 and raw(p) == raw_t
 
 = TimeField methods
 

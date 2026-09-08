@@ -101,4 +101,4 @@ def negotiate_trunk(iface=conf.iface, mymac=str(RandMAC())):
     p = Dot3(src=mymac, dst="01:00:0c:cc:cc:cc") / LLC()
     p /= SNAP()
     p /= DTP(tlvlist=[DTPDomain(), DTPStatus(), DTPType(), DTPNeighbor(neighbor=mymac)])  # noqa: E501
-    sendp(p)
+    sendp(p, iface=iface)

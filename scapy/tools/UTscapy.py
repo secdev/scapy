@@ -330,7 +330,7 @@ def parse_config_file(config_path, verb=3):
     }
 
     """
-    with open(config_path) as config_file:
+    with open(config_path, encoding='utf-8') as config_file:
         data = json.load(config_file)
         if verb > 2:
             print(" %s Loaded config file" % arrow, config_path)
@@ -473,7 +473,7 @@ def compute_campaign_digests(test_campaign):
         ts.crc = crc32(dts)
         dc += "\0\x01" + dts
     test_campaign.crc = crc32(dc)
-    with open(test_campaign.filename) as fdesc:
+    with open(test_campaign.filename, encoding='utf-8') as fdesc:
         test_campaign.sha = sha1(fdesc.read())
 
 
@@ -523,8 +523,8 @@ def _run_test_timeout(test, get_interactive_session, verb=3, my_globals=None):
                                        timeout=5 * 60,  # 5 min
                                        verb=verb,
                                        my_globals=my_globals)
-    except StopAutorunTimeout:
-        return "-- Test timed out ! --", False
+    except StopAutorunTimeout as ex:
+        return "@@@@@@@@@@@@@@@@@ Test timed out ! @@@@@@@@@@@@@@@@@\n" + ex.code_run, False
 
 
 def run_test(test, get_interactive_session, theme, verb=3,
@@ -984,6 +984,7 @@ def main():
 
     FORMAT = Format.ANSI
     OUTPUTFILE = sys.stdout
+    OUTPUTFILE.reconfigure(encoding='utf-8')
     LOCAL = 0
     NUM = None
     NON_ROOT = False
@@ -1188,7 +1189,7 @@ def main():
         if VERB > 2:
             print(theme.green(dash + " Loading: %s" % TESTFILE))
         PREEXEC = PREEXEC_DICT[TESTFILE] if TESTFILE in PREEXEC_DICT else GLOB_PREEXEC
-        with open(TESTFILE) as testfile:
+        with open(TESTFILE, encoding='utf-8') as testfile:
             output, result, campaign = execute_campaign(
                 testfile, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP, DOCS,
                 FORMAT, VERB, ONLYFAILED, CRC, INTERPRETER,

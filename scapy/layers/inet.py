@@ -40,7 +40,7 @@ from scapy.layers.l2 import (
     arpcachepoison,
     getmacbyip,
 )
-from scapy.compat import raw, chb, orb, bytes_encode, Optional
+from scapy.compat import raw, chb, bytes_encode, Optional
 from scapy.config import conf
 from scapy.fields import (
     BitEnumField,
@@ -160,7 +160,7 @@ class IPOption(Packet):
     @classmethod
     def dispatch_hook(cls, pkt=None, *args, **kargs):
         if pkt:
-            opt = orb(pkt[0]) & 0x1f
+            opt = pkt[0] & 0x1f
             if opt in cls.registered_ip_options:
                 return cls.registered_ip_options[opt]
         return cls
@@ -412,7 +412,7 @@ class TCPOptionsField(StrField):
     def m2i(self, pkt, x):
         opt = []
         while x:
-            onum = orb(x[0])
+            onum = x[0]
             if onum == 0:
                 opt.append(("EOL", None))
                 break
@@ -421,7 +421,7 @@ class TCPOptionsField(StrField):
                 x = x[1:]
                 continue
             try:
-                olen = orb(x[1])
+                olen = x[1]
             except IndexError:
                 olen = 0
             if olen < 2:
@@ -765,7 +765,7 @@ class TCP(Packet):
         if dataofs is None:
             opt_len = len(self.get_field("options").i2m(self, self.options))
             dataofs = 5 + ((opt_len + 3) // 4)
-            dataofs = (dataofs << 4) | orb(p[12]) & 0x0f
+            dataofs = (dataofs << 4) | p[12] & 0x0f
             p = p[:12] + chb(dataofs & 0xff) + p[13:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):

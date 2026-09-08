@@ -10,7 +10,6 @@ Operating system specific functionality.
 import socket
 import sys
 
-from scapy.compat import orb
 from scapy.config import conf, _set_conf_sockets
 from scapy.consts import LINUX, SOLARIS, WINDOWS, BSD
 from scapy.data import (
@@ -72,7 +71,7 @@ from scapy.interfaces import (
 def str2mac(s):
     # Duplicated from scapy/utils.py for import reasons
     # type: (bytes) -> str
-    return ("%02x:" * 6)[:-1] % tuple(orb(x) for x in s)
+    return ("%02x:" * 6)[:-1] % tuple(s)
 
 
 def get_if_addr(iff):
@@ -143,6 +142,7 @@ elif SOLARIS:
 elif WINDOWS:
     from scapy.arch.windows import *  # noqa F403
     from scapy.arch.windows.native import *  # noqa F403
+    from scapy.arch.windows.sspi import *  # noqa F403
     SIOCGIFHWADDR = 0  # mypy compat
 else:
     log_loading.critical(

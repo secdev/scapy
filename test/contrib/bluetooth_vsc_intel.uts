@@ -1,0 +1,102 @@
+% Intel Bluetooth Vendor-Specific Command (VSC) tests
+# test/run_tests -P "load_contrib('bluetooth_vsc_intel')" -t test/contrib/bluetooth_vsc_intel.uts
+
++ Load the Intel VSC contrib module
+
+= Load the contrib module
+from scapy.layers.bluetooth import *
+load_contrib("bluetooth_vsc_intel")
+from scapy.contrib.bluetooth_vsc_intel import *
+
+
++ Intel Read Version (OCF 0x005 / opcode 0xFC05)
+
+= Build the TLV-form request (param 0xFF)
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Intel_Read_Version()
+assert cmd.ogf == 0x3f
+assert cmd.ocf == 0x005
+assert cmd.opcode == 0xfc05
+assert cmd.param == 0xff
+assert raw(cmd) == bytes.fromhex("05fc01ff")
+
+= Dissect a live TLV Read Version reply (8087:0037, BlazarU, bootloader mode)
+# 04(evt) 0e(cmd complete) len=5e num=01 op=05fc status=00 <22 TLV records>
+evt = HCI_Hdr(bytes.fromhex(
+    "040e5e0105fc00100430090800110410190002120400371d00150232041602000017028780"
+    "180237001c01011d0212161e01011f04ea3f00002701002801012901002a01002b01012c01"
+    "002d03010a0e2e01002f0101300645590ba994d4310100"))
+assert HCI_Cmd_Complete_VSC_Intel_Read_Version in evt
+assert evt[HCI_Event_Command_Complete].status == 0
+cc = evt[HCI_Cmd_Complete_VSC_Intel_Read_Version]
+assert len(cc.tlvs) == 22
+tl = {t.type: t.value for t in cc.tlvs}
+# cnvi_bt -> hw_variant 0x1d (BlazarU)
+cnvi_bt = int.from_bytes(tl[0x12], "little")
+assert (cnvi_bt >> 16) & 0x3f == 0x1d
+# image_type bootloader, lock posture as read from the wire
+assert tl[0x1c] == b"\x01"        # image_type = bootloader
+assert tl[0x28] == b"\x01"        # secure_boot = 1
+assert tl[0x2a] == b"\x00"        # otp_lock = 0
+assert tl[0x2b] == b"\x01"        # api_lock = 1
+assert tl[0x2c] == b"\x00"        # debug_lock = 0
+assert tl[0x30] == bytes.fromhex("45590ba994d4")   # otp_bdaddr (LE)
+# TLV enum name resolves
+assert cc.tlvs[0].sprintf("%type%") == "cnvi_top"
+
+= TLV reply round-trips
+assert raw(evt) == bytes.fromhex(
+    "040e5e0105fc00100430090800110410190002120400371d00150232041602000017028780"
+    "180237001c01011d0212161e01011f04ea3f00002701002801012901002a01002b01012c01"
+    "002d03010a0e2e01002f0101300645590ba994d4310100")
+
+
++ Intel Read Boot Params (OCF 0x00D / opcode 0xFC0D)
+
+= Build the request (empty body)
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Intel_Read_Boot_Params()
+assert cmd.opcode == 0xfc0d
+assert raw(cmd) == bytes.fromhex("0dfc00")
+
+= Dissect a boot-params reply, exposing the lock posture and BD_ADDR
+# num=01 op=0dfc status=00 then struct intel_boot_params (22 B)
+evt = HCI_Hdr(bytes.fromhex("040e1a010dfc00") +
+              bytes.fromhex("0000003412010000000100" "45590ba994d4" "0102030000"))
+bp = evt[HCI_Cmd_Complete_VSC_Intel_Read_Boot_Params]
+assert bp.dev_revid == 0x1234
+assert bp.secure_boot == 1
+assert bp.api_lock == 1
+assert bp.debug_lock == 0
+assert bp.otp_bdaddr == "d4:94:a9:0b:59:45"    # LEMACField reverses the LE bytes
+assert raw(evt) == bytes.fromhex("040e1a010dfc00") + \
+    bytes.fromhex("0000003412010000000100" "45590ba994d4" "0102030000")
+
+
++ Intel Read Debug Features (OCF 0x0A6 / opcode 0xFCA6)
+
+= Build the request (page_no)
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Intel_Read_Debug_Features()
+assert cmd.opcode == 0xfca6
+assert cmd.page_no == 1
+assert raw(cmd) == bytes.fromhex("a6fc0101")
+
+= Dissect a debug-features reply (page_no + 16-byte mask)
+evt = HCI_Hdr(bytes.fromhex("040e13 01 a6fc 00".replace(" ", "")) +
+              b"\x01" + bytes.fromhex("3f000000000000000000000000000000"))
+df = evt[HCI_Cmd_Complete_VSC_Intel_Read_Debug_Features]
+assert df.page_no == 1
+assert df.page1[0] == 0x3f      # page1[0] & 0x3f -> coredump/telemetry gate
+assert len(df.page1) == 16
+
+
++ Intel Exception Info (OCF 0x022 / opcode 0xFC22)
+
+= Build the request (type)
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Intel_Exception_Info()
+assert cmd.opcode == 0xfc22
+assert raw(cmd) == bytes.fromhex("22fc0100")
+
+= Dissect an exception-info reply (12-byte string)
+evt = HCI_Hdr(bytes.fromhex("040e0f0122fc00") + b"CRASH\x00\x00\x00\x00\x00\x00\x00")
+ei = evt[HCI_Cmd_Complete_VSC_Intel_Exception_Info]
+assert ei.exception[:5] == b"CRASH"
+assert len(ei.exception) == 12

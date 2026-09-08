@@ -9,7 +9,6 @@
 """Packet-processing utilities implementing RFC5925 and RFC5926"""
 
 import logging
-from scapy.compat import orb
 from scapy.layers.inet import IP, TCP
 from scapy.layers.inet import tcp_pseudoheader
 from scapy.layers.inet6 import IPv6
@@ -188,14 +187,14 @@ def build_message_from_packet(p, include_options=True, sne=0):
         doff = 5 + ((opt_len + 3) // 4)
     tcphdr_optend = doff * 4
     while pos < tcphdr_optend:
-        optnum = orb(th_bytes[pos])
+        optnum = th_bytes[pos]
         pos += 1
         if optnum == 0 or optnum == 1:
             if include_options:
                 result += bytearray([optnum])
             continue
 
-        optlen = orb(th_bytes[pos])
+        optlen = th_bytes[pos]
         pos += 1
         if pos + optlen - 2 > tcphdr_optend:
             logger.info("bad tcp option %d optlen %d beyond end-of-header",

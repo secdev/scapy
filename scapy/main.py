@@ -828,6 +828,7 @@ def interact(mydict=None,
         # repl.use_ui_colorscheme("scapy")
 
     # Extend banner text
+    banner = banner_text
     if conf.interactive_shell in ["ipython", "ptipython"]:
         import IPython
         if conf.interactive_shell == "ptipython":

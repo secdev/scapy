@@ -19,7 +19,6 @@ These beacons are used as building blocks for other systems:
 
 """
 
-from scapy.compat import orb
 from scapy.fields import IntField, SignedByteField, StrField, BitField, \
     StrFixedLenField, ShortField, FixedPointField, ByteEnumField
 from scapy.layers.bluetooth import EIR_Hdr, EIR_ServiceData16BitUUID, \
@@ -62,7 +61,7 @@ class EddystoneURLField(StrField):
         o = bytearray()
         p = 0
         while p < len(x):
-            c = orb(x[p])
+            c = x[p]
             if c == 46:  # "."
                 for k, v in EDDYSTONE_URL_TABLE.items():
                     if x.startswith(v, p):
@@ -84,7 +83,7 @@ class EddystoneURLField(StrField):
 
         o = bytearray()
         for c in x:
-            i = orb(c)
+            i = c
             r = EDDYSTONE_URL_TABLE.get(i)
             if r is None:
                 o.append(i)

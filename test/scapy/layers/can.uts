@@ -1533,6 +1533,14 @@ if conf.crypto_valid:
     mac = c.finalize()
     assert pkt.tmac == mac[:3]
 
++ Candump remote request
+
+= Parse remote request with declared length
+
+remote = CandumpReader(BytesIO(b"(1.000000) vcan0 123#R8\n")).read_packet()
+assert "remote_transmission_request" in remote.flags
+assert remote.length == 8
+assert remote.data == b""
 
 ############
 ############

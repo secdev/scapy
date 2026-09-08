@@ -11,7 +11,7 @@ import struct
 
 from scapy.layers.inet import TCP, UDP
 from scapy.layers.inet6 import IP6Field
-from scapy.compat import raw, orb
+from scapy.compat import raw
 from scapy.config import conf
 from scapy.packet import (Packet, Raw, bind_top_down, bind_bottom_up,
                           bind_layers)
@@ -283,7 +283,7 @@ class SDEntry_EventGroup(_SDPacketBase):
 
 def _sdentry_class(payload, **kargs):
     TYPE_PAYLOAD_I = 0
-    pl_type = orb(payload[TYPE_PAYLOAD_I])
+    pl_type = payload[TYPE_PAYLOAD_I]
     cls = None
 
     if pl_type in SDENTRY_TYPE_SRV:
@@ -295,7 +295,7 @@ def _sdentry_class(payload, **kargs):
 
 
 def _sdoption_class(payload, **kargs):
-    pl_type = orb(payload[2])
+    pl_type = payload[2]
 
     cls = {
         SDOPTION_CFG_TYPE: SDOption_Config,

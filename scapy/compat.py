@@ -19,7 +19,6 @@ from typing import (
     Optional,
     TypeVar,
     TYPE_CHECKING,
-    Union,
 )
 
 # Very important: will issue typing errors otherwise
@@ -37,7 +36,6 @@ __all__ = [
     'bytes_hex',
     'chb',
     'hex_bytes',
-    'orb',
     'plain_str',
     'raw',
     'StrEnum',
@@ -157,14 +155,6 @@ def chb(x):
     # type: (int) -> bytes
     """Same than chr() but encode as bytes."""
     return struct.pack("!B", x)
-
-
-def orb(x):
-    # type: (Union[int, str, bytes]) -> int
-    """Return ord(x) when not already an int."""
-    if isinstance(x, int):
-        return x
-    return ord(x)
 
 
 def bytes_hex(x):

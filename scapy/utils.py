@@ -41,7 +41,6 @@ from scapy.config import conf
 from scapy.consts import DARWIN, OPENBSD, WINDOWS
 from scapy.data import MTU, DLT_EN10MB, DLT_RAW
 from scapy.compat import (
-    orb,
     plain_str,
     chb,
     hex_bytes,
@@ -245,7 +244,7 @@ def _create_fifo() -> Tuple[str, Any]:
     else:
         f = get_temp_file()
         os.unlink(f)
-        os.mkfifo(f)
+        os.mkfifo(f, 0o600)
         return f, f
 
 
@@ -260,10 +259,10 @@ def _open_fifo(fd: Any, mode: str = "rb") -> IO[bytes]:
 
 
 def sane(x, color=False):
-    # type: (AnyStr, bool) -> str
+    # type: (bytes, bool) -> str
     r = ""
     for i in x:
-        j = orb(i)
+        j = i
         if (j < 32) or (j >= 127):
             if color:
                 r += conf.color_theme.not_printable(".")
@@ -320,7 +319,7 @@ def hexdump(p, dump=False):
         s += "%04x  " % i
         for j in range(16):
             if i + j < x_len:
-                s += "%02X " % orb(x[i + j])
+                s += "%02X " % x[i + j]
             else:
                 s += "   "
         s += " %s\n" % sane(x[i:i + 16], color=True)
@@ -370,7 +369,7 @@ def chexdump(p, dump=False):
     :return: a String only if dump=True
     """
     x = bytes_encode(p)
-    s = ", ".join("%#04x" % orb(x) for x in x)
+    s = ", ".join("%#04x" % x for x in x)
     if dump:
         return s
     else:
@@ -385,7 +384,7 @@ def hexstr(p, onlyasc=0, onlyhex=0, color=False):
     x = bytes_encode(p)
     s = []
     if not onlyasc:
-        s.append(" ".join("%02X" % orb(b) for b in x))
+        s.append(" ".join("%02X" % b for b in x))
     if not onlyhex:
         s.append(sane(x, color=color))
     return "  ".join(s)
@@ -394,7 +393,7 @@ def hexstr(p, onlyasc=0, onlyhex=0, color=False):
 def repr_hex(s):
     # type: (bytes) -> str
     """ Convert provided bitstring to a simple string of hex digits """
-    return "".join("%02x" % orb(x) for x in s)
+    return "".join("%02x" % x for x in s)
 
 
 @conf.commands.register
@@ -530,7 +529,7 @@ def hexdiff(
         if dox:
             xd = y
             j = 0
-            while not linex[j]:
+            while j < len(linex) and not linex[j]:
                 j += 1
                 xd -= 1
             print(colorize[doy - dox]("%04x" % xd), end=' ')
@@ -541,7 +540,7 @@ def hexdiff(
         if doy:
             yd = y
             j = 0
-            while not liney[j]:
+            while j < len(liney) and not liney[j]:
                 j += 1
                 yd -= 1
             print(colorize[doy - dox]("%04x" % yd), end=' ')
@@ -557,7 +556,7 @@ def hexdiff(
             if i + j < min(len(backtrackx), len(backtracky)):
                 if line[j]:
                     col = colorize[(linex[j] != liney[j]) * (doy - dox)]
-                    print(col("%02X" % orb(line[j])), end=' ')
+                    print(col("%02X" % line[j][0]), end=' ')
                     if linex[j] == liney[j]:
                         cl += sane(line[j], color=True)
                     else:
@@ -1410,6 +1409,10 @@ class RawPcapReader(metaclass=PcapReader_metaclass):
     nonblocking_socket = True
     PacketMetadata = collections.namedtuple("PacketMetadata",
                                             ["sec", "usec", "wirelen", "caplen"])  # noqa: E501
+    # A helper subprocess (e.g. the tcpdump prefilter that sniff() spawns for
+    # an offline capture with a filter) whose lifetime is bound to this reader.
+    # It is reaped in close() so it does not linger as a zombie (#4512).
+    subproc = None  # type: Optional[subprocess.Popen[bytes]]
 
     def __init__(self, filename, fdesc=None, magic=None):  # type: ignore
         # type: (str, _ByteStream, bytes) -> None
@@ -1529,6 +1532,13 @@ class RawPcapReader(metaclass=PcapReader_metaclass):
         if isinstance(self.f, gzip.GzipFile):
             self.f.fileobj.close()  # type: ignore
         self.f.close()
+        if self.subproc is not None:
+            # Reap the prefilter subprocess. The read pipe is already closed
+            # above, so a still-running tcpdump gets a SIGTERM and we then
+            # wait() to avoid a zombie; an already-finished one is just reaped.
+            self.subproc.terminate()
+            self.subproc.wait()
+            self.subproc = None
 
     def __exit__(self, exc_type, exc_value, tracback):
         # type: (Optional[Any], Optional[Any], Optional[Any]) -> None
@@ -1647,6 +1657,7 @@ class RawPcapNgReader(RawPcapReader):
         }
         self.endian = "!"  # Will be overwritten by first SHB
         self.process_information = []  # type: List[Dict[str, Any]]
+        self._tls_state = None  # type: Optional[Tuple[Dict[str, bytes], bool]]
 
         if magic != b"\x0a\x0d\x0d\x0a":  # PcapNg:
             raise Scapy_Exception(
@@ -1766,29 +1777,33 @@ class RawPcapNgReader(RawPcapReader):
     def _read_options(self, options):
         # type: (bytes) -> Dict[int, Union[bytes, List[bytes]]]
         opts = dict()  # type: Dict[int, Union[bytes, List[bytes]]]
-        while len(options) >= 4:
+        offset = 0
+        while len(options) - offset >= 4:
             try:
-                code, length = struct.unpack(self.endian + "HH", options[:4])
+                code, length = struct.unpack_from(
+                    self.endian + "HH", options, offset
+                )
             except struct.error:
                 warning("PcapNg: options header is too small "
-                        "%d !" % len(options))
+                        "%d !" % (len(options) - offset))
                 raise EOFError
-            if code != 0 and 4 + length <= len(options):
+            value_offset = offset + 4
+            if code != 0 and value_offset + length <= len(options):
                 # https://www.ietf.org/archive/id/draft-tuexen-opsawg-pcapng-05.html#name-options-format
                 if code in [1, 2988, 2989, 19372, 19373]:
                     if code not in opts:
                         opts[code] = []
-                    opts[code].append(options[4:4 + length])  # type: ignore
+                    opts[code].append(  # type: ignore
+                        options[value_offset:value_offset + length]
+                    )
                 else:
-                    opts[code] = options[4:4 + length]
+                    opts[code] = options[value_offset:value_offset + length]
             if code == 0:
                 if length != 0:
                     warning("PcapNg: invalid option "
                             "length %d for end-of-option" % length)
                 break
-            if length % 4:
-                length += (4 - (length % 4))
-            options = options[4 + length:]
+            offset = value_offset + length + (-length % 4)
         return opts
 
     def _read_block_idb(self, block, _):
@@ -1808,7 +1823,7 @@ class RawPcapNgReader(RawPcapReader):
             if c == 9:
                 length = len(v)
                 if length == 1:
-                    tsresol = orb(v)
+                    tsresol = v[0]
                     options["tsresol"] = (2 if tsresol & 128 else 10) ** (
                         tsresol & 127
                     )
@@ -1988,24 +2003,34 @@ class RawPcapNgReader(RawPcapReader):
                         "the TLS layer is not loaded! Scapy won't be able "
                         "to decrypt the packets.")
             else:
-                from scapy.layers.tls.session import load_nss_keys
+                from scapy.layers.tls.session import parse_nss_keys
 
-                # Write Key Log to a file and parse it
-                filename = get_temp_file()
-                with open(filename, "wb") as fd:
-                    fd.write(secrets_data)
-                    fd.close()
-
-                keys = load_nss_keys(filename)
+                try:
+                    keys = parse_nss_keys(secrets_data.decode())
+                except UnicodeDecodeError as ex:
+                    warning("Cannot read NSS Key Log: %s", str(ex))
+                    keys = {}
                 if not keys:
                     warning("PcapNg: invalid TLS Key Log in DSB!")
                 else:
                     # Note: these attributes are only available when the TLS
                     #       layer is loaded.
+                    if self._tls_state is None:
+                        self._tls_state = (
+                            conf.tls_nss_keys,
+                            conf.tls_session_enable,
+                        )
                     conf.tls_nss_keys = keys
                     conf.tls_session_enable = True
         else:
             warning("PcapNg: Unknown DSB secrets type (0x%x)!", secrets_type)
+
+    def close(self):
+        # type: () -> None
+        if self._tls_state is not None:
+            conf.tls_nss_keys, conf.tls_session_enable = self._tls_state
+            self._tls_state = None
+        RawPcapReader.close(self)
 
     def _read_block_pib(self, block, _):
         # type: (bytes, int) -> None
@@ -2184,9 +2209,12 @@ class GenericPcapWriter(object):
         ifname = getattr(packet, "sniffed_on", None)
         direction = getattr(packet, "direction", None)
         if not isinstance(packet, bytes):
-            linktype: int = conf.l2types.layer2num[
-                packet.__class__
-            ]
+            # The class may not be bound to any linktype (e.g. conf.raw_layer),
+            # in which case fall back to the one write_header() settled on.
+            linktype: int = conf.l2types.layer2num.get(
+                packet.__class__,
+                self.linktype,
+            )
         else:
             linktype = self.linktype
         if ifname is not None:
@@ -3926,8 +3954,12 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                 for args in calls:
                     try:
                         res = func(self, *args, **kwargs)
-                    except TypeError:
+                    except KeyboardInterrupt:
+                        print("Aborted.")
+                    except TypeError as ex:
                         print("Bad number of arguments !")
+                        if debug:
+                            traceback.print_exception(ex)
                         self.help(cmd=cmd)
                         continue
                     except Exception as ex:
@@ -3937,6 +3969,8 @@ class CLIUtil(metaclass=_CLIUtilMetaclass):
                     try:
                         if res and cmd in self.commands_output:
                             self.commands_output[cmd](self, res, **outkwargs)
+                    except KeyboardInterrupt:
+                        print("Aborted.")
                     except Exception as ex:
                         print("Output processor failed with error: %s" % ex)
 
@@ -4016,13 +4050,17 @@ def AutoArgparse(
             continue
         if param.default != inspect.Parameter.empty:
             if param.kind == inspect.Parameter.POSITIONAL_ONLY:
-                positional.append(param.name)
+                positional.append(parname)
                 paramkwargs["nargs"] = '?'
             else:
                 parname = "--" + parname
             paramkwargs["default"] = param.default
+        elif param.kind == inspect.Parameter.KEYWORD_ONLY:
+            # Required but Keyword only
+            parname = "--" + parname
+            paramkwargs["required"] = True
         else:
-            positional.append(param.name)
+            positional.append(parname)
         if param.kind == inspect.Parameter.VAR_POSITIONAL:
             paramkwargs["action"] = "append"
         if param.name in argsdoc:

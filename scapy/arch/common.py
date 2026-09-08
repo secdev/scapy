@@ -79,8 +79,9 @@ def compile_filter(filter_exp,  # type: str
         from scapy.libs.winpcapy import (
             PCAP_ERRBUF_SIZE,
             pcap_open_live,
+            pcap_open_dead,
             pcap_compile,
-            pcap_compile_nopcap,
+            pcap_geterr,
             pcap_close
         )
     except OSError:
@@ -109,9 +110,9 @@ def compile_filter(filter_exp,  # type: str
         # Some conversion aliases (e.g. linktype_to_dlt in libpcap)
         if linktype == DLT_RAW_ALT:
             linktype = DLT_RAW
-        ret = pcap_compile_nopcap(
-            MTU, linktype, ctypes.byref(bpf), bpf_filter, 1, -1
-        )
+        # Use a "dead" capture handle (no interface / no root required) so that,
+        # on failure, the libpcap error message can be retrieved with pcap_geterr
+        pcap = pcap_open_dead(linktype, MTU)
     elif iface:
         err = create_string_buffer(PCAP_ERRBUF_SIZE)
         iface_b = create_string_buffer(network_name(iface).encode("utf8"))
@@ -121,14 +122,22 @@ def compile_filter(filter_exp,  # type: str
         error = decode_locale_str(bytearray(err).strip(b"\x00"))
         if error:
             raise OSError(error)
-        ret = pcap_compile(
-            pcap, ctypes.byref(bpf), bpf_filter, 1, -1
+    else:
+        raise Scapy_Exception("Please provide an interface or linktype!")
+    ret = pcap_compile(
+        pcap, ctypes.byref(bpf), bpf_filter, 1, -1
+    )
+    if ret == -1:
+        # Retrieve the underlying libpcap error message: it explains why the
+        # filter is invalid or incompatible with the link-layer type
+        errstr = decode_locale_str(
+            bytearray(pcap_geterr(pcap)).strip(b"\x00")
         )
         pcap_close(pcap)
-    if ret == -1:
         raise Scapy_Exception(
-            "Failed to compile filter expression %s (%s)" % (filter_exp, ret)
+            "Failed to compile filter expression %r (%s)" % (filter_exp, errstr)
         )
+    pcap_close(pcap)
     return bpf
 
 

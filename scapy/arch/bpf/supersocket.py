@@ -66,10 +66,11 @@ else:
 _NANOTIME = FREEBSD  # Kinda disappointing availability TBH
 
 if _NANOTIME:
+    # https://github.com/freebsd/freebsd-src/blob/aea4240ef5834fb4a47f80c659c80f902cb4bb06/sys/net/bpf.h#L206-L209
     class bpf_timeval(ctypes.Structure):
         # actually a bpf_timespec
-        _fields_ = [("tv_sec", ctypes.c_ulong),
-                    ("tv_nsec", ctypes.c_ulong)]
+        _fields_ = [("tv_sec", ctypes.c_int64),
+                    ("tv_nsec", ctypes.c_uint64)]
 elif NETBSD:
     class bpf_timeval(ctypes.Structure):
         _fields_ = [("tv_sec", ctypes.c_ulong),

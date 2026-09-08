@@ -1081,6 +1081,98 @@ to the Scapy interpreter::
 
 .. image:: ../graphics/animations/animation-scapy-uds3.svg
 
+
+Single Layer Mode
+-----------------
+
+UDS, KWP, OBD, and GMLAN all support a *single layer mode* that makes each
+service packet a standalone ``Packet`` rather than a nested sublayer.
+
+**Default (multi-layer) mode**
+
+.. code-block:: python
+
+    >>> pkt = UDS() / UDS_DSC(diagnosticSessionType=0x01)
+    >>> UDS(b'\x10\x01')
+    <UDS  service=DiagnosticSessionControl |<UDS_DSC  diagnosticSessionType=defaultSession |>>
+
+**Single layer mode**
+
+To enable before loading a module::
+
+    >>> conf.contribs['UDS'] = {'treat-response-pending-as-answer': False,
+    ...                          'single_layer_mode': True}
+    >>> load_contrib('automotive.uds')
+
+To toggle at runtime after loading::
+
+    >>> conf.contribs['UDS']['single_layer_mode'] = True
+    >>> UDS(b'\x10\x01')
+    <UDS_DSC  service=DiagnosticSessionControl diagnosticSessionType=defaultSession |>
+    >>> bytes(UDS_DSC(diagnosticSessionType=0x01))
+    b'\x10\x01'
+    >>> conf.contribs['UDS']['single_layer_mode'] = False   # revert to multi-layer mode
+
+The same ``single_layer_mode`` key works for all protocols: replace ``'UDS'``
+with ``'KWP'``, ``'OBD'``, or ``'GMLAN'`` as appropriate.
+
+Compatibility Mode
+------------------
+
+Scapy allows crafting packets freely, including stacking a service sub-packet
+on top of the base protocol layer (e.g. ``UDS()/UDS_DSC()``).  When both
+``single_layer_mode`` *and* stacking are used together, the ``service`` byte
+would normally appear twice in the resulting byte stream – once from the base
+layer and once from the sub-packet's own ``service`` ConditionalField.
+
+The **compatibility mode** flag (``compatibility_mode``, default ``True``)
+addresses this: when it is enabled and ``single_layer_mode`` is active, the
+sub-packet's ``service`` field is automatically **suppressed** whenever the
+immediate underlayer is already the matching base-protocol packet.
+
+.. list-table:: Behaviour matrix
+   :header-rows: 1
+   :widths: 25 25 50
+
+   * - ``single_layer_mode``
+     - ``compatibility_mode``
+     - ``UDS()/UDS_DSC()`` byte layout
+   * - ``False``
+     - any
+     - ``service`` (UDS) + ``diagnosticSessionType`` (UDS_DSC)
+   * - ``True``
+     - ``True`` *(default)*
+     - ``service`` (UDS) + ``diagnosticSessionType`` (UDS_DSC) — duplicate suppressed
+   * - ``True``
+     - ``False``
+     - ``service`` (UDS) + ``service`` (UDS_DSC) + ``diagnosticSessionType`` (UDS_DSC)
+
+Example with compatibility mode on (default)::
+
+    >>> conf.contribs['UDS']['single_layer_mode'] = True
+    >>> conf.contribs['UDS']['compatibility_mode'] = True  # already the default
+
+    >>> # Standalone sub-packet: service field IS present (no UDS underlayer)
+    >>> bytes(UDS_DSC(diagnosticSessionType=0x01))
+    b'\x10\x01'
+
+    >>> # Stacked: service field in UDS_DSC is suppressed (UDS is the underlayer)
+    >>> bytes(UDS() / UDS_DSC(diagnosticSessionType=0x01))
+    b'\x10\x01'
+
+Example with compatibility mode off::
+
+    >>> conf.contribs['UDS']['compatibility_mode'] = False
+
+    >>> # Stacked: both UDS and UDS_DSC emit a service byte
+    >>> bytes(UDS() / UDS_DSC(diagnosticSessionType=0x01))
+    b'\x10\x10\x01'
+
+    >>> conf.contribs['UDS']['compatibility_mode'] = True   # restore default
+
+The same ``compatibility_mode`` key works for all protocols: replace ``'UDS'``
+with ``'KWP'``, ``'OBD'``, or ``'GMLAN'`` as appropriate.
+
 GMLAN
 =====
 

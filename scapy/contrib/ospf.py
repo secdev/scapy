@@ -26,7 +26,6 @@ from scapy.fields import BitField, ByteEnumField, ByteField, \
 from scapy.layers.inet import IP, DestIPField
 from scapy.layers.inet6 import IPv6, in6_chksum
 from scapy.utils import fletcher16_checkbytes, checksum, inet_aton
-from scapy.compat import orb
 from scapy.config import conf
 
 EXT_VERSION = "v0.9.2"
@@ -254,7 +253,7 @@ def _LSAGuessPayloadClass(p, **kargs):
 
     cls = conf.raw_layer
     if len(p) >= 4:
-        typ = orb(p[3])
+        typ = p[3]
         clsname = _OSPF_LSclasses.get(typ, "Raw")
         cls = globals()[clsname]
     return cls(p, **kargs)

@@ -98,7 +98,7 @@ class HICPConfigure(Packet):
         return "".join(p).encode('utf-8') + b"\x00" + pay
 
     def do_dissect(self, s):
-        res = match(".*: ([^;]+);", s.decode('utf-8'))
+        res = match(": ([^;]+);", s.decode('utf-8'))
         if res:
             self.target = TO_MACFIELD(res.group(1))
         s = s[len(self.target) + 3:]

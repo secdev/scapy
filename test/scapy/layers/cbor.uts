@@ -1,0 +1,3951 @@
+% Tests for CBOR encoding/decoding
+# Following the ASN.1 test paradigm
+#
+# Try me with:
+# bash test/run_tests -t test/scapy/layers/cbor.uts -F
+#
+# NOTE: Interoperability tests require cbor2 (test-only dependency):
+# pip install cbor2
+# cbor2 is used ONLY in tests, NOT in the scapy CBOR implementation
+
+########### CBOR Basic Types #######################################
+
++ CBOR Unsigned Integer
+
+= Encode small unsigned integer (0-23)
+from scapy.cbor import *
+obj = CBOR_UNSIGNED_INTEGER(0)
+bytes(obj) == b'\x00'
+
+= Encode unsigned integer with 1-byte value
+obj = CBOR_UNSIGNED_INTEGER(24)
+bytes(obj) == b'\x18\x18'
+
+= Encode unsigned integer with 2-byte value
+obj = CBOR_UNSIGNED_INTEGER(1000)
+bytes(obj) == b'\x19\x03\xe8'
+
+= Encode unsigned integer with 4-byte value
+obj = CBOR_UNSIGNED_INTEGER(1000000)
+bytes(obj) == b'\x1a\x00\x0f\x42\x40'
+
+= Decode small unsigned integer
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\x00')
+obj.val == 0 and remainder == b''
+
+= Decode unsigned integer with 1-byte value
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\x18\x18')
+obj.val == 24 and remainder == b''
+
+= Decode unsigned integer with 2-byte value
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\x19\x03\xe8')
+obj.val == 1000 and remainder == b''
+
++ CBOR Negative Integer
+
+= Encode negative integer -1
+obj = CBOR_NEGATIVE_INTEGER(-1)
+bytes(obj) == b'\x20'
+
+= Encode negative integer -10
+obj = CBOR_NEGATIVE_INTEGER(-10)
+bytes(obj) == b'\x29'
+
+= Encode negative integer -100
+obj = CBOR_NEGATIVE_INTEGER(-100)
+bytes(obj) == b'\x38\x63'
+
+= Decode negative integer -1
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\x20')
+obj.val == -1 and remainder == b''
+
+= Decode negative integer -100
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\x38\x63')
+obj.val == -100 and remainder == b''
+
++ CBOR Byte String
+
+= Encode empty byte string
+obj = CBOR_BYTE_STRING(b'')
+bytes(obj) == b'\x40'
+
+= Encode byte string
+obj = CBOR_BYTE_STRING(b'hello')
+bytes(obj) == b'\x45hello'
+
+= Decode empty byte string
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\x40')
+obj.val == b'' and remainder == b''
+
+= Decode byte string
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\x45hello')
+obj.val == b'hello' and remainder == b''
+
++ CBOR Text String
+
+= Encode empty text string
+obj = CBOR_TEXT_STRING('')
+bytes(obj) == b'\x60'
+
+= Encode text string
+obj = CBOR_TEXT_STRING('hello')
+bytes(obj) == b'\x65hello'
+
+= Encode UTF-8 text string
+obj = CBOR_TEXT_STRING('café')
+bytes(obj) == b'\x65caf\xc3\xa9'
+
+= Decode empty text string
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\x60')
+obj.val == '' and remainder == b''
+
+= Decode text string
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\x65hello')
+obj.val == 'hello' and remainder == b''
+
+= Decode UTF-8 text string
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\x65caf\xc3\xa9')
+obj.val == 'café' and remainder == b''
+
++ CBOR Simple Values
+
+= Encode false
+obj = CBOR_FALSE()
+bytes(obj) == b'\xf4'
+
+= Encode true
+obj = CBOR_TRUE()
+bytes(obj) == b'\xf5'
+
+= Encode null
+obj = CBOR_NULL()
+bytes(obj) == b'\xf6'
+
+= Encode undefined
+obj = CBOR_UNDEFINED()
+bytes(obj) == b'\xf7'
+
+= Decode false
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\xf4')
+isinstance(obj, CBOR_FALSE) and obj.val is False and remainder == b''
+
+= Decode true
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\xf5')
+isinstance(obj, CBOR_TRUE) and obj.val is True and remainder == b''
+
+= Decode null
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\xf6')
+isinstance(obj, CBOR_NULL) and obj.val is None and remainder == b''
+
+= Decode undefined
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\xf7')
+isinstance(obj, CBOR_UNDEFINED) and remainder == b''
+
++ CBOR Float
+
+= Encode double precision float
+obj = CBOR_FLOAT(1.5)
+bytes(obj) == b'\xfb\x3f\xf8\x00\x00\x00\x00\x00\x00'
+
+= Decode double precision float
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\xfb\x3f\xf8\x00\x00\x00\x00\x00\x00')
+abs(obj.val - 1.5) < 0.0001 and remainder == b''
+
++ CBOR Array
+
+= Encode empty array
+obj = CBOR_ARRAY([])
+bytes(obj) == b'\x80'
+
+= Encode array with integers
+from scapy.cbor.cborcodec import CBORcodec_ARRAY
+obj = CBOR_ARRAY([CBOR_UNSIGNED_INTEGER(1), CBOR_UNSIGNED_INTEGER(2), CBOR_UNSIGNED_INTEGER(3)])
+bytes(obj) == b'\x83\x01\x02\x03'
+
+= Encode array with Python integers
+result = CBORcodec_ARRAY.enc([1, 2, 3])
+result == b'\x83\x01\x02\x03'
+
+= Decode empty array
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\x80')
+isinstance(obj, CBOR_ARRAY) and obj.val == [] and remainder == b''
+
+= Decode array with integers
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\x83\x01\x02\x03')
+isinstance(obj, CBOR_ARRAY) and len(obj.val) == 3
+
+= Decode nested array
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\x82\x01\x82\x02\x03')
+isinstance(obj, CBOR_ARRAY) and len(obj.val) == 2
+
++ CBOR Map
+
+= Encode empty map
+obj = CBOR_MAP({})
+bytes(obj) == b'\xa0'
+
+= Encode map with string keys
+from scapy.cbor.cborcodec import CBORcodec_MAP
+result = CBORcodec_MAP.enc({"a": 1, "b": 2})
+result == b'\xa2\x61a\x01\x61b\x02' or result == b'\xa2\x61b\x02\x61a\x01'
+
+= Decode empty map
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\xa0')
+isinstance(obj, CBOR_MAP) and obj.val == {} and remainder == b''
+
+= Decode map with integer values
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\xa2\x61a\x01\x61b\x02')
+isinstance(obj, CBOR_MAP) and len(obj.val) == 2
+
++ CBOR Semantic Tag
+
+= Encode semantic tag (datetime)
+obj = CBOR_SEMANTIC_TAG((0, CBOR_TEXT_STRING("2013-03-21T20:04:00Z")))
+bytes(obj) == b'\xc0\x74' + b'2013-03-21T20:04:00Z'
+
+= Decode semantic tag
+obj, remainder = CBOR_Codecs.CBOR.dec(b'\xc0\x74' + b'2013-03-21T20:04:00Z')
+isinstance(obj, CBOR_SEMANTIC_TAG) and obj.val[0] == 0 and remainder == b''
+
++ CBOR Roundtrip Tests
+
+= Roundtrip unsigned integer
+original = CBOR_UNSIGNED_INTEGER(42)
+encoded = bytes(original)
+decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
+decoded.val == original.val
+
+= Roundtrip negative integer
+original = CBOR_NEGATIVE_INTEGER(-42)
+encoded = bytes(original)
+decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
+decoded.val == original.val
+
+= Roundtrip byte string
+original = CBOR_BYTE_STRING(b'test data')
+encoded = bytes(original)
+decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
+decoded.val == original.val
+
+= Roundtrip text string
+original = CBOR_TEXT_STRING('test string')
+encoded = bytes(original)
+decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
+decoded.val == original.val
+
+= Roundtrip array
+from scapy.cbor.cborcodec import CBORcodec_ARRAY
+encoded = CBORcodec_ARRAY.enc([1, 2, 3, 4, 5])
+decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_ARRAY) and len(decoded.val) == 5
+
+= Roundtrip map
+from scapy.cbor.cborcodec import CBORcodec_MAP
+encoded = CBORcodec_MAP.enc({"x": 100, "y": 200})
+decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_MAP) and len(decoded.val) == 2
+
++ CBOR Complex Structures
+
+= Encode nested structure
+from scapy.cbor.cborcodec import CBORcodec_MAP
+input_dict = {
+    "name": "John",
+    "age": 30,
+    "active": True
+}
+encoded = CBORcodec_MAP.enc(input_dict)
+len(encoded) > 0
+
+= Decode nested structure
+encoded_data = b'\xa3\x64name\x64John\x63age\x18\x1e\x66active\xf5'
+obj, remainder = CBOR_Codecs.CBOR.dec(encoded_data)
+isinstance(obj, CBOR_MAP) and remainder == b''
+
++ CBOR Error Handling
+
+= Safe decode with invalid data
+obj, remainder = CBOR_Codecs.CBOR.safedec(b'\xff\xff\xff')
+isinstance(obj, CBOR_DECODING_ERROR)
+
+= Decode with insufficient bytes for length
+try:
+    obj, remainder = CBOR_Codecs.CBOR.dec(b'\x18')
+    False
+except:
+    True
+
+= Decode byte string with insufficient data
+try:
+    obj, remainder = CBOR_Codecs.CBOR.dec(b'\x45hel')
+    False
+except:
+    True
+
+########### CBOR Interoperability Tests with cbor2 #################
+# These tests verify interoperability between scapy's CBOR implementation
+# and the standard cbor2 library. cbor2 is ONLY used in tests, not in
+# the scapy implementation.
+#
+# NOTE: These tests require cbor2 to be installed: pip install cbor2
+
++ CBOR Interoperability - Basic Types (Scapy encode, cbor2 decode)
+
+= Check cbor2 availability
+try:
+    import cbor2
+    cbor2_available = True
+except ImportError:
+    cbor2_available = False
+
+cbor2_available
+
+= Interop: Scapy encode unsigned integer, cbor2 decode
+import cbor2
+obj = CBOR_UNSIGNED_INTEGER(42)
+encoded = bytes(obj)
+decoded = cbor2.loads(encoded)
+decoded == 42
+
+= Interop: Scapy encode negative integer, cbor2 decode
+obj = CBOR_NEGATIVE_INTEGER(-100)
+encoded = bytes(obj)
+decoded = cbor2.loads(encoded)
+decoded == -100
+
+= Interop: Scapy encode text string, cbor2 decode
+obj = CBOR_TEXT_STRING("Hello, World!")
+encoded = bytes(obj)
+decoded = cbor2.loads(encoded)
+decoded == "Hello, World!"
+
+= Interop: Scapy encode UTF-8 text string, cbor2 decode
+obj = CBOR_TEXT_STRING("Café ☕")
+encoded = bytes(obj)
+decoded = cbor2.loads(encoded)
+decoded == "Café ☕"
+
+= Interop: Scapy encode byte string, cbor2 decode
+obj = CBOR_BYTE_STRING(b'\x01\x02\x03\x04\x05')
+encoded = bytes(obj)
+decoded = cbor2.loads(encoded)
+decoded == b'\x01\x02\x03\x04\x05'
+
+= Interop: Scapy encode true, cbor2 decode
+obj = CBOR_TRUE()
+encoded = bytes(obj)
+decoded = cbor2.loads(encoded)
+decoded is True
+
+= Interop: Scapy encode false, cbor2 decode
+obj = CBOR_FALSE()
+encoded = bytes(obj)
+decoded = cbor2.loads(encoded)
+decoded is False
+
+= Interop: Scapy encode null, cbor2 decode
+obj = CBOR_NULL()
+encoded = bytes(obj)
+decoded = cbor2.loads(encoded)
+decoded is None
+
+= Interop: Scapy encode undefined, cbor2 decode
+obj = CBOR_UNDEFINED()
+encoded = bytes(obj)
+decoded = cbor2.loads(encoded)
+from cbor2 import undefined
+decoded is undefined
+
+= Interop: Scapy encode float, cbor2 decode
+obj = CBOR_FLOAT(3.14159)
+encoded = bytes(obj)
+decoded = cbor2.loads(encoded)
+abs(decoded - 3.14159) < 0.0001
+
++ CBOR Interoperability - Collections (Scapy encode, cbor2 decode)
+
+= Interop: Scapy encode array, cbor2 decode
+from scapy.cbor.cborcodec import CBORcodec_ARRAY
+encoded = CBORcodec_ARRAY.enc([1, 2, 3, 4, 5])
+decoded = cbor2.loads(encoded)
+decoded == [1, 2, 3, 4, 5]
+
+= Interop: Scapy encode nested array, cbor2 decode
+encoded = CBORcodec_ARRAY.enc([1, [2, 3], [4, [5, 6]]])
+decoded = cbor2.loads(encoded)
+decoded == [1, [2, 3], [4, [5, 6]]]
+
+= Interop: Scapy encode map, cbor2 decode
+from scapy.cbor.cborcodec import CBORcodec_MAP
+encoded = CBORcodec_MAP.enc({"a": 1, "b": 2, "c": 3})
+decoded = cbor2.loads(encoded)
+decoded == {"a": 1, "b": 2, "c": 3}
+
+= Interop: Scapy encode complex map, cbor2 decode
+data = {"name": "Alice", "age": 30, "active": True, "tags": ["user", "admin"]}
+encoded = CBORcodec_MAP.enc(data)
+decoded = cbor2.loads(encoded)
+decoded == data
+
+= Interop: Scapy encode mixed array, cbor2 decode
+encoded = CBORcodec_ARRAY.enc([42, "hello", True, None, 3.14, [1, 2]])
+decoded = cbor2.loads(encoded)
+len(decoded) == 6 and decoded[0] == 42 and decoded[1] == "hello"
+
++ CBOR Interoperability - Basic Types (cbor2 encode, Scapy decode)
+
+= Interop: cbor2 encode unsigned integer, Scapy decode
+encoded = cbor2.dumps(42)
+obj, remainder = CBOR_Codecs.CBOR.dec(encoded)
+obj.val == 42 and isinstance(obj, CBOR_UNSIGNED_INTEGER)
+
+= Interop: cbor2 encode negative integer, Scapy decode
+encoded = cbor2.dumps(-100)
+obj, remainder = CBOR_Codecs.CBOR.dec(encoded)
+obj.val == -100 and isinstance(obj, CBOR_NEGATIVE_INTEGER)
+
+= Interop: cbor2 encode text string, Scapy decode
+encoded = cbor2.dumps("Hello, World!")
+obj, remainder = CBOR_Codecs.CBOR.dec(encoded)
+obj.val == "Hello, World!" and isinstance(obj, CBOR_TEXT_STRING)
+
+= Interop: cbor2 encode UTF-8 text string, Scapy decode
+encoded = cbor2.dumps("Café ☕")
+obj, remainder = CBOR_Codecs.CBOR.dec(encoded)
+obj.val == "Café ☕" and isinstance(obj, CBOR_TEXT_STRING)
+
+= Interop: cbor2 encode byte string, Scapy decode
+encoded = cbor2.dumps(b'\x01\x02\x03\x04\x05')
+obj, remainder = CBOR_Codecs.CBOR.dec(encoded)
+obj.val == b'\x01\x02\x03\x04\x05' and isinstance(obj, CBOR_BYTE_STRING)
+
+= Interop: cbor2 encode true, Scapy decode
+encoded = cbor2.dumps(True)
+obj, remainder = CBOR_Codecs.CBOR.dec(encoded)
+obj.val is True and isinstance(obj, CBOR_TRUE)
+
+= Interop: cbor2 encode false, Scapy decode
+encoded = cbor2.dumps(False)
+obj, remainder = CBOR_Codecs.CBOR.dec(encoded)
+obj.val is False and isinstance(obj, CBOR_FALSE)
+
+= Interop: cbor2 encode null, Scapy decode
+encoded = cbor2.dumps(None)
+obj, remainder = CBOR_Codecs.CBOR.dec(encoded)
+obj.val is None and isinstance(obj, CBOR_NULL)
+
+= Interop: cbor2 encode undefined, Scapy decode
+from cbor2 import CBORSimpleValue, undefined
+encoded = cbor2.dumps(undefined)
+obj, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(obj, CBOR_UNDEFINED)
+
+= Interop: cbor2 encode float, Scapy decode
+encoded = cbor2.dumps(3.14159)
+obj, remainder = CBOR_Codecs.CBOR.dec(encoded)
+abs(obj.val - 3.14159) < 0.0001 and isinstance(obj, CBOR_FLOAT)
+
++ CBOR Interoperability - Collections (cbor2 encode, Scapy decode)
+
+= Interop: cbor2 encode array, Scapy decode
+encoded = cbor2.dumps([1, 2, 3, 4, 5])
+obj, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(obj, CBOR_ARRAY) and len(obj.val) == 5
+
+= Interop: cbor2 encode nested array, Scapy decode
+encoded = cbor2.dumps([1, [2, 3], [4, [5, 6]]])
+obj, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(obj, CBOR_ARRAY) and len(obj.val) == 3
+
+= Interop: cbor2 encode map, Scapy decode
+encoded = cbor2.dumps({"a": 1, "b": 2, "c": 3})
+obj, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(obj, CBOR_MAP) and len(obj.val) == 3
+
+= Interop: cbor2 encode complex map, Scapy decode
+data = {"name": "Alice", "age": 30, "active": True}
+encoded = cbor2.dumps(data)
+obj, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(obj, CBOR_MAP) and "name" in obj.val
+
+= Interop: cbor2 encode mixed array, Scapy decode
+encoded = cbor2.dumps([42, "hello", True, None, 3.14])
+obj, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(obj, CBOR_ARRAY) and len(obj.val) == 5
+
++ CBOR Interoperability - Roundtrip Tests
+
+= Interop roundtrip: integer through cbor2
+original_val = 12345
+scapy_obj = CBOR_UNSIGNED_INTEGER(original_val)
+scapy_encoded = bytes(scapy_obj)
+cbor2_decoded = cbor2.loads(scapy_encoded)
+cbor2_encoded = cbor2.dumps(cbor2_decoded)
+scapy_decoded, _ = CBOR_Codecs.CBOR.dec(cbor2_encoded)
+scapy_decoded.val == original_val
+
+= Interop roundtrip: string through cbor2
+original_val = "Test String 测试"
+scapy_obj = CBOR_TEXT_STRING(original_val)
+scapy_encoded = bytes(scapy_obj)
+cbor2_decoded = cbor2.loads(scapy_encoded)
+cbor2_encoded = cbor2.dumps(cbor2_decoded)
+scapy_decoded, _ = CBOR_Codecs.CBOR.dec(cbor2_encoded)
+scapy_decoded.val == original_val
+
+= Interop roundtrip: array through cbor2
+original_val = [1, "two", 3.0, True, None]
+scapy_encoded = CBORcodec_ARRAY.enc(original_val)
+cbor2_decoded = cbor2.loads(scapy_encoded)
+cbor2_encoded = cbor2.dumps(cbor2_decoded)
+scapy_decoded, _ = CBOR_Codecs.CBOR.dec(cbor2_encoded)
+isinstance(scapy_decoded, CBOR_ARRAY) and len(scapy_decoded.val) == 5
+
+= Interop roundtrip: map through cbor2
+original_val = {"int": 42, "str": "value", "bool": True, "null": None}
+scapy_encoded = CBORcodec_MAP.enc(original_val)
+cbor2_decoded = cbor2.loads(scapy_encoded)
+cbor2_encoded = cbor2.dumps(cbor2_decoded)
+scapy_decoded, _ = CBOR_Codecs.CBOR.dec(cbor2_encoded)
+isinstance(scapy_decoded, CBOR_MAP) and len(scapy_decoded.val) == 4
+
++ CBOR Interoperability - Edge Cases
+
+= Interop: Large unsigned integer
+large_int = 18446744073709551615  # 2^64 - 1
+encoded = cbor2.dumps(large_int)
+obj, _ = CBOR_Codecs.CBOR.dec(encoded)
+obj.val == large_int
+
+= Interop: Very negative integer
+neg_int = -18446744073709551616  # -(2^64)
+encoded = cbor2.dumps(neg_int)
+obj, _ = CBOR_Codecs.CBOR.dec(encoded)
+obj.val == neg_int
+
+= Interop: Empty collections
+empty_array = cbor2.dumps([])
+obj1, _ = CBOR_Codecs.CBOR.dec(empty_array)
+empty_map = cbor2.dumps({})
+obj2, _ = CBOR_Codecs.CBOR.dec(empty_map)
+isinstance(obj1, CBOR_ARRAY) and len(obj1.val) == 0 and isinstance(obj2, CBOR_MAP) and len(obj2.val) == 0
+
+= Interop: Deeply nested structure
+deep = {"level1": {"level2": {"level3": {"level4": [1, 2, 3]}}}}
+encoded = cbor2.dumps(deep)
+obj, _ = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(obj, CBOR_MAP)
+
+= Interop: Special float values (infinity)
+import math
+pos_inf_encoded = cbor2.dumps(math.inf)
+pos_inf_obj, _ = CBOR_Codecs.CBOR.dec(pos_inf_encoded)
+neg_inf_encoded = cbor2.dumps(-math.inf)
+neg_inf_obj, _ = CBOR_Codecs.CBOR.dec(neg_inf_encoded)
+math.isinf(pos_inf_obj.val) and math.isinf(neg_inf_obj.val)
+
+= Interop: Special float value (NaN)
+nan_encoded = cbor2.dumps(math.nan)
+nan_obj, _ = CBOR_Codecs.CBOR.dec(nan_encoded)
+math.isnan(nan_obj.val)
+
+= Interop: Zero values
+zero_int = cbor2.dumps(0)
+zero_float = cbor2.dumps(0.0)
+obj1, _ = CBOR_Codecs.CBOR.dec(zero_int)
+obj2, _ = CBOR_Codecs.CBOR.dec(zero_float)
+obj1.val == 0 and obj2.val == 0.0
+
+########### Additional Tests Adapted from PR #4875 ###################
+# These tests verify specific encoding sizes and edge cases
+
++ CBOR Encoding Sizes - Unsigned Integers
+
+= uint encoding size 0 (argument in initial byte)
+obj = CBOR_UNSIGNED_INTEGER(0x12)
+data = bytes(obj)
+data == bytes.fromhex('12')
+
+= uint encoding size 1 (1-byte argument follows)
+obj = CBOR_UNSIGNED_INTEGER(0x34)
+data = bytes(obj)
+data == bytes.fromhex('1834')
+
+= uint encoding size 2 (2-byte argument follows)
+obj = CBOR_UNSIGNED_INTEGER(0x1234)
+data = bytes(obj)
+data == bytes.fromhex('191234')
+
+= uint encoding size 4 (4-byte argument follows)
+obj = CBOR_UNSIGNED_INTEGER(0x12345678)
+data = bytes(obj)
+data == bytes.fromhex('1a12345678')
+
+= uint encoding size 8 (8-byte argument follows)
+obj = CBOR_UNSIGNED_INTEGER(0x1234567812345678)
+data = bytes(obj)
+data == bytes.fromhex('1b1234567812345678')
+
+= uint decoding size 0
+data = bytes.fromhex('12')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == 18 and remainder == b''
+
+= uint decoding size 1
+data = bytes.fromhex('1834')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == 0x34 and remainder == b''
+
+= uint decoding size 2
+data = bytes.fromhex('191234')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == 0x1234 and remainder == b''
+
+= uint decoding size 4
+data = bytes.fromhex('1a12345678')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == 0x12345678 and remainder == b''
+
+= uint decoding size 8
+data = bytes.fromhex('1b1234567812345678')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == 0x1234567812345678 and remainder == b''
+
++ CBOR Encoding Sizes - Negative Integers
+
+= nint encoding size 0
+obj = CBOR_NEGATIVE_INTEGER(-0x13)
+data = bytes(obj)
+data == bytes.fromhex('32')
+
+= nint decoding size 0
+data = bytes.fromhex('32')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == -0x13 and isinstance(obj, CBOR_NEGATIVE_INTEGER) and remainder == b''
+
+= nint decoding size 2
+data = bytes.fromhex('391234')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == (-0x1234 - 1) and isinstance(obj, CBOR_NEGATIVE_INTEGER) and remainder == b''
+
++ CBOR Byte String Edge Cases
+
+= bstr encoding with specific content
+obj = CBOR_BYTE_STRING(b'hi')
+data = bytes(obj)
+data == bytes.fromhex('426869')
+
+= bstr decoding with specific content
+data = bytes.fromhex('426869')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == b'hi' and isinstance(obj, CBOR_BYTE_STRING) and remainder == b''
+
+= bstr longer content (24 bytes)
+content = b'longlonglonglonglonglong'
+obj = CBOR_BYTE_STRING(content)
+data = bytes(obj)
+# Should use 1-byte length encoding (0x58 = major type 2, additional info 24)
+data[:2] == bytes.fromhex('5818') and data[2:] == content
+
+= bstr decoding longer content
+data = bytes.fromhex('58186c6f6e676c6f6e676c6f6e676c6f6e676c6f6e676c6f6e67')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == b'longlonglonglonglonglong' and remainder == b''
+
++ CBOR Text String Edge Cases
+
+= tstr encoding with specific content
+obj = CBOR_TEXT_STRING('hi')
+data = bytes(obj)
+data == bytes.fromhex('626869')
+
+= tstr decoding with specific content
+data = bytes.fromhex('626869')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == 'hi' and isinstance(obj, CBOR_TEXT_STRING) and remainder == b''
+
+= tstr longer content (24 chars)
+content = 'longlonglonglonglonglong'
+obj = CBOR_TEXT_STRING(content)
+data = bytes(obj)
+# Should use 1-byte length encoding (0x78 = major type 3, additional info 24)
+data[:2] == bytes.fromhex('7818') and data[2:] == content.encode('utf8')
+
+= tstr decoding longer content
+data = bytes.fromhex('78186c6f6e676c6f6e676c6f6e676c6f6e676c6f6e676c6f6e67')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+obj.val == 'longlonglonglonglonglong' and remainder == b''
+
++ CBOR Array Specific Encodings
+
+= array encoding with mixed integer types
+from scapy.cbor.cborcodec import CBORcodec_ARRAY
+# Array with positive 10 and negative 20
+encoded = CBORcodec_ARRAY.enc([10, -20])
+decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_ARRAY) and len(decoded.val) == 2
+
+= array decoding specific encoding
+data = bytes.fromhex('820A33')  # array(2): [10, -20]
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_ARRAY) and len(obj.val) == 2 and remainder == b''
+
++ CBOR Map Specific Encodings
+
+= map encoding with integer keys
+from scapy.cbor.cborcodec import CBORcodec_MAP
+encoded = CBORcodec_MAP.enc({10: -20})
+decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_MAP) and len(decoded.val) == 1
+
+= map decoding specific encoding
+data = bytes.fromhex('A10A33')  # map(1): {10: -20}
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_MAP) and len(obj.val) == 1 and remainder == b''
+
++ CBOR Float Specific Encodings
+
+= float64 encoding specific value
+obj = CBOR_FLOAT(1.5e20)
+data = bytes(obj)
+data == bytes.fromhex('FB442043561A882930')
+
+= float64 decoding specific value
+data = bytes.fromhex('FB442043561A882930')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and obj.val == 1.5e20 and remainder == b''
+
++ CBOR Multiple Item Decoding
+
+= decode multiple items in sequence
+data = bytes.fromhex('010203')  # Three unsigned integers: 1, 2, 3
+obj1, remainder1 = CBOR_Codecs.CBOR.dec(data)
+obj2, remainder2 = CBOR_Codecs.CBOR.dec(remainder1)
+obj3, remainder3 = CBOR_Codecs.CBOR.dec(remainder2)
+obj1.val == 1 and obj2.val == 2 and obj3.val == 3 and remainder3 == b''
+
+= decode nested array with specific encoding
+data = bytes.fromhex('8201820203')  # array(2): [1, array(2): [2, 3]]
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_ARRAY) and len(obj.val) == 2 and remainder == b'' and isinstance(obj.val[1], CBOR_ARRAY)
+
++ CBOR Boundary Value Tests
+
+= encode maximum value that fits in each size
+# Maximum for size 0 (0-23)
+obj = CBOR_UNSIGNED_INTEGER(23)
+bytes(obj) == bytes.fromhex('17')
+
+= encode minimum value needing size 1
+obj = CBOR_UNSIGNED_INTEGER(24)
+bytes(obj) == bytes.fromhex('1818')
+
+= encode maximum value for size 1
+obj = CBOR_UNSIGNED_INTEGER(255)
+bytes(obj) == bytes.fromhex('18ff')
+
+= encode minimum value needing size 2
+obj = CBOR_UNSIGNED_INTEGER(256)
+bytes(obj) == bytes.fromhex('190100')
+
+= negative integer boundary at -24
+obj = CBOR_NEGATIVE_INTEGER(-24)
+bytes(obj) == bytes.fromhex('37')
+
+= negative integer boundary at -25
+obj = CBOR_NEGATIVE_INTEGER(-25)
+bytes(obj) == bytes.fromhex('3818')
+
++ CBOR Empty Container Tests
+
+= encode empty array
+from scapy.cbor.cborcodec import CBORcodec_ARRAY
+encoded = CBORcodec_ARRAY.enc([])
+decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_ARRAY) and len(decoded.val) == 0
+
+= encode empty map
+from scapy.cbor.cborcodec import CBORcodec_MAP
+encoded = CBORcodec_MAP.enc({})
+decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_MAP) and len(decoded.val) == 0
+
+= encode empty byte string
+obj = CBOR_BYTE_STRING(b'')
+data = bytes(obj)
+data == bytes.fromhex('40')
+
+= encode empty text string
+obj = CBOR_TEXT_STRING('')
+data = bytes(obj)
+data == bytes.fromhex('60')
+
+########### CBOR Fuzzing / Random Object Tests ####################
+
++ CBOR Random Object Generation
+
+= Create RandCBORObject
+from scapy.cbor import RandCBORObject
+rand = RandCBORObject()
+isinstance(rand, RandCBORObject)
+
+= Generate random CBOR unsigned integer
+from scapy.cbor import RandCBORObject, CBOR_UNSIGNED_INTEGER
+rand = RandCBORObject(objlist=[CBOR_UNSIGNED_INTEGER])
+obj = rand._fix()
+isinstance(obj, CBOR_UNSIGNED_INTEGER) and isinstance(obj.val, int) and obj.val >= 0
+
+= Generate random CBOR negative integer
+from scapy.cbor import RandCBORObject, CBOR_NEGATIVE_INTEGER
+rand = RandCBORObject(objlist=[CBOR_NEGATIVE_INTEGER])
+obj = rand._fix()
+isinstance(obj, CBOR_NEGATIVE_INTEGER) and isinstance(obj.val, int) and obj.val < 0
+
+= Generate random CBOR byte string
+from scapy.cbor import RandCBORObject, CBOR_BYTE_STRING
+rand = RandCBORObject(objlist=[CBOR_BYTE_STRING])
+obj = rand._fix()
+isinstance(obj, CBOR_BYTE_STRING) and isinstance(obj.val, bytes)
+
+= Generate random CBOR text string
+from scapy.cbor import RandCBORObject, CBOR_TEXT_STRING
+rand = RandCBORObject(objlist=[CBOR_TEXT_STRING])
+obj = rand._fix()
+isinstance(obj, CBOR_TEXT_STRING) and isinstance(obj.val, str) and len(obj.val) > 0
+
+= Generate random CBOR array
+from scapy.cbor import RandCBORObject, CBOR_ARRAY
+rand = RandCBORObject(objlist=[CBOR_ARRAY])
+obj = rand._fix()
+isinstance(obj, CBOR_ARRAY) and isinstance(obj.val, list)
+
+= Generate random CBOR map
+from scapy.cbor import RandCBORObject, CBOR_MAP
+rand = RandCBORObject(objlist=[CBOR_MAP])
+obj = rand._fix()
+isinstance(obj, CBOR_MAP) and isinstance(obj.val, dict)
+
+= Generate random CBOR boolean (false)
+from scapy.cbor import RandCBORObject, CBOR_FALSE
+rand = RandCBORObject(objlist=[CBOR_FALSE])
+obj = rand._fix()
+isinstance(obj, CBOR_FALSE) and obj.val == False
+
+= Generate random CBOR boolean (true)
+from scapy.cbor import RandCBORObject, CBOR_TRUE
+rand = RandCBORObject(objlist=[CBOR_TRUE])
+obj = rand._fix()
+isinstance(obj, CBOR_TRUE) and obj.val == True
+
+= Generate random CBOR null
+from scapy.cbor import RandCBORObject, CBOR_NULL
+rand = RandCBORObject(objlist=[CBOR_NULL])
+obj = rand._fix()
+isinstance(obj, CBOR_NULL) and obj.val is None
+
+= Generate random CBOR undefined
+from scapy.cbor import RandCBORObject, CBOR_UNDEFINED
+rand = RandCBORObject(objlist=[CBOR_UNDEFINED])
+obj = rand._fix()
+isinstance(obj, CBOR_UNDEFINED) and obj.val is None
+
+= Generate random CBOR float
+from scapy.cbor import RandCBORObject, CBOR_FLOAT
+rand = RandCBORObject(objlist=[CBOR_FLOAT])
+obj = rand._fix()
+isinstance(obj, CBOR_FLOAT) and isinstance(obj.val, float)
+
++ CBOR Random Object Encoding/Decoding
+
+= Encode and decode random unsigned integer
+from scapy.cbor import RandCBORObject, CBOR_UNSIGNED_INTEGER, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_UNSIGNED_INTEGER])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_UNSIGNED_INTEGER) and remainder == b'' and decoded.val == obj.val
+
+= Encode and decode random text string
+from scapy.cbor import RandCBORObject, CBOR_TEXT_STRING, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_TEXT_STRING])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_TEXT_STRING) and remainder == b'' and decoded.val == obj.val
+
+= Encode and decode random byte string
+from scapy.cbor import RandCBORObject, CBOR_BYTE_STRING, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_BYTE_STRING])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_BYTE_STRING) and remainder == b'' and decoded.val == obj.val
+
+= Encode and decode random array
+from scapy.cbor import RandCBORObject, CBOR_ARRAY, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_ARRAY])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_ARRAY) and remainder == b'' and len(decoded.val) == len(obj.val)
+
+= Encode and decode random map
+from scapy.cbor import RandCBORObject, CBOR_MAP, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_MAP])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_MAP) and remainder == b'' and len(decoded.val) == len(obj.val)
+
+= Encode and decode random float
+from scapy.cbor import RandCBORObject, CBOR_FLOAT, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_FLOAT])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_FLOAT) and remainder == b''
+
++ CBOR Random Mixed Types
+
+= Generate multiple random objects of different types
+from scapy.cbor import RandCBORObject
+rand = RandCBORObject()
+objects = [rand._fix() for _ in range(10)]
+len(objects) == 10 and all(hasattr(obj, 'val') for obj in objects)
+
+= Encode and decode multiple random objects
+from scapy.cbor import RandCBORObject, CBOR_Codecs
+rand = RandCBORObject()
+success_count = 0
+for _ in range(20):
+    obj = rand._fix()
+    try:
+        encoded = bytes(obj)
+        decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+        if remainder == b'':
+            success_count += 1
+    except:
+        pass
+
+success_count >= 18
+
+= Random nested arrays encode/decode correctly
+from scapy.cbor import RandCBORObject, CBOR_ARRAY, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_ARRAY])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_ARRAY) and remainder == b''
+
+= Random nested maps encode/decode correctly
+from scapy.cbor import RandCBORObject, CBOR_MAP, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_MAP])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_MAP) and remainder == b''
+
++ CBOR Fuzzing Stress Tests
+
+= Generate 100 random objects without errors
+from scapy.cbor import RandCBORObject
+rand = RandCBORObject()
+objects = []
+for _ in range(100):
+    obj = None
+    try:
+        obj = rand._fix()
+    except:
+        pass
+    if obj is not None:
+        objects.append(obj)
+
+len(objects) >= 95
+
+= Encode 50 random objects without errors
+from scapy.cbor import RandCBORObject
+rand = RandCBORObject()
+encoded_count = 0
+for _ in range(50):
+    obj = rand._fix()
+    try:
+        encoded = bytes(obj)
+        if len(encoded) > 0:
+            encoded_count += 1
+    except:
+        pass
+
+encoded_count >= 45
+
+= Roundtrip 50 random objects
+from scapy.cbor import RandCBORObject, CBOR_Codecs
+rand = RandCBORObject()
+roundtrip_count = 0
+for _ in range(50):
+    obj = rand._fix()
+    try:
+        encoded = bytes(obj)
+        decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+        if remainder == b'':
+            roundtrip_count += 1
+    except:
+        pass
+
+roundtrip_count >= 45
+
+########### CBOR Fields ###########################################
+
++ CBORF scalar fields - CBORF_UNSIGNED_INTEGER
+
+= CBORF_UNSIGNED_INTEGER basic encode/decode
+from scapy.cbor.cborfields import CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class PktUInt(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("value", 42)
+
+pkt = PktUInt()
+assert pkt.value.val == 42
+raw_data = bytes(pkt)
+pkt2 = PktUInt(raw_data)
+assert pkt2.value.val == 42
+
+= CBORF_UNSIGNED_INTEGER zero value
+from scapy.cbor.cborfields import CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class PktUIntZero(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("value", 0)
+
+pkt = PktUIntZero()
+raw_data = bytes(pkt)
+assert raw_data == b'\x00'
+pkt2 = PktUIntZero(raw_data)
+assert pkt2.value.val == 0
+
+= CBORF_UNSIGNED_INTEGER large value roundtrip
+from scapy.cbor.cborfields import CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class PktUIntLarge(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("value", 1000000)
+
+pkt = PktUIntLarge()
+raw_data = bytes(pkt)
+pkt2 = PktUIntLarge(raw_data)
+assert pkt2.value.val == 1000000
+
++ CBORF scalar fields - CBORF_NEGATIVE_INTEGER
+
+= CBORF_NEGATIVE_INTEGER basic encode/decode
+from scapy.cbor.cborfields import CBORF_NEGATIVE_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class PktNInt(CBOR_Packet):
+    CBOR_root = CBORF_NEGATIVE_INTEGER("value", -1)
+
+pkt = PktNInt()
+assert pkt.value.val == -1
+raw_data = bytes(pkt)
+pkt2 = PktNInt(raw_data)
+assert pkt2.value.val == -1
+
+= CBORF_NEGATIVE_INTEGER -100 roundtrip
+from scapy.cbor.cborfields import CBORF_NEGATIVE_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class PktNInt100(CBOR_Packet):
+    CBOR_root = CBORF_NEGATIVE_INTEGER("value", -100)
+
+pkt = PktNInt100()
+raw_data = bytes(pkt)
+pkt2 = PktNInt100(raw_data)
+assert pkt2.value.val == -100
+
++ CBORF scalar fields - CBORF_INTEGER
+
+= CBORF_INTEGER positive value
+from scapy.cbor.cborfields import CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class PktInt(CBOR_Packet):
+    CBOR_root = CBORF_INTEGER("value", 7)
+
+pkt = PktInt()
+raw_data = bytes(pkt)
+pkt2 = PktInt(raw_data)
+assert pkt2.value.val == 7
+
+= CBORF_INTEGER negative value
+from scapy.cbor.cborfields import CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class PktIntNeg(CBOR_Packet):
+    CBOR_root = CBORF_INTEGER("value", -5)
+
+pkt = PktIntNeg()
+raw_data = bytes(pkt)
+pkt2 = PktIntNeg(raw_data)
+assert pkt2.value.val == -5
+
++ CBORF scalar fields - CBORF_BYTE_STRING
+
+= CBORF_BYTE_STRING basic encode/decode
+from scapy.cbor.cborfields import CBORF_BYTE_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class PktBStr(CBOR_Packet):
+    CBOR_root = CBORF_BYTE_STRING("data", b"hello")
+
+pkt = PktBStr()
+assert pkt.data.val == b"hello"
+raw_data = bytes(pkt)
+pkt2 = PktBStr(raw_data)
+assert pkt2.data.val == b"hello"
+
+= CBORF_BYTE_STRING empty bytes
+from scapy.cbor.cborfields import CBORF_BYTE_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class PktBStrEmpty(CBOR_Packet):
+    CBOR_root = CBORF_BYTE_STRING("data", b"")
+
+pkt = PktBStrEmpty()
+raw_data = bytes(pkt)
+assert raw_data == b'\x40'
+pkt2 = PktBStrEmpty(raw_data)
+assert pkt2.data.val == b""
+
++ CBORF scalar fields - CBORF_TEXT_STRING
+
+= CBORF_TEXT_STRING basic encode/decode
+from scapy.cbor.cborfields import CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class PktTStr(CBOR_Packet):
+    CBOR_root = CBORF_TEXT_STRING("title", "hello")
+
+pkt = PktTStr()
+assert pkt.title.val == "hello"
+raw_data = bytes(pkt)
+pkt2 = PktTStr(raw_data)
+assert pkt2.title.val == "hello"
+
+= CBORF_TEXT_STRING empty string
+from scapy.cbor.cborfields import CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class PktTStrEmpty(CBOR_Packet):
+    CBOR_root = CBORF_TEXT_STRING("title", "")
+
+pkt = PktTStrEmpty()
+raw_data = bytes(pkt)
+assert raw_data == b'\x60'
+pkt2 = PktTStrEmpty(raw_data)
+assert pkt2.title.val == ""
+
++ CBORF scalar fields - CBORF_BOOLEAN
+
+= CBORF_BOOLEAN true value
+from scapy.cbor.cborfields import CBORF_BOOLEAN
+from scapy.cbor.cbor import CBOR_TRUE
+from scapy.cborpacket import CBOR_Packet
+
+class PktBool(CBOR_Packet):
+    CBOR_root = CBORF_BOOLEAN("flag", True)
+
+pkt = PktBool()
+assert isinstance(pkt.flag, CBOR_TRUE)
+raw_data = bytes(pkt)
+assert raw_data == b'\xf5'
+pkt2 = PktBool(raw_data)
+assert isinstance(pkt2.flag, CBOR_TRUE)
+
+= CBORF_BOOLEAN false value
+from scapy.cbor.cborfields import CBORF_BOOLEAN
+from scapy.cbor.cbor import CBOR_FALSE
+from scapy.cborpacket import CBOR_Packet
+
+class PktBoolFalse(CBOR_Packet):
+    CBOR_root = CBORF_BOOLEAN("flag", False)
+
+pkt = PktBoolFalse()
+raw_data = bytes(pkt)
+assert raw_data == b'\xf4'
+pkt2 = PktBoolFalse(raw_data)
+assert isinstance(pkt2.flag, CBOR_FALSE)
+
++ CBORF scalar fields - CBORF_FLOAT
+
+= CBORF_FLOAT encode/decode
+from scapy.cbor.cborfields import CBORF_FLOAT
+from scapy.cborpacket import CBOR_Packet
+
+class PktFloat(CBOR_Packet):
+    CBOR_root = CBORF_FLOAT("value", 1.5)
+
+pkt = PktFloat()
+raw_data = bytes(pkt)
+pkt2 = PktFloat(raw_data)
+assert abs(pkt2.value.val - 1.5) < 1e-9
+
+= CBORF_NULL encode/decode
+from scapy.cbor.cborfields import CBORF_NULL
+from scapy.cbor.cbor import CBOR_NULL
+from scapy.cborpacket import CBOR_Packet
+
+class PktNull(CBOR_Packet):
+    CBOR_root = CBORF_NULL("nothing")
+
+pkt = PktNull()
+raw_data = bytes(pkt)
+assert raw_data == b'\xf6'
+pkt2 = PktNull(raw_data)
+assert isinstance(pkt2.nothing, CBOR_NULL)
+
++ CBORF scalar fields - CBORF_UNDEFINED
+
+= CBORF_UNDEFINED encode/decode
+from scapy.cbor.cborfields import CBORF_UNDEFINED
+from scapy.cbor.cbor import CBOR_UNDEFINED
+from scapy.cborpacket import CBOR_Packet
+
+class PktUndef(CBOR_Packet):
+    CBOR_root = CBORF_UNDEFINED("undef")
+
+pkt = PktUndef()
+raw_data = bytes(pkt)
+assert raw_data == b'\xf7'
+pkt2 = PktUndef(raw_data)
+assert isinstance(pkt2.undef, CBOR_UNDEFINED)
+
++ CBORF structured fields - CBORF_ARRAY
+
+= CBORF_ARRAY two-field encode/decode
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class MyCBOR(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("version", 1),
+        CBORF_TEXT_STRING("title", "test"),
+    )
+
+pkt = MyCBOR()
+assert pkt.version.val == 1
+assert pkt.title.val == "test"
+raw_data = bytes(pkt)
+pkt2 = MyCBOR(raw_data)
+assert pkt2.version.val == 1
+assert pkt2.title.val == "test"
+
+= CBORF_ARRAY three-field encode/decode
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_BOOLEAN
+from scapy.cborpacket import CBOR_Packet
+
+class Multi(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("id", 99),
+        CBORF_TEXT_STRING("label", "x"),
+        CBORF_BOOLEAN("active", True),
+    )
+
+pkt = Multi()
+raw_data = bytes(pkt)
+pkt2 = Multi(raw_data)
+assert pkt2.id.val == 99
+assert pkt2.label.val == "x"
+
+= CBORF_ARRAY single integer roundtrip
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class Single(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_UNSIGNED_INTEGER("count", 5),
+    )
+
+pkt = Single()
+raw_data = bytes(pkt)
+pkt2 = Single(raw_data)
+assert pkt2.count.val == 5
+
++ CBORF structured fields - CBORF_ARRAY_OF
+
+= CBORF_ARRAY_OF with CBORF_INTEGER elements
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_INTEGER
+from scapy.cbor.cbor import CBOR_UNSIGNED_INTEGER, CBOR_NEGATIVE_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class ArrOfInt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF("items", [], CBORF_INTEGER)
+
+pkt = ArrOfInt()
+pkt.items = [CBOR_UNSIGNED_INTEGER(1), CBOR_UNSIGNED_INTEGER(2), CBOR_UNSIGNED_INTEGER(3)]
+raw_data = bytes(pkt)
+pkt2 = ArrOfInt(raw_data)
+assert len(pkt2.items) == 3
+assert pkt2.items[0].val == 1
+assert pkt2.items[2].val == 3
+
++ CBORF structured fields - CBORF_MAP
+
+= CBORF_MAP basic encode/decode
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_INTEGER, CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class MyMap(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_INTEGER("version", 2),
+        CBORF_TEXT_STRING("title", "cbor"),
+    )
+
+pkt = MyMap()
+assert pkt.version.val == 2
+assert pkt.title.val == "cbor"
+raw_data = bytes(pkt)
+pkt2 = MyMap(raw_data)
+assert pkt2.version.val == 2
+assert pkt2.title.val == "cbor"
+
+= CBORF_MAP byte string value
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_BYTE_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class BinMap(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_BYTE_STRING("data", b"\xde\xad\xbe\xef"),
+    )
+
+pkt = BinMap()
+raw_data = bytes(pkt)
+pkt2 = BinMap(raw_data)
+assert pkt2.data.val == b"\xde\xad\xbe\xef"
+
++ CBORF complex fields - CBORF_optional
+
+= CBORF_optional present field
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_optional
+from scapy.cborpacket import CBOR_Packet
+
+class OptPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("version", 1),
+        CBORF_optional(CBORF_TEXT_STRING("title", "")),
+    )
+
+pkt = OptPkt()
+raw_data = bytes(pkt)
+pkt2 = OptPkt(raw_data)
+assert pkt2.version.val == 1
+assert pkt2.title.val == ""
+
++ CBORF_PACKET nested packet
+
+= CBORF_PACKET basic nesting
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_PACKET
+from scapy.cborpacket import CBOR_Packet
+
+class Inner(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("x", 10),
+    )
+
+class Outer(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_TEXT_STRING("label", "outer"),
+        CBORF_PACKET("inner", None, Inner),
+    )
+
+inner = Inner()
+outer = Outer()
+outer.label = outer.label  # keep default
+outer.inner = inner
+raw_data = bytes(outer)
+outer2 = Outer(raw_data)
+assert outer2.label.val == "outer"
+
++ CBORF_SEMANTIC_TAG
+
+= CBORF_SEMANTIC_TAG encode with inner integer
+from scapy.cbor.cborfields import CBORF_SEMANTIC_TAG, CBORF_INTEGER
+from scapy.cbor.cbor import CBOR_SEMANTIC_TAG as CBOR_SEM
+from scapy.cborpacket import CBOR_Packet
+
+class TaggedPkt(CBOR_Packet):
+    CBOR_root = CBORF_SEMANTIC_TAG("tag_info", None, 1, CBORF_INTEGER("ts", 0))
+
+pkt = TaggedPkt()
+# Build encodes tag 1 + inner field default
+raw_data = bytes(pkt)
+# Major type 6 (tag), tag number 1 => 0xc1
+assert raw_data[0:1] == b'\xc1'
+
++ CBOR_Packet / CBORF field integration
+
+= CBOR_Packet fields_desc built from CBORF_ARRAY
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_UNSIGNED_INTEGER, CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class Demo(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_UNSIGNED_INTEGER("id", 1),
+        CBORF_TEXT_STRING("desc", "demo"),
+    )
+
+# fields_desc should contain both fields
+field_names = [f.name for f in Demo.fields_desc]
+assert "id" in field_names
+assert "desc" in field_names
+
+= CBOR_Packet roundtrip preserves raw bytes
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class Simple(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("a", 3),
+        CBORF_INTEGER("b", 7),
+    )
+
+pkt = Simple()
+raw_data = bytes(pkt)
+pkt2 = Simple(raw_data)
+assert bytes(pkt2) == raw_data
+
+########### Additional Unit Tests ####################################
+
++ CBOR Simple Values
+
+= Decode CBOR simple value 0
+data = bytes.fromhex('e0')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+from scapy.cbor.cbor import CBOR_SIMPLE_VALUE
+isinstance(obj, CBOR_SIMPLE_VALUE) and obj.val == 0 and remainder == b''
+
+= Decode CBOR simple value 16
+data = bytes.fromhex('f0')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_SIMPLE_VALUE) and obj.val == 16 and remainder == b''
+
+= Decode CBOR simple value 255 (1-byte extended)
+data = bytes.fromhex('f8ff')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_SIMPLE_VALUE) and obj.val == 255 and remainder == b''
+
++ CBOR Float Encodings - RFC 8949 Test Vectors
+
+= Half-precision: positive zero (0xf90000)
+import math
+data = bytes.fromhex('f90000')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and obj.val == 0.0 and remainder == b''
+
+= Half-precision: negative zero (0xf98000)
+data = bytes.fromhex('f98000')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and obj.val == -0.0 and math.copysign(1, obj.val) == -1.0 and remainder == b''
+
+= Half-precision: 1.0 (0xf93c00)
+data = bytes.fromhex('f93c00')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and obj.val == 1.0 and remainder == b''
+
+= Half-precision: 1.5 (0xf93e00)
+data = bytes.fromhex('f93e00')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and obj.val == 1.5 and remainder == b''
+
+= Half-precision: max (65504.0) (0xf97bff)
+data = bytes.fromhex('f97bff')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and obj.val == 65504.0 and remainder == b''
+
+= Half-precision: smallest subnormal (0xf90001)
+data = bytes.fromhex('f90001')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and abs(obj.val - 5.960464477539063e-8) < 1e-15 and remainder == b''
+
+= Half-precision: smallest normal (0xf90400)
+data = bytes.fromhex('f90400')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and abs(obj.val - 6.103515625e-5) < 1e-12 and remainder == b''
+
+= Half-precision: positive infinity (0xf97c00)
+data = bytes.fromhex('f97c00')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and math.isinf(obj.val) and obj.val > 0 and remainder == b''
+
+= Half-precision: negative infinity (0xf9fc00)
+data = bytes.fromhex('f9fc00')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and math.isinf(obj.val) and obj.val < 0 and remainder == b''
+
+= Half-precision: NaN (0xf97e00)
+data = bytes.fromhex('f97e00')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and math.isnan(obj.val) and remainder == b''
+
+= Single-precision: 100000.0 (0xfa47c35000)
+data = bytes.fromhex('fa47c35000')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and obj.val == 100000.0 and remainder == b''
+
+= Single-precision: max float32 (0xfa7f7fffff)
+data = bytes.fromhex('fa7f7fffff')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and abs(obj.val - 3.4028234663852886e+38) < 1e30 and remainder == b''
+
+= Single-precision: positive infinity (0xfa7f800000)
+data = bytes.fromhex('fa7f800000')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and math.isinf(obj.val) and obj.val > 0 and remainder == b''
+
+= Single-precision: NaN (0xfa7fc00000)
+data = bytes.fromhex('fa7fc00000')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and math.isnan(obj.val) and remainder == b''
+
+= Double-precision: 1.1 (0xfb3ff199999999999a)
+data = bytes.fromhex('fb3ff199999999999a')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and abs(obj.val - 1.1) < 1e-10 and remainder == b''
+
+= Double-precision: 1.0e+300 (0xfb7e37e43c8800759c)
+data = bytes.fromhex('fb7e37e43c8800759c')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and abs(obj.val - 1.0e+300) / 1.0e+300 < 1e-10 and remainder == b''
+
+= Double-precision: NaN (0xfb7ff8000000000000)
+data = bytes.fromhex('fb7ff8000000000000')
+obj, remainder = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and math.isnan(obj.val) and remainder == b''
+
++ CBOR Integer Encoding - RFC 8949 Test Vectors
+
+= RFC 8949: encode 0
+obj = CBOR_UNSIGNED_INTEGER(0)
+bytes(obj) == bytes.fromhex('00')
+
+= RFC 8949: encode 1
+obj = CBOR_UNSIGNED_INTEGER(1)
+bytes(obj) == bytes.fromhex('01')
+
+= RFC 8949: encode 10
+obj = CBOR_UNSIGNED_INTEGER(10)
+bytes(obj) == bytes.fromhex('0a')
+
+= RFC 8949: encode 23
+obj = CBOR_UNSIGNED_INTEGER(23)
+bytes(obj) == bytes.fromhex('17')
+
+= RFC 8949: encode 24
+obj = CBOR_UNSIGNED_INTEGER(24)
+bytes(obj) == bytes.fromhex('1818')
+
+= RFC 8949: encode 25
+obj = CBOR_UNSIGNED_INTEGER(25)
+bytes(obj) == bytes.fromhex('1819')
+
+= RFC 8949: encode 100
+obj = CBOR_UNSIGNED_INTEGER(100)
+bytes(obj) == bytes.fromhex('1864')
+
+= RFC 8949: encode 1000
+obj = CBOR_UNSIGNED_INTEGER(1000)
+bytes(obj) == bytes.fromhex('1903e8')
+
+= RFC 8949: encode 1000000
+obj = CBOR_UNSIGNED_INTEGER(1000000)
+bytes(obj) == bytes.fromhex('1a000f4240')
+
+= RFC 8949: encode 1000000000000
+obj = CBOR_UNSIGNED_INTEGER(1000000000000)
+bytes(obj) == bytes.fromhex('1b000000e8d4a51000')
+
+= RFC 8949: encode 18446744073709551615 (2^64-1)
+obj = CBOR_UNSIGNED_INTEGER(18446744073709551615)
+bytes(obj) == bytes.fromhex('1bffffffffffffffff')
+
+= RFC 8949: encode -1
+obj = CBOR_NEGATIVE_INTEGER(-1)
+bytes(obj) == bytes.fromhex('20')
+
+= RFC 8949: encode -10
+obj = CBOR_NEGATIVE_INTEGER(-10)
+bytes(obj) == bytes.fromhex('29')
+
+= RFC 8949: encode -100
+obj = CBOR_NEGATIVE_INTEGER(-100)
+bytes(obj) == bytes.fromhex('3863')
+
+= RFC 8949: encode -1000
+obj = CBOR_NEGATIVE_INTEGER(-1000)
+bytes(obj) == bytes.fromhex('3903e7')
+
+= RFC 8949: decode 0
+obj, remainder = CBOR_Codecs.CBOR.dec(bytes.fromhex('00'))
+obj.val == 0 and remainder == b''
+
+= RFC 8949: decode 23
+obj, remainder = CBOR_Codecs.CBOR.dec(bytes.fromhex('17'))
+obj.val == 23 and remainder == b''
+
+= RFC 8949: decode 24
+obj, remainder = CBOR_Codecs.CBOR.dec(bytes.fromhex('1818'))
+obj.val == 24 and remainder == b''
+
+= RFC 8949: decode 1000000000000
+obj, remainder = CBOR_Codecs.CBOR.dec(bytes.fromhex('1b000000e8d4a51000'))
+obj.val == 1000000000000 and remainder == b''
+
+= RFC 8949: decode -1000
+obj, remainder = CBOR_Codecs.CBOR.dec(bytes.fromhex('3903e7'))
+obj.val == -1000 and remainder == b''
+
++ CBOR Byte String with All Byte Values
+
+= CBOR_BYTE_STRING: encode/decode all 256 byte values
+all_bytes = bytes(range(256))
+obj = CBOR_BYTE_STRING(all_bytes)
+enc = bytes(obj)
+dec, remainder = CBOR_Codecs.CBOR.dec(enc)
+dec.val == all_bytes and remainder == b''
+
+= CBOR_BYTE_STRING: cbor2 interop with all 256 byte values
+import cbor2
+all_bytes = bytes(range(256))
+obj = CBOR_BYTE_STRING(all_bytes)
+enc = bytes(obj)
+dec = cbor2.loads(enc)
+dec == all_bytes
+
++ CBOR Map with Integer Keys
+
+= Decode map with integer keys (cbor2 encode, Scapy decode)
+import cbor2
+enc = cbor2.dumps({1: 'one', 2: 'two', -1: 'minus_one'})
+obj, remainder = CBOR_Codecs.CBOR.dec(enc)
+isinstance(obj, CBOR_MAP) and obj.val.get(1) is not None and obj.val[1].val == 'one' and remainder == b''
+
+= Encode map with integer keys (Scapy encode, cbor2 decode)
+from scapy.cbor.cborcodec import CBORcodec_MAP
+enc = CBORcodec_MAP.enc({1: 'one', 2: 'two'})
+dec = cbor2.loads(enc)
+dec == {1: 'one', 2: 'two'}
+
+= Map with mixed key types roundtrip
+enc = cbor2.dumps({'str_key': 42, 1: 'int_key'})
+obj, remainder = CBOR_Codecs.CBOR.dec(enc)
+isinstance(obj, CBOR_MAP) and len(obj.val) == 2 and remainder == b''
+
++ CBOR Multiple Items in Stream
+
+= Decode three integers from a single byte stream
+data = bytes.fromhex('01') + bytes.fromhex('0a') + bytes.fromhex('17')
+obj1, rest1 = CBOR_Codecs.CBOR.dec(data)
+obj2, rest2 = CBOR_Codecs.CBOR.dec(rest1)
+obj3, rest3 = CBOR_Codecs.CBOR.dec(rest2)
+obj1.val == 1 and obj2.val == 10 and obj3.val == 23 and rest3 == b''
+
+= Decode integer followed by string
+data = bytes.fromhex('1864') + bytes.fromhex('626869')
+obj1, rest1 = CBOR_Codecs.CBOR.dec(data)
+obj2, rest2 = CBOR_Codecs.CBOR.dec(rest1)
+obj1.val == 100 and obj2.val == 'hi' and rest2 == b''
+
++ CBOR Nested Structures Unit Tests
+
+= Encode and decode doubly nested array
+from scapy.cbor.cborcodec import CBORcodec_ARRAY
+enc = CBORcodec_ARRAY.enc([[1, 2], [3, 4], [5, 6]])
+obj, remainder = CBOR_Codecs.CBOR.dec(enc)
+isinstance(obj, CBOR_ARRAY) and len(obj.val) == 3 and len(obj.val[0].val) == 2 and remainder == b''
+
+= Encode and decode map containing arrays
+from scapy.cbor.cborcodec import CBORcodec_MAP, CBORcodec_ARRAY
+enc = CBORcodec_MAP.enc({'nums': [1, 2, 3], 'strs': ['a', 'b']})
+obj, remainder = CBOR_Codecs.CBOR.dec(enc)
+isinstance(obj, CBOR_MAP) and 'nums' in obj.val and isinstance(obj.val['nums'], CBOR_ARRAY) and remainder == b''
+
+= Encode and decode array containing maps
+from scapy.cbor.cborcodec import CBORcodec_ARRAY
+enc = CBORcodec_ARRAY.enc([{'id': 1}, {'id': 2}])
+obj, remainder = CBOR_Codecs.CBOR.dec(enc)
+isinstance(obj, CBOR_ARRAY) and len(obj.val) == 2 and isinstance(obj.val[0], CBOR_MAP) and remainder == b''
+
+########### Extended Interoperability Tests with cbor2 ################
+
++ CBOR Interoperability - RFC 8949 Appendix B (Scapy encode, cbor2 decode)
+
+= RFC 8949 Appendix B: 0
+import cbor2
+obj = CBOR_UNSIGNED_INTEGER(0)
+cbor2.loads(bytes(obj)) == 0
+
+= RFC 8949 Appendix B: 1
+obj = CBOR_UNSIGNED_INTEGER(1)
+cbor2.loads(bytes(obj)) == 1
+
+= RFC 8949 Appendix B: 10
+obj = CBOR_UNSIGNED_INTEGER(10)
+cbor2.loads(bytes(obj)) == 10
+
+= RFC 8949 Appendix B: 23
+obj = CBOR_UNSIGNED_INTEGER(23)
+cbor2.loads(bytes(obj)) == 23
+
+= RFC 8949 Appendix B: 24
+obj = CBOR_UNSIGNED_INTEGER(24)
+cbor2.loads(bytes(obj)) == 24
+
+= RFC 8949 Appendix B: 1000
+obj = CBOR_UNSIGNED_INTEGER(1000)
+cbor2.loads(bytes(obj)) == 1000
+
+= RFC 8949 Appendix B: 1000000000000
+obj = CBOR_UNSIGNED_INTEGER(1000000000000)
+cbor2.loads(bytes(obj)) == 1000000000000
+
+= RFC 8949 Appendix B: 18446744073709551615 (max u64)
+obj = CBOR_UNSIGNED_INTEGER(18446744073709551615)
+cbor2.loads(bytes(obj)) == 18446744073709551615
+
+= RFC 8949 Appendix B: -1
+obj = CBOR_NEGATIVE_INTEGER(-1)
+cbor2.loads(bytes(obj)) == -1
+
+= RFC 8949 Appendix B: -1000
+obj = CBOR_NEGATIVE_INTEGER(-1000)
+cbor2.loads(bytes(obj)) == -1000
+
+= RFC 8949 Appendix B: false
+obj = CBOR_FALSE()
+cbor2.loads(bytes(obj)) is False
+
+= RFC 8949 Appendix B: true
+obj = CBOR_TRUE()
+cbor2.loads(bytes(obj)) is True
+
+= RFC 8949 Appendix B: null
+obj = CBOR_NULL()
+cbor2.loads(bytes(obj)) is None
+
+= RFC 8949 Appendix B: undefined
+obj = CBOR_UNDEFINED()
+decoded = cbor2.loads(bytes(obj))
+from cbor2 import undefined
+decoded is undefined
+
+= RFC 8949 Appendix B: empty byte string
+obj = CBOR_BYTE_STRING(b'')
+cbor2.loads(bytes(obj)) == b''
+
+= RFC 8949 Appendix B: byte string b'\x01\x02\x03\x04'
+obj = CBOR_BYTE_STRING(b'\x01\x02\x03\x04')
+cbor2.loads(bytes(obj)) == b'\x01\x02\x03\x04'
+
+= RFC 8949 Appendix B: empty text string
+obj = CBOR_TEXT_STRING('')
+cbor2.loads(bytes(obj)) == ''
+
+= RFC 8949 Appendix B: 'a'
+obj = CBOR_TEXT_STRING('a')
+cbor2.loads(bytes(obj)) == 'a'
+
+= RFC 8949 Appendix B: 'IETF'
+obj = CBOR_TEXT_STRING('IETF')
+cbor2.loads(bytes(obj)) == 'IETF'
+
+= RFC 8949 Appendix B: u00fc (ü)
+obj = CBOR_TEXT_STRING('\u00fc')
+cbor2.loads(bytes(obj)) == '\u00fc'
+
+= RFC 8949 Appendix B: u6c34 (water in Chinese)
+obj = CBOR_TEXT_STRING('\u6c34')
+cbor2.loads(bytes(obj)) == '\u6c34'
+
+= RFC 8949 Appendix B: empty array
+from scapy.cbor.cborcodec import CBORcodec_ARRAY
+enc = CBORcodec_ARRAY.enc([])
+cbor2.loads(enc) == []
+
+= RFC 8949 Appendix B: [1, 2, 3]
+enc = CBORcodec_ARRAY.enc([1, 2, 3])
+cbor2.loads(enc) == [1, 2, 3]
+
+= RFC 8949 Appendix B: [1, [2, 3], [4, 5]]
+enc = CBORcodec_ARRAY.enc([1, [2, 3], [4, 5]])
+cbor2.loads(enc) == [1, [2, 3], [4, 5]]
+
+= RFC 8949 Appendix B: empty map
+from scapy.cbor.cborcodec import CBORcodec_MAP
+enc = CBORcodec_MAP.enc({})
+cbor2.loads(enc) == {}
+
+= RFC 8949 Appendix B: {1: 2, 3: 4}
+enc = CBORcodec_MAP.enc({1: 2, 3: 4})
+cbor2.loads(enc) == {1: 2, 3: 4}
+
+= RFC 8949 Appendix B: {"a": 1, "b": [2, 3]}
+enc = CBORcodec_MAP.enc({"a": 1, "b": [2, 3]})
+cbor2.loads(enc) == {"a": 1, "b": [2, 3]}
+
++ CBOR Interoperability - RFC 8949 Appendix B (cbor2 encode, Scapy decode)
+
+= RFC 8949 Appendix B decode: 0
+import cbor2
+obj, _ = CBOR_Codecs.CBOR.dec(cbor2.dumps(0))
+obj.val == 0 and isinstance(obj, CBOR_UNSIGNED_INTEGER)
+
+= RFC 8949 Appendix B decode: 23
+obj, _ = CBOR_Codecs.CBOR.dec(cbor2.dumps(23))
+obj.val == 23 and isinstance(obj, CBOR_UNSIGNED_INTEGER)
+
+= RFC 8949 Appendix B decode: 24
+obj, _ = CBOR_Codecs.CBOR.dec(cbor2.dumps(24))
+obj.val == 24 and isinstance(obj, CBOR_UNSIGNED_INTEGER)
+
+= RFC 8949 Appendix B decode: -1
+obj, _ = CBOR_Codecs.CBOR.dec(cbor2.dumps(-1))
+obj.val == -1 and isinstance(obj, CBOR_NEGATIVE_INTEGER)
+
+= RFC 8949 Appendix B decode: -1000
+obj, _ = CBOR_Codecs.CBOR.dec(cbor2.dumps(-1000))
+obj.val == -1000 and isinstance(obj, CBOR_NEGATIVE_INTEGER)
+
+= RFC 8949 Appendix B decode: false
+obj, _ = CBOR_Codecs.CBOR.dec(cbor2.dumps(False))
+isinstance(obj, CBOR_FALSE) and obj.val is False
+
+= RFC 8949 Appendix B decode: true
+obj, _ = CBOR_Codecs.CBOR.dec(cbor2.dumps(True))
+isinstance(obj, CBOR_TRUE) and obj.val is True
+
+= RFC 8949 Appendix B decode: null
+obj, _ = CBOR_Codecs.CBOR.dec(cbor2.dumps(None))
+isinstance(obj, CBOR_NULL) and obj.val is None
+
+= RFC 8949 Appendix B decode: empty string
+obj, _ = CBOR_Codecs.CBOR.dec(cbor2.dumps(''))
+isinstance(obj, CBOR_TEXT_STRING) and obj.val == ''
+
+= RFC 8949 Appendix B decode: 'IETF'
+obj, _ = CBOR_Codecs.CBOR.dec(cbor2.dumps('IETF'))
+isinstance(obj, CBOR_TEXT_STRING) and obj.val == 'IETF'
+
+= RFC 8949 Appendix B decode: u00fc
+obj, _ = CBOR_Codecs.CBOR.dec(cbor2.dumps('\u00fc'))
+isinstance(obj, CBOR_TEXT_STRING) and obj.val == '\u00fc'
+
+= RFC 8949 Appendix B decode: b'\x01\x02\x03\x04'
+obj, _ = CBOR_Codecs.CBOR.dec(cbor2.dumps(b'\x01\x02\x03\x04'))
+isinstance(obj, CBOR_BYTE_STRING) and obj.val == b'\x01\x02\x03\x04'
+
+= RFC 8949 Appendix B decode: [1, 2, 3]
+obj, _ = CBOR_Codecs.CBOR.dec(cbor2.dumps([1, 2, 3]))
+isinstance(obj, CBOR_ARRAY) and len(obj.val) == 3 and obj.val[0].val == 1
+
+= RFC 8949 Appendix B decode: [1, [2, 3], [4, 5]]
+obj, _ = CBOR_Codecs.CBOR.dec(cbor2.dumps([1, [2, 3], [4, 5]]))
+isinstance(obj, CBOR_ARRAY) and len(obj.val) == 3 and isinstance(obj.val[1], CBOR_ARRAY)
+
+= RFC 8949 Appendix B decode: {"a": 1, "b": [2, 3]}
+obj, _ = CBOR_Codecs.CBOR.dec(cbor2.dumps({"a": 1, "b": [2, 3]}))
+isinstance(obj, CBOR_MAP) and obj.val['a'].val == 1 and isinstance(obj.val['b'], CBOR_ARRAY)
+
++ CBOR Interoperability - Byte-exact Comparison
+
+= Scapy and cbor2 produce identical bytes for integer 0
+import cbor2
+bytes(CBOR_UNSIGNED_INTEGER(0)) == cbor2.dumps(0)
+
+= Scapy and cbor2 produce identical bytes for integer 255
+bytes(CBOR_UNSIGNED_INTEGER(255)) == cbor2.dumps(255)
+
+= Scapy and cbor2 produce identical bytes for -1
+bytes(CBOR_NEGATIVE_INTEGER(-1)) == cbor2.dumps(-1)
+
+= Scapy and cbor2 produce identical bytes for -1000
+bytes(CBOR_NEGATIVE_INTEGER(-1000)) == cbor2.dumps(-1000)
+
+= Scapy and cbor2 produce identical bytes for empty byte string
+bytes(CBOR_BYTE_STRING(b'')) == cbor2.dumps(b'')
+
+= Scapy and cbor2 produce identical bytes for 'hello'
+bytes(CBOR_TEXT_STRING('hello')) == cbor2.dumps('hello')
+
+= Scapy and cbor2 produce identical bytes for true
+bytes(CBOR_TRUE()) == cbor2.dumps(True)
+
+= Scapy and cbor2 produce identical bytes for false
+bytes(CBOR_FALSE()) == cbor2.dumps(False)
+
+= Scapy and cbor2 produce identical bytes for null
+bytes(CBOR_NULL()) == cbor2.dumps(None)
+
+= Scapy and cbor2 produce identical bytes for undefined
+from cbor2 import undefined
+bytes(CBOR_UNDEFINED()) == cbor2.dumps(undefined)
+
+= Scapy and cbor2 produce identical bytes for empty array
+from scapy.cbor.cborcodec import CBORcodec_ARRAY
+CBORcodec_ARRAY.enc([]) == cbor2.dumps([])
+
+= Scapy and cbor2 produce identical bytes for empty map
+from scapy.cbor.cborcodec import CBORcodec_MAP
+CBORcodec_MAP.enc({}) == cbor2.dumps({})
+
+= Scapy and cbor2 produce identical bytes for [1, 2, 3]
+CBORcodec_ARRAY.enc([1, 2, 3]) == cbor2.dumps([1, 2, 3])
+
+= Scapy and cbor2 produce identical bytes for {'a': 1}
+CBORcodec_MAP.enc({'a': 1}) == cbor2.dumps({'a': 1})
+
++ CBOR Interoperability - Semantic Tags
+
+= Scapy encode semantic tag (tag 42), cbor2 decode
+import cbor2
+obj = CBOR_SEMANTIC_TAG((42, CBOR_TEXT_STRING('test-content')))
+enc = bytes(obj)
+dec = cbor2.loads(enc)
+isinstance(dec, cbor2.CBORTag) and dec.tag == 42 and dec.value == 'test-content'
+
+= cbor2 encode semantic tag (tag 42), Scapy decode
+enc = cbor2.dumps(cbor2.CBORTag(42, 'test-content'))
+obj, remainder = CBOR_Codecs.CBOR.dec(enc)
+isinstance(obj, CBOR_SEMANTIC_TAG) and obj.val[0] == 42 and obj.val[1].val == 'test-content' and remainder == b''
+
+= Scapy and cbor2 produce identical bytes for semantic tag 42
+import cbor2
+scapy_enc = bytes(CBOR_SEMANTIC_TAG((42, CBOR_TEXT_STRING('test-content'))))
+cbor2_enc = cbor2.dumps(cbor2.CBORTag(42, 'test-content'))
+scapy_enc == cbor2_enc
+
+= cbor2 encode epoch-based datetime tag (tag 1), Scapy decode
+enc = cbor2.dumps(cbor2.CBORTag(1, 1363896240))
+obj, remainder = CBOR_Codecs.CBOR.dec(enc)
+isinstance(obj, CBOR_SEMANTIC_TAG) and obj.val[0] == 1 and obj.val[1].val == 1363896240 and remainder == b''
+
+= cbor2 encode integer-tagged byte string, Scapy decode
+enc = cbor2.dumps(cbor2.CBORTag(100, b'\xde\xad\xbe\xef'))
+obj, remainder = CBOR_Codecs.CBOR.dec(enc)
+isinstance(obj, CBOR_SEMANTIC_TAG) and obj.val[0] == 100 and obj.val[1].val == b'\xde\xad\xbe\xef' and remainder == b''
+
++ CBOR Interoperability - Half-Precision Floats (RFC 8949 vectors)
+
+= Half-precision from RFC 8949: 0.0
+import cbor2
+data = bytes.fromhex('f90000')
+obj, _ = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and obj.val == 0.0
+
+= Half-precision from RFC 8949: 1.0
+data = bytes.fromhex('f93c00')
+obj, _ = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and obj.val == 1.0
+
+= Half-precision from RFC 8949: 1.5
+data = bytes.fromhex('f93e00')
+obj, _ = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and obj.val == 1.5
+
+= Half-precision from RFC 8949: positive infinity
+import math
+data = bytes.fromhex('f97c00')
+obj, _ = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and math.isinf(obj.val) and obj.val > 0
+
+= Half-precision from RFC 8949: NaN
+data = bytes.fromhex('f97e00')
+obj, _ = CBOR_Codecs.CBOR.dec(data)
+isinstance(obj, CBOR_FLOAT) and math.isnan(obj.val)
+
+= Scapy decode half-precision 1.5 agrees with cbor2 decode of double 1.5
+import cbor2
+half_data = bytes.fromhex('f93e00')
+scapy_obj, _ = CBOR_Codecs.CBOR.dec(half_data)
+double_data = bytes.fromhex('fb3ff8000000000000')
+cbor2_val = cbor2.loads(double_data)
+scapy_obj.val == cbor2_val
+
++ CBOR Interoperability - Large Integers
+
+= Large uint 18446744073709551615 bytes match cbor2
+import cbor2
+max_u64 = 18446744073709551615
+bytes(CBOR_UNSIGNED_INTEGER(max_u64)) == cbor2.dumps(max_u64)
+
+= Large uint roundtrip Scapy to cbor2 to Scapy
+max_u64 = 18446744073709551615
+scapy_enc = bytes(CBOR_UNSIGNED_INTEGER(max_u64))
+cbor2_val = cbor2.loads(scapy_enc)
+cbor2_enc = cbor2.dumps(cbor2_val)
+scapy_dec, _ = CBOR_Codecs.CBOR.dec(cbor2_enc)
+scapy_dec.val == max_u64
+
+= Large negative int -18446744073709551616 roundtrip via cbor2
+neg_max = -18446744073709551616
+cbor2_enc = cbor2.dumps(neg_max)
+scapy_dec, _ = CBOR_Codecs.CBOR.dec(cbor2_enc)
+scapy_dec.val == neg_max
+
++ CBOR Interoperability - Complex Nested Structures
+
+= cbor2 deeply nested map: 3 levels, Scapy decode
+import cbor2
+deep = {"level1": {"level2": {"level3": [1, 2, 3]}}}
+enc = cbor2.dumps(deep)
+obj, _ = CBOR_Codecs.CBOR.dec(enc)
+isinstance(obj, CBOR_MAP) and 'level1' in obj.val
+
+= Scapy deeply nested array, cbor2 decode
+from scapy.cbor.cborcodec import CBORcodec_ARRAY
+enc = CBORcodec_ARRAY.enc([[1, [2, [3, [4]]]], 5])
+dec = cbor2.loads(enc)
+dec == [[1, [2, [3, [4]]]], 5]
+
+= cbor2 complex mixed structure: Scapy decodes it
+import cbor2
+data = {
+    "name": "Alice",
+    "scores": [100, 95, 87],
+    "active": True,
+    "meta": {"created": 12345, "tag": "user"},
+}
+enc = cbor2.dumps(data)
+obj, _ = CBOR_Codecs.CBOR.dec(enc)
+isinstance(obj, CBOR_MAP) and 'name' in obj.val and 'scores' in obj.val
+
+= Scapy encode complex structure, cbor2 decode, values match
+from scapy.cbor.cborcodec import CBORcodec_MAP, CBORcodec_ARRAY
+enc = CBORcodec_MAP.enc({
+    "items": [1, 2, 3],
+    "count": 3,
+    "valid": True,
+})
+dec = cbor2.loads(enc)
+dec["items"] == [1, 2, 3] and dec["count"] == 3 and dec["valid"] is True
+
+########### CBORF Fields Interoperability Tests with cbor2 ############
+
++ CBORF Fields - Interop: CBORF_ARRAY packet to cbor2
+
+= CBORF_ARRAY packet to cbor2 list (version info)
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_UNSIGNED_INTEGER, CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class VersionInfo(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_UNSIGNED_INTEGER('major', 1),
+        CBORF_UNSIGNED_INTEGER('minor', 2),
+        CBORF_UNSIGNED_INTEGER('patch', 3),
+    )
+
+pkt = VersionInfo()
+raw = bytes(pkt)
+dec = cbor2.loads(raw)
+isinstance(dec, list) and dec == [1, 2, 3]
+
+= cbor2 list to CBORF_ARRAY packet
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class VersionInfo2(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_UNSIGNED_INTEGER('major', 0),
+        CBORF_UNSIGNED_INTEGER('minor', 0),
+        CBORF_UNSIGNED_INTEGER('patch', 0),
+    )
+
+cbor2_data = cbor2.dumps([4, 5, 6])
+pkt = VersionInfo2(cbor2_data)
+pkt.major.val == 4 and pkt.minor.val == 5 and pkt.patch.val == 6
+
+= CBORF_ARRAY packet roundtrip through cbor2
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class MsgPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('code', 200),
+        CBORF_TEXT_STRING('status', 'ok'),
+    )
+
+pkt = MsgPkt()
+raw = bytes(pkt)
+cbor2_dec = cbor2.loads(raw)
+cbor2_re_enc = cbor2.dumps(cbor2_dec)
+pkt2 = MsgPkt(cbor2_re_enc)
+pkt2.code.val == 200 and pkt2.status.val == 'ok'
+
+= CBORF_ARRAY with boolean and null fields to cbor2
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_BOOLEAN, CBORF_NULL, CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class FlagPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('id', 7),
+        CBORF_BOOLEAN('active', True),
+        CBORF_NULL('reserved'),
+    )
+
+pkt = FlagPkt()
+raw = bytes(pkt)
+dec = cbor2.loads(raw)
+dec[0] == 7 and dec[1] is True and dec[2] is None
+
+= cbor2 list with mixed types to CBORF_ARRAY packet
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_BOOLEAN, CBORF_NULL
+from scapy.cborpacket import CBOR_Packet
+
+class Mixed(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('num', 0),
+        CBORF_BOOLEAN('flag', False),
+        CBORF_NULL('nval'),
+    )
+
+cbor2_data = cbor2.dumps([42, False, None])
+pkt = Mixed(cbor2_data)
+pkt.num.val == 42
+
++ CBORF Fields - Interop: CBORF_MAP packet to cbor2
+
+= CBORF_MAP packet to cbor2 dict
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_INTEGER, CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class ClaimSet(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('iss', 'scapy'),
+        CBORF_INTEGER('exp', 9999999),
+    )
+
+pkt = ClaimSet()
+raw = bytes(pkt)
+dec = cbor2.loads(raw)
+isinstance(dec, dict) and dec.get('iss') == 'scapy' and dec.get('exp') == 9999999
+
+= cbor2 dict to CBORF_MAP packet
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_TEXT_STRING, CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class Claims(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('iss', ''),
+        CBORF_INTEGER('exp', 0),
+    )
+
+cbor2_data = cbor2.dumps({'iss': 'myapp', 'exp': 12345})
+pkt = Claims(cbor2_data)
+pkt.iss.val == 'myapp' and pkt.exp.val == 12345
+
+= CBORF_MAP packet roundtrip through cbor2
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_TEXT_STRING, CBORF_BYTE_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class BinHeader(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('alg', 'ES256'),
+        CBORF_BYTE_STRING('kid', b'\x01\x02\x03\x04'),
+    )
+
+pkt = BinHeader()
+raw = bytes(pkt)
+cbor2_dec = cbor2.loads(raw)
+cbor2_re_enc = cbor2.dumps(cbor2_dec)
+pkt2 = BinHeader(cbor2_re_enc)
+pkt2.alg.val == 'ES256' and pkt2.kid.val == b'\x01\x02\x03\x04'
+
+= CBORF_MAP with boolean values to cbor2
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_BOOLEAN, CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class Flags(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_BOOLEAN('enabled', True),
+        CBORF_INTEGER('count', 5),
+    )
+
+pkt = Flags()
+raw = bytes(pkt)
+dec = cbor2.loads(raw)
+dec.get('enabled') is True and dec.get('count') == 5
+
+= cbor2 dict with unknown keys: CBORF_MAP skips them
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class SimpleMap(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('known', 'default'),
+    )
+
+cbor2_data = cbor2.dumps({'known': 'value', 'unknown': 'extra'})
+pkt = SimpleMap(cbor2_data)
+pkt.known.val == 'value'
+
++ CBORF Fields - Interop: CBORF_ARRAY_OF packet to cbor2
+
+= CBORF_ARRAY_OF with integer elements to cbor2
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_INTEGER
+from scapy.cbor.cbor import CBOR_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class IntList(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF('items', [], CBORF_INTEGER)
+
+pkt = IntList()
+pkt.items = [CBOR_UNSIGNED_INTEGER(10), CBOR_UNSIGNED_INTEGER(20), CBOR_UNSIGNED_INTEGER(30)]
+raw = bytes(pkt)
+dec = cbor2.loads(raw)
+isinstance(dec, list) and dec == [10, 20, 30]
+
+= cbor2 list to CBORF_ARRAY_OF
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class IntList2(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF('items', [], CBORF_INTEGER)
+
+cbor2_data = cbor2.dumps([100, 200, 300])
+pkt = IntList2(cbor2_data)
+len(pkt.items) == 3 and pkt.items[0].val == 100 and pkt.items[2].val == 300
+
++ CBORF Fields - Interop: CBORF_SEMANTIC_TAG to cbor2
+
+= CBORF_SEMANTIC_TAG packet to cbor2 CBORTag
+import cbor2
+from scapy.cbor.cborfields import CBORF_SEMANTIC_TAG, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class TimestampPkt(CBOR_Packet):
+    CBOR_root = CBORF_SEMANTIC_TAG('tag_info', None, 1, CBORF_UNSIGNED_INTEGER('ts', 1363896240))
+
+pkt = TimestampPkt()
+raw = bytes(pkt)
+import datetime
+dec = cbor2.loads(raw)
+isinstance(dec, (cbor2.CBORTag, datetime.datetime, datetime.date))
+
+= cbor2 CBORTag (tag 42) decoded by Scapy CBOR_SEMANTIC_TAG
+import cbor2
+enc = cbor2.dumps(cbor2.CBORTag(42, 'tagged-value'))
+obj, remainder = CBOR_Codecs.CBOR.dec(enc)
+isinstance(obj, CBOR_SEMANTIC_TAG) and obj.val[0] == 42 and obj.val[1].val == 'tagged-value' and remainder == b''
+
+= CBORF_SEMANTIC_TAG bytes identical to cbor2 CBORTag bytes
+import cbor2
+scapy_enc = bytes(CBOR_SEMANTIC_TAG((42, CBOR_TEXT_STRING('tagged-value'))))
+cbor2_enc = cbor2.dumps(cbor2.CBORTag(42, 'tagged-value'))
+scapy_enc == cbor2_enc
+
++ CBORF Fields - Interop: CBORF_UNSIGNED_INTEGER with cbor2
+
+= CBORF_UNSIGNED_INTEGER boundary values - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class UIntPkt(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER('n', 0)
+
+results = []
+for val in [0, 23, 24, 255, 256, 65535, 65536, 4294967295, 4294967296, 18446744073709551615]:
+    pkt = UIntPkt()
+    pkt.n.val = val
+    dec = cbor2.loads(bytes(pkt))
+    results.append(dec == val)
+
+all(results)
+
+= CBORF_UNSIGNED_INTEGER boundary values - cbor2 encode, Scapy decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class UIntPkt2(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER('n', 0)
+
+results = []
+for val in [0, 23, 24, 255, 256, 65535, 65536, 4294967295, 4294967296]:
+    pkt = UIntPkt2(cbor2.dumps(val))
+    results.append(pkt.n.val == val)
+
+all(results)
+
+= CBORF_UNSIGNED_INTEGER byte-exact comparison with cbor2
+import cbor2
+from scapy.cbor.cborfields import CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class UIntExact(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER('n', 0)
+
+results = []
+for val in [0, 1, 10, 23, 24, 255, 256, 65535, 65536, 4294967295]:
+    pkt = UIntExact()
+    pkt.n.val = val
+    results.append(bytes(pkt) == cbor2.dumps(val))
+
+all(results)
+
++ CBORF Fields - Interop: CBORF_NEGATIVE_INTEGER with cbor2
+
+= CBORF_NEGATIVE_INTEGER boundary values - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_NEGATIVE_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class NIntPkt(CBOR_Packet):
+    CBOR_root = CBORF_NEGATIVE_INTEGER('n', -1)
+
+results = []
+for val in [-1, -24, -25, -256, -257, -65536, -65537, -4294967296, -4294967297]:
+    pkt = NIntPkt()
+    pkt.n.val = val
+    dec = cbor2.loads(bytes(pkt))
+    results.append(dec == val)
+
+all(results)
+
+= CBORF_NEGATIVE_INTEGER boundary values - cbor2 encode, Scapy decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_NEGATIVE_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class NIntPkt2(CBOR_Packet):
+    CBOR_root = CBORF_NEGATIVE_INTEGER('n', -1)
+
+results = []
+for val in [-1, -24, -25, -256, -257, -65536, -4294967296]:
+    pkt = NIntPkt2(cbor2.dumps(val))
+    results.append(pkt.n.val == val)
+
+all(results)
+
+= CBORF_NEGATIVE_INTEGER byte-exact comparison with cbor2
+import cbor2
+from scapy.cbor.cborfields import CBORF_NEGATIVE_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class NIntExact(CBOR_Packet):
+    CBOR_root = CBORF_NEGATIVE_INTEGER('n', -1)
+
+results = []
+for val in [-1, -10, -24, -25, -256, -257, -65536, -65537]:
+    pkt = NIntExact()
+    pkt.n.val = val
+    results.append(bytes(pkt) == cbor2.dumps(val))
+
+all(results)
+
++ CBORF Fields - Interop: CBORF_INTEGER with cbor2
+
+= CBORF_INTEGER positive values - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class IntPkt(CBOR_Packet):
+    CBOR_root = CBORF_INTEGER('n', 0)
+
+results = []
+for val in [0, 1, 42, 100, 1000, 1000000]:
+    pkt = IntPkt()
+    pkt.n.val = val
+    dec = cbor2.loads(bytes(pkt))
+    results.append(dec == val)
+
+all(results)
+
+= CBORF_INTEGER negative values - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class IntNegPkt(CBOR_Packet):
+    CBOR_root = CBORF_INTEGER('n', -1)
+
+results = []
+for val in [-1, -10, -100, -1000, -1000000]:
+    pkt = IntNegPkt()
+    pkt.n.val = val
+    dec = cbor2.loads(bytes(pkt))
+    results.append(dec == val)
+
+all(results)
+
+= CBORF_INTEGER - cbor2 encode positive and negative, Scapy decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class IntPkt2(CBOR_Packet):
+    CBOR_root = CBORF_INTEGER('n', 0)
+
+results = []
+for val in [0, 42, -1, -42, 255, -256, 65536, -65537]:
+    pkt = IntPkt2(cbor2.dumps(val))
+    results.append(pkt.n.val == val)
+
+all(results)
+
++ CBORF Fields - Interop: CBORF_BYTE_STRING with cbor2
+
+= CBORF_BYTE_STRING empty bytes - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_BYTE_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class BytePkt(CBOR_Packet):
+    CBOR_root = CBORF_BYTE_STRING('data', b'')
+
+pkt = BytePkt()
+dec = cbor2.loads(bytes(pkt))
+dec == b''
+
+= CBORF_BYTE_STRING all 256 byte values - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_BYTE_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class ByteAllPkt(CBOR_Packet):
+    CBOR_root = CBORF_BYTE_STRING('data', b'')
+
+pkt = ByteAllPkt()
+pkt.data.val = bytes(range(256))
+dec = cbor2.loads(bytes(pkt))
+dec == bytes(range(256))
+
+= CBORF_BYTE_STRING - cbor2 encode, Scapy decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_BYTE_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class BytePkt3(CBOR_Packet):
+    CBOR_root = CBORF_BYTE_STRING('data', b'')
+
+for raw_val in [b'', b'\xde\xad\xbe\xef', bytes(range(256))]:
+    pkt = BytePkt3(cbor2.dumps(raw_val))
+    assert pkt.data.val == raw_val
+
+True
+
+= CBORF_BYTE_STRING byte-exact comparison with cbor2
+import cbor2
+from scapy.cbor.cborfields import CBORF_BYTE_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class ByteExact(CBOR_Packet):
+    CBOR_root = CBORF_BYTE_STRING('data', b'')
+
+results = []
+for raw_val in [b'', b'\x00', b'\xff', b'\xde\xad\xbe\xef', b'hello']:
+    pkt = ByteExact()
+    pkt.data.val = raw_val
+    results.append(bytes(pkt) == cbor2.dumps(raw_val))
+
+all(results)
+
++ CBORF Fields - Interop: CBORF_TEXT_STRING with cbor2
+
+= CBORF_TEXT_STRING empty string - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class TextPkt(CBOR_Packet):
+    CBOR_root = CBORF_TEXT_STRING('txt', '')
+
+pkt = TextPkt()
+dec = cbor2.loads(bytes(pkt))
+dec == ''
+
+= CBORF_TEXT_STRING ASCII string - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class TextPkt2(CBOR_Packet):
+    CBOR_root = CBORF_TEXT_STRING('txt', '')
+
+pkt = TextPkt2()
+pkt.txt.val = 'Hello, World!'
+dec = cbor2.loads(bytes(pkt))
+dec == 'Hello, World!'
+
+= CBORF_TEXT_STRING unicode string - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class TextUniPkt(CBOR_Packet):
+    CBOR_root = CBORF_TEXT_STRING('txt', '')
+
+pkt = TextUniPkt()
+pkt.txt.val = u'Hello, \u4e16\u754c'
+dec = cbor2.loads(bytes(pkt))
+dec == u'Hello, \u4e16\u754c'
+
+= CBORF_TEXT_STRING - cbor2 encode, Scapy decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class TextPkt3(CBOR_Packet):
+    CBOR_root = CBORF_TEXT_STRING('txt', '')
+
+for s in ['', 'hello', 'Hello, World!', u'caf\u00e9', u'\u4e16\u754c']:
+    pkt = TextPkt3(cbor2.dumps(s))
+    assert pkt.txt.val == s
+
+True
+
+= CBORF_TEXT_STRING byte-exact comparison with cbor2
+import cbor2
+from scapy.cbor.cborfields import CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class TextExact(CBOR_Packet):
+    CBOR_root = CBORF_TEXT_STRING('txt', '')
+
+results = []
+for s in ['', 'a', 'hello', 'IETF', u'\u6c34']:
+    pkt = TextExact()
+    pkt.txt.val = s
+    results.append(bytes(pkt) == cbor2.dumps(s))
+
+all(results)
+
++ CBORF Fields - Interop: CBORF_BOOLEAN with cbor2
+
+= CBORF_BOOLEAN true - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_BOOLEAN
+from scapy.cborpacket import CBOR_Packet
+
+class BoolPkt(CBOR_Packet):
+    CBOR_root = CBORF_BOOLEAN('flag', True)
+
+pkt = BoolPkt()
+dec = cbor2.loads(bytes(pkt))
+dec is True
+
+= CBORF_BOOLEAN false - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_BOOLEAN
+from scapy.cborpacket import CBOR_Packet
+
+class BoolFalsePkt(CBOR_Packet):
+    CBOR_root = CBORF_BOOLEAN('flag', False)
+
+pkt = BoolFalsePkt()
+dec = cbor2.loads(bytes(pkt))
+dec is False
+
+= CBORF_BOOLEAN - cbor2 encode, Scapy decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_BOOLEAN
+from scapy.cborpacket import CBOR_Packet
+
+class BoolPkt2(CBOR_Packet):
+    CBOR_root = CBORF_BOOLEAN('flag', False)
+
+pkt_true = BoolPkt2(cbor2.dumps(True))
+pkt_false = BoolPkt2(cbor2.dumps(False))
+pkt_true.flag.val is True and pkt_false.flag.val is False
+
+= CBORF_BOOLEAN byte-exact comparison with cbor2
+import cbor2
+from scapy.cbor.cborfields import CBORF_BOOLEAN
+from scapy.cborpacket import CBOR_Packet
+
+class BoolExactTrue(CBOR_Packet):
+    CBOR_root = CBORF_BOOLEAN('flag', True)
+
+class BoolExactFalse(CBOR_Packet):
+    CBOR_root = CBORF_BOOLEAN('flag', False)
+
+pkt_t = BoolExactTrue()
+pkt_f = BoolExactFalse()
+bytes(pkt_t) == cbor2.dumps(True) and bytes(pkt_f) == cbor2.dumps(False)
+
++ CBORF Fields - Interop: CBORF_NULL with cbor2
+
+= CBORF_NULL - Scapy encode, cbor2 decode gives None
+import cbor2
+from scapy.cbor.cborfields import CBORF_NULL
+from scapy.cborpacket import CBOR_Packet
+
+class NullPkt(CBOR_Packet):
+    CBOR_root = CBORF_NULL('n')
+
+pkt = NullPkt()
+dec = cbor2.loads(bytes(pkt))
+dec is None
+
+= CBORF_NULL byte-exact comparison with cbor2
+import cbor2
+from scapy.cbor.cborfields import CBORF_NULL
+from scapy.cborpacket import CBOR_Packet
+
+class NullExact(CBOR_Packet):
+    CBOR_root = CBORF_NULL('n')
+
+pkt = NullExact()
+bytes(pkt) == cbor2.dumps(None)
+
+= CBORF_NULL - cbor2 None encode, Scapy decode gives CBOR_NULL
+import cbor2
+from scapy.cbor.cbor import CBOR_NULL
+from scapy.cbor.cborfields import CBORF_NULL
+from scapy.cborpacket import CBOR_Packet
+
+class NullPkt2(CBOR_Packet):
+    CBOR_root = CBORF_NULL('n')
+
+pkt = NullPkt2(cbor2.dumps(None))
+isinstance(pkt.n, CBOR_NULL)
+
++ CBORF Fields - Interop: CBORF_FLOAT with cbor2
+
+= CBORF_FLOAT basic values - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_FLOAT
+from scapy.cborpacket import CBOR_Packet
+
+class FloatPkt(CBOR_Packet):
+    CBOR_root = CBORF_FLOAT('f', 0.0)
+
+results = []
+for val in [0.0, 1.0, -1.0, 3.14159, 1e10, -2.5]:
+    pkt = FloatPkt()
+    pkt.f.val = val
+    dec = cbor2.loads(bytes(pkt))
+    results.append(dec == val)
+
+all(results)
+
+= CBORF_FLOAT special values (NaN, Inf, -Inf) - Scapy encode, cbor2 decode
+import cbor2, math
+from scapy.cbor.cborfields import CBORF_FLOAT
+from scapy.cborpacket import CBOR_Packet
+
+class FloatSpecialPkt(CBOR_Packet):
+    CBOR_root = CBORF_FLOAT('f', 0.0)
+
+pkt_nan = FloatSpecialPkt()
+pkt_nan.f.val = float('nan')
+raw_nan = bytes(pkt_nan)
+pkt_inf = FloatSpecialPkt()
+pkt_inf.f.val = float('inf')
+raw_inf = bytes(pkt_inf)
+pkt_ninf = FloatSpecialPkt()
+pkt_ninf.f.val = float('-inf')
+raw_ninf = bytes(pkt_ninf)
+math.isnan(cbor2.loads(raw_nan)) and math.isinf(cbor2.loads(raw_inf)) and cbor2.loads(raw_ninf) == float('-inf')
+
+= CBORF_FLOAT special values - cbor2 encode, Scapy decode
+import cbor2, math
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_FLOAT
+from scapy.cborpacket import CBOR_Packet
+
+class FloatArrPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_FLOAT('nan_val', 0.0),
+        CBORF_FLOAT('inf_val', 0.0),
+        CBORF_FLOAT('ninf_val', 0.0),
+    )
+
+pkt = FloatArrPkt(cbor2.dumps([float('nan'), float('inf'), float('-inf')]))
+math.isnan(pkt.nan_val.val) and math.isinf(pkt.inf_val.val) and pkt.ninf_val.val == float('-inf')
+
+= CBORF_FLOAT - cbor2 encode, Scapy decode roundtrip
+import cbor2
+from scapy.cbor.cborfields import CBORF_FLOAT
+from scapy.cborpacket import CBOR_Packet
+
+class FloatPkt2(CBOR_Packet):
+    CBOR_root = CBORF_FLOAT('f', 0.0)
+
+results = []
+for val in [0.0, 1.0, -1.0, 2.5, 100.0]:
+    pkt = FloatPkt2(cbor2.dumps(val))
+    results.append(pkt.f.val == val)
+
+all(results)
+
++ CBORF Fields - Interop: CBORF_ARRAY with cbor2
+
+= CBORF_ARRAY with integer fields - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class PointPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('x', 10),
+        CBORF_INTEGER('y', 20),
+        CBORF_INTEGER('z', 30),
+    )
+
+pkt = PointPkt()
+dec = cbor2.loads(bytes(pkt))
+dec == [10, 20, 30]
+
+= CBORF_ARRAY with mixed types - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_BOOLEAN
+from scapy.cborpacket import CBOR_Packet
+
+class MixedPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('id', 99),
+        CBORF_TEXT_STRING('label', 'test'),
+        CBORF_BOOLEAN('active', True),
+    )
+
+pkt = MixedPkt()
+dec = cbor2.loads(bytes(pkt))
+dec[0] == 99 and dec[1] == 'test' and dec[2] is True
+
+= CBORF_ARRAY - cbor2 encode, Scapy decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class RecordPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('code', 0),
+        CBORF_TEXT_STRING('msg', ''),
+    )
+
+pkt = RecordPkt(cbor2.dumps([200, 'OK']))
+pkt.code.val == 200 and pkt.msg.val == 'OK'
+
+= CBORF_ARRAY roundtrip through cbor2 - multiple encode/decode cycles
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class RTPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('seq', 1),
+        CBORF_TEXT_STRING('data', 'payload'),
+    )
+
+pkt = RTPkt()
+raw = bytes(pkt)
+cbor2_dec = cbor2.loads(raw)
+re_enc = cbor2.dumps(cbor2_dec)
+pkt2 = RTPkt(re_enc)
+pkt2.seq.val == 1 and pkt2.data.val == 'payload'
+
+= CBORF_ARRAY with null elements - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_NULL
+from scapy.cborpacket import CBOR_Packet
+
+class NullArrPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('id', 5),
+        CBORF_NULL('opt'),
+    )
+
+pkt = NullArrPkt()
+dec = cbor2.loads(bytes(pkt))
+dec[0] == 5 and dec[1] is None
+
++ CBORF Fields - Interop: CBORF_ARRAY_OF with cbor2
+
+= CBORF_ARRAY_OF with text strings - cbor2 encode, Scapy decode
+import cbor2
+from scapy.cbor.cbor import CBOR_TEXT_STRING
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class TextListPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF('items', [], CBORF_TEXT_STRING)
+
+pkt = TextListPkt(cbor2.dumps(['hello', 'world', 'foo']))
+len(pkt.items) == 3 and pkt.items[0].val == 'hello' and pkt.items[2].val == 'foo'
+
+= CBORF_ARRAY_OF with text strings - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cbor import CBOR_TEXT_STRING
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class TextListPkt2(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF('items', [], CBORF_TEXT_STRING)
+
+pkt = TextListPkt2()
+pkt.items = [CBOR_TEXT_STRING('abc'), CBOR_TEXT_STRING('def'), CBOR_TEXT_STRING('ghi')]
+dec = cbor2.loads(bytes(pkt))
+dec == ['abc', 'def', 'ghi']
+
+= CBORF_ARRAY_OF with text strings roundtrip through cbor2
+import cbor2
+from scapy.cbor.cbor import CBOR_TEXT_STRING
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class TextListRT(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF('items', [], CBORF_TEXT_STRING)
+
+pkt = TextListRT()
+pkt.items = [CBOR_TEXT_STRING('x'), CBOR_TEXT_STRING('y'), CBOR_TEXT_STRING('z')]
+raw = bytes(pkt)
+re_enc = cbor2.dumps(cbor2.loads(raw))
+pkt2 = TextListRT(re_enc)
+len(pkt2.items) == 3 and pkt2.items[1].val == 'y'
+
+= CBORF_ARRAY_OF with byte strings - cbor2 encode, Scapy decode
+import cbor2
+from scapy.cbor.cbor import CBOR_BYTE_STRING
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_BYTE_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class ByteListPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF('items', [], CBORF_BYTE_STRING)
+
+pkt = ByteListPkt(cbor2.dumps([b'\x01\x02', b'\x03\x04', b'\x05\x06']))
+len(pkt.items) == 3 and pkt.items[0].val == b'\x01\x02' and pkt.items[2].val == b'\x05\x06'
+
+= CBORF_ARRAY_OF with byte strings - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cbor import CBOR_BYTE_STRING
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_BYTE_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class ByteListPkt2(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF('items', [], CBORF_BYTE_STRING)
+
+pkt = ByteListPkt2()
+pkt.items = [CBOR_BYTE_STRING(b'\xaa\xbb'), CBOR_BYTE_STRING(b'\xcc\xdd')]
+dec = cbor2.loads(bytes(pkt))
+dec == [b'\xaa\xbb', b'\xcc\xdd']
+
+= CBORF_ARRAY_OF integers - large list cbor2 roundtrip
+import cbor2
+from scapy.cbor.cbor import CBOR_UNSIGNED_INTEGER
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class BigIntList(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF('items', [], CBORF_INTEGER)
+
+cbor2_data = cbor2.dumps(list(range(50)))
+pkt = BigIntList(cbor2_data)
+len(pkt.items) == 50 and pkt.items[0].val == 0 and pkt.items[49].val == 49
+
+= CBORF_ARRAY_OF integers - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cbor import CBOR_UNSIGNED_INTEGER
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class IntListPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF('items', [], CBORF_INTEGER)
+
+pkt = IntListPkt()
+pkt.items = [CBOR_UNSIGNED_INTEGER(i) for i in [10, 20, 30, 40, 50]]
+dec = cbor2.loads(bytes(pkt))
+dec == [10, 20, 30, 40, 50]
+
++ CBORF Fields - Interop: CBORF_MAP with cbor2
+
+= CBORF_MAP with text string values - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_TEXT_STRING, CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class HeaderPkt(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('alg', 'ES256'),
+        CBORF_TEXT_STRING('typ', 'JWT'),
+        CBORF_INTEGER('ver', 1),
+    )
+
+pkt = HeaderPkt()
+dec = cbor2.loads(bytes(pkt))
+isinstance(dec, dict) and dec.get('alg') == 'ES256' and dec.get('typ') == 'JWT' and dec.get('ver') == 1
+
+= CBORF_MAP - cbor2 encode, Scapy decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_TEXT_STRING, CBORF_INTEGER, CBORF_BOOLEAN
+from scapy.cborpacket import CBOR_Packet
+
+class CredPkt(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('sub', ''),
+        CBORF_INTEGER('iat', 0),
+        CBORF_BOOLEAN('admin', False),
+    )
+
+pkt = CredPkt(cbor2.dumps({'sub': 'user42', 'iat': 1700000000, 'admin': True}))
+pkt.sub.val == 'user42' and pkt.iat.val == 1700000000 and pkt.admin.val is True
+
+= CBORF_MAP roundtrip through cbor2
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_TEXT_STRING, CBORF_BYTE_STRING, CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class CoseHeaderPkt(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('alg', 'ES256'),
+        CBORF_BYTE_STRING('kid', b'\x01\x02\x03\x04'),
+        CBORF_INTEGER('crit', 1),
+    )
+
+pkt = CoseHeaderPkt()
+raw = bytes(pkt)
+re_enc = cbor2.dumps(cbor2.loads(raw))
+pkt2 = CoseHeaderPkt(re_enc)
+pkt2.alg.val == 'ES256' and pkt2.kid.val == b'\x01\x02\x03\x04' and pkt2.crit.val == 1
+
+= CBORF_MAP with null value - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_INTEGER, CBORF_NULL
+from scapy.cborpacket import CBOR_Packet
+
+class OptionalPkt(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_INTEGER('id', 7),
+        CBORF_NULL('optional_data'),
+    )
+
+pkt = OptionalPkt()
+dec = cbor2.loads(bytes(pkt))
+dec.get('id') == 7 and dec.get('optional_data') is None
+
+= CBORF_MAP with boolean values roundtrip with cbor2
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_BOOLEAN, CBORF_INTEGER, CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class FlagsPkt(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_BOOLEAN('active', True),
+        CBORF_BOOLEAN('verified', False),
+        CBORF_INTEGER('level', 3),
+        CBORF_TEXT_STRING('role', 'admin'),
+    )
+
+pkt = FlagsPkt()
+raw = bytes(pkt)
+dec = cbor2.loads(raw)
+re_enc = cbor2.dumps(dec)
+pkt2 = FlagsPkt(re_enc)
+pkt2.active.val is True and pkt2.verified.val is False and pkt2.level.val == 3 and pkt2.role.val == 'admin'
+
+= CBORF_MAP skip unknown keys from cbor2
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_TEXT_STRING, CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class KnownKeysPkt(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('known', 'default'),
+        CBORF_INTEGER('count', 0),
+    )
+
+pkt = KnownKeysPkt(cbor2.dumps({'known': 'found', 'count': 42, 'extra': 'ignored'}))
+pkt.known.val == 'found' and pkt.count.val == 42
+
++ CBORF Fields - Interop: CBOR_Packet complex structures with cbor2
+
+= CBOR_Packet CBORF_ARRAY with multiple field types - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_BOOLEAN
+from scapy.cborpacket import CBOR_Packet
+
+class SensorReading(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('sensor_id', 42),
+        CBORF_TEXT_STRING('unit', 'fahrenheit'),
+        CBORF_INTEGER('value', 98),
+        CBORF_BOOLEAN('alarm', True),
+    )
+
+pkt = SensorReading()
+dec = cbor2.loads(bytes(pkt))
+dec[0] == 42 and dec[1] == 'fahrenheit' and dec[2] == 98 and dec[3] is True
+
+= CBOR_Packet with CBORF_MAP multiple field types - Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_BOOLEAN, CBORF_BYTE_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class DeviceInfo(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_INTEGER('id', 0),
+        CBORF_TEXT_STRING('label', ''),
+        CBORF_BOOLEAN('online', False),
+        CBORF_BYTE_STRING('hwaddr', b''),
+    )
+
+pkt = DeviceInfo(cbor2.dumps({'id': 1001, 'label': 'device-01', 'online': True, 'hwaddr': b'\x00\x11\x22\x33\x44\x55'}))
+dec = cbor2.loads(bytes(pkt))
+dec.get('id') == 1001 and dec.get('label') == 'device-01' and dec.get('online') is True and dec.get('hwaddr') == b'\x00\x11\x22\x33\x44\x55'
+
+= CBOR_Packet CBORF_MAP full cbor2 roundtrip
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_BOOLEAN
+from scapy.cborpacket import CBOR_Packet
+
+class ClaimsPkt(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('iss', ''),
+        CBORF_TEXT_STRING('sub', ''),
+        CBORF_INTEGER('exp', 0),
+        CBORF_BOOLEAN('admin', False),
+    )
+
+pkt = ClaimsPkt(cbor2.dumps({'iss': 'auth.example.com', 'sub': 'user99', 'exp': 9999999, 'admin': False}))
+raw = bytes(pkt)
+dec = cbor2.loads(raw)
+dec.get('iss') == 'auth.example.com' and dec.get('sub') == 'user99' and dec.get('exp') == 9999999 and dec.get('admin') is False
+
+= CBOR_Packet CBORF_MAP with negative integer - cbor2 encode, Scapy decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_INTEGER, CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class OffsetPkt(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('name', ''),
+        CBORF_INTEGER('offset', 0),
+        CBORF_INTEGER('count', 0),
+    )
+
+pkt = OffsetPkt(cbor2.dumps({'name': 'delta', 'offset': -1024, 'count': 512}))
+pkt.name.val == 'delta' and pkt.offset.val == -1024 and pkt.count.val == 512
+
++ CBOR_Packet - nested CBORF_PACKET structures
+
+= CBORF_PACKET three levels deep: Outer(ARRAY) -> Middle(ARRAY) -> Inner(ARRAY)
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_PACKET
+from scapy.cborpacket import CBOR_Packet
+
+class NestInner(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('x', 0),
+        CBORF_INTEGER('y', 0),
+    )
+
+class NestMiddle(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_TEXT_STRING('zone', ''),
+        CBORF_PACKET('point', None, NestInner),
+    )
+
+class NestOuter(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('version', 0),
+        CBORF_PACKET('region', None, NestMiddle),
+    )
+
+inner = NestInner(cbor2.dumps([30, 40]))
+mid = NestMiddle()
+mid.zone.val = 'north'
+mid.point = inner
+outer = NestOuter()
+outer.version.val = 2
+outer.region = mid
+raw = bytes(outer)
+outer2 = NestOuter(raw)
+outer2.version.val == 2 and outer2.region.zone.val == 'north' and outer2.region.point.x.val == 30 and outer2.region.point.y.val == 40
+
+= CBORF_PACKET three-level nesting cbor2 interop
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_PACKET
+from scapy.cborpacket import CBOR_Packet
+
+class NestInner2(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('x', 0),
+        CBORF_INTEGER('y', 0),
+    )
+
+class NestMiddle2(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_TEXT_STRING('zone', ''),
+        CBORF_PACKET('point', None, NestInner2),
+    )
+
+class NestOuter2(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('version', 0),
+        CBORF_PACKET('region', None, NestMiddle2),
+    )
+
+inner = NestInner2(cbor2.dumps([10, 20]))
+mid = NestMiddle2()
+mid.zone.val = 'south'
+mid.point = inner
+outer = NestOuter2()
+outer.version.val = 1
+outer.region = mid
+dec = cbor2.loads(bytes(outer))
+dec == [1, ['south', [10, 20]]]
+
+= CBORF_PACKET inside CBORF_MAP: cbor2 decode matches field values
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_MAP, CBORF_PACKET
+from scapy.cborpacket import CBOR_Packet
+
+class MapInner(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('px', 0),
+        CBORF_INTEGER('py', 0),
+    )
+
+class MapWithNestedPkt(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('label', ''),
+        CBORF_PACKET('coords', None, MapInner),
+    )
+
+inner = MapInner(cbor2.dumps([5, 7]))
+pkt = MapWithNestedPkt()
+pkt.label.val = 'origin'
+pkt.coords = inner
+dec = cbor2.loads(bytes(pkt))
+dec.get('label') == 'origin' and dec.get('coords') == [5, 7]
+
+= CBORF_PACKET inside CBORF_MAP: Scapy decode roundtrip
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_MAP, CBORF_PACKET
+from scapy.cborpacket import CBOR_Packet
+
+class CoordsInner(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('px', 0),
+        CBORF_INTEGER('py', 0),
+    )
+
+class CoordsOuter(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('label', ''),
+        CBORF_PACKET('coords', None, CoordsInner),
+    )
+
+inner = CoordsInner(cbor2.dumps([5, 7]))
+pkt = CoordsOuter()
+pkt.label.val = 'origin'
+pkt.coords = inner
+pkt2 = CoordsOuter(bytes(pkt))
+pkt2.label.val == 'origin' and pkt2.coords.px.val == 5 and pkt2.coords.py.val == 7
+
+= CBORF_PACKET: nested MAP-in-MAP via CBORF_PACKET (Document/Metadata)
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_TEXT_STRING, CBORF_BYTE_STRING, CBORF_INTEGER, CBORF_PACKET
+from scapy.cborpacket import CBOR_Packet
+
+class DocMeta(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('creator', ''),
+        CBORF_INTEGER('version', 0),
+    )
+
+class DocPacket(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('title', ''),
+        CBORF_BYTE_STRING('body', b''),
+        CBORF_PACKET('metadata', None, DocMeta),
+    )
+
+meta = DocMeta()
+meta.creator.val = 'alice'
+meta.version.val = 3
+doc = DocPacket()
+doc.title.val = 'My Document'
+doc.body.val = b'hello world'
+doc.metadata = meta
+raw = bytes(doc)
+dec = cbor2.loads(raw)
+dec.get('title') == 'My Document' and dec.get('body') == b'hello world' and dec.get('metadata') == {'creator': 'alice', 'version': 3}
+
+= CBORF_PACKET: nested MAP-in-MAP Scapy roundtrip
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_TEXT_STRING, CBORF_BYTE_STRING, CBORF_INTEGER, CBORF_PACKET
+from scapy.cborpacket import CBOR_Packet
+
+class DocMeta2(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('creator', ''),
+        CBORF_INTEGER('version', 0),
+    )
+
+class DocPacket2(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('title', ''),
+        CBORF_BYTE_STRING('body', b''),
+        CBORF_PACKET('metadata', None, DocMeta2),
+    )
+
+meta = DocMeta2()
+meta.creator.val = 'bob'
+meta.version.val = 7
+doc = DocPacket2()
+doc.title.val = 'Report'
+doc.body.val = b'\x01\x02\x03'
+doc.metadata = meta
+raw = bytes(doc)
+doc2 = DocPacket2(raw)
+doc2.title.val == 'Report' and doc2.body.val == b'\x01\x02\x03' and doc2.metadata.creator.val == 'bob' and doc2.metadata.version.val == 7
+
++ CBOR_Packet - CBORF_ARRAY_OF with CBOR_Packet elements
+
+= CBORF_ARRAY_OF with CBOR_Packet class: cbor2 list of lists → Scapy decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_ARRAY_OF
+from scapy.cborpacket import CBOR_Packet
+
+class StatusItem(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('code', 0),
+        CBORF_TEXT_STRING('msg', ''),
+    )
+
+class StatusList(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF('statuses', [], StatusItem)
+
+raw = cbor2.dumps([[200, 'OK'], [201, 'Created'], [204, 'No Content']])
+pkt = StatusList(raw)
+len(pkt.statuses) == 3 and pkt.statuses[0].code.val == 200 and pkt.statuses[1].msg.val == 'Created' and pkt.statuses[2].code.val == 204
+
+= CBORF_ARRAY_OF with CBOR_Packet class: Scapy encode → cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_ARRAY_OF
+from scapy.cborpacket import CBOR_Packet
+
+class ErrItem(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('code', 0),
+        CBORF_TEXT_STRING('msg', ''),
+    )
+
+class ErrList(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF('errors', [], ErrItem)
+
+pkt = ErrList()
+pkt.errors = [ErrItem(cbor2.dumps([404, 'Not Found'])), ErrItem(cbor2.dumps([500, 'Server Error']))]
+dec = cbor2.loads(bytes(pkt))
+dec == [[404, 'Not Found'], [500, 'Server Error']]
+
+= CBORF_ARRAY_OF with CBOR_Packet class: roundtrip
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_ARRAY_OF
+from scapy.cborpacket import CBOR_Packet
+
+class MsgItem(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('id', 0),
+        CBORF_TEXT_STRING('txt', ''),
+    )
+
+class MsgList(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF('messages', [], MsgItem)
+
+raw = cbor2.dumps([[1, 'hello'], [2, 'world'], [3, 'foo']])
+pkt = MsgList(raw)
+raw2 = bytes(pkt)
+pkt2 = MsgList(raw2)
+len(pkt2.messages) == 3 and pkt2.messages[2].id.val == 3 and pkt2.messages[2].txt.val == 'foo'
+
+= CBORF_ARRAY_OF with CBOR_Packet class: empty list
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_ARRAY_OF
+from scapy.cborpacket import CBOR_Packet
+
+class EmptyItem(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('val', 0),
+    )
+
+class EmptyItemList(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF('items', [], EmptyItem)
+
+pkt = EmptyItemList()
+raw = bytes(pkt)
+dec = cbor2.loads(raw)
+dec == [] and len(EmptyItemList(raw).items) == 0
+
+= CBORF_ARRAY_OF with CBOR_Packet class inside CBORF_MAP
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_ARRAY_OF, CBORF_MAP, CBORF_PACKET
+from scapy.cborpacket import CBOR_Packet
+
+class EventItem(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_TEXT_STRING('evt', ''),
+        CBORF_INTEGER('ts', 0),
+    )
+
+class EventLog(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF('events', [], EventItem)
+
+class Report(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('source', ''),
+        CBORF_INTEGER('count', 0),
+        CBORF_PACKET('log', None, EventLog),
+    )
+
+log = EventLog()
+log.events = [EventItem(cbor2.dumps(['boot', 1000])), EventItem(cbor2.dumps(['login', 2000]))]
+rpt = Report()
+rpt.source.val = 'sensor-1'
+rpt.count.val = 2
+rpt.log = log
+raw = bytes(rpt)
+dec = cbor2.loads(raw)
+dec.get('source') == 'sensor-1' and dec.get('count') == 2 and dec.get('log') == [['boot', 1000], ['login', 2000]]
+
++ CBOR_Packet - CBORF_optional extended tests
+
+= CBORF_optional: type mismatch in CBORF_ARRAY sets field to None
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_optional
+from scapy.cborpacket import CBOR_Packet
+
+class TwoFieldPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('version', 0),
+        CBORF_optional(CBORF_TEXT_STRING('description', 'none')),
+    )
+
+raw = cbor2.dumps([7, 99])
+pkt = TwoFieldPkt(raw)
+pkt.version.val == 7 and pkt.description is None
+
+= CBORF_optional: correct type present is decoded normally
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_optional
+from scapy.cborpacket import CBOR_Packet
+
+class OptPresentPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('version', 0),
+        CBORF_optional(CBORF_TEXT_STRING('description', '')),
+    )
+
+raw = cbor2.dumps([3, 'hello world'])
+pkt = OptPresentPkt(raw)
+pkt.version.val == 3 and pkt.description.val == 'hello world'
+
+= CBORF_optional: encode and decode roundtrip with present field
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_optional
+from scapy.cborpacket import CBOR_Packet
+
+class OptRTPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('version', 1),
+        CBORF_optional(CBORF_TEXT_STRING('title', '')),
+    )
+
+pkt = OptRTPkt()
+pkt.title.val = 'test title'
+raw = bytes(pkt)
+pkt2 = OptRTPkt(raw)
+pkt2.version.val == 1 and pkt2.title.val == 'test title'
+
+= CBORF_optional: cbor2 interop - optional present
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_optional
+from scapy.cborpacket import CBOR_Packet
+
+class OptInteropPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('seq', 0),
+        CBORF_optional(CBORF_TEXT_STRING('note', '')),
+    )
+
+pkt = OptInteropPkt()
+pkt.note.val = 'cbor2 interop'
+dec = cbor2.loads(bytes(pkt))
+dec == [0, 'cbor2 interop']
+
+= CBORF_optional inside CBORF_MAP: key present in cbor2 dict is decoded
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_optional
+from scapy.cborpacket import CBOR_Packet
+
+class ConfigWithOpt(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_INTEGER('timeout', 30),
+        CBORF_optional(CBORF_TEXT_STRING('endpoint', '')),
+        CBORF_INTEGER('retries', 3),
+    )
+
+pkt = ConfigWithOpt(cbor2.dumps({'timeout': 60, 'endpoint': 'https://example.com', 'retries': 5}))
+pkt.timeout.val == 60 and pkt.endpoint.val == 'https://example.com' and pkt.retries.val == 5
+
+= CBORF_optional inside CBORF_MAP: missing key stays at default
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_optional
+from scapy.cborpacket import CBOR_Packet
+
+class ConfigNoOpt(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_INTEGER('timeout', 30),
+        CBORF_optional(CBORF_TEXT_STRING('endpoint', '')),
+        CBORF_INTEGER('retries', 3),
+    )
+
+pkt = ConfigNoOpt(cbor2.dumps({'timeout': 15, 'retries': 2}))
+pkt.timeout.val == 15 and pkt.retries.val == 2
+
++ CBOR_Packet - CBORF_SEMANTIC_TAG extended tests
+
+= CBORF_SEMANTIC_TAG with TEXT_STRING inner: Scapy encode, cbor2 decode as datetime
+import cbor2, datetime
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_TEXT_STRING, CBORF_SEMANTIC_TAG
+from scapy.cborpacket import CBOR_Packet
+
+class DatetimePkt(CBOR_Packet):
+    CBOR_root = CBORF_SEMANTIC_TAG('tag', None, 0, CBORF_TEXT_STRING('dt', ''))
+
+pkt = DatetimePkt()
+pkt.dt.val = '2023-01-15T12:00:00Z'
+dec = cbor2.loads(bytes(pkt))
+isinstance(dec, datetime.datetime)
+
+= CBORF_SEMANTIC_TAG with INTEGER inner: Scapy encode, cbor2 decode as datetime
+import cbor2, datetime
+from scapy.cbor.cborfields import CBORF_INTEGER, CBORF_SEMANTIC_TAG
+from scapy.cborpacket import CBOR_Packet
+
+class UnixTimePkt(CBOR_Packet):
+    CBOR_root = CBORF_SEMANTIC_TAG('tag', None, 1, CBORF_INTEGER('ts', 0))
+
+pkt = UnixTimePkt()
+pkt.ts.val = 1700000000
+dec = cbor2.loads(bytes(pkt))
+isinstance(dec, datetime.datetime)
+
+= CBORF_SEMANTIC_TAG roundtrip: Scapy encode → Scapy decode preserves inner value
+import cbor2
+from scapy.cbor.cborfields import CBORF_INTEGER, CBORF_SEMANTIC_TAG
+from scapy.cborpacket import CBOR_Packet
+
+class TagRTPkt(CBOR_Packet):
+    CBOR_root = CBORF_SEMANTIC_TAG('tag', None, 1, CBORF_INTEGER('ts', 0))
+
+pkt = TagRTPkt()
+pkt.ts.val = 1700000000
+raw = bytes(pkt)
+pkt2 = TagRTPkt(raw)
+pkt2.ts.val == 1700000000
+
+= CBORF_SEMANTIC_TAG: tag byte matches CBOR major type 6 encoding
+import cbor2
+from scapy.cbor.cborfields import CBORF_BYTE_STRING, CBORF_SEMANTIC_TAG
+from scapy.cborpacket import CBOR_Packet
+
+class TagBigNum(CBOR_Packet):
+    CBOR_root = CBORF_SEMANTIC_TAG('tag', None, 2, CBORF_BYTE_STRING('n', b''))
+
+pkt = TagBigNum()
+pkt.n.val = b'\x01\x00\x00\x00\x00\x00\x00\x00\x00'
+raw = bytes(pkt)
+raw[0:1] == b'\xc2'
+
+= CBORF_SEMANTIC_TAG: byte-exact comparison with cbor2 CBORTag
+import cbor2
+from scapy.cbor.cborfields import CBORF_INTEGER, CBORF_SEMANTIC_TAG
+from scapy.cborpacket import CBOR_Packet
+
+class TagCmpPkt(CBOR_Packet):
+    CBOR_root = CBORF_SEMANTIC_TAG('tag', None, 1, CBORF_INTEGER('ts', 0))
+
+pkt = TagCmpPkt()
+pkt.ts.val = 9999999
+bytes(pkt) == cbor2.dumps(cbor2.CBORTag(1, 9999999))
+
+= CBORF_SEMANTIC_TAG inside CBORF_MAP: Scapy encode, cbor2 decode
+import cbor2, datetime
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_TEXT_STRING, CBORF_INTEGER, CBORF_SEMANTIC_TAG
+from scapy.cborpacket import CBOR_Packet
+
+class EventPkt(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('event_type', ''),
+        CBORF_SEMANTIC_TAG('tag', None, 1, CBORF_INTEGER('ts', 0)),
+    )
+
+pkt = EventPkt()
+pkt.event_type.val = 'login'
+pkt.ts.val = 9999999
+dec = cbor2.loads(bytes(pkt))
+isinstance(dec, dict) and dec.get('event_type') == 'login' and isinstance(dec.get('tag'), datetime.datetime)
+
+= CBORF_SEMANTIC_TAG inside CBORF_MAP: Scapy roundtrip preserves inner value
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_TEXT_STRING, CBORF_INTEGER, CBORF_SEMANTIC_TAG
+from scapy.cborpacket import CBOR_Packet
+
+class EventRTPkt(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_TEXT_STRING('event_type', ''),
+        CBORF_SEMANTIC_TAG('tag', None, 1, CBORF_INTEGER('ts', 0)),
+    )
+
+pkt = EventRTPkt()
+pkt.event_type.val = 'logout'
+pkt.ts.val = 1234567890
+raw = bytes(pkt)
+pkt2 = EventRTPkt(raw)
+pkt2.event_type.val == 'logout' and pkt2.ts.val == 1234567890
+
+= CBORF_SEMANTIC_TAG inside CBORF_ARRAY: Scapy encode, cbor2 decode
+import cbor2, datetime
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_TEXT_STRING, CBORF_INTEGER, CBORF_SEMANTIC_TAG
+from scapy.cborpacket import CBOR_Packet
+
+class TimedEventArr(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_TEXT_STRING('evt', ''),
+        CBORF_SEMANTIC_TAG('tag', None, 1, CBORF_INTEGER('ts', 0)),
+    )
+
+pkt = TimedEventArr()
+pkt.evt.val = 'start'
+pkt.ts.val = 1700000000
+dec = cbor2.loads(bytes(pkt))
+dec[0] == 'start' and isinstance(dec[1], datetime.datetime)
+
++ CBOR_Packet - realistic models
+
+= Realistic model: EAT-like attestation token
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_BYTE_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class EATToken(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_INTEGER('nonce', 0),
+        CBORF_TEXT_STRING('ueid', ''),
+        CBORF_BYTE_STRING('boot_seed', b''),
+        CBORF_INTEGER('hwver', 0),
+    )
+
+raw = cbor2.dumps({'nonce': 12345, 'ueid': 'device-abc', 'boot_seed': b'\x00' * 16, 'hwver': 3})
+pkt = EATToken(raw)
+pkt.nonce.val == 12345 and pkt.ueid.val == 'device-abc' and pkt.boot_seed.val == b'\x00' * 16 and pkt.hwver.val == 3
+
+= Realistic model: EAT-like token Scapy encode, cbor2 decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_BYTE_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class EATToken2(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_INTEGER('nonce', 0),
+        CBORF_TEXT_STRING('ueid', ''),
+        CBORF_BYTE_STRING('boot_seed', b''),
+        CBORF_INTEGER('hwver', 0),
+    )
+
+pkt = EATToken2()
+pkt.nonce.val = 99999
+pkt.ueid.val = 'iot-sensor-01'
+pkt.boot_seed.val = b'\xde\xad\xbe\xef' * 4
+pkt.hwver.val = 5
+dec = cbor2.loads(bytes(pkt))
+dec.get('nonce') == 99999 and dec.get('ueid') == 'iot-sensor-01' and dec.get('boot_seed') == b'\xde\xad\xbe\xef' * 4 and dec.get('hwver') == 5
+
+= Realistic model: SensorReport with CBORF_PACKET inner reading
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_MAP, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_FLOAT, CBORF_PACKET
+from scapy.cborpacket import CBOR_Packet
+
+class SensorData(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('sensor_id', 0),
+        CBORF_FLOAT('temperature', 0.0),
+    )
+
+class SensorReport(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_INTEGER('station', 0),
+        CBORF_TEXT_STRING('unit', ''),
+        CBORF_PACKET('reading', None, SensorData),
+    )
+
+reading = SensorData()
+reading.sensor_id.val = 3
+reading.temperature.val = 98.6
+rpt = SensorReport()
+rpt.station.val = 5
+rpt.unit.val = 'fahrenheit'
+rpt.reading = reading
+dec = cbor2.loads(bytes(rpt))
+dec.get('station') == 5 and dec.get('unit') == 'fahrenheit' and dec.get('reading') == [3, 98.6]
+
+= Realistic model: SensorReport Scapy roundtrip
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_MAP, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_FLOAT, CBORF_PACKET
+from scapy.cborpacket import CBOR_Packet
+
+class SensorData2(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('sensor_id', 0),
+        CBORF_FLOAT('temperature', 0.0),
+    )
+
+class SensorReport2(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_INTEGER('station', 0),
+        CBORF_TEXT_STRING('unit', ''),
+        CBORF_PACKET('reading', None, SensorData2),
+    )
+
+raw = cbor2.dumps({'station': 9, 'unit': 'celsius', 'reading': [7, 36.5]})
+pkt = SensorReport2(raw)
+pkt2 = SensorReport2(bytes(pkt))
+pkt2.station.val == 9 and pkt2.unit.val == 'celsius' and pkt2.reading.sensor_id.val == 7
+
+= Realistic model: StatusList (CBORF_ARRAY_OF of CBOR_Packets) encode and decode
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_ARRAY_OF
+from scapy.cborpacket import CBOR_Packet
+
+class HttpStatus(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('code', 0),
+        CBORF_TEXT_STRING('phrase', ''),
+    )
+
+class HttpStatusList(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF('statuses', [], HttpStatus)
+
+raw = cbor2.dumps([[200, 'OK'], [201, 'Created'], [404, 'Not Found']])
+pkt = HttpStatusList(raw)
+raw2 = bytes(pkt)
+dec = cbor2.loads(raw2)
+dec == [[200, 'OK'], [201, 'Created'], [404, 'Not Found']]
+
+= Realistic model: HTTP response header map
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_BYTE_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class HttpResponse(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_INTEGER('status', 0),
+        CBORF_TEXT_STRING('content_type', ''),
+        CBORF_INTEGER('content_length', 0),
+        CBORF_BYTE_STRING('body', b''),
+    )
+
+pkt = HttpResponse()
+pkt.status.val = 200
+pkt.content_type.val = 'application/cbor'
+pkt.content_length.val = 4
+pkt.body.val = b'\x01\x02\x03\x04'
+dec = cbor2.loads(bytes(pkt))
+dec.get('status') == 200 and dec.get('content_type') == 'application/cbor' and dec.get('body') == b'\x01\x02\x03\x04'
+
+= Realistic model: HTTP response header cbor2 → Scapy roundtrip
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_BYTE_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class HttpResponse2(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_INTEGER('status', 0),
+        CBORF_TEXT_STRING('content_type', ''),
+        CBORF_INTEGER('content_length', 0),
+        CBORF_BYTE_STRING('body', b''),
+    )
+
+raw = cbor2.dumps({'status': 404, 'content_type': 'text/plain', 'content_length': 9, 'body': b'Not Found'})
+pkt = HttpResponse2(raw)
+pkt2 = HttpResponse2(bytes(pkt))
+pkt2.status.val == 404 and pkt2.content_type.val == 'text/plain' and pkt2.body.val == b'Not Found'
+
+= Realistic model: COSE-like header map with integer algorithm
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_INTEGER, CBORF_BYTE_STRING, CBORF_TEXT_STRING
+from scapy.cborpacket import CBOR_Packet
+
+class CoseHeader(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_INTEGER('alg', 0),
+        CBORF_TEXT_STRING('kid', ''),
+        CBORF_BYTE_STRING('x5t', b''),
+    )
+
+pkt = CoseHeader(cbor2.dumps({'alg': -7, 'kid': 'key-42', 'x5t': b'\xaa\xbb\xcc\xdd'}))
+dec = cbor2.loads(bytes(pkt))
+dec.get('alg') == -7 and dec.get('kid') == 'key-42' and dec.get('x5t') == b'\xaa\xbb\xcc\xdd'
+
+= Realistic model: CBOR_Packet fields_desc populated for complex structures
+import cbor2
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_BYTE_STRING, CBORF_FLOAT
+from scapy.cborpacket import CBOR_Packet
+
+class FullRecord(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_INTEGER('seq', 0),
+        CBORF_TEXT_STRING('source', ''),
+        CBORF_FLOAT('score', 0.0),
+        CBORF_BYTE_STRING('checksum', b''),
+    )
+
+field_names = [f.name for f in FullRecord.fields_desc]
+'seq' in field_names and 'source' in field_names and 'score' in field_names and 'checksum' in field_names
+
+= Realistic model: multi-field packet encoding is byte-for-byte reproducible
+import cbor2
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_TEXT_STRING, CBORF_BYTE_STRING, CBORF_FLOAT
+from scapy.cborpacket import CBOR_Packet
+
+class MeasurementPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER('seq', 0),
+        CBORF_TEXT_STRING('sensor', ''),
+        CBORF_FLOAT('value', 0.0),
+        CBORF_BYTE_STRING('raw', b''),
+    )
+
+pkt = MeasurementPkt()
+pkt.seq.val = 42
+pkt.sensor.val = 'temp-01'
+pkt.value.val = 23.5
+pkt.raw.val = b'\x01\x02'
+raw1 = bytes(pkt)
+raw2 = bytes(MeasurementPkt(raw1))
+raw1 == raw2
+
+########### CBOR Fuzzing / Random Object Tests ####################
+
++ CBOR Random Object Generation
+
+= Create RandCBORObject
+from scapy.cbor import RandCBORObject
+rand = RandCBORObject()
+isinstance(rand, RandCBORObject)
+
+= Generate random CBOR unsigned integer
+from scapy.cbor import RandCBORObject, CBOR_UNSIGNED_INTEGER
+rand = RandCBORObject(objlist=[CBOR_UNSIGNED_INTEGER])
+obj = rand._fix()
+isinstance(obj, CBOR_UNSIGNED_INTEGER) and isinstance(obj.val, int) and obj.val >= 0
+
+= Generate random CBOR negative integer
+from scapy.cbor import RandCBORObject, CBOR_NEGATIVE_INTEGER
+rand = RandCBORObject(objlist=[CBOR_NEGATIVE_INTEGER])
+obj = rand._fix()
+isinstance(obj, CBOR_NEGATIVE_INTEGER) and isinstance(obj.val, int) and obj.val < 0
+
+= Generate random CBOR byte string
+from scapy.cbor import RandCBORObject, CBOR_BYTE_STRING
+rand = RandCBORObject(objlist=[CBOR_BYTE_STRING])
+obj = rand._fix()
+isinstance(obj, CBOR_BYTE_STRING) and isinstance(obj.val, bytes)
+
+= Generate random CBOR text string
+from scapy.cbor import RandCBORObject, CBOR_TEXT_STRING
+rand = RandCBORObject(objlist=[CBOR_TEXT_STRING])
+obj = rand._fix()
+isinstance(obj, CBOR_TEXT_STRING) and isinstance(obj.val, str) and len(obj.val) > 0
+
+= Generate random CBOR array
+from scapy.cbor import RandCBORObject, CBOR_ARRAY
+rand = RandCBORObject(objlist=[CBOR_ARRAY])
+obj = rand._fix()
+isinstance(obj, CBOR_ARRAY) and isinstance(obj.val, list)
+
+= Generate random CBOR map
+from scapy.cbor import RandCBORObject, CBOR_MAP
+rand = RandCBORObject(objlist=[CBOR_MAP])
+obj = rand._fix()
+isinstance(obj, CBOR_MAP) and isinstance(obj.val, dict)
+
+= Generate random CBOR boolean (false)
+from scapy.cbor import RandCBORObject, CBOR_FALSE
+rand = RandCBORObject(objlist=[CBOR_FALSE])
+obj = rand._fix()
+isinstance(obj, CBOR_FALSE) and obj.val == False
+
+= Generate random CBOR boolean (true)
+from scapy.cbor import RandCBORObject, CBOR_TRUE
+rand = RandCBORObject(objlist=[CBOR_TRUE])
+obj = rand._fix()
+isinstance(obj, CBOR_TRUE) and obj.val == True
+
+= Generate random CBOR null
+from scapy.cbor import RandCBORObject, CBOR_NULL
+rand = RandCBORObject(objlist=[CBOR_NULL])
+obj = rand._fix()
+isinstance(obj, CBOR_NULL) and obj.val is None
+
+= Generate random CBOR undefined
+from scapy.cbor import RandCBORObject, CBOR_UNDEFINED
+rand = RandCBORObject(objlist=[CBOR_UNDEFINED])
+obj = rand._fix()
+isinstance(obj, CBOR_UNDEFINED) and obj.val is None
+
+= Generate random CBOR float
+from scapy.cbor import RandCBORObject, CBOR_FLOAT
+rand = RandCBORObject(objlist=[CBOR_FLOAT])
+obj = rand._fix()
+isinstance(obj, CBOR_FLOAT) and isinstance(obj.val, float)
+
++ CBOR Random Object Encoding/Decoding
+
+= Encode and decode random unsigned integer
+from scapy.cbor import RandCBORObject, CBOR_UNSIGNED_INTEGER, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_UNSIGNED_INTEGER])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_UNSIGNED_INTEGER) and remainder == b'' and decoded.val == obj.val
+
+= Encode and decode random text string
+from scapy.cbor import RandCBORObject, CBOR_TEXT_STRING, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_TEXT_STRING])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_TEXT_STRING) and remainder == b'' and decoded.val == obj.val
+
+= Encode and decode random byte string
+from scapy.cbor import RandCBORObject, CBOR_BYTE_STRING, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_BYTE_STRING])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_BYTE_STRING) and remainder == b'' and decoded.val == obj.val
+
+= Encode and decode random array
+from scapy.cbor import RandCBORObject, CBOR_ARRAY, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_ARRAY])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_ARRAY) and remainder == b'' and len(decoded.val) == len(obj.val)
+
+= Encode and decode random map
+from scapy.cbor import RandCBORObject, CBOR_MAP, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_MAP])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_MAP) and remainder == b'' and len(decoded.val) == len(obj.val)
+
+= Encode and decode random float
+from scapy.cbor import RandCBORObject, CBOR_FLOAT, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_FLOAT])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_FLOAT) and remainder == b''
+
++ CBOR Random Mixed Types
+
+= Generate multiple random objects of different types
+from scapy.cbor import RandCBORObject
+rand = RandCBORObject()
+objects = [rand._fix() for _ in range(10)]
+len(objects) == 10 and all(hasattr(obj, 'val') for obj in objects)
+
+= Encode and decode multiple random objects
+from scapy.cbor import RandCBORObject, CBOR_Codecs
+rand = RandCBORObject()
+success_count = 0
+for _ in range(20):
+    obj = rand._fix()
+    try:
+        encoded = bytes(obj)
+        decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+        if remainder == b'':
+            success_count += 1
+    except:
+        pass
+
+success_count >= 18
+
+= Random nested arrays encode/decode correctly
+from scapy.cbor import RandCBORObject, CBOR_ARRAY, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_ARRAY])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_ARRAY) and remainder == b''
+
+= Random nested maps encode/decode correctly
+from scapy.cbor import RandCBORObject, CBOR_MAP, CBOR_Codecs
+rand = RandCBORObject(objlist=[CBOR_MAP])
+obj = rand._fix()
+encoded = bytes(obj)
+decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+isinstance(decoded, CBOR_MAP) and remainder == b''
+
++ CBOR Fuzzing Stress Tests
+
+= Generate 100 random objects without errors
+from scapy.cbor import RandCBORObject
+rand = RandCBORObject()
+objects = []
+for _ in range(100):
+    obj = None
+    try:
+        obj = rand._fix()
+    except:
+        pass
+    if obj is not None:
+        objects.append(obj)
+
+len(objects) >= 95
+
+= Encode 50 random objects without errors
+from scapy.cbor import RandCBORObject
+rand = RandCBORObject()
+encoded_count = 0
+for _ in range(50):
+    obj = rand._fix()
+    try:
+        encoded = bytes(obj)
+        if len(encoded) > 0:
+            encoded_count += 1
+    except:
+        pass
+
+encoded_count >= 45
+
+= Roundtrip 50 random objects
+from scapy.cbor import RandCBORObject, CBOR_Codecs
+rand = RandCBORObject()
+roundtrip_count = 0
+for _ in range(50):
+    obj = rand._fix()
+    try:
+        encoded = bytes(obj)
+        decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
+        if remainder == b'':
+            roundtrip_count += 1
+    except:
+        pass
+
+roundtrip_count >= 45

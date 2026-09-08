@@ -29,6 +29,7 @@ from scapy.asn1fields import (
     ASN1F_SEQUENCE_OF,
 )
 from scapy.asn1packet import ASN1_Packet
+from scapy.config import crypto_validator
 from scapy.compat import bytes_base64
 from scapy.error import log_runtime
 from scapy.fields import (
@@ -113,6 +114,7 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
     __slots__ = [
         "fields",
         "fields_map",
+        "fields_pad",
         "offset",
         "length_from",
         "force_order",
@@ -125,6 +127,7 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         name,  # type: str
         offset,  # type: Union[int, Callable[[Packet], int]]
         fields,  # type: List[Field[Any, Any]]
+        fields_pad=0,  # type: int
         length_from=None,  # type: Optional[Callable[[Packet], int]]
         force_order=None,  # type: Optional[List[str]]
         offset_name="BufferOffset",  # type: str
@@ -136,6 +139,7 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         self.length_from = length_from
         self.force_order = force_order  # whether the order of fields is fixed
         self.offset_name = offset_name
+        self.fields_pad = fields_pad
         super(_NTLMPayloadField, self).__init__(
             name,
             [
@@ -195,6 +199,10 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
             if offset is None:
                 # No offset specified: calc
                 offset = len(buf)
+                if self.fields_pad:
+                    pad = (-offset) % self.fields_pad
+                    offset += pad
+                    buf.append(pad * b"\x00", len(buf))
             else:
                 # Calc relative offset
                 offset -= r_off
@@ -369,8 +377,9 @@ _NTLM_CONFIG = [
 
 def _NTLM_post_build(self, p, pay_offset, fields, config=_NTLM_CONFIG):
     """Util function to build the offset and populate the lengths"""
+    gl_fld = self.get_field(self._NTLM_PAYLOAD_FIELD_NAME)
     for field_name, value in self.fields[self._NTLM_PAYLOAD_FIELD_NAME]:
-        fld = self.get_field(self._NTLM_PAYLOAD_FIELD_NAME).fields_map[field_name]
+        fld = gl_fld.fields_map[field_name]
         length = fld.i2len(self, value)
         count = fld.i2count(self, value)
         offset = fields[field_name]
@@ -390,7 +399,9 @@ def _NTLM_post_build(self, p, pay_offset, fields, config=_NTLM_CONFIG):
             else:
                 raise ValueError
             if ftype & _NTLM_ENUM.PAD8:
-                fval += (-fval) % 8
+                pad = (-fval) % 8
+                fval += pad
+                pay_offset += pad
             sz = self.get_field(field_name + fname).sz
             if self.getfieldval(field_name + fname) is None:
                 p = (
@@ -490,7 +501,7 @@ _negotiateFlags = [
     "J",
     "NEGOTIATE_OEM_DOMAIN_SUPPLIED",  # K
     "NEGOTIATE_OEM_WORKSTATION_SUPPLIED",  # L
-    "r7",
+    "NEGOTIATE_LOCAL_CALL",
     "NEGOTIATE_ALWAYS_SIGN",  # M
     "TARGET_TYPE_DOMAIN",  # N
     "TARGET_TYPE_SERVER",  # O
@@ -590,8 +601,9 @@ class NTLM_NEGOTIATE(_NTLM_VARIANT_Packet, NTLM_Header):
                 "Payload",
                 OFFSET,
                 [
-                    _NTLMStrField("DomainName", b""),
-                    _NTLMStrField("WorkstationName", b""),
+                    # "MUST be encoded using the OEM character set"
+                    StrField("DomainName", b""),
+                    StrField("WorkstationName", b""),
                 ],
             ),
         ]
@@ -1267,7 +1279,6 @@ class NTLMSSP(SSP):
 
     Common arguments:
 
-        :param auth_level: One of DCE_C_AUTHN_LEVEL
         :param USE_MIC: whether to use a MIC or not (default: True)
         :param NTLM_VALUES: a dictionary used to override the following values
 
@@ -1295,6 +1306,7 @@ class NTLMSSP(SSP):
                     if without domain)
         :param HASHNT: the password to use for NTLM auth
         :param PASSWORD: the password to use for NTLM auth
+        :param LOCAL: use local authentication (must be running locally on Windows)
 
     Server-only arguments:
 
@@ -1335,6 +1347,7 @@ class NTLMSSP(SSP):
             "ServerDomain",
         ]
 
+        @crypto_validator
         def __init__(self, IsAcceptor, req_flags=None):
             self.state = NTLMSSP.STATE.INIT
             self.SessionKey = None
@@ -1392,7 +1405,7 @@ class NTLMSSP(SSP):
             self.USE_MIC = False
         else:
             self.USE_MIC = USE_MIC
-        self.NTLM_VALUES = NTLM_VALUES
+
         if UPN is not None:
             # Populate values used only in server mode.
             from scapy.layers.kerberos import _parse_upn
@@ -1407,7 +1420,7 @@ class NTLMSSP(SSP):
                 pass
 
         # Compute various netbios/fqdn names
-        self.DOMAIN_FQDN = DOMAIN_FQDN or "domain.local"
+        self.DOMAIN_FQDN = DOMAIN_FQDN or "WORKGROUP"
         self.DOMAIN_NB_NAME = (
             DOMAIN_NB_NAME or self.DOMAIN_FQDN.split(".")[0].upper()[:15]
         )
@@ -1415,6 +1428,7 @@ class NTLMSSP(SSP):
         self.COMPUTER_FQDN = COMPUTER_FQDN or (
             self.COMPUTER_NB_NAME.lower() + "." + self.DOMAIN_FQDN
         )
+        self.NTLM_VALUES = NTLM_VALUES
 
         if IDENTITIES:
             self.IDENTITIES = {
@@ -1542,6 +1556,7 @@ class NTLMSSP(SSP):
 
         if Context.state == self.STATE.INIT:
             # Client: negotiate
+
             # Create a default token
             tok = NTLM_NEGOTIATE(
                 VARIANT=self.VARIANT,
@@ -1584,18 +1599,28 @@ class NTLMSSP(SSP):
                         if Context.flags & GSS_C_FLAGS.GSS_C_CONF_FLAG
                         else []
                     )
+                    + (
+                        [
+                            "NEGOTIATE_IDENTIFY",
+                        ]
+                        if Context.flags & GSS_C_FLAGS.GSS_C_IDENTIFY_FLAG
+                        else []
+                    )
                 ),
                 ProductMajorVersion=10,
                 ProductMinorVersion=0,
-                ProductBuild=19041,
+                ProductBuild=26100,
             )
+
+            # Update that token with the customs one
             if self.NTLM_VALUES:
-                # Update that token with the customs one
                 for key in [
                     "NegotiateFlags",
                     "ProductMajorVersion",
                     "ProductMinorVersion",
                     "ProductBuild",
+                    "DomainName",
+                    "WorkstationName",
                 ]:
                     if key in self.NTLM_VALUES:
                         setattr(tok, key, self.NTLM_VALUES[key])
@@ -1606,6 +1631,7 @@ class NTLMSSP(SSP):
         elif Context.state == self.STATE.CLI_SENT_NEGO:
             # Client: auth (token=challenge)
             chall_tok = input_token
+
             if self.UPN is None or self.HASHNT is None:
                 raise ValueError(
                     "Must provide a 'UPN' and a 'HASHNT' or 'PASSWORD' when "
@@ -1647,11 +1673,12 @@ class NTLMSSP(SSP):
                 NegotiateFlags=chall_tok.NegotiateFlags,
                 ProductMajorVersion=10,
                 ProductMinorVersion=0,
-                ProductBuild=19041,
+                ProductBuild=26100,
             )
-            tok.LmChallengeResponse = LMv2_RESPONSE()
 
             # Populate the token
+            tok.LmChallengeResponse = LMv2_RESPONSE()
+
             # 1. Set username
             try:
                 tok.UserName, realm = _parse_upn(self.UPN)
@@ -1843,6 +1870,7 @@ class NTLMSSP(SSP):
                 ),
                 ProductMajorVersion=10,
                 ProductMinorVersion=0,
+                ProductBuild=26100,
                 Payload=[
                     ("TargetName", ""),
                     (
@@ -2125,7 +2153,7 @@ class NTLMSSP_DOMAIN(NTLMSSP):
     :param HASHNT: the HASHNT of the machine account (use Netlogon secure channel).
     :param ssp: a KerberosSSP to use (use Kerberos secure channel).
     :param PASSWORD: the PASSWORD of the machine account to use for Netlogon.
-    :param DC_IP: (optional) specify the IP of the DC.
+    :param DC_FQDN: (optional) specify the FQDN of the DC.
 
     Netlogon example::
 

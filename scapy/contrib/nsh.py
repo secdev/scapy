@@ -8,7 +8,7 @@
 from scapy.all import bind_layers
 from scapy.fields import BitField, ByteField, ByteEnumField, BitEnumField, \
     ShortField, X3BytesField, XIntField, XStrFixedLenField, \
-    ConditionalField, PacketListField, BitFieldLenField
+    ConditionalField, FieldListField, PacketListField, BitFieldLenField
 from scapy.layers.inet import Ether, IP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.vxlan import VXLAN
@@ -30,9 +30,14 @@ class NSHTLV(Packet):
         ShortField('class_', 0),
         BitField('type', 0, 8),
         BitField('reserved', 0, 1),
-        BitField('length', 0, 7),
-        PacketListField('metadata', None, XIntField, count_from='length')
+        BitFieldLenField('length', None, 7, count_of='metadata',
+                         adjust=lambda pkt, x: x * 4),
+        FieldListField('metadata', [], XIntField('', 0),
+                       length_from=lambda pkt: (pkt.length + 3) // 4 * 4)
     ]
+
+    def extract_padding(self, s):
+        return b'', s
 
 
 class NSH(Packet):
@@ -46,9 +51,9 @@ class NSH(Packet):
         BitField('unused1', 0, 1),
         BitField('ttl', 63, 6),
         BitFieldLenField('length', None, 6,
-                         count_of='vlch',
+                         length_of='vlch',
                          adjust=lambda pkt, x: 6 if pkt.mdtype == 1
-                         else x + 2),
+                         else x // 4 + 2),
         BitField('unused2', 0, 4),
         BitEnumField('mdtype', 1, 4, {0: 'Reserved MDType',
                                       1: 'Fixed Length',
@@ -65,9 +70,10 @@ class NSH(Packet):
         ByteField('si', 0xFF),
         ConditionalField(XStrFixedLenField("context_header", "", 16),
                          lambda pkt: pkt.mdtype == 1),
-        ConditionalField(PacketListField("vlch", None, NSHTLV,
-                                         count_from="length"),
-                         lambda pkt: pkt.mdtype == 2)
+        ConditionalField(PacketListField(
+            "vlch", None, NSHTLV,
+            length_from=lambda pkt: (pkt.length - 2) * 4),
+            lambda pkt: pkt.mdtype == 2)
     ]
 
     def mysummary(self):

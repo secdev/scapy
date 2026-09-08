@@ -1,0 +1,515 @@
+% Tests for ASN.1 BER encoding
+
+#
+# Try me with:
+# bash test/run_tests -t test/scapy/layers/ber.uts -F
+
+########### ASN.1 BER packets and fields #######################################
+
++ ASN.1 BER packets and fields
+= prepare BER packet classes
+class BERTaggedInteger(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER("n", 0, explicit_tag=0xA1)
+
+class BERFixedFields(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("n", 0, size_len=1),
+        ASN1F_STRING("s", "", size_len=3),
+    )
+
+class BEROptionalField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0, explicit_tag=0xA0)),
+    )
+
+class BERSequenceOfIntegers(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
+
+class BERChoiceField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+class BERRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_BOOLEAN("flag", False),
+        ASN1F_STRING("label", ""),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0, explicit_tag=0xA0)),
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER),
+    )
+
+class BEROptionalSequence(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("hdr", 0),
+        ASN1F_optional(ASN1F_SEQUENCE(
+            ASN1F_INTEGER("id", None),
+            ASN1F_STRING("label", None),
+            explicit_tag=0xA0,
+        )),
+    )
+
+class BERSequenceOfTaggedIntegers(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values", [], ASN1F_INTEGER("v", 0, explicit_tag=0xA0),
+    )
+
+class BERSizedInteger(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER("n", 0, size_len=1)
+
+= BER field explicit tag
+pkt = BERTaggedInteger(n=5)
+assert raw(pkt) == b"\xa1\x03\x02\x01\x05"
+decoded = BERTaggedInteger(raw(pkt))
+decoded.n.val == 5
+
+= BER field fixed size
+pkt = BERFixedFields(n=200, s=b"ABC")
+assert raw(pkt) == bytes.fromhex("300d02810200c80483000003414243")
+decoded = BERFixedFields(raw(pkt))
+assert decoded.n.val == 200
+decoded.s.val == b"ABC"
+
+= BER field optional
+present = BEROptionalField(id=1, extra=7)
+assert raw(present) == bytes.fromhex("3008020101a003020107")
+decoded = BEROptionalField(raw(present))
+assert decoded.id.val == 1
+assert decoded.extra.val == 7
+absent = BEROptionalField(id=1, extra=None)
+assert raw(absent) == bytes.fromhex("3003020101")
+decoded = BEROptionalField(raw(absent))
+assert decoded.id.val == 1
+decoded.extra is None
+
+= BER optional SEQUENCE is_empty
+opt = BEROptionalSequence.ASN1_root.seq[1]
+present = BEROptionalSequence(hdr=1, id=42, label=b"abc")
+assert opt._field.is_empty(present) is False
+assert opt.is_empty(present) is False
+assert BEROptionalSequence.ASN1_root.is_empty(present) is False
+assert raw(present) == bytes.fromhex("300f020101a00a300802012a0403616263")
+absent = BEROptionalSequence(hdr=1, id=None, label=None)
+assert opt._field.is_empty(absent) is True
+assert opt.is_empty(absent) is True
+raw(absent) == bytes.fromhex("3003020101")
+
+= BER field sequence of
+pkt = BERSequenceOfIntegers(values=[1, 2, 3])
+assert raw(pkt) == b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03"
+decoded = BERSequenceOfIntegers(raw(pkt))
+[x.val for x in decoded.values] == [1, 2, 3]
+
+= BER SEQUENCE OF tagged elements
+pkt = BERSequenceOfTaggedIntegers(values=[1, 2])
+assert raw(pkt) == bytes.fromhex("300aa003020101a003020102")
+decoded = BERSequenceOfTaggedIntegers(raw(pkt))
+[x.val for x in decoded.values] == [1, 2]
+
+= BER ASN1_Object codec kwargs
+as_int = BERSizedInteger(n=5)
+as_obj = BERSizedInteger(n=ASN1_INTEGER(5))
+assert raw(as_int) == raw(as_obj) == b"\x02\x81\x01\x05"
+BERSizedInteger(raw(as_obj)).n.val == 5
+
+= BER STRING field packet value
+class Blob(Packet):
+    fields_desc = [StrFixedLenField("data", b"ABCD", 4)]
+
+class P(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_STRING("s", "")
+
+P.ASN1_root.i2m(P(), Blob()) == b"\x04\x04ABCD"
+
+= BER field choice
+as_int = BERChoiceField(c=ASN1_INTEGER(99))
+assert raw(as_int) == b"\x02\x01c"
+decoded = BERChoiceField(raw(as_int))
+assert decoded.c.val == 99
+as_str = BERChoiceField(c=ASN1_STRING("x"))
+assert raw(as_str) == b"\x04\x01x"
+decoded = BERChoiceField(raw(as_str))
+decoded.c.val == b"x"
+
+= BER packet record
+pkt = BERRecord(id=42, flag=True, label="hi", extra=7, values=[1, 2, 3])
+expected = bytes.fromhex(
+    "301a02012a01010104026869"
+    "a003020107"
+    "3009020101020102020103"
+)
+assert raw(pkt) == expected
+decoded = BERRecord(raw(pkt))
+assert decoded.id.val == 42
+assert decoded.flag.val == 1
+assert decoded.label.val == b"hi"
+assert decoded.extra.val == 7
+assert [x.val for x in decoded.values] == [1, 2, 3]
+empty = BERRecord(id=1, flag=False, label="", extra=None, values=[])
+assert raw(empty) == bytes.fromhex("300a02010101010004003000")
+decoded = BERRecord(raw(empty))
+assert decoded.id.val == 1
+assert decoded.flag.val == 0
+assert decoded.label.val == b""
+assert decoded.extra is None
+[x.val for x in decoded.values] == []
+
+########### ASN.1 BER codec #######################################
+
++ ASN.1 BER codec
+= BER error formatting
+obj = ASN1_INTEGER(1)
+enc_err = BER_Encoding_Error("enc", encoded=obj, remaining=b"rest")
+assert "Already encoded" in str(enc_err)
+enc_err2 = BER_Encoding_Error("enc", encoded="raw", remaining=b"")
+assert "raw" in str(enc_err2)
+dec_err = BER_Decoding_Error("dec", decoded=obj, remaining=b"tail")
+assert "Already decoded" in str(dec_err)
+dec_err2 = BER_Decoding_Error("dec", decoded=[1], remaining=b"")
+"[1]" in str(dec_err2)
+
+= BER length encoding
+results = []
+for value in [0, 1, 127, 128, 999]:
+    encoded = BER_len_enc(value)
+    length, remain = BER_len_dec(encoded)
+    results.append(length == value and remain == b"")
+
+assert all(results)
+assert BER_len_enc(45, size=None) == BER_len_enc(45, size=0)
+BER_len_enc(45, size=4) == b"\x84\x00\x00\x00-"
+
+= BER length encoding errors
+try:
+    BER_len_enc(0, size=128)
+    False
+except BER_Exception:
+    True
+
+= BER length decoding truncated
+try:
+    BER_len_dec(b"\x82")
+    False
+except BER_Decoding_Error:
+    True
+
+= BER number encoding
+results = []
+for value in [0, 1, 127, 256, 16384]:
+    encoded = BER_num_enc(value)
+    decoded, remain = BER_num_dec(encoded)
+    results.append(decoded == value and remain == b"")
+
+all(results)
+
+= BER number decoding errors
+try:
+    BER_num_dec(b"")
+    False
+except BER_Decoding_Error:
+    True
+
+= BER number decoding unfinished
+try:
+    BER_num_dec(b"\x80\x80")
+    False
+except BER_Decoding_Error:
+    True
+
+= BER identifier encoding
+results = []
+for tag in [0x02, 0x30, 0x81, 0xA0]:
+    encoded = BER_id_enc(tag)
+    decoded, remain = BER_id_dec(encoded)
+    results.append(decoded == tag and remain == b"")
+
+assert all(results)
+high_tag = (0x03 << 5) + 0x22
+encoded = BER_id_enc(high_tag)
+decoded, remain = BER_id_dec(encoded)
+decoded == high_tag and remain == b""
+
+= BER tagging
+inner = BERcodec_INTEGER.enc(7)
+implicit = BER_tagging_enc(inner, implicit_tag=0xA0)
+assert implicit.startswith(b"\xa0")
+real_tag, payload = BER_tagging_dec(
+    implicit,
+    hidden_tag=ASN1_Class_UNIVERSAL.INTEGER,
+    implicit_tag=0xA0,
+)
+assert real_tag is None
+payload[0] == int(ASN1_Class_UNIVERSAL.INTEGER)
+
+= BER tagging with long size
+inner = BERcodec_INTEGER.enc(7)
+conf.ASN1_default_long_size = 4
+try:
+    explicit = BER_tagging_enc(inner, explicit_tag=0xA1)
+    assert explicit.startswith(b"\xa1\x84")
+    real_tag, payload = BER_tagging_dec(explicit, explicit_tag=0xA1)
+    assert real_tag is None
+    assert payload == inner
+finally:
+    conf.ASN1_default_long_size = 0
+
+= BER tagging mismatch
+inner = BERcodec_INTEGER.enc(7)
+implicit = BER_tagging_enc(inner, implicit_tag=0xA0)
+try:
+    BER_tagging_dec(
+        implicit,
+        hidden_tag=ASN1_Class_UNIVERSAL.INTEGER,
+        implicit_tag=0xA1,
+    )
+    False
+except BER_Decoding_Error:
+    True
+
+= BER tagging safe mismatch
+inner = BERcodec_INTEGER.enc(7)
+implicit = BER_tagging_enc(inner, implicit_tag=0xA0)
+safe_tag, _ = BER_tagging_dec(
+    implicit,
+    hidden_tag=ASN1_Class_UNIVERSAL.INTEGER,
+    implicit_tag=0xA1,
+    safe=True,
+)
+safe_tag == 0xA0
+
+= BER integer codec
+results = []
+for value in [0, 1, 127, 128, 255, -1, -128, -129]:
+    encoded = BERcodec_INTEGER.enc(value)
+    obj, remain = BERcodec_INTEGER.do_dec(encoded)
+    results.append(obj.val == value and remain == b"")
+
+all(results)
+
+= BER integer bad tag
+try:
+    BERcodec_INTEGER.do_dec(BERcodec_STRING.enc(b"x"))
+    False
+except BER_BadTag_Decoding_Error:
+    True
+
+= BER integer truncated
+try:
+    BERcodec_INTEGER.check_type_get_len(b"\x02")
+    False
+except BER_Decoding_Error:
+    True
+
+= BER bit string codec
+encoded = BERcodec_BIT_STRING.enc("1011")
+obj, remain = BERcodec_BIT_STRING.do_dec(encoded)
+assert obj.val == "1011"
+assert remain == b""
+padded = BERcodec_BIT_STRING.enc("10110000")
+obj2, _ = BERcodec_BIT_STRING.do_dec(padded)
+obj2.val == "10110000"
+
+= BER bit string errors
+try:
+    BERcodec_BIT_STRING.do_dec(b"\x03\x01\x08", safe=True)
+    False
+except BER_Decoding_Error:
+    True
+
+= BER bit string empty
+try:
+    BERcodec_BIT_STRING.do_dec(b"\x03\x00")
+    False
+except BER_Decoding_Error:
+    True
+
+= BER string and null codec
+encoded = BERcodec_STRING.enc(b"hello")
+obj, remain = BERcodec_STRING.do_dec(encoded)
+assert obj.val == b"hello"
+assert remain == b""
+null = BERcodec_NULL.enc(0)
+assert null == b"\x05\x00"
+obj, remain = BERcodec_NULL.do_dec(null)
+assert obj.val == 0
+non_null = BERcodec_NULL.enc(42)
+obj, remain = BERcodec_NULL.do_dec(non_null)
+obj.val == 42
+
+= BER OID codec
+encoded = BERcodec_OID.enc("1.2.840.113556.1.4.529")
+obj, remain = BERcodec_OID.do_dec(encoded)
+assert obj.val == "1.2.840.113556.1.4.529"
+assert remain == b""
+empty, remain = BERcodec_OID.do_dec(BERcodec_OID.enc(""))
+assert empty.val == ""
+remain == b""
+
+= BER sequence and set codec
+payload = BERcodec_INTEGER.enc(1) + BERcodec_INTEGER.enc(2)
+seq = BERcodec_SEQUENCE.enc(payload)
+obj, remain = BERcodec_SEQUENCE.do_dec(seq)
+assert len(obj.val) == 2
+assert obj.val[0].val == 1
+assert obj.val[1].val == 2
+assert remain == b""
+as_list = BERcodec_SEQUENCE.enc([ASN1_INTEGER(3), ASN1_INTEGER(4)])
+obj2, remain2 = BERcodec_SEQUENCE.do_dec(as_list)
+assert [x.val for x in obj2.val] == [3, 4]
+assert remain2 == b""
+st = BERcodec_SET.enc(payload)
+obj3, remain3 = BERcodec_SET.do_dec(st)
+assert len(obj3.val) == 2
+remain3 == b""
+
+= BER sequence long size default
+payload = BERcodec_INTEGER.enc(1) + BERcodec_INTEGER.enc(2)
+conf.ASN1_default_long_size = 4
+try:
+    long_seq = BERcodec_SEQUENCE.enc(payload)
+    assert long_seq.startswith(b"0\x84")
+    short_seq = BERcodec_SEQUENCE.enc(payload, size_len=0)
+    assert short_seq[0] == 0x30 and short_seq[1] == len(payload)
+finally:
+    conf.ASN1_default_long_size = 0
+
+= BER sequence truncated
+try:
+    BERcodec_SEQUENCE.do_dec(b"\x30\x05" + BERcodec_INTEGER.enc(1))
+    False
+except BER_Decoding_Error:
+    True
+
+= BER IP address codec
+encoded = BERcodec_IPADDRESS.enc("192.168.0.1")
+obj, remain = BERcodec_IPADDRESS.do_dec(encoded)
+assert obj.val == "192.168.0.1"
+remain == b""
+
+= BER IP address encoding error
+try:
+    BERcodec_IPADDRESS.enc("not-an-ip")
+    False
+except BER_Encoding_Error:
+    True
+
+= BER IP address decoding error
+try:
+    BERcodec_IPADDRESS.do_dec(BERcodec_STRING.enc(b"bad"))
+    False
+except BER_Decoding_Error:
+    True
+
+= BER object dispatch
+encoded = BERcodec_INTEGER.enc(99)
+obj, remain = BERcodec_Object.do_dec(encoded)
+assert obj.val == 99
+remain == b""
+
+= BER object empty string
+try:
+    BERcodec_Object.check_string(b"")
+    False
+except BER_Decoding_Error:
+    True
+
+= BER object unknown tag
+try:
+    BERcodec_Object.do_dec(b"\xff\x00")
+    False
+except BER_Decoding_Error:
+    True
+
+= BER object safedec
+bad, remain = BERcodec_Object.safedec(b"\x02\x01\x01")
+assert isinstance(bad, ASN1_INTEGER)
+assert bad.val == 1
+unknown, remain = BERcodec_Object.safedec(b"\xff\x00")
+assert isinstance(unknown, ASN1_DECODING_ERROR)
+truncated, remain = BERcodec_Object.dec(b"\x02\x05\x01", safe=True)
+assert isinstance(truncated, ASN1_DECODING_ERROR)
+remain == b""
+
+= BER object enc
+try:
+    BERcodec_Object.enc(object())
+    False
+except TypeError:
+    True
+
+= BER object enc string
+BERcodec_Object.enc("42") == BERcodec_STRING.enc("42")
+
+= BER enc ignores extra codec kwargs
+assert BERcodec_INTEGER.enc(5, oer_unsigned=True, uper_min=0) == BERcodec_INTEGER.enc(5)
+assert BERcodec_STRING.enc(b"x", uper_max=10) == BERcodec_STRING.enc(b"x")
+BERcodec_SEQUENCE.enc(BERcodec_INTEGER.enc(1), uper_min=0) == BERcodec_SEQUENCE.enc(BERcodec_INTEGER.enc(1))
+
++ ASN.1 codec tagging contract
+= BER tagging is exposed on the codec
+assert ASN1_Codecs.BER.tagging_enc(b"\x02\x01\x05", implicit_tag=0xA0) == b"\xa0\x01\x05"
+diff, payload = ASN1_Codecs.BER.tagging_dec(
+    b"\xa0\x01\x05", hidden_tag=2, implicit_tag=0xA0
+)
+diff is None and payload == b"\x02\x01\x05"
+
+= identity tagging for PER-style codecs
+def _id_tagging_enc(s, **kwargs):
+    return s
+
+def _id_tagging_dec(s, **kwargs):
+    return None, s
+
+ASN1_Codecs.PER.register_tagging(_id_tagging_enc, _id_tagging_dec)
+try:
+    assert ASN1_Codecs.PER.tagging_enc(b"\x02\x01\x05", implicit_tag=0xA0) == b"\x02\x01\x05"
+    diff, payload = ASN1_Codecs.PER.tagging_dec(
+        b"\x02\x01\x05", hidden_tag=2, explicit_tag=0xA1
+    )
+    assert diff is None and payload == b"\x02\x01\x05"
+finally:
+    del ASN1_Codecs.PER._tagging_enc
+    del ASN1_Codecs.PER._tagging_dec
+
+= field _codec_kwargs and object-enc hooks
+class P(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER("n", 0)
+
+fld = P.ASN1_root
+assert fld._codec_kwargs(P()) == {"size_len": None}
+assert fld._use_object_enc(P(), ASN1_INTEGER(5)) is True
+assert raw(P(n=ASN1_INTEGER(5))) == b"\x02\x01\x05"
+assert raw(P(n=5)) == b"\x02\x01\x05"
+
+class Sized(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER("n", 0, size_len=1)
+
+sfld = Sized.ASN1_root
+assert sfld._use_object_enc(Sized(), ASN1_INTEGER(5)) is False
+assert raw(Sized(n=ASN1_INTEGER(5))) == raw(Sized(n=5)) == b"\x02\x81\x01\x05"
+
+= field encode with extra kwargs via _codec_kwargs override
+class ExtraKwField(ASN1F_INTEGER):
+    def _codec_kwargs(self, pkt):
+        return {"size_len": self.size_len, "oer_unsigned": True, "uper_min": 0}
+
+class ExtraPkt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ExtraKwField("n", 0)
+
+# BER enc swallows unknown kwargs; round-trip still works.
+assert raw(ExtraPkt(n=7)) == b"\x02\x01\x07"
+ExtraPkt(raw(ExtraPkt(n=7))).n.val == 7

@@ -741,6 +741,7 @@ gssapi_oids = {
     '1.3.6.1.5.5.2': 'SPNEGO - Simple Protected Negotiation',
     '1.3.6.1.4.1.311.2.2.10': 'NTLMSSP - Microsoft NTLM Security Support Provider',
     '1.3.6.1.4.1.311.2.2.30': 'NEGOEX - SPNEGO Extended Negotiation Security Mechanism',
+    '1.3.6.1.4.1.311.2.2.40': 'SPNEGO - Negotiate Late Fallback',
 }
 
 #      kerberos      #
@@ -807,6 +808,7 @@ conf.mib = MIBDict(_name="MIB", **x509_oids)
 # of some algorithms from pkcs1_oids and x962Signature_oids.
 
 hash_by_oid = {
+    "1.2.840.113549.1.1.1": "sha1",
     "1.2.840.113549.1.1.2": "md2",
     "1.2.840.113549.1.1.3": "md4",
     "1.2.840.113549.1.1.4": "md5",

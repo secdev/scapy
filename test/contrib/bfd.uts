@@ -45,3 +45,33 @@ assert raw(p) == b'\x0e\xc8\x0e\xc8\x008\x00\x00 \xc4\x030\x11\x11\x11\x11"""";\
 = BFD with OptionalAuth [Meticulous Keyed SHA1 Auth]  [Build]
 p = UDP(sport=3784, dport=3784)/BFD(flags="A", optional_auth=OptionalAuth(auth_type=5))
 assert raw(p) == b'\x0e\xc8\x0e\xc8\x00<\x00\x00 \xc4\x034\x11\x11\x11\x11"""";\x9a\xca\x00;\x9a\xca\x00;\x9a\xca\x00\x05\x1c\x01\x00\x00\x00\x00\x00[\xaaa\xe4\xc9\xb9??\x06\x82%\x0bl\xf83\x1b~\xe6\x8f\xd8'
+
+= BFD without Auth flag - dissection should not inject phantom optional_auth (Issue #4937)
+
+a = UDP(sport=3784, dport=3784)/BFD()
+p = UDP(raw(a))
+assert p[BFD].optional_auth is None
+assert not p[BFD].flags.A
+
+= BFD with non-Auth flags set - optional_auth should still be None
+
+a = UDP(sport=3784, dport=3784)/BFD(flags="DF")
+p = UDP(raw(a))
+assert p[BFD].flags.D
+assert p[BFD].flags.F
+assert not p[BFD].flags.A
+assert p[BFD].optional_auth is None
+
+= BFD round-trip without auth preserves raw bytes
+
+a = UDP(sport=3784, dport=3784)/BFD()
+raw1 = raw(a)
+raw2 = raw(UDP(raw1))
+assert raw1 == raw2
+
+= BFD with Auth flag set - optional_auth should be present
+
+p = UDP(b'\x04\x00\x0e\xc8\x00\x29\x72\x31\x20\x44\x05\x21\x00\x00\x00\x01\x00\x00\x00\x00\x00\x0f\x42\x40\x00\x0f\x42\x40\x00\x00\x00\x00\x01\x09\x02\x73\x65\x63\x72\x65\x74\x4e\x0a\x90\x40')
+assert p[BFD].flags.A
+assert p[BFD].optional_auth is not None
+assert isinstance(p[BFD].optional_auth, OptionalAuth)

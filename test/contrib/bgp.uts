@@ -30,6 +30,11 @@ nlri = BGPNLRI_IPv4(b'\x18\xc0\x00\x02')
 nlri.prefix == '192.0.2.0/24'
 
 
+= BGPNLRI_IPv4 - Dissection of a truncated prefix does not crash (regression)
+nlri = BGPNLRI_IPv4(b'\x20\x0a')
+nlri.prefix == '10.0.0.0/32'
+
+
 ################################ BGPNLRI_IPv6 ################################
 + BGPNLRI_IPv6 class tests
 
@@ -49,6 +54,11 @@ nlri.prefix == '::/0'
 = BGPNLRI_IPv6 - Dissection with specific values
 nlri = BGPNLRI_IPv6(b'  \x01\r\xb8')
 nlri.prefix == '2001:db8::/32'
+
+
+= BGPNLRI_IPv6 - Dissection of a truncated prefix does not crash (regression)
+nlri = BGPNLRI_IPv6(b'\x80\x20\x01\x0d\xb8')
+nlri.prefix == '2001:db8::/128'
 
 
 #################################### BGP #####################################
@@ -710,6 +720,28 @@ assert m.getlayer(BGPUpdate, 2).nlri[0].sprintf("%prefix%") == "10.233.0.22/32"
 = BGPUpdate - with BGPHeader
 p = BGP(raw(BGPHeader()/BGPUpdate()))
 assert BGPHeader in p and BGPUpdate in p
+
+= BGPUpdate - NLRI bounds do not survive a failed parse
+def make_update(nlri):
+    marker = b"\xff" * 16
+    return marker + struct.pack("!HBHH", 23 + len(nlri), 2, 0, 0) + nlri
+
+field = next(field for field in BGPUpdate.fields_desc if field.name == "nlri")
+old_max_count = field.max_count
+field.max_count = 1
+try:
+    keepalive = b"\xff" * 16 + struct.pack("!HB", 19, 4)
+    # This update is meant to exceed the item limit and fail to dissect, so the
+    # debug dissector must not turn that into a raised exception here.
+    with no_debug_dissector():
+        BGP(make_update(b"\x01\x00" * 2) + keepalive)
+    assert field.length_from is None
+    victim = BGP(make_update(b"\x20\x00\x00\x00\x00"))
+    assert len(victim[BGPUpdate].nlri) == 1
+    assert Raw not in victim[BGPUpdate]
+finally:
+    field.max_count = old_max_count
+    field.length_from = None
 
 
 ########## BGPNotification Class ###################################

@@ -21,7 +21,7 @@ from scapy.fields import ByteEnumField, ByteField, IntField
 from scapy.fields import FieldListField
 from scapy.fields import FieldLenField, ConditionalField, StrLenField
 from scapy.layers.inet import TCP
-from scapy.compat import chb, orb
+from scapy.compat import chb
 from scapy.config import conf
 
 SECRET = 'test'
@@ -53,7 +53,7 @@ def obfuscate(pay, secret, session_id, version, seq):
 
     # Obf/Unobfuscation via XOR operation between plaintext and pad
 
-    return b"".join(chb(orb(pad[i]) ^ orb(pay[i])) for i in range(len(pay)))
+    return b"".join(chb(pad[i] ^ pay[i]) for i in range(len(pay)))
 
 
 TACACSPRIVLEVEL = {15: 'Root',
