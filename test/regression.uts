@@ -2291,6 +2291,26 @@ pcapngdefaults = BytesIO(base64.b64decode(b'Cg0NChwAAABNPCsaAQAAAP//////////HAAA
 = Read a pcap file
 pktpcap = rdpcap(pcapfile)
 
+= Preserve complete captures when the final gzip CRC is invalid
+
+import gzip
+import struct
+from io import BytesIO
+
+gzpacket = raw(IP(src="192.0.2.1", dst="198.51.100.2") / UDP())
+gzpcapheader = struct.pack("<IHHiIII", 0xA1B2C3D4, 2, 4, 0, 0, 0x40000, DLT_RAW)
+gzpcaprecord = struct.pack("<IIII", 1, 0, len(gzpacket), len(gzpacket))
+gzpcapblob = gzpcapheader + gzpcaprecord + gzpacket
+goodgzpcap = gzip.compress(gzpcapblob, mtime=0)
+badgzpcap = bytearray(goodgzpcap)
+badgzpcap[-8] ^= 1
+badgzfile = get_temp_file(autoext=".pcap.gz")
+with open(badgzfile, "wb") as stream:
+    stream.write(badgzpcap)
+
+assert len(rdpcap(badgzfile)) == 1
+assert len(rdpcap(BytesIO(goodgzpcap))) == 1
+
 = Read a pcapng file
 pktpcapng = rdpcap(pcapngfile)
 assert pktpcapng[0].time == 1454163407.666223
@@ -2710,6 +2730,20 @@ assert isinstance(pkt, Padding) and pkt.load == b'\xeay$\xf6'
 pkt = pkt.payload
 assert isinstance(pkt, NoPayload)
 
+= PcapNg skips packet blocks with an invalid interface ID
+from io import BytesIO
+pcapngfile = BytesIO(bytes.fromhex(
+    "0a0d0d0a1c0000004d3c2b1a01000000ffffffffffffffff1c000000"
+    "010000001400000001000000ffff0000140000000600000034000000"
+    "01000000000000000000000011000000110000000000000000010000"
+    "00000000900042414400000034000000060000003400000000000000"
+    "00000000000000001300000013000000000000000002000000000000"
+    "900041465445520034000000"
+))
+pkts = rdpcap(pcapngfile)
+assert len(pkts) == 1
+assert pkts[0].dst == "00:00:00:00:00:02"
+
 = Invalid pcapng files
 
 from io import BytesIO
@@ -2725,6 +2759,16 @@ except Scapy_Exception:
 # Invalid Packet in PCAPNG -> return
 invalid_pcapngfile_2 = BytesIO(b'\n\r\r\n\x00\x00\x00\x1c\x1a+<M\x00\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x10\x00\x00\x00\x1c\x00\x00\x00\x01\x00\x00\x00\x10\x12\x12\x12\x12\x00\x00\x00\x10')
 assert len(rdpcap(invalid_pcapngfile_2)) == 0
+
+# Incomplete block body -> return packets read before it
+section = struct.pack("<IIIHHqI", 0x0A0D0D0A, 28, 0x1A2B3C4D, 1, 0, -1, 28)
+interface = struct.pack("<IIHHII", 1, 20, 1, 0, 0xFFFF, 20)
+packet = (
+    struct.pack("<IIIIIII", 6, 48, 0, 0, 0, 14, 14) + b"\x00" * 16 +
+    struct.pack("<I", 48)
+)
+incomplete = struct.pack("<II", 0x0BADF00D, 40) + b"\x00" * 4
+assert len(rdpcap(BytesIO(section + interface + packet + incomplete))) == 1
 
 # Invalid interface ID in PCAPNG -> raise EOFError
 try:
@@ -3088,6 +3132,24 @@ assert pkterf[0][IP].src == "10.1.93.219"
 assert pkterf[0][IP].dst == "10.251.57.218"
 assert pkterf[0][Ether].src == "1c:6a:7a:18:90:ed"
 assert pkterf[0][Ether].dst == "00:0f:53:3f:ca:c0"
+
+= Zero ERF record length preserves later records
+
+import io
+import struct
+
+tail = raw(
+    Ether(src="00:00:00:00:00:01", dst="00:00:00:00:00:02") / IP() / ICMP()
+)
+tail_record = (
+    struct.pack("<Q", 0) +
+    struct.pack(">BBHHH", 2, 0, len(tail) + 18, 0, len(tail)) +
+    b"\0\0" + tail
+)
+zero_length = struct.pack("<Q", 0) + struct.pack(">BBHHH", 2, 0, 0, 0, 0)
+packets = rderf(io.BytesIO(zero_length + tail_record))
+assert len(packets) == 2
+assert ICMP in packets[1]
 
 = Check writing of ERF Ethernet file
 import os, tempfile
@@ -5337,3 +5399,21 @@ c2 = CLI2(cli=False)
 
 assert c1.shares() == 1
 assert c2.shares() == 2
+
+= Read a gzip capture from a named nonseekable stream
+
+import gzip
+import os
+import struct
+from unittest.mock import patch
+
+frame = bytes(Ether(src="00:00:00:00:00:01", dst="00:00:00:00:00:02"))
+capture = struct.pack("<IHHiIII", 0xa1b2c3d4, 2, 4, 0, 0, 0xffff, 1)
+capture += struct.pack("<IIII", 0, 0, len(frame), len(frame)) + frame
+capture = gzip.compress(capture, mtime=0)
+read_fd, write_fd = os.pipe()
+assert os.write(write_fd, capture) == len(capture)
+os.close(write_fd)
+stream = os.fdopen(read_fd, "rb")
+with patch("builtins.open", return_value=stream):
+    assert len(rdpcap("capture.pcap.gz")) == 1
