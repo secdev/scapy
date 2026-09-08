@@ -280,6 +280,38 @@ if not conf.use_pcap:
     conf.use_pcap = False
     assert not conf.iface.provider.libpcap
 
+= Native libpcap capture returns only the captured bytes
+~ linux libpcap
+
+from ctypes import POINTER, c_ubyte, cast, pointer
+from scapy.arch import libpcap as _libpcap
+
+_was_use_pcap = conf.use_pcap
+conf.use_pcap = True
+try:
+    hdr = _libpcap.pcap_pkthdr()
+    hdr.ts.tv_sec, hdr.ts.tv_usec = 1, 0
+    hdr.caplen = 4
+    hdr.len = 12  # the length on the wire, before the snapshot length cut it
+    buf = (c_ubyte * 12)(1, 2, 3, 4, *([0xff] * 8))
+    wrapper = _libpcap._PcapWrapper_libpcap.__new__(
+        _libpcap._PcapWrapper_libpcap
+    )
+    wrapper.pcap = None
+    wrapper.header = pointer(hdr)
+    wrapper.pkt_data = cast(buf, POINTER(c_ubyte))
+    _next_ex = _libpcap.pcap_next_ex
+    _libpcap.pcap_next_ex = lambda *args: 1
+    try:
+        ts, pkt = wrapper.next()
+    finally:
+        _libpcap.pcap_next_ex = _next_ex
+finally:
+    conf.use_pcap = _was_use_pcap
+
+# Anything past caplen is whatever the buffer held before, not this packet.
+assert pkt == b"\x01\x02\x03\x04"
+
 = Test layer filtering
 ~ filter
 
