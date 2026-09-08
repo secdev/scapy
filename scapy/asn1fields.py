@@ -127,17 +127,6 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         # type: (Type[ASN1_Packet]) -> None
         self.owners.append(cls)
 
-    def _apply_diff_tag(self, pkt, diff_tag):
-        # type: (ASN1_Packet, Optional[int]) -> None
-        # flexible_tag was True: record the observed tag on the packet so
-        # shared field descriptors stay immutable across interleaved decodes.
-        if diff_tag is not None:
-            tags = pkt._asn1_observed_tags
-            if tags is None:
-                tags = {}
-                pkt._asn1_observed_tags = tags
-            tags[self.name] = diff_tag
-
     def _tagging_tags(self, pkt):
         # type: (ASN1_Packet) -> Tuple[Optional[int], Optional[int]]
         imp = self.implicit_tag
@@ -175,41 +164,20 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             safe=self.flexible_tag,
             **kwargs,
         )
-        self._apply_diff_tag(pkt, diff_tag)
+        # flexible_tag was True: record the observed tag on the packet so
+        # shared field descriptors stay immutable across interleaved decodes.
+        if diff_tag is not None:
+            tags = pkt._asn1_observed_tags
+            if tags is None:
+                tags = {}
+                pkt._asn1_observed_tags = tags
+            tags[self.name] = diff_tag
         return s
 
     def normalize_encode_value(self, pkt, value):
         # type: (ASN1_Packet, Any) -> Any
         """Convert a human-facing value before codec encode (e.g. enum names)."""
         return value
-
-    def _encode_item(self, pkt, item):
-        # type: (ASN1_Packet, Any) -> bytes
-        """Encode a field value with codec kwargs, without field tagging."""
-        if item is None:
-            return b""
-        if isinstance(item, ASN1_Object):
-            if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY or
-                    item.tag == ASN1_Class_UNIVERSAL.RAW or
-                    item.tag == ASN1_Class_UNIVERSAL.ERROR):
-                return item.enc(pkt.ASN1_codec)
-            if self.ASN1_tag != item.tag:
-                raise ASN1_Error(
-                    "Encoding Error: got %r instead of an %r for field [%s]" %
-                    (item, self.ASN1_tag, self.name)
-                )
-            item = item.val
-        elif hasattr(item, "self_build"):
-            # Packet values (e.g. ASN1F_STRING_PacketField) must still go through
-            # the BER type codec so the universal tag/length are applied.
-            item = item.self_build()
-        codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        return cast(
-            bytes,
-            codec.enc(
-                item, field=self, pkt=pkt, size_len=self.size_len,
-            ),
-        )
 
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, _I) -> str
@@ -251,7 +219,40 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         # type: (ASN1_Packet, Union[bytes, _I, _A]) -> bytes
         if x is None:
             return b""
-        s = self._encode_item(pkt, x)
+        # Encode the field value with codec kwargs, without field tagging.
+        item = x
+        if isinstance(item, ASN1_Object):
+            if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY or
+                    item.tag == ASN1_Class_UNIVERSAL.RAW or
+                    item.tag == ASN1_Class_UNIVERSAL.ERROR):
+                s = item.enc(pkt.ASN1_codec)
+            elif self.ASN1_tag != item.tag:
+                raise ASN1_Error(
+                    "Encoding Error: got %r instead of an %r for field [%s]" %
+                    (item, self.ASN1_tag, self.name)
+                )
+            else:
+                item = item.val
+                codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
+                s = cast(
+                    bytes,
+                    codec.enc(
+                        item, field=self, pkt=pkt, size_len=self.size_len,
+                    ),
+                )
+        else:
+            if hasattr(item, "self_build"):
+                # Packet values (e.g. ASN1F_STRING_PacketField) must still go
+                # through the BER type codec so the universal tag/length are
+                # applied.
+                item = item.self_build()
+            codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
+            s = cast(
+                bytes,
+                codec.enc(
+                    item, field=self, pkt=pkt, size_len=self.size_len,
+                ),
+            )
         imp, exp = self._tagging_tags(pkt)
         return self._tagging_enc(
             pkt, s,
@@ -627,28 +628,6 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         # type: () -> List[ASN1F_field[Any, Any]]
         return reduce(lambda x, y: x + y.get_fields_list(),
                       self.seq, [])
-
-    def _dissect_sequence_children(self, pkt, s):
-        # type: (Any, bytes) -> bytes
-        def set_absent(obj):
-            # type: (Any) -> None
-            if isinstance(obj, (ASN1F_optional, ASN1F_DEFAULT)):
-                obj.set_missing(pkt)
-            else:
-                obj.set_val(pkt, None)
-
-        if len(s) == 0:
-            for obj in self.seq:
-                set_absent(obj)
-            return s
-        for idx, obj in enumerate(self.seq):
-            try:
-                s = obj.dissect(pkt, s)
-            except ASN1F_badsequence:
-                for absent in self.seq[idx:]:
-                    set_absent(absent)
-                return s
-        return s
 
     def m2i(self, pkt, s):
         # type: (Any, bytes) -> Tuple[Any, bytes]

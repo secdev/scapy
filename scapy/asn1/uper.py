@@ -419,32 +419,6 @@ def UPER_constrained_int_dec(dec, minimum, maximum):
     return value
 
 
-def UPER_semi_constrained_int_enc(enc, value, minimum):
-    # type: (UPER_Encoder, int, int) -> None
-    # X.691 11.7: encode the non-negative offset (value - lower_bound) as a
-    # normally small non-negative whole number (length determinant + octets).
-    if value < minimum:
-        raise UPER_Encoding_Error(
-            "UPER_semi_constrained_int_enc: got %i while expecting >= %i" %
-            (value, minimum)
-        )
-    offset = value - minimum
-    number_of_bytes = max((offset.bit_length() + 7) // 8, 1)
-    enc.append_length_determinant(number_of_bytes)
-    enc.append_non_negative_binary_integer(offset, 8 * number_of_bytes)
-
-
-def UPER_semi_constrained_int_dec(dec, minimum):
-    # type: (UPER_Decoder, int) -> int
-    number_of_bytes = dec.read_length_determinant()
-    if number_of_bytes == 0:
-        raise UPER_Decoding_Error(
-            "UPER_semi_constrained_int_dec: empty length determinant"
-        )
-    offset = dec.read_non_negative_binary_integer(8 * number_of_bytes)
-    return offset + minimum
-
-
 def _uper_check_size(name, unit, count, minimum, maximum):
     # type: (str, str, int, int, int) -> None
     # The determinant is sized after the constraint, so a value that violates
@@ -636,7 +610,18 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
         if minimum is not None and maximum is not None:
             UPER_constrained_int_enc(enc, i, minimum, maximum)
         elif minimum is not None:
-            UPER_semi_constrained_int_enc(enc, i, minimum)
+            # X.691 11.7: non-negative offset as a normally small whole number.
+            if i < minimum:
+                raise UPER_Encoding_Error(
+                    "UPERcodec_INTEGER: got %i while expecting >= %i" %
+                    (i, minimum)
+                )
+            offset = i - minimum
+            number_of_bytes = max((offset.bit_length() + 7) // 8, 1)
+            enc.append_length_determinant(number_of_bytes)
+            enc.append_non_negative_binary_integer(
+                offset, 8 * number_of_bytes,
+            )
         else:
             enc.append_unconstrained_whole_number(i)
 
@@ -664,7 +649,15 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
         if minimum is not None and maximum is not None:
             value = UPER_constrained_int_dec(dec, minimum, maximum)
         elif minimum is not None:
-            value = UPER_semi_constrained_int_dec(dec, minimum)
+            number_of_bytes = dec.read_length_determinant()
+            if number_of_bytes == 0:
+                raise UPER_Decoding_Error(
+                    "UPERcodec_INTEGER: empty length determinant"
+                )
+            value = (
+                dec.read_non_negative_binary_integer(8 * number_of_bytes) +
+                minimum
+            )
         else:
             value = dec.read_unconstrained_whole_number()
         return cls.asn1_object(value)
