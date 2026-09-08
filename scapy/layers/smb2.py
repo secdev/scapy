@@ -3906,6 +3906,7 @@ class SMBSession(DefaultSession):
         self.SupportsEncryption = False
         self.EncryptData = False
         self.TreeEncryptData = False
+        self.EncryptionRequired = False
         self.SigningKey = None
         self.EncryptionKey = None
         self.DecryptionKey = None
@@ -4046,6 +4047,8 @@ class SMBSession(DefaultSession):
                 self.DecryptionKey,
                 CipherId=self.CipherId,
             )
+        elif self.EncryptionRequired and (self.EncryptData or self.TreeEncryptData):
+            raise ValueError("SMB encryption is required")
         # Signature is verified in SMBStreamSocket
         return pkt
 

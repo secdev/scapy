@@ -579,6 +579,26 @@ assert sd.GroupSid.summary() == "S-1-1-0"
 assert sd.DACL.toSDDL() == ['(A;;;;;S-1-1-0)']
 
 assert sd.DACL.AclSize == len(sd.DACL)
+
+= SMB2 - a session that negotiated encryption rejects plaintext
+
+from scapy.layers.smb2 import SMBSession, SMB2_Echo_Request
+
+sess = SMBSession()
+sess.EncryptData = True
+sess.EncryptionRequired = True
+
+plain = SMB2_Header(bytes(SMB2_Header(Command=0x0005, MID=1) / SMB2_Echo_Request()))
+try:
+    sess.in_pkt(plain)
+    raise AssertionError("plaintext accepted on an encrypted session")
+except ValueError as ex:
+    assert "encryption is required" in str(ex), ex
+
+# A session that never turned encryption on is unaffected.
+sess.EncryptionRequired = False
+assert sess.in_pkt(plain) is plain
+
 = SMB2 - an unsigned request is verified even with response-only field values
 
 import collections

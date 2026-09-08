@@ -774,6 +774,7 @@ class SMB_Server(Automaton):
         ):
             # [MS-SMB2] sect 3.3.5.5.3: from now on, turn encryption on !
             self.session.EncryptData = True
+            self.session.EncryptionRequired = True
             self.session.SigningRequired = False
 
     @ATMT.condition(RECEIVED_SETUP_ANDX_REQUEST)
