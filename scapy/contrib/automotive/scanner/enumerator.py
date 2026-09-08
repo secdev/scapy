@@ -262,7 +262,7 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         # type: (EcuState, Any) -> Iterable[Packet]
         if state not in self._request_iterators:
             self._request_iterators[state] = iter(
-                self._get_initial_requests(**kwargs))
+                self._get_initial_requests(state=state, **kwargs))
 
         return self._request_iterators[state]
 
