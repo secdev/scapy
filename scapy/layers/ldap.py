@@ -1958,6 +1958,10 @@ class LDAP_Client(object):
                         resp.Buffer,
                     )
                 )
+                if not resp.unsolicited and resp.messageID != self.messageID:
+                    raise ValueError(
+                        "LDAP response message ID does not match request !"
+                    )
             else:
                 resp = None
 
