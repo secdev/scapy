@@ -204,3 +204,19 @@ raw(pkt) == b"E\x00\x00P\x00\x01\x00\x00@\x06|\xa5\x7f\x00\x00\x01\x7f\x00\x00\x
 
 pkt = Ether(b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00P\x00\x01\x00\x00@\x06|\xa5\x7f\x00\x00\x01\x7f\x00\x00\x01\x001\x001\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00sG\x00\x00\xc0\x01\x01\x01\x90}\xd0\x86\x00\x00\x00\x1c\x01\x01\x01\x01\x05\x04\x0b\x00scapytty2172.10.10.1')
 pkt.user == b'scapy' and pkt.port == b'tty2'
+
++ TACACS+ flag handling
+
+= Single Connection keeps the body obfuscated
+
+scapy.contrib.tacacs.SECRET = 'test'
+body = raw(TacacsAuthenticationReply(status=1, flags=0, server_msg=b'accepted'))
+packet = TacacsHeader(seq=2, flags=4, session_id=0x11223344)/TacacsAuthenticationReply(status=1, flags=0, server_msg=b'accepted')
+wire = raw(packet)
+assert wire[12:] != body
+assert TacacsHeader(wire).status == 1
+
+= Single Connection does not admit a cleartext reply
+
+header = raw(TacacsHeader(seq=2, flags=4, session_id=0x11223344, length=len(body)))
+assert TacacsHeader(header + body).status != 1

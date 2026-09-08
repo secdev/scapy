@@ -360,7 +360,7 @@ class TacacsClientPacket(Packet):
 
     def post_dissect(self, pay):
 
-        if self.flags == 0:
+        if self.flags & 1 == 0:
             pay = obfuscate(pay, SECRET, self.session_id, self.version, self.seq)  # noqa: E501
 
         return pay
@@ -420,7 +420,7 @@ class TacacsHeader(TacacsClientPacket):
         if self.length is None and pay:
             p = p[:-4] + struct.pack('!I', len(pay))
 
-        if self.flags == 0:
+        if self.flags & 1 == 0:
             pay = obfuscate(pay, SECRET, self.session_id, self.version, self.seq)  # noqa: E501
 
         return p + pay
