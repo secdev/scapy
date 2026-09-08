@@ -529,21 +529,21 @@ class StreamSocketPeekless(StreamSocket):
         # type: (Optional[int], **Any) -> Optional[Packet]
         if x is None:
             x = MTU
-        # Block
-        try:
-            data = self.ins.recv(x)
-        except OSError:
-            raise EOFError
-        try:
-            pkt = self.sess.process(data, cls=self.basecls)  # type: ignore
-        except struct.error:
-            # Buffer underflow
-            pkt = None
-        if data == b"" and not pkt:
-            raise EOFError
-        if not pkt:
-            return self.recv(x)
-        return pkt
+        while True:
+            # Block
+            try:
+                data = self.ins.recv(x)
+            except OSError:
+                raise EOFError
+            try:
+                pkt = self.sess.process(data, cls=self.basecls)  # type: ignore
+            except struct.error:
+                # Buffer underflow
+                pkt = None
+            if data == b"" and not pkt:
+                raise EOFError
+            if pkt:
+                return pkt
 
     @property
     def streamsession(self) -> Dict[Any, Any]:
