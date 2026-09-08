@@ -1273,6 +1273,40 @@ assert res[4].getlayer(TLS, 2).msg[0].data == b"To boldly go where no man has go
 
 conf.tls_session_enable = False
 
+= TCPSession waits for a complete TLS record header
+
+import io
+import struct
+
+def make_pcap(*packets):
+    header = struct.pack("<IHHiIII", 0xA1B2C3D4, 2, 4, 0, 0, 0x40000, 1)
+    records = (
+        struct.pack("<IIII", index, 0, len(packet), len(packet)) + packet
+        for index, packet in enumerate(packets)
+    )
+    return header + b"".join(records)
+
+client_hello = bytes(TLS(msg=[TLSClientHello(
+    gmt_unix_time=0, random_bytes=b"R" * 28, ciphers=[0x1301], comp=[0], ext=[]
+)]))
+following = bytes(Ether() / IP() / UDP(sport=1111, dport=2222) / Raw(b"tail"))
+partial = bytes(Ether() / IP() / TCP(dport=443, flags="PA") / Raw(client_hello[:4]))
+with no_debug_dissector():
+    packets = sniff(offline=io.BytesIO(make_pcap(partial, following)), session=TCPSession)
+
+assert len(packets) == 1
+assert UDP in packets[0]
+
+= Complete record header waits and complete ClientHello parses
+
+for payload, count in ((client_hello[:5], 1), (client_hello, 2)):
+    first = bytes(Ether() / IP() / TCP(dport=443, flags="PA") / Raw(payload))
+    with no_debug_dissector():
+        packets = sniff(offline=io.BytesIO(make_pcap(first, following)), session=TCPSession)
+    assert len(packets) == count
+
+assert TLS in packets[0]
+
 ###############################################################################
 ############################## Building packets ###############################
 ###############################################################################

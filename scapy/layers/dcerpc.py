@@ -964,6 +964,8 @@ class DceRpc5(DceRpc):
     def tcp_reassemble(cls, data, _, session):
         if data[0:1] != b"\x05":
             return
+        if len(data) < 10:
+            return
         endian = struct.unpack("!B", data[4:5])[0] >> 4
         if endian not in [0, 1]:
             return

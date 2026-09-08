@@ -1204,6 +1204,8 @@ class _GenericTLSSessionInheritance(Packet):
         from scapy.layers.tls.record import TLS
         from scapy.layers.tls.record_tls13 import TLS13
         if cls in (TLS, TLS13):
+            if len(data) < 5:
+                return None
             length = struct.unpack("!H", data[3:5])[0] + 5
             if len(data) >= length:
                 # get the underlayer as it is used to populate tls_session

@@ -204,9 +204,15 @@ assert isinstance(p.payload, ModbusPDU18ReadFIFOQueueError)
 = MBAP Guess Payload ModbusPDU2B0EReadDeviceIdentificationRequest (2 level test)
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x04\xff+\x0e\x01\x00')
 assert isinstance(p.payload, ModbusPDU2B0EReadDeviceIdentificationRequest)
+= Truncated Modbus function 0x2b falls back to Raw
+p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x02\xff+')
+assert isinstance(p.payload, Raw) and p.payload.load == b'+'
 = MBAP Guess Payload ModbusPDU2B0EReadDeviceIdentificationResponse
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x1b\xff+\x0e\x01\x83\x00\x00\x03\x00\x08Pymodbus\x01\x02PM\x02\x031.0')
 assert isinstance(p.payload, ModbusPDU2B0EReadDeviceIdentificationResponse)
+= Truncated response function 0x2b falls back to Raw
+p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x02\xff+')
+assert isinstance(p.payload, Raw) and p.payload.load == b'+'
 = MBAP Guess Payload ModbusPDU2B0EReadDeviceIdentificationError
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x03\xff\xab\x01')
 assert isinstance(p.payload, ModbusPDU2B0EReadDeviceIdentificationError)

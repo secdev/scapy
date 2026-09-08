@@ -12,6 +12,20 @@ assert pkt.Version == b"RTSP/1.0"
 assert pkt.Accept == b"application/sdp"
 assert pkt.User_Agent == b"WMPlayer/10.0.0.380 guid/7405E143-26AC-4B37-9802-A35EE8C6CFA7"
 
+= RTSP request - TCPSession reassembly
+
+from scapy.sessions import TCPSession
+
+request = IP() / TCP(sport=40000, dport=554, flags="PA", seq=1)
+request /= Raw(b'DESCRIBE * RTSP/1.0\r\n\r\n')
+following = IP(src="192.0.2.1", dst="192.0.2.2") / UDP(
+    sport=1111, dport=2222
+) / Raw(b"ok")
+packets = sniff(offline=[request, following], session=TCPSession)
+assert len(packets) == 2
+assert RTSPRequest in packets[0]
+assert UDP in packets[1]
+
 = RTSP request - build
 
 rebuild = RTSP() / RTSPRequest(Accept=b'application/sdp', Accept_Language=b'en-GB, *;q=0.1', User_Agent=b'WMPlayer/10.0.0.380 guid/7405E143-26AC-4B37-9802-A35EE8C6CFA7', Unknown_Headers={b'Accept-Charset': b'UTF-8, *;q=0.1', b'X-Accept-Authentication': b'Negotiate, NTLM, Digest, Basic', b'CSeq': b'1', b'Supported': b'com.microsoft.wm.srvppair, com.microsoft.wm.sswitch, com.microsoft.wm.eosmsg, com.microsoft.wm.predstrm, com.microsoft.wm.startupprofile'}, Method=b'DESCRIBE', Request_Uri=b'rtsp://EMAP1.planetwideradio.com/tfm', Version=b'RTSP/1.0')

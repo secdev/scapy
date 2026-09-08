@@ -686,6 +686,12 @@ assert EcuLookupPacket.comparisons <= 1
 
 + EcuSession tests
 
+= Unsupported UDS memory address length does not stop EcuSession
+
+session = EcuSession(verbose=False)
+request = UDS(bytes.fromhex("23150158"))
+assert session.process(request) is request
+
 = Analyze on the fly with EcuSession
 
 session = EcuSession()

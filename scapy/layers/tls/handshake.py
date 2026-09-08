@@ -1741,6 +1741,8 @@ class TLS13KeyUpdate(_TLSHandshake):
 
     def post_dissection_tls_session_update(self, msg_str):
         s = self.tls_session
+        if s.tls_version != 0x0304 or not s.post_handshake:
+            return
         s.prcs = writeConnState(ciphersuite=type(s.rcs.ciphersuite),
                                 connection_end=s.connection_end,
                                 tls_version=s.tls_version)

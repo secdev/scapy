@@ -59,7 +59,20 @@ class DefaultSession(object):
         pkt = sock.recv()
         if not pkt:
             return
-        pkt = self.process(pkt)
+        try:
+            pkt = self.process(pkt)
+        except Exception as ex:
+            log_runtime.warning(
+                "%s processing failed with '%s'. Skipping." % (
+                    type(self),
+                    ex,
+                )
+            )
+            if conf.debug_dissector:
+                raise
+            if pkt is not None:
+                yield pkt
+            return
         if pkt:
             yield pkt
 
@@ -77,12 +90,15 @@ class IPSession(DefaultSession):
         self.fragments = defaultdict(list)  # type: DefaultDict[Tuple[Any, ...], List[Packet]]  # noqa: E501
 
     def process(self, packet: Packet) -> Optional[Packet]:
-        from scapy.layers.inet import IP, _defrag_ip_pkt
+        from scapy.layers.inet import BadFragments, IP, _defrag_ip_pkt
         if not packet:
             return None
         if IP not in packet:
             return packet
-        return _defrag_ip_pkt(packet, self.fragments)[1]  # type: ignore
+        try:
+            return _defrag_ip_pkt(packet, self.fragments)[1]  # type: ignore
+        except BadFragments:
+            return None
 
 
 class StringBuffer(object):
@@ -433,16 +449,41 @@ class TCPSession(IPSession):
         Will be called by sniff() to ask for a packet
         """
         pkt = sock.recv(stop_dissection_after=self.stop_dissection_after)
+        _orig = pkt
         # Now handle TCP reassembly
         if self.app:
             while pkt is not None:
-                pkt = self.process(pkt)
+                try:
+                    pkt = self.process(pkt)
+                except Exception as ex:
+                    log_runtime.warning(
+                        "%s processing failed with '%s'. Aborting." % (
+                            type(self),
+                            ex,
+                        )
+                    )
+                    if conf.debug_dissector:
+                        raise
+                    return None
                 if pkt:
                     yield pkt
                     # keep calling process as there might be more
                     pkt = b""  # type: ignore
         else:
-            pkt = self.process(pkt)  # type: ignore
+            try:
+                pkt = self.process(pkt)  # type: ignore
+            except Exception as ex:
+                log_runtime.warning(
+                    "%s processing failed with '%s'. Skipping." % (
+                        type(self),
+                        ex,
+                    )
+                )
+                if conf.debug_dissector:
+                    raise
+                if _orig is not None:
+                    yield _orig
+                return None
             if pkt:
                 yield pkt
         return None

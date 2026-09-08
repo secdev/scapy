@@ -194,3 +194,25 @@ p.show()
 assert p.topic == b""
 assert p.value == b""
 assert p.msgid is None
+
+= Partial fixed header leaves TCPSession capture open
+
+from scapy.sessions import TCPSession
+
+control = bytes(MQTT() / MQTTDisconnect())
+trigger = IP() / TCP(sport=40000, dport=1883, seq=1, flags="PA") / Raw(control[:1])
+following = IP() / UDP(sport=1111, dport=2222) / Raw(b"ok")
+tmp_file = get_temp_file()
+wrpcap(tmp_file, [trigger, following])
+packets = sniff(offline=tmp_file, session=TCPSession)
+assert len(packets) == 1
+assert UDP in packets[0]
+
+= Complete stream message still parses
+
+complete = IP() / TCP(sport=40000, dport=1883, seq=1, flags="PA") / Raw(control)
+tmp_file = get_temp_file()
+wrpcap(tmp_file, [complete, following])
+packets = sniff(offline=tmp_file, session=TCPSession)
+assert len(packets) == 2
+assert MQTT in packets[0]
