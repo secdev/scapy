@@ -6,6 +6,9 @@
 
 from scapy.layers.ldap import *
 
+= LDAP SASL reassembly waits for a complete BER length
+assert LDAP_SASL_Buffer.tcp_reassemble(bytes.fromhex("30840000"), {}, None) is None
+
 = LDAP_UnbindRequest
 
 pkt = Ether(b'RT\x00!l+RT\x00\x0cG\xab\x08\x00E\x00\x003\xb2\x8a@\x00\x80\x06\xd2F\xc0\xa8z\x06\xc0\xa8z\x9c\xc2\xfb\x01\x85\xa6\x89q"\xa1\x076\xdeP\x18\x03\xffG\xf0\x00\x000\x05\x02\x01\x07B\x00')
