@@ -22,6 +22,42 @@ srvctx, tok, status = srvssp.GSS_Accept_sec_context(srvctx, tok)
 assert status == GSS_S_COMPLETE, status
 assert tok is None, repr(tok)
 
+= SPNEGOSSP - initiator rejects raw fallback after SPNEGO starts
+
+% A raw mechanism token cannot replace a SPNEGO response after negotiation starts.
+
+clissp = SPNEGOSSP(
+    [NTLMSSP(UPN="User1", PASSWORD="Password123!")],
+    SUPPORT_LATE_FALLBACK=False,
+)
+srvssp = NTLMSSP(IDENTITIES={"User1": MD4le("Password123!")})
+
+clictx, tok, status = clissp.GSS_Init_sec_context(None)
+assert status == GSS_S_CONTINUE_NEEDED, status
+raw_negotiate = tok.innerToken.token.mechToken.value
+srvctx, raw_challenge, status = srvssp.GSS_Accept_sec_context(None, raw_negotiate)
+assert status == GSS_S_CONTINUE_NEEDED, status
+clictx, tok, status = clissp.GSS_Init_sec_context(clictx, raw_challenge)
+assert status == GSS_S_BAD_MIC, status
+assert tok is None, repr(tok)
+
+= SPNEGOSSP - acceptor rejects raw fallback after SPNEGO starts
+
+% A raw mechanism token cannot replace a response to a NegTokenInit2 message.
+
+srvssp = SPNEGOSSP(
+    [NTLMSSP(IDENTITIES={"User1": MD4le("Password123!")})],
+    SUPPORT_LATE_FALLBACK=False,
+)
+clissp = NTLMSSP(UPN="User1", PASSWORD="Password123!")
+
+srvctx, tok = srvssp.NegTokenInit2()
+clictx, raw_negotiate, status = clissp.GSS_Init_sec_context(None)
+assert status == GSS_S_CONTINUE_NEEDED, status
+srvctx, tok, status = srvssp.GSS_Accept_sec_context(srvctx, raw_negotiate)
+assert status == GSS_S_BAD_MIC, status
+assert tok is None, repr(tok)
+
 = SPNEGOSSP - SSP negotiation + mechListMIC
 
 % Two SPNEGOSSPs with different preferred mechanisms should work,
