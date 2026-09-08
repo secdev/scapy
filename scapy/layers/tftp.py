@@ -393,8 +393,14 @@ class TFTP_WRQ_server(Automaton):
         else:
             opt = [x for x in options.options if x.oname.upper() == b"BLKSIZE"]
             if opt:
-                self.blksize = int(opt[0].value)
-                self.debug(2, "Negotiated new blksize at %i" % self.blksize)
+                try:
+                    blksize = int(opt[0].value)
+                    if blksize < 8 or blksize > 65464:
+                        raise ValueError
+                    self.blksize = blksize
+                    self.debug(2, "Negotiated new blksize at %i" % self.blksize)
+                except ValueError:
+                    opt = []
             self.last_packet = self.l3 / TFTP_OACK() / TFTP_Options(options=opt)  # noqa: E501
             self.send(self.last_packet)
 
@@ -509,8 +515,14 @@ class TFTP_RRQ_server(Automaton):
         if options:
             opt = [x for x in options.options if x.oname.upper() == b"BLKSIZE"]
             if opt:
-                self.blksize = int(opt[0].value)
-                self.debug(2, "Negotiated new blksize at %i" % self.blksize)
+                try:
+                    blksize = int(opt[0].value)
+                    if blksize < 8 or blksize > 65464:
+                        raise ValueError
+                    self.blksize = blksize
+                    self.debug(2, "Negotiated new blksize at %i" % self.blksize)
+                except ValueError:
+                    opt = []
             self.last_packet = self.l3 / TFTP_OACK() / TFTP_Options(options=opt)  # noqa: E501
             self.send(self.last_packet)
 
