@@ -1292,6 +1292,16 @@ raw(TLSAlert())
 raw(TLSChangeCipherSpec())
 raw(TLSApplicationData()) == b""
 
+= Parsing TLS certificate bytes does not resolve local file paths
+cert_path = b"test/scapy/layers/tls/pki/srv_cert.pem"
+packet = Ether() / IP() / TCP(dport=443) / TLS(
+    msg=[TLSCertificate(certs=[(len(cert_path), cert_path)])]
+)
+with no_debug_dissector():
+    parsed = Ether(bytes(packet))
+
+assert Raw in parsed[TLS]
+
 
 = Building packets - ClientHello with automatic length computation
 from scapy.layers.tls.crypto.suites import (TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,

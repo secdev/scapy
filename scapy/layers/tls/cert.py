@@ -252,9 +252,11 @@ class _PKIObjMaker(type):
 
         if obj_path is None:
             raise Exception(error_msg)
+        # Make sure that only a str object can store a path to read a certificate
+        is_file = isinstance(obj_path, str) and os.path.isfile(obj_path)
         obj_path = bytes_encode(obj_path)
 
-        if (b"\x00" not in obj_path) and os.path.isfile(obj_path):
+        if is_file:
             _size = os.path.getsize(obj_path)
             if _size > obj_max_size:
                 raise Exception(error_msg)
