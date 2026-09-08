@@ -2388,10 +2388,12 @@ from subprocess import call
 _iop_setup_cmd = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan 2>/dev/null; sudo ip link set dev vcan0 up'"
 _iop_setup_rc = os.system(_iop_setup_cmd)
 print("[iop-setup] vcan modprobe+up rc=%d" % _iop_setup_rc)
+assert _iop_setup_rc == 0, "vcan0 setup failed with rc=%d" % _iop_setup_rc
 
 # Show vcan0 link state for debugging
 _iop_link_rc = os.system("ip link show vcan0")
 print("[iop-setup] ip link show vcan0 rc=%d" % _iop_link_rc)
+assert _iop_link_rc == 0, "vcan0 not present (ip link show rc=%d)" % _iop_link_rc
 
 from scapy.contrib.cansocket_native import NativeCANSocket
 from scapy.contrib.j1939 import NativeJ1939Socket
@@ -2434,6 +2436,7 @@ for _i, _p in enumerate(_iop1_pkts):
     print("[iop1] pkt[%d]: pgn=0x%X src=0x%X dst=0x%X data=%r" % (_i, getattr(_p, 'pgn', None), getattr(_p, 'src', None), getattr(_p, 'dst', None), getattr(_p, 'data', None)))
 
 _iop1_native_rx.close()
+_iop1_cansock.close()
 
 assert _iop1_pkts, "NativeJ1939Socket received no packet from J1939SoftSocket"
 _iop1_rx = _iop1_pkts[0]
@@ -2478,6 +2481,7 @@ for _i, _p in enumerate(_iop2_pkts):
 
 _iop2_native_tx.close()
 _iop2_soft_rx.close()
+_iop2_cansock.close()
 
 assert _iop2_pkts, "J1939SoftSocket received no packet from NativeJ1939Socket"
 _iop2_rx = _iop2_pkts[0]
@@ -2526,6 +2530,7 @@ for _i, _p in enumerate(_iop3_pkts):
     print("[iop3] pkt[%d]: pgn=0x%X src=0x%X dst=0x%X data_len=%d data=%r" % (_i, getattr(_p, 'pgn', None), getattr(_p, 'src', None), getattr(_p, 'dst', None), len(getattr(_p, 'data', b'')), getattr(_p, 'data', None)))
 
 _iop3_native_rx.close()
+_iop3_cansock.close()
 
 assert _iop3_pkts, "NativeJ1939Socket received no BAM message from J1939SoftSocket"
 _iop3_rx = _iop3_pkts[0]
@@ -2573,6 +2578,7 @@ for _i, _p in enumerate(_iop4_pkts):
 
 _iop4_native_tx.close()
 _iop4_soft_rx.close()
+_iop4_cansock.close()
 
 assert _iop4_pkts, "J1939SoftSocket received no reassembled BAM message"
 _iop4_rx = _iop4_pkts[0]
@@ -3257,6 +3263,18 @@ with TestSocket(CAN) as cans:
     assert _sc_send_raises(_sc_sock, J1939(b'\x01\x02\x03', pgn=0xFECA)), \
         "send() on closed socket must raise Scapy_Exception"
 
+= J1939SoftSocket – can_socket=None fails fast
+# Construction without a CAN socket must raise Scapy_Exception, not AttributeError.
+
+def _none_sock_raises():
+    try:
+        J1939SoftSocket()
+        return False
+    except _sc_exc:
+        return True
+
+assert _none_sock_raises(), "J1939SoftSocket() must raise Scapy_Exception"
+
 = J1939SoftSocket – ABORT from sender resets RTS/CTS RX session
 # If the sender issues an ABORT while we are waiting for TP.DT frames,
 # the RX session state should be cleared.  A subsequent valid RTS/CTS from
@@ -3828,6 +3846,7 @@ _u1_t = _threading_iop2.Thread(target=_u1_send)
 _u1_pkts = _u1_native_rx.sniff(timeout=3.0, started_callback=_u1_t.start, count=1)
 _u1_t.join(timeout=5)
 _u1_native_rx.close()
+_u1_cansock.close()
 
 assert _u1_pkts, "NativeJ1939Socket received no unicast from J1939SoftSocket"
 _u1_rx = _u1_pkts[0]
@@ -3857,6 +3876,7 @@ _u2_pkts = _u2_soft_rx.sniff(timeout=3.0, started_callback=_u2_t.start, count=1)
 _u2_t.join(timeout=5)
 _u2_native_tx.close()
 _u2_soft_rx.close()
+_u2_cansock.close()
 
 assert _u2_pkts, "J1939SoftSocket received no unicast from NativeJ1939Socket"
 _u2_rx = _u2_pkts[0]
@@ -3891,6 +3911,7 @@ _rtc_iop_pkts = _rtc_native_rx.sniff(timeout=5.0,
                                       started_callback=_rtc_iop_t.start, count=1)
 _rtc_iop_t.join(timeout=10)
 _rtc_native_rx.close()
+_rtc_cansock.close()
 
 assert _rtc_iop_pkts, \
     "NativeJ1939Socket received no RTS/CTS message from J1939SoftSocket"
@@ -3923,6 +3944,7 @@ _big_iop_pkts = _big_iop_soft_rx.sniff(timeout=8.0,
 _big_iop_t.join(timeout=12)
 _big_iop_native_tx.close()
 _big_iop_soft_rx.close()
+_big_iop_cansock.close()
 
 assert _big_iop_pkts, \
     "J1939SoftSocket received no 100-byte BAM from NativeJ1939Socket"
@@ -3955,6 +3977,7 @@ _bigs_iop_pkts = _bigs_iop_native_rx.sniff(timeout=8.0,
                                              count=1)
 _bigs_iop_t.join(timeout=12)
 _bigs_iop_native_rx.close()
+_bigs_iop_cansock.close()
 
 assert _bigs_iop_pkts, \
     "NativeJ1939Socket received no 100-byte BAM from J1939SoftSocket"
@@ -3992,6 +4015,7 @@ _prio_iop_raw = _prio_iop_cansock_rx.sniff(timeout=3.0,
                                              count=2)
 _prio_iop_t.join(timeout=5)
 _prio_iop_cansock_rx.close()
+_prio_iop_cansock_tx.close()
 
 assert len(_prio_iop_raw) == 2, \
     "Priority test: expected 2 frames, got %d" % len(_prio_iop_raw)
@@ -4058,6 +4082,7 @@ _pp_native_captured = _pp_native.sniff(
 
 _pp_t_ss.join(timeout=5); _pp_t_ns.join(timeout=5); _pp_t_sr.join(timeout=5)
 _pp_soft.close(); _pp_native.close()
+_pp_cansock1.close(); _pp_cansock2.close()
 
 # The native socket captured at least the soft-socket messages
 _pp_from_soft = [p for p in _pp_native_captured if p.src == _pp_soft_sa]

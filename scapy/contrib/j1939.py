@@ -1806,6 +1806,8 @@ class J1939SoftSocket(SuperSocket):
         elif isinstance(can_socket, str):
             raise Scapy_Exception(
                 "Provide a CANSocket object instead of an interface name")
+        if can_socket is None:
+            raise Scapy_Exception("Provide a CANSocket object instead")
 
         self.src_addr = src_addr
         self.basecls = basecls or J1939
