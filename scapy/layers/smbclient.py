@@ -1726,27 +1726,34 @@ class smbclient(CLIUtil):
                 if _verb:
                     print(conf.color_theme.red(directory), "->", str(ex))
 
-    def _getr(self, directory, _root, _verb=True):
+    def _getr(self, directory, root, dest, _verb=True):
         """
         Internal recursive function to get a directory
 
         :param directory: the remote directory to get
-        :param _root: locally, the directory to store any found files
+        :param root: the root directory to store files into
+        :param dest: locally, the directory to store any found files (rec)
         """
         size = 0
-        if not _root.exists():
-            _root.mkdir()
+        if dest is None:
+            dest = root
+        if not dest.exists():
+            dest.mkdir()
         # ls the directory
         for x in self.ls(parent=directory):
             if x[0] in [".", ".."]:
                 # Discard . and ..
                 continue
             remote = directory / x[0]
-            local = _root / x[0]
+            local = dest / x[0]
+            # Word of caution: this check ONLY works because root and local have been
+            # resolve(). Be careful
+            if root not in local.parents and local != root:
+                raise FileNotFoundError
             try:
                 if x[1].FILE_ATTRIBUTE_DIRECTORY:
                     # Sub-directory
-                    size += self._getr(remote, local)
+                    size += self._getr(remote, root, local)
                 else:
                     # Sub-file
                     size += self.get(remote, local)[1]
@@ -1769,7 +1776,8 @@ class smbclient(CLIUtil):
             dirpar, dirname = self._parsepath(file)
             return file, self._getr(
                 dirpar / dirname,  # Remotely
-                _root=self.localpwd / dirname,  # Locally
+                self.localpwd / dirname,  # Locally
+                None,
                 _verb=_verb,
             )
         else:

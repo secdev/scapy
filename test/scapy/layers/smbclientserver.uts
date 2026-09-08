@@ -237,6 +237,35 @@ assert (LOCALPATH / "fileScapy").exists()
 assert (LOCALPATH / "sub").exists()
 assert (LOCALPATH / "sub" / "secret").exists()
 
+= Parent traversal and absolute names are rejected
+
+from scapy.layers.smb2 import FILE_ID_BOTH_DIR_INFORMATION
+from scapy.layers.smbclient import smbclient
+
+root = pathlib.Path(get_temp_dir())
+download = root / "download"
+outside = root / "traversal.txt"
+absolute = root / "absolute.txt"
+inside = download / "ordinary.txt"
+attributes = FILE_ID_BOTH_DIR_INFORMATION(
+    FileAttributes="FILE_ATTRIBUTE_ARCHIVE"
+).FileAttributes
+
+client = object.__new__(smbclient)
+client.current_tree = 1
+client.ls = lambda parent=None: [
+    ("../traversal.txt", attributes, 1, 0),
+    (str(absolute), attributes, 1, 0),
+    ("ordinary.txt", attributes, 1, 0),
+]
+client._get_file = lambda _remote, fd: fd.write(b"X")
+
+client._getr(pathlib.PureWindowsPath("pub"), download, _verb=False)
+
+assert not outside.exists()
+assert not absolute.exists()
+assert inside.read_bytes() == b"X"
+
 + SMB2 Server tests
 ~ linux smbserver samba
 
