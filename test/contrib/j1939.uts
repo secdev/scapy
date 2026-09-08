@@ -3068,23 +3068,28 @@ assert len(_lo_ack_frames) == 0, \
 import scapy.contrib.j1939 as _j1939_mod
 _saved_T1 = _j1939_mod._J1939_TP_T1
 _saved_T2 = _j1939_mod._J1939_TP_T2
-_j1939_mod._J1939_TP_T1 = 0.1
-_j1939_mod._J1939_TP_T2 = 0.1
+try:
+    _j1939_mod._J1939_TP_T1 = 0.1
+    _j1939_mod._J1939_TP_T2 = 0.1
 
-with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
-    cans.pair(stim)
-    with J1939SoftSocket(cans, src_addr=0x00) as sock:
-        stim.send(J1939_CAN(priority=6, pdu_format=0xEC, pdu_specific=0xFF,
-                             src=0x0B,
-                             data=bytes(J1939_TP_CM_BAM(total_size=9,
-                                                         num_packets=2,
-                                                         pgn=0xFECA))))
-        time.sleep(1.4)
-        _j1939_mod._J1939_TP_T1 = _saved_T1
-        _j1939_mod._J1939_TP_T2 = _saved_T2
-        stim.send(J1939_CAN(priority=6, pdu_format=0xFE, pdu_specific=0xCA,
-                             src=0x0B, data=b'\x42'))
-        _timeout_pkts = sock.sniff(count=1, timeout=1)
+    with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+        cans.pair(stim)
+        with J1939SoftSocket(cans, src_addr=0x00) as sock:
+            stim.send(J1939_CAN(priority=6, pdu_format=0xEC, pdu_specific=0xFF,
+                                 src=0x0B,
+                                 data=bytes(J1939_TP_CM_BAM(total_size=9,
+                                                             num_packets=2,
+                                                             pgn=0xFECA))))
+            time.sleep(1.4)
+            # Restore before post-timeout traffic so later timing is normal.
+            _j1939_mod._J1939_TP_T1 = _saved_T1
+            _j1939_mod._J1939_TP_T2 = _saved_T2
+            stim.send(J1939_CAN(priority=6, pdu_format=0xFE, pdu_specific=0xCA,
+                                 src=0x0B, data=b'\x42'))
+            _timeout_pkts = sock.sniff(count=1, timeout=1)
+finally:
+    _j1939_mod._J1939_TP_T1 = _saved_T1
+    _j1939_mod._J1939_TP_T2 = _saved_T2
 
 assert len(_timeout_pkts) == 1, \
     "After inactivity timeout state should be IDLE; new msg not received"
