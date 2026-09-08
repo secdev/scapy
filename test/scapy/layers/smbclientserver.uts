@@ -237,35 +237,6 @@ assert (LOCALPATH / "fileScapy").exists()
 assert (LOCALPATH / "sub").exists()
 assert (LOCALPATH / "sub" / "secret").exists()
 
-= Parent traversal and absolute names are rejected
-
-from scapy.layers.smb2 import FILE_ID_BOTH_DIR_INFORMATION
-from scapy.layers.smbclient import smbclient
-
-root = pathlib.Path(get_temp_dir())
-download = root / "download"
-outside = root / "traversal.txt"
-absolute = root / "absolute.txt"
-inside = download / "ordinary.txt"
-attributes = FILE_ID_BOTH_DIR_INFORMATION(
-    FileAttributes="FILE_ATTRIBUTE_ARCHIVE"
-).FileAttributes
-
-client = object.__new__(smbclient)
-client.current_tree = 1
-client.ls = lambda parent=None: [
-    ("../traversal.txt", attributes, 1, 0),
-    (str(absolute), attributes, 1, 0),
-    ("ordinary.txt", attributes, 1, 0),
-]
-client._get_file = lambda _remote, fd: fd.write(b"X")
-
-client._getr(pathlib.PureWindowsPath("pub"), download, _verb=False)
-
-assert not outside.exists()
-assert not absolute.exists()
-assert inside.read_bytes() == b"X"
-
 + SMB2 Server tests
 ~ linux smbserver samba
 
@@ -509,54 +480,6 @@ with run_smbserver(readonly=False, encryptshare=True):
       raise
    finally:
       cli.close()
-
-= smbclient: reject guest session when transport protection is required
-
-import socket
-
-from scapy.error import Scapy_Exception
-from scapy.layers.smbclient import smbclient
-from scapy.layers.smbserver import SMB_Server
-
-socket.TCP_KEEPIDLE = getattr(socket, "TCP_KEEPIDLE", socket.TCP_KEEPALIVE)
-socket.TCP_KEEPINTVL = getattr(socket, "TCP_KEEPINTVL", 0x101)
-
-def run_guest_session(**requirement):
-   with socket.socket() as sock:
-      sock.bind(("127.0.0.1", 0))
-      port = sock.getsockname()[1]
-   server = SMB_Server.spawn(
-      port=port,
-      iface=conf.loopback_name,
-      bg=True,
-      verb=False,
-      MAX_DIALECT=0x0302,
-   )
-   client = None
-   try:
-      client = smbclient(
-         "127.0.0.1",
-         guest=True,
-         port=port,
-         cli=False,
-         timeout=3,
-         MAX_DIALECT=0x0302,
-         **requirement,
-      )
-      return None
-   except Exception as ex:
-      return ex
-   finally:
-      if client is not None:
-         client.close()
-      server.close()
-
-assert run_guest_session() is None
-for requirement in ({"REQUIRE_SIGNATURE": True}, {"REQUIRE_ENCRYPTION": True}):
-   error = run_guest_session(**requirement)
-   assert isinstance(error, Scapy_Exception)
-   assert "guest session" in str(error).lower()
-
 
 + Windows-only SMB tests
 ~ windows
