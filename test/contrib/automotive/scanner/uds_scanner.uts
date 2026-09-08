@@ -775,6 +775,37 @@ assert 2 in ids
 assert 3 in ids
 assert 0xff in ids
 
+= UDS_WDBIEnumerator keeps read data in its ECU state
+
+class StateWriteSocket:
+    def __init__(self):
+        self.writes = []
+    def sr1(self, request, **kwargs):
+        self.writes.append(bytes(request)[3:])
+        return UDS()/UDS_WDBIPR(dataIdentifier=request.dataIdentifier)
+
+reader = UDS_RDBIEnumerator()
+reader._store_result(
+    EcuState(session=1),
+    UDS()/UDS_RDBI(identifiers=[1]),
+    UDS()/UDS_RDBIPR(dataIdentifier=1)/Raw(b"session-one"),
+)
+reader._store_result(
+    EcuState(session=3),
+    UDS()/UDS_RDBI(identifiers=[1]),
+    UDS()/UDS_RDBIPR(dataIdentifier=1)/Raw(b"session-three"),
+)
+write_socket = StateWriteSocket()
+writer = UDS_WDBIEnumerator()
+writer.execute(
+    write_socket,
+    EcuState(session=3),
+    rdbi_enumerator=reader,
+    count=1,
+)
+
+assert write_socket.writes == [b"session-three"]
+
 
 = UDS_TPEnumerator
 
