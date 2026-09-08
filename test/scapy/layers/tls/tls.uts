@@ -1193,6 +1193,25 @@ assert isinstance(cfin, TLSFinished)
 = Verify MAC - TLSFinished record
 assert (t6.payload.payload.mac == b'\x10\xce\xca2\xb4\xc3m\xf1\x16c\xdb\xfc\x08\x16\x1d\x82\x83U\x8c\xe1')
 
+= RSA premaster secret uses a random suffix
+
+from scapy.layers.tls.cert import Cert
+from scapy.layers.tls.keyexchange import EncryptedPreMasterSecret
+from scapy.layers.tls.session import tlsSession
+
+premasters = []
+for _ in range(2):
+    session = tlsSession(connection_end="client")
+    session.tls_version = 0x0303
+    session.server_certs = [Cert(scapy_path("/test/scapy/layers/tls/pki/srv_cert.pem"))]
+    session.extms = True
+    EncryptedPreMasterSecret(tls_session=session).build()
+    premasters.append(session.pre_master_secret)
+
+assert all(len(pms) == 48 and pms[:2] == b"\x03\x03" for pms in premasters)
+assert all(pms[2:] != b"\x00" * 46 for pms in premasters)
+assert premasters[0] != premasters[1]
+
 ###############################################################################
 ################## Reading TLS vulnerable test session ########################
 ###############################################################################
