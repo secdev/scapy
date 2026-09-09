@@ -1254,6 +1254,33 @@ class _CBORF_compound(CBORF_element):
             # Condition false or skipped: leave value untouched.
             pass
 
+    def _unwrap_transparent_cbor_wrapper(self, field):
+        # type: (Any) -> Any
+        """Unwrap optional/conditional wrappers that add no CBOR framing."""
+        while True:
+            if isinstance(field, CBORF_optional):
+                field = field._field
+            elif isinstance(field, CBORF_CONDITIONAL):
+                field = field.fld
+            else:
+                return field
+
+    def _reject_ambiguous_unbounded_sequences(self):
+        # type: () -> None
+        for index, field in enumerate(self.seq):
+            inner = self._unwrap_transparent_cbor_wrapper(field)
+            if not (
+                isinstance(inner, CBORF_SEQUENCE_OF)
+                and getattr(inner, "is_unbounded", False)
+            ):
+                continue
+            # Unbounded SEQUENCE_OF must be the final schema field.
+            if index != len(self.seq) - 1:
+                raise ValueError(
+                    "Unbounded CBORF_SEQUENCE_OF must be the last field "
+                    "in the sequence (or provide count_from=)"
+                )
+
     def _dissect_children(self, pkt, s, count):
         # type: (CBOR_Packet, bytes, Union[int, CBOR_INDEFINITE]) -> bytes
         remaining = s
@@ -1357,10 +1384,6 @@ class CBORF_SEQUENCE(_CBORF_compound):
         super(CBORF_SEQUENCE, self).__init__(*seq, **kwargs)
         self._reject_ambiguous_unbounded_sequences()
 
-    def _reject_ambiguous_unbounded_sequences(self):
-        # type: () -> None
-        CBORF_ARRAY._reject_ambiguous_unbounded_sequences(self)
-
     def build_result(self, pkt):
         # type: (CBOR_Packet) -> CBORBuildResult
         data, total_items = self._build_children(pkt)
@@ -1397,18 +1420,6 @@ class CBORF_SEQUENCE(_CBORF_compound):
         return sum(f.max_items(pkt) for f in self.seq)
 
 
-def _unwrap_transparent_cbor_wrapper(field):
-    # type: (Any) -> Any
-    """Unwrap optional/conditional wrappers that add no CBOR framing."""
-    while True:
-        if isinstance(field, CBORF_optional):
-            field = field._field
-        elif isinstance(field, CBORF_CONDITIONAL):
-            field = field.fld
-        else:
-            return field
-
-
 class CBORF_ARRAY(_CBORF_compound):
     """
     CBOR array with a fixed sequence of named, typed fields (major type 4).
@@ -1435,22 +1446,6 @@ class CBORF_ARRAY(_CBORF_compound):
         # type: (*Any, **Any) -> None
         super(CBORF_ARRAY, self).__init__(*seq, **kwargs)
         self._reject_ambiguous_unbounded_sequences()
-
-    def _reject_ambiguous_unbounded_sequences(self):
-        # type: () -> None
-        for index, field in enumerate(self.seq):
-            inner = _unwrap_transparent_cbor_wrapper(field)
-            if not (
-                isinstance(inner, CBORF_SEQUENCE_OF)
-                and getattr(inner, "is_unbounded", False)
-            ):
-                continue
-            # Unbounded SEQUENCE_OF must be the final schema field.
-            if index != len(self.seq) - 1:
-                raise ValueError(
-                    "Unbounded CBORF_SEQUENCE_OF must be the last field "
-                    "in the sequence (or provide count_from=)"
-                )
 
     def build_result(self, pkt):
         # type: (CBOR_Packet) -> CBORBuildResult
