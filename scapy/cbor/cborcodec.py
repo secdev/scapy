@@ -14,6 +14,7 @@ from typing import (
     Generic,
     List,
     Optional,
+    Set,
     Tuple,
     Type,
     TypeVar,
@@ -1003,17 +1004,17 @@ class CBORcodec_MAP(CBORcodec_Object[Any]):
                 remaining=s)
 
         pairs = []  # type: List[Tuple[Any, Any]]
-        seen_keys = []  # type: List[Any]
+        seen_norms = set()  # type: Set[Any]
 
         def _add_pair(key, value):
             # type: (Any, Any) -> None
-            from scapy.cbor.cbor import _cbor_key_equivalent
-            for prev in seen_keys:
-                if _cbor_key_equivalent(prev, key):
-                    raise CBOR_Codec_Decoding_Error(
-                        "Duplicate CBOR map key: %r" % (key,),
-                        remaining=s)
-            seen_keys.append(key)
+            from scapy.cbor.cbor import _cbor_key_norm
+            norm = _cbor_key_norm(key)
+            if norm in seen_norms:
+                raise CBOR_Codec_Decoding_Error(
+                    "Duplicate CBOR map key: %r" % (key,),
+                    remaining=s)
+            seen_norms.add(norm)
             pairs.append((key, value))
 
         if length is CBOR_INDEFINITE:
