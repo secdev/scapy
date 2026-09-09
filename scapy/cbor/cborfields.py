@@ -188,31 +188,6 @@ def _cbor_attach_parent(parent, child):
     return child
 
 
-def cbor_object_to_python(obj):
-    # type: (Any) -> Any
-    """Convert a :class:`CBOR_Object` tree to native Python values.
-
-    Prefer keeping :class:`CBOR_Object` for arbitrary CBOR (``CBORF_ANY``).
-    Tags, simples, and undefined stay as ``CBOR_Object`` instances.
-    """
-    if not isinstance(obj, CBOR_Object):
-        return obj
-    if isinstance(obj, (CBOR_UNDEFINED, CBOR_SEMANTIC_TAG, CBOR_SIMPLE_VALUE)):
-        return obj
-    if isinstance(obj, CBOR_ARRAY):
-        return [cbor_object_to_python(item) for item in obj.val]
-    if isinstance(obj, CBOR_MAP):
-        from scapy.cbor.cbor import CBORMapData, _cbor_map_pairs
-        pairs = _cbor_map_pairs(obj)
-        return CBORMapData([
-            (cbor_object_to_python(k), cbor_object_to_python(v))
-            for k, v in pairs
-        ])
-    if isinstance(obj, CBOR_FLOAT):
-        return float(obj.val)
-    return obj.val
-
-
 class CBORF_element(object):
     """Base class for CBOR packet field elements."""
 
@@ -325,6 +300,32 @@ class CBORF_field(CBORF_element, Generic[_I]):
         # Absent/optional skipping is handled in build_result().
         return self.encode_value(x)
 
+    @staticmethod
+    def _object_to_python(obj):
+        # type: (Any) -> Any
+        """Convert a :class:`CBOR_Object` tree to native Python values.
+
+        Prefer keeping :class:`CBOR_Object` for arbitrary CBOR (``CBORF_ANY``).
+        Tags, simples, and undefined stay as ``CBOR_Object`` instances.
+        """
+        if not isinstance(obj, CBOR_Object):
+            return obj
+        if isinstance(obj, (CBOR_UNDEFINED, CBOR_SEMANTIC_TAG, CBOR_SIMPLE_VALUE)):
+            return obj
+        if isinstance(obj, CBOR_ARRAY):
+            return [CBORF_field._object_to_python(item) for item in obj.val]
+        if isinstance(obj, CBOR_MAP):
+            from scapy.cbor.cbor import CBORMapData, _cbor_map_pairs
+            pairs = _cbor_map_pairs(obj)
+            return CBORMapData([
+                (CBORF_field._object_to_python(k),
+                 CBORF_field._object_to_python(v))
+                for k, v in pairs
+            ])
+        if isinstance(obj, CBOR_FLOAT):
+            return float(obj.val)
+        return obj.val
+
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> _I
         if x is CBOR_ABSENT or x is CBOR_NO_ITEM:
@@ -332,7 +333,7 @@ class CBORF_field(CBORF_element, Generic[_I]):
         if isinstance(x, CBOR_UNDEFINED):
             return cast(_I, x)
         if isinstance(x, CBOR_Object):
-            x = cbor_object_to_python(x)
+            x = self._object_to_python(x)
         return self.h2i(pkt, x)
 
     def build_result(self, pkt):
@@ -1097,7 +1098,7 @@ class CBORF_FLOAT(CBORF_field[float]):
         if isinstance(x, CBOR_FLOAT):
             return float(x.val)
         if isinstance(x, CBOR_Object):
-            return float(cbor_object_to_python(x))
+            return float(self._object_to_python(x))
         return float(x)
 
     def m2i(self, pkt, s):
@@ -1266,20 +1267,6 @@ class _CBORF_compound(CBORF_element):
         # type: (CBOR_Packet, bytes) -> bytes
         return self.dissect_result(pkt, s).remaining
 
-    def _dissect_children(self, pkt, s, count):
-        # type: (CBOR_Packet, bytes, Union[int, CBOR_INDEFINITE]) -> bytes
-        remaining = s
-        if count is CBOR_INDEFINITE:
-            # Lightweight head/span walk — avoid building CBOR_Object trees
-            # just to learn the item budget before the schema pass.
-            item_count = cbor_count_items(remaining, until_break=True)
-            remaining = self._dissect_children_budgeted(
-                pkt, remaining, item_count
-            )
-            return cbor_consume_break(remaining)
-
-        return self._dissect_children_budgeted(pkt, remaining, count)
-
     def _dissect_children_budgeted(self, pkt, s, count):
         # type: (CBOR_Packet, bytes, int) -> bytes
         remaining = s
@@ -1374,9 +1361,12 @@ class CBORF_SEQUENCE(_CBORF_compound):
         # type: (CBOR_Packet, bytes) -> CBORParseResult
         # Count only up to this schema's max so trailing CBOR items remain for
         # a parent (e.g. Raw / Padding), matching definite ARRAY roots.
-        item_count = cbor_count_items(
-            s, max_count=self.max_items(pkt), until_break=False
-        )
+        try:
+            item_count = cbor_count_items(
+                s, max_count=self.max_items(pkt), until_break=False
+            )
+        except CBOR_Codec_Decoding_Error as e:
+            raise CBOR_Decoding_Error(str(e))
         remaining = self._dissect_children_budgeted(pkt, s, item_count)
         return CBORParseResult(remaining=remaining, items=item_count)
 
@@ -1441,7 +1431,31 @@ class CBORF_ARRAY(_CBORF_compound):
         if major_type != int(CBOR_MajorTypes.ARRAY):
             raise CBOR_Type_Mismatch(
                 "Expected major type 4 (array), got %d" % major_type)
-        remaining = self._dissect_children(pkt, remaining, count)
+        if count is CBOR_INDEFINITE:
+            # Lightweight head/span walk — avoid building CBOR_Object trees
+            # just to learn the item budget before the schema pass.
+            child_max = sum(f.max_items(pkt) for f in self.seq)
+            try:
+                item_count = cbor_count_items(
+                    remaining,
+                    max_count=child_max + 1,
+                    until_break=True,
+                )
+            except CBOR_Codec_Decoding_Error as e:
+                raise CBOR_Decoding_Error(str(e))
+            if item_count > child_max:
+                raise CBOR_Decoding_Error("CBOR item count mismatch")
+            remaining = self._dissect_children_budgeted(
+                pkt, remaining, item_count
+            )
+            try:
+                remaining = cbor_consume_break(remaining)
+            except CBOR_Codec_Decoding_Error as e:
+                raise CBOR_Decoding_Error(str(e))
+        else:
+            remaining = self._dissect_children_budgeted(
+                pkt, remaining, count
+            )
         return CBORParseResult(remaining=remaining, items=1)
 
     def min_items(self, pkt):
@@ -1501,9 +1515,21 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
                 self.item_field = pkt_cls
             self.holds_packets = 0
         else:
-            self.cls = _require_cbor_packet_cls(pkt_cls)
+            self.cls = self._require_packet_cls(pkt_cls)
             self.holds_packets = 1
         super(_CBORF_HOMOGENEOUS, self).__init__(name, default)
+
+    @staticmethod
+    def _require_packet_cls(pkt_cls):
+        # type: (Any) -> Type[CBOR_Packet]
+        """Validate a Packet subclass with CBOR_root for collection elements."""
+        if (
+            isinstance(pkt_cls, type)
+            and issubclass(pkt_cls, Packet)
+            and hasattr(pkt_cls, "CBOR_root")
+        ):
+            return cast("Type[CBOR_Packet]", pkt_cls)
+        raise ValueError("pkt_cls must be a CBORF_field or CBOR_Packet")
 
     def _list_limit(self):
         # type: () -> int
@@ -1545,7 +1571,7 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
                 )
                 if pkt_cls is CBOR_NO_ITEM or pkt_cls is None:
                     return CBOR_NO_ITEM, s
-                pkt_cls = _require_cbor_packet_cls(pkt_cls)
+                pkt_cls = self._require_packet_cls(pkt_cls)
             item_bytes, remaining = cbor_item_span(s)
             try:
                 child = pkt_cls(item_bytes, _parent=pkt)  # type: ignore
@@ -1589,18 +1615,6 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
     def __repr__(self):
         # type: () -> str
         return "<%s %s>" % (self.__class__.__name__, self.name)
-
-
-def _require_cbor_packet_cls(pkt_cls):
-    # type: (Any) -> Type[CBOR_Packet]
-    """Validate a Packet subclass with CBOR_root for collection elements."""
-    if (
-        isinstance(pkt_cls, type)
-        and issubclass(pkt_cls, Packet)
-        and hasattr(pkt_cls, "CBOR_root")
-    ):
-        return cast("Type[CBOR_Packet]", pkt_cls)
-    raise ValueError("pkt_cls must be a CBORF_field or CBOR_Packet")
 
 
 class CBORF_SEQUENCE_OF(_CBORF_HOMOGENEOUS):
