@@ -2061,27 +2061,27 @@ assert bytes(pkt) == b"\x82\x00\x02"
 
 + Additional CBOR API blind spots
 
-= Optional semantic tag honors an absent default instead of forcing tag presence
+= Optional semantic tag with default=None builds an empty array
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_SEMANTIC_TAG,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
-class OptionalSemanticTagDefault(CBOR_Packet):
+class OptionalTagged(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_optional(
-            CBORF_SEMANTIC_TAG(1, CBORF_UNSIGNED_INTEGER("value", 0))
+            CBORF_SEMANTIC_TAG(
+                1,
+                CBORF_UNSIGNED_INTEGER("value", None),
+            )
         )
     )
 
-OptionalSemanticTagDefault.CBOR_root.seq[0]._field.inner_field.default = CBOR_ABSENT
-
-pkt = OptionalSemanticTagDefault()
-assert pkt.getfieldval("value") is CBOR_ABSENT
+pkt = OptionalTagged()
+assert pkt.getfieldval("value") is None
 assert bytes(pkt) == b"\x80"
 
 = Fixed-schema maps reject duplicate known keys instead of silently taking the last value
