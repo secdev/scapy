@@ -1775,6 +1775,42 @@ class CBORF_ARRAY_OF(CBORF_field[List[Any]]):
         return "<%s %s>" % (self.__class__.__name__, self.name)
 
 
+class CBORF_MAP_UNKNOWN(CBORF_field[List[Tuple[str, Any]]]):
+    """Per-map storage for unknown text-key extension pairs.
+
+    Not a CBOR wire field by itself: owning :class:`CBORF_MAP` instances read
+    and write this packet field around known members.
+    """
+    ismutable = True
+    islist = 1
+
+    def any2i(self, pkt, x):
+        # type: (CBOR_Packet, Any) -> List[Tuple[str, Any]]
+        if x is None or x is CBOR_ABSENT:
+            return []
+        return list(x)
+
+    def do_copy(self, x):  # type: ignore[override]
+        # type: (Any) -> Any
+        return copy.deepcopy(x)
+
+    def is_empty(self, pkt):
+        # type: (CBOR_Packet) -> bool
+        return not pkt.getfieldval(self.name)
+
+    def encode_value(self, x):
+        # type: (Any) -> bytes
+        raise CBOR_Encoding_Error(
+            "CBORF_MAP_UNKNOWN is not encoded as a standalone CBOR item"
+        )
+
+    def m2i(self, pkt, s):
+        # type: (CBOR_Packet, bytes) -> Tuple[Any, bytes]
+        raise CBOR_Decoding_Error(
+            "CBORF_MAP_UNKNOWN is not decoded as a standalone CBOR item"
+        )
+
+
 class CBORF_MAP(CBORF_element):
     """
     CBOR map with a fixed set of named, typed fields (major type 5).
@@ -1792,11 +1828,11 @@ class CBORF_MAP(CBORF_element):
     On encode, pairs are emitted in RFC 8949 core-deterministic order
     (sorted by encoded key bytes), independent of declaration order.
 
-    Unknown received key/value pairs are retained on the packet
-    (``_cbor_unknown_map_pairs``) as decoded semantic ``(key, value)`` pairs.
-    While the packet raw cache is valid the exact received bytes are preserved;
-    after any mutation unknown members are re-encoded using core-deterministic
-    CBOR together with known fields.
+    Unknown received key/value pairs are retained in a dedicated packet field
+    (``unknown_field``, defaulting to a unique ``_cbor_unknown_<n>`` name) as
+    ordered ``(key, value)`` pairs.  While the packet raw cache is valid the
+    exact received bytes are preserved; after any mutation unknown members are
+    re-encoded using core-deterministic CBOR together with known fields.
 
     Example::
 
@@ -1809,9 +1845,16 @@ class CBORF_MAP(CBORF_element):
     CBOR_tag = CBOR_MajorTypes.MAP
     holds_packets = 1
     islist = 1
+    _unknown_id = 0
 
     def __init__(self, *seq, **kwargs):
         # type: (*Any, **Any) -> None
+        unknown_field = kwargs.pop("unknown_field", None)
+        if kwargs:
+            raise TypeError(
+                "CBORF_MAP() got unexpected keyword arguments: %s"
+                % ", ".join(sorted(kwargs))
+            )
         self.seq = seq
         field_by_name = {}  # type: Dict[str, Any]
         encoded_keys = {}  # type: Dict[str, bytes]
@@ -1825,6 +1868,15 @@ class CBORF_MAP(CBORF_element):
             encoded_keys[name] = CBORcodec_TEXT_STRING.enc(name)
         self._field_by_name = field_by_name
         self._encoded_keys = encoded_keys
+        if unknown_field is None:
+            CBORF_MAP._unknown_id += 1
+            unknown_field = "_cbor_unknown_%d" % CBORF_MAP._unknown_id
+        if unknown_field in field_by_name:
+            raise ValueError(
+                "CBORF_MAP unknown_field %r collides with a known member"
+                % (unknown_field,)
+            )
+        self._unknown_field = CBORF_MAP_UNKNOWN(unknown_field, [])
 
     def __repr__(self):
         # type: () -> str
@@ -1840,7 +1892,7 @@ class CBORF_MAP(CBORF_element):
             child
             for field in self.seq
             for child in field.get_fields_list()
-        ]
+        ] + [self._unknown_field]
 
     def build_result(self, pkt):
         # type: (CBOR_Packet) -> CBORBuildResult
@@ -1856,7 +1908,7 @@ class CBORF_MAP(CBORF_element):
                     % fld.name
                 )
             pairs.append((self._encoded_keys[fld.name], value_result.data))
-        unknown = getattr(pkt, "_cbor_unknown_map_pairs", None) or []
+        unknown = pkt.getfieldval(self._unknown_field.name) or []
         for key, value in unknown:
             key_bytes = CBORcodec_TEXT_STRING.enc(key)
             value_bytes = CBORcodec_Object.encode_cbor_item_deterministic(value)
@@ -1976,7 +2028,7 @@ class CBORF_MAP(CBORF_element):
                 raise CBOR_Decoding_Error(
                     "Required map field %r is missing" % fld.name
                 )
-        pkt._cbor_unknown_map_pairs = unknown_pairs  # type: ignore[attr-defined]
+        self._unknown_field.set_val(pkt, unknown_pairs)
         return CBORParseResult(remaining=remaining, items=1)
 
     def _mark_map_field_absent(self, pkt, fld):
