@@ -1239,7 +1239,7 @@ class _CBORF_compound(CBORF_element):
                 if needed > 0:
                     raise CBOR_Decoding_Error("CBOR item count mismatch")
                 # Zero budget: later required fields reserved every remaining
-                # item. Optionals stay absent for reservation, but a *matching*
+                # item. Optionals stay absent for reservation, but a matching
                 # optional must still be well-formed — otherwise a malformed
                 # present value would silently migrate into a trailing ANY.
                 if (
@@ -1247,12 +1247,8 @@ class _CBORF_compound(CBORF_element):
                     and remaining
                     and field._field.matches_next_item(pkt, remaining)
                 ):
-                    probe = pkt.__class__()
-                    try:
-                        field.dissect_result(probe, remaining)
-                    except CBORF_badsequence:
-                        pass
-                    # CBOR_Decoding_Error / Type_Mismatch propagate.
+                    # Validate without constructing a throwaway packet.
+                    field._field.parse_value(pkt, remaining)
                 self._mark_absent(pkt, field)
                 continue
             try:
@@ -1376,7 +1372,7 @@ class CBORF_ARRAY(_CBORF_compound):
 
     def _reject_ambiguous_unbounded_sequences(self):
         # type: () -> None
-        def _unbounded(field):
+        def _is_unbounded_sequence_of(field):
             # type: (Any) -> bool
             if isinstance(field, CBORF_optional):
                 return False
@@ -1384,27 +1380,17 @@ class CBORF_ARRAY(_CBORF_compound):
                 return False
             return (
                 isinstance(field, CBORF_SEQUENCE_OF)
-                or (
-                    hasattr(field, "min_items")
-                    and hasattr(field, "max_items")
-                    and field.min_items(None) == 0  # type: ignore[arg-type]
-                    and field.max_items(None) > 1  # type: ignore[arg-type]
-                )
+                and getattr(field, "is_unbounded", False)
             )
 
-        def _skippable(field):
-            # type: (Any) -> bool
-            return isinstance(field, (CBORF_optional, CBORF_CONDITIONAL))
-
-        unbounded_indexes = [
-            index for index, field in enumerate(self.seq) if _unbounded(field)
-        ]
-        for left, right in zip(unbounded_indexes, unbounded_indexes[1:]):
-            # Adjacent unbounded fields, or unbounded fields separated only by
-            # optional/conditional fillers, cannot be partitioned uniquely.
-            if all(_skippable(self.seq[i]) for i in range(left + 1, right)):
+        for index, field in enumerate(self.seq):
+            if not _is_unbounded_sequence_of(field):
+                continue
+            # Unbounded SEQUENCE_OF must be the final schema field.
+            if index != len(self.seq) - 1:
                 raise ValueError(
-                    "Ambiguous unbounded CBOR sequences in array schema"
+                    "Unbounded CBORF_SEQUENCE_OF must be the last field "
+                    "in the sequence (or provide count_from=)"
                 )
 
     def build_result(self, pkt):
@@ -1478,6 +1464,10 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
     :class:`CBORF_field` class/instance. Do not use a ``cls=`` keyword:
     :class:`~typing.Generic` reserves that name on Python 3.7.
     Pass only one of ``pkt_cls`` / ``next_cls_cb``.
+
+    An unbounded ``SEQUENCE_OF`` (no ``count_from``) must be the last field in
+    its surrounding sequence/array. Use ``count_from`` for an explicit length
+    and ``max_count`` to cap decoding (defaults to ``conf.max_list_count``).
     """
     CBOR_tag = None
     islist = 1
@@ -1487,12 +1477,16 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
                  default,  # type: Any
                  pkt_cls=None,  # type: _ARRAY_T
                  next_cls_cb=None,  # type: Optional[Callable[..., Optional[Type[Packet]]]]  # noqa: E501
+                 count_from=None,  # type: Optional[Any]
+                 max_count=None,  # type: Optional[int]
                  ):
         # type: (...) -> None
         self.next_cls_cb = None  # type: Optional[Callable[..., Optional[Type[Packet]]]]
         self.cls = None
         self.item_field = None
         self.holds_packets = 0
+        self.count_from = count_from
+        self.max_count = max_count
 
         if next_cls_cb is not None:
             if pkt_cls is not None:
@@ -1510,7 +1504,9 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
                 else:
                     self.item_field = chosen
                 self.holds_packets = 0
-            elif hasattr(chosen, "CBOR_root") or callable(chosen):
+            elif hasattr(chosen, "CBOR_root") or (
+                isinstance(chosen, type) and issubclass(chosen, Packet)
+            ):
                 self.cls = cast("Type[CBOR_Packet]", chosen)
                 self.holds_packets = 1
             else:
@@ -1518,6 +1514,15 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
                     "Provide pkt_cls or next_cls_cb"
                 )
         super(CBORF_SEQUENCE_OF, self).__init__(name, default)
+
+    @property
+    def is_unbounded(self):
+        # type: () -> bool
+        return self.count_from is None
+
+    def _list_limit(self):
+        # type: () -> int
+        return self.max_count or config.conf.max_list_count
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> List[Any]
@@ -1536,9 +1541,19 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
         values = []  # type: List[Any]
         remaining = data
         consumed = 0
+        limit = self._list_limit()
+        if self.count_from is not None:
+            if callable(self.count_from):
+                max_items = int(self.count_from(pkt))
+            else:
+                max_items = int(pkt.getfieldval(self.count_from))
         while remaining and not cbor_is_break(remaining):
             if max_items is not None and consumed >= max_items:
                 break
+            if consumed >= limit:
+                raise CBOR_Decoding_Error(
+                    "CBOR SEQUENCE_OF exceeded max_count=%d" % limit
+                )
             before_len = len(remaining)
             if self.holds_packets:
                 pkt_cls = self.cls
@@ -1619,11 +1634,17 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
 
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
+        if self.count_from is not None and pkt is not None:
+            if callable(self.count_from):
+                return int(self.count_from(pkt))
+            return int(pkt.getfieldval(self.count_from))
         return 0
 
     def max_items(self, pkt):
         # type: (CBOR_Packet) -> int
-        return 1 << 30
+        if self.count_from is not None and pkt is not None:
+            return self.min_items(pkt)
+        return self._list_limit()
 
     def i2repr(self, pkt, x):
         # type: (CBOR_Packet, Any) -> str
@@ -1673,7 +1694,9 @@ class CBORF_ARRAY_OF(CBORF_field[List[Any]]):
             else:
                 self.item_field = chosen
             self.holds_packets = 0
-        elif hasattr(chosen, "CBOR_root") or callable(chosen):
+        elif hasattr(chosen, "CBOR_root") or (
+            isinstance(chosen, type) and issubclass(chosen, Packet)
+        ):
             self.cls = cast("Type[CBOR_Packet]", chosen)
             self.holds_packets = 1
         else:
