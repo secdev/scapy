@@ -1197,11 +1197,19 @@ class _CBORF_compound(CBORF_element):
 
     def get_fields_list(self):
         # type: () -> List[CBORF_field[Any]]
-        return [
+        fields_list = [
             child
             for field in self.seq
             for child in field.get_fields_list()
         ]
+        names = [f.name for f in fields_list]
+        if len(names) != len(set(names)):
+            dupes = sorted({n for n in names if names.count(n) > 1})
+            raise ValueError(
+                "Duplicate CBOR field name(s) %s; for multiple maps use "
+                "distinct unknown_field= values" % (dupes,)
+            )
+        return fields_list
 
     def _build_children(self, pkt):
         # type: (CBOR_Packet) -> Tuple[bytes, int]
@@ -1842,10 +1850,11 @@ class CBORF_MAP(CBORF_element):
     (sorted by encoded key bytes), independent of declaration order.
 
     Unknown received key/value pairs are retained in a dedicated packet field
-    (``unknown_field``, defaulting to a unique ``_cbor_unknown_<n>`` name) as
-    ordered ``(key, value)`` pairs.  While the packet raw cache is valid the
-    exact received bytes are preserved; after any mutation unknown members are
-    re-encoded using core-deterministic CBOR together with known fields.
+    (``unknown_field``, default ``"_cbor_unknown"``) as ordered ``(key, value)``
+    pairs.  While the packet raw cache is valid the exact received bytes are
+    preserved; after any mutation unknown members are re-encoded using
+    core-deterministic CBOR together with known fields. Schemas with more than
+    one map must pass distinct ``unknown_field=`` names.
 
     Example::
 
@@ -1858,11 +1867,10 @@ class CBORF_MAP(CBORF_element):
     CBOR_tag = CBOR_MajorTypes.MAP
     holds_packets = 1
     islist = 1
-    _unknown_id = 0
 
     def __init__(self, *seq, **kwargs):
         # type: (*Any, **Any) -> None
-        unknown_field = kwargs.pop("unknown_field", None)
+        unknown_field = kwargs.pop("unknown_field", "_cbor_unknown")
         if kwargs:
             raise TypeError(
                 "CBORF_MAP() got unexpected keyword arguments: %s"
@@ -1881,9 +1889,6 @@ class CBORF_MAP(CBORF_element):
             encoded_keys[name] = CBORcodec_TEXT_STRING.enc(name)
         self._field_by_name = field_by_name
         self._encoded_keys = encoded_keys
-        if unknown_field is None:
-            CBORF_MAP._unknown_id += 1
-            unknown_field = "_cbor_unknown_%d" % CBORF_MAP._unknown_id
         if unknown_field in field_by_name:
             raise ValueError(
                 "CBORF_MAP unknown_field %r collides with a known member"
@@ -2062,9 +2067,9 @@ class CBORF_MAP(CBORF_element):
         return 1
 
 
-class CBORF_SEMANTIC_TAG(CBORF_field[int]):
+class CBORF_SEMANTIC_TAG(CBORF_element):
     """
-    CBOR semantic tag field (major type 6).
+    CBOR semantic tag wrapper (major type 6).
 
     Wraps an ``inner_field`` with the given numeric ``tag_num``.  The tag
     number is schema metadata only: it is not stored as editable packet
@@ -2074,32 +2079,28 @@ class CBORF_SEMANTIC_TAG(CBORF_field[int]):
 
         class TimestampPkt(CBOR_Packet):
             CBOR_root = CBORF_SEMANTIC_TAG(
-                "tag_info", None, 1, CBORF_INTEGER("ts", 0)
+                1, CBORF_INTEGER("ts", 0)
             )
     """
     CBOR_tag = CBOR_MajorTypes.TAG
     holds_packets = 0
 
     def __init__(self,
-                 name,  # type: str
-                 default,  # type: Any
                  tag_num,  # type: int
                  inner_field,  # type: CBORF_field[Any]
                  ):
         # type: (...) -> None
-        self.tag_num = tag_num
         if tag_num < 0 or tag_num > CBOR_UINT64_MAX:
             raise CBOR_Encoding_Error(
                 "Semantic tag number out of uint64 range")
+        self.tag_num = tag_num
         self.inner_field = inner_field
-        # Honour an explicit default (e.g. CBOR_ABSENT); otherwise the field
-        # stores the configured tag number when present.
-        if default is CBOR_ABSENT:
-            # Tag number is schema metadata; absence applies to the value field.
-            self.inner_field.default = CBOR_ABSENT
-        if default is None:
-            default = tag_num
-        super(CBORF_SEMANTIC_TAG, self).__init__(name, default)
+
+    @property
+    def name(self):
+        # type: () -> str
+        """Map/schema key identity comes from the tagged value field."""
+        return self.inner_field.name
 
     def _parse_tag_head(self, s, require_match=True):
         # type: (bytes, bool) -> Tuple[int, bytes]
@@ -2119,10 +2120,6 @@ class CBORF_SEMANTIC_TAG(CBORF_field[int]):
         # type: (bytes) -> bytes
         return CBOR_encode_head(int(CBOR_MajorTypes.TAG), self.tag_num) + inner_data
 
-    def m2i(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> Tuple[int, bytes]
-        return self._parse_tag_head(s, require_match=True)
-
     def matches_next_item(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> bool
         if not s or cbor_is_break(s):
@@ -2131,11 +2128,14 @@ class CBORF_SEMANTIC_TAG(CBORF_field[int]):
             major_type, tag_num, _rem = CBOR_decode_head(s)
         except CBOR_Codec_Decoding_Error:
             return False
-        return major_type == 6 and tag_num == self.tag_num
+        return (
+            major_type == int(CBOR_MajorTypes.TAG)
+            and tag_num == self.tag_num
+        )
 
     def dissect_result(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> CBORParseResult
-        tag_num, remaining = self._parse_tag_head(s)
+        _tag_num, remaining = self._parse_tag_head(s)
         inner = self.inner_field.dissect_result(pkt, remaining)
         if inner.items != 1:
             raise CBOR_Decoding_Error(
@@ -2154,6 +2154,10 @@ class CBORF_SEMANTIC_TAG(CBORF_field[int]):
                 "Semantic tag content must be exactly one CBOR item")
         return CBORBuildResult(self._encode_tagged(inner.data), 1)
 
+    def build(self, pkt):
+        # type: (CBOR_Packet) -> bytes
+        return self.build_result(pkt).data
+
     def parse_value(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> CBORParseResult
         _tag_num, remaining = self._parse_tag_head(s)
@@ -2161,7 +2165,9 @@ class CBORF_SEMANTIC_TAG(CBORF_field[int]):
         if inner.items != 1:
             raise CBOR_Decoding_Error(
                 "Semantic tag content must be exactly one CBOR item")
-        return CBORParseResult(value=inner.value, remaining=inner.remaining, items=1)
+        return CBORParseResult(
+            value=inner.value, remaining=inner.remaining, items=1
+        )
 
     def build_value(self, pkt, value):
         # type: (CBOR_Packet, Any) -> CBORBuildResult
@@ -2196,6 +2202,14 @@ class CBORF_SEMANTIC_TAG(CBORF_field[int]):
             return
         self.inner_field.set_val(pkt, val)
 
+    def min_items(self, pkt):
+        # type: (CBOR_Packet) -> int
+        return 1
+
+    def max_items(self, pkt):
+        # type: (CBOR_Packet) -> int
+        return 1
+
 
 ##############################
 #    Complex CBOR Fields     #
@@ -2203,7 +2217,7 @@ class CBORF_SEMANTIC_TAG(CBORF_field[int]):
 
 class CBORF_optional(CBORF_element):
     """
-    Wrapper making a :class:`CBORF_field` optional.
+    Wrapper making a CBOR schema element optional.
 
     Absence is recorded as ``CBOR_ABSENT`` on every path (lookahead mismatch,
     exhausted parent array, missing map key).  If the next item matches but
@@ -2211,7 +2225,7 @@ class CBORF_optional(CBORF_element):
     """
 
     def __init__(self, field):
-        # type: (CBORF_field[Any]) -> None
+        # type: (CBORF_element) -> None
         self._field = field
 
     def __getattr__(self, attr):
