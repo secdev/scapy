@@ -2346,6 +2346,30 @@ assert cbor_find_non_deterministic(bytes.fromhex("fb7ff8000000000001")) == []
 # binary64 quiet NaN with only top significand bits set prefers binary16
 assert cbor_find_non_deterministic(bytes.fromhex("fb7ffc000000000000"))
 
+= Non-det walker enforces nesting depth and indefinite string chunks
+from scapy.cbor.cborcodec import (
+    MAX_CBOR_NESTING,
+    cbor_find_non_deterministic,
+)
+
+# Malformed indefinite strings: checker must not raise RecursionError.
+bad_bstr = b"\x5f\x61a\xff"  # byte string with a text chunk
+bad_tstr = b"\x7f\x41a\xff"  # text string with a byte chunk
+nested_indef = b"\x5f\x5f\xff\xff"
+for wire in (bad_bstr, bad_tstr, nested_indef):
+    issues = cbor_find_non_deterministic(wire, allow_indefinite=True)
+    assert isinstance(issues, list)
+
+# Over-nested arrays: swallowed as malformed, not RecursionError.
+too_deep = b"\x81" * (MAX_CBOR_NESTING + 1) + b"\x00"
+issues = cbor_find_non_deterministic(too_deep)
+assert isinstance(issues, list)
+
+# Well-formed indefinite byte string still scans without error issues.
+assert cbor_find_non_deterministic(
+    b"\x5f\x41a\xff", allow_indefinite=True
+) == []
+
 
 + Cache item counts and packet-field cardinality
 
@@ -2602,6 +2626,66 @@ assert bytes(RawValPkt(value=RawVal(b"\x18\x64"))) == b"\x18\x64"
 try:
     bytes(RawValPkt(value=RawVal(b"\x01\x02")))
     assert False, "multi-item RawVal must be rejected"
+except CBOR_Encoding_Error:
+    pass
+
+= RawVal and raw packet encode reject semantically invalid CBOR
+from scapy.cbor.cborfields import (
+    CBORF_ANY,
+    CBORF_PACKET,
+    CBORF_UNSIGNED_INTEGER,
+    _encode_exactly_one_cbor_item,
+)
+from scapy.cbor.cborcodec import cbor_item_span
+from scapy.cborpacket import CBOR_Packet
+from scapy.fields import RawVal
+from scapy.cbor.cbor import CBOR_Encoding_Error
+
+bad_utf8 = b"\x61\xff"
+duplicate_map = bytes.fromhex("a201000101")
+
+# Structural span only finds boundaries; it does not UTF-8 / key-validate.
+item, rest = cbor_item_span(bad_utf8)
+assert item == bad_utf8 and rest == b""
+item, rest = cbor_item_span(duplicate_map)
+assert item == duplicate_map and rest == b""
+
+class RawAnyPkt(CBOR_Packet):
+    CBOR_root = CBORF_ANY("value", None)
+
+try:
+    bytes(RawAnyPkt(value=RawVal(bad_utf8)))
+    assert False, "RawVal accepted invalid UTF-8 text string"
+except CBOR_Encoding_Error:
+    pass
+
+try:
+    bytes(RawAnyPkt(value=RawVal(duplicate_map)))
+    assert False, "RawVal accepted duplicate map keys"
+except CBOR_Encoding_Error:
+    pass
+
+try:
+    _encode_exactly_one_cbor_item(bad_utf8, context="raw")
+    assert False, "_encode_exactly_one_cbor_item accepted invalid UTF-8"
+except CBOR_Encoding_Error:
+    pass
+
+try:
+    _encode_exactly_one_cbor_item(duplicate_map, context="raw")
+    assert False, "_encode_exactly_one_cbor_item accepted duplicate keys"
+except CBOR_Encoding_Error:
+    pass
+
+class RawChild(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("n", 0)
+
+class RawParent(CBOR_Packet):
+    CBOR_root = CBORF_PACKET("child", None, RawChild)
+
+try:
+    bytes(RawParent(child=bad_utf8))
+    assert False, "packet-valued raw bytes accepted invalid UTF-8"
 except CBOR_Encoding_Error:
     pass
 
@@ -3410,8 +3494,11 @@ except Exception as err:
     assert "nesting" in str(err).lower()
 
 = Lightweight skip rejects malformed indefinite string chunks
-from scapy.cbor.cborcodec import CBOR_Codec_Decoding_Error, cbor_count_items
-from scapy.cbor.cborfields import cbor_item_span
+from scapy.cbor.cborcodec import (
+    CBOR_Codec_Decoding_Error,
+    cbor_count_items,
+    cbor_item_span,
+)
 
 # Indefinite byte string (0x5f) whose "chunk" is an array (0x80), then break.
 bad_bstr = b"\x5f\x80\xff"
