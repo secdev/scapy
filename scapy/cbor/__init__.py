@@ -14,6 +14,9 @@ from scapy.cbor.cbor import (
     CBOR_BadTag_Decoding_Error,
     CBOR_Codecs,
     CBOR_MajorTypes,
+    CBOR_AdditionalInfo,
+    CBOR_SimpleValue,
+    CBOR_UINT64_MAX,
     CBOR_Object,
     CBOR_UNSIGNED_INTEGER,
     CBOR_NEGATIVE_INTEGER,
@@ -83,6 +86,9 @@ __all__ = [
     # Codecs
     "CBOR_Codecs",
     "CBOR_MajorTypes",
+    "CBOR_AdditionalInfo",
+    "CBOR_SimpleValue",
+    "CBOR_UINT64_MAX",
     # Objects
     "CBOR_Object",
     "CBOR_UNSIGNED_INTEGER",

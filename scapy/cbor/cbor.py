@@ -289,6 +289,28 @@ class CBOR_MajorTypes(metaclass=CBOR_MajorTypes_metaclass):
     SIMPLE_AND_FLOAT = cast(CBORTag, 7)
 
 
+class CBOR_AdditionalInfo(metaclass=Enum_metaclass):
+    """CBOR additional-info codes used with argument encoding (RFC 8949)."""
+    name = "CBOR_ADDITIONAL_INFO"
+    ONE_BYTE = 24
+    TWO_BYTES = 25
+    FOUR_BYTES = 26
+    EIGHT_BYTES = 27
+    INDEFINITE = 31
+
+
+class CBOR_SimpleValue(metaclass=Enum_metaclass):
+    """Well-known CBOR simple values encoded in major type 7."""
+    name = "CBOR_SIMPLE_VALUE"
+    FALSE = 20
+    TRUE = 21
+    NULL = 22
+    UNDEFINED = 23
+
+
+CBOR_UINT64_MAX = (1 << 64) - 1
+
+
 class CBOR_Object_metaclass(type):
     def __new__(cls,
                 name,  # type: str
