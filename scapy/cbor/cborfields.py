@@ -822,17 +822,14 @@ class CBORF_BYTE_STRING_PACKET(CBORF_field[Packet]):
         self.definite_only = definite_only
         super(CBORF_BYTE_STRING_PACKET, self).__init__(name, default)
 
-    def _resolve_packet_class(self, pkt, data):
-        # type: (CBOR_Packet, bytes) -> Optional[Type[Packet]]
-        if self.pkt_cls is not None:
-            return self.pkt_cls
-        if self.cls_cb is not None:
-            return self.cls_cb(pkt, data)
-        return None
-
     def _decode_packet_value(self, pkt, data):
         # type: (CBOR_Packet, bytes) -> Packet
-        pkt_cls = self._resolve_packet_class(pkt, data)
+        if self.pkt_cls is not None:
+            pkt_cls = self.pkt_cls
+        elif self.cls_cb is not None:
+            pkt_cls = self.cls_cb(pkt, data)
+        else:
+            pkt_cls = None
         if pkt_cls is None:
             return packet.Raw(data)
         try:
@@ -1241,21 +1238,17 @@ class _CBORF_compound(CBORF_element):
             # Condition false or skipped: leave value untouched.
             pass
 
-    def _unwrap_transparent_cbor_wrapper(self, field):
-        # type: (Any) -> Any
-        """Unwrap optional/conditional wrappers that add no CBOR framing."""
-        while True:
-            if isinstance(field, CBORF_optional):
-                field = field._field
-            elif isinstance(field, CBORF_CONDITIONAL):
-                field = field.fld
-            else:
-                return field
-
     def _reject_ambiguous_unbounded_sequences(self):
         # type: () -> None
         for index, field in enumerate(self.seq):
-            inner = self._unwrap_transparent_cbor_wrapper(field)
+            inner = field
+            while True:
+                if isinstance(inner, CBORF_optional):
+                    inner = inner._field
+                elif isinstance(inner, CBORF_CONDITIONAL):
+                    inner = inner.fld
+                else:
+                    break
             if not (
                 isinstance(inner, CBORF_SEQUENCE_OF)
                 and getattr(inner, "is_unbounded", False)
@@ -1267,6 +1260,14 @@ class _CBORF_compound(CBORF_element):
                     "Unbounded CBORF_SEQUENCE_OF must be the last field "
                     "in the sequence (or provide count_from=)"
                 )
+
+    def build(self, pkt):
+        # type: (CBOR_Packet) -> bytes
+        return self.build_result(pkt).data
+
+    def dissect(self, pkt, s):
+        # type: (CBOR_Packet, bytes) -> bytes
+        return self.dissect_result(pkt, s).remaining
 
     def _dissect_children(self, pkt, s, count):
         # type: (CBOR_Packet, bytes, Union[int, CBOR_INDEFINITE]) -> bytes
@@ -1382,14 +1383,6 @@ class CBORF_SEQUENCE(_CBORF_compound):
         remaining = self._dissect_children_budgeted(pkt, s, item_count)
         return CBORParseResult(remaining=remaining, items=item_count)
 
-    def build(self, pkt):
-        # type: (CBOR_Packet) -> bytes
-        return self.build_result(pkt).data
-
-    def dissect(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> bytes
-        return self.dissect_result(pkt, s).remaining
-
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
         return sum(f.min_items(pkt) for f in self.seq)
@@ -1451,14 +1444,6 @@ class CBORF_ARRAY(_CBORF_compound):
                 "Expected major type 4 (array), got %d" % major_type)
         remaining = self._dissect_children(pkt, remaining, count)
         return CBORParseResult(remaining=remaining, items=1)
-
-    def build(self, pkt):
-        # type: (CBOR_Packet) -> bytes
-        return self.build_result(pkt).data
-
-    def dissect(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> bytes
-        return self.dissect_result(pkt, s).remaining
 
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
@@ -2358,9 +2343,8 @@ class CBORF_PACKET(CBORF_field['CBOR_Packet']):
         self.cls = pkt_cls
         super(CBORF_PACKET, self).__init__(name, default)
 
-    def _parse_packet_item(self, pkt, s):
+    def m2i(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> Tuple[CBOR_Packet, bytes]
-        """Decode exactly one CBOR item into a nested packet."""
         item_bytes, remain = cbor_item_span(s)
         try:
             child = self.cls(item_bytes, _parent=pkt)  # type: ignore
@@ -2370,53 +2354,18 @@ class CBORF_PACKET(CBORF_field['CBOR_Packet']):
             raise CBOR_Decoding_Error(str(exc))
         return child, remain
 
-    def _build_packet_item(self, val):
-        # type: (Any) -> CBORBuildResult
-        """Encode a nested packet and enforce one top-level CBOR item."""
-        if val is None:
-            raise CBOR_Encoding_Error(
-                "Required field %r is None" % self.name)
-        data = _encode_exactly_one_cbor_item(
-            val, context="field %r" % self.name
-        )
-        return CBORBuildResult(data, 1)
-
-    def m2i(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> Tuple[CBOR_Packet, bytes]
-        return self._parse_packet_item(pkt, s)
-
     def i2m(self, pkt, x):
         # type: (CBOR_Packet, Any) -> bytes
         if x is None:
-            return b""
-        return self._build_packet_item(x).data
+            raise CBOR_Encoding_Error(
+                "Required field %r is None" % self.name)
+        return _encode_exactly_one_cbor_item(
+            x, context="field %r" % self.name
+        )
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> CBOR_Packet
         return cast('CBOR_Packet', _cbor_attach_parent(pkt, x))
-
-    def encode_value(self, x):
-        # type: (Any) -> bytes
-        return self._build_packet_item(x).data
-
-    def parse_value(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> CBORParseResult
-        child, remain = self._parse_packet_item(pkt, s)
-        return CBORParseResult(value=child, remaining=remain, items=1)
-
-    def build_value(self, pkt, value):
-        # type: (CBOR_Packet, Any) -> CBORBuildResult
-        return self._build_packet_item(value)
-
-    def build_result(self, pkt):
-        # type: (CBOR_Packet) -> CBORBuildResult
-        return self._build_packet_item(pkt.getfieldval(self.name))
-
-    def dissect_result(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> CBORParseResult
-        child, remain = self._parse_packet_item(pkt, s)
-        self.set_val(pkt, child)
-        return CBORParseResult(remaining=remain, items=1)
 
     def randval(self):  # type: ignore
         # type: () -> CBOR_Packet
