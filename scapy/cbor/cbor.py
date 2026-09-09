@@ -562,7 +562,25 @@ class CBORMapData(object):
                     return False
             return True
         if isinstance(other, CBORMapData):
-            return self._pairs == other._pairs
+            # RFC 8949 maps are unordered; pair order is not identity.
+            if len(self._pairs) != len(other._pairs):
+                return False
+            used = [False] * len(other._pairs)
+            for map_key, value in self._pairs:
+                matched = False
+                for idx, (other_key, other_value) in enumerate(other._pairs):
+                    if used[idx]:
+                        continue
+                    if not _cbor_key_equivalent(map_key, other_key):
+                        continue
+                    if value != other_value:
+                        return False
+                    used[idx] = True
+                    matched = True
+                    break
+                if not matched:
+                    return False
+            return True
         return NotImplemented
 
     def __repr__(self):
