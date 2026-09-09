@@ -358,8 +358,7 @@ class OptionalTaggedThenFallback(CBOR_Packet):
 
 pkt = OptionalTaggedThenFallback(b"\x81\x07")
 from scapy.cbor.cborfields import CBOR_ABSENT
-assert pkt.tag_number is CBOR_ABSENT
-assert pkt.tagged_value is None or pkt.tagged_value is CBOR_ABSENT
+assert pkt.tagged_value is CBOR_ABSENT
 assert pkt.fallback == 7
 
 = A matching optional semantic tag with the wrong inner type is malformed
@@ -453,7 +452,7 @@ class OptionalTaggedBeforeAny(CBOR_Packet):
 
 # Tag 2 does not match optional tag 1 → absent; ANY consumes the item.
 pkt = OptionalTaggedBeforeAny(b"\x81\xc2\x01")
-assert pkt.getfieldval("tag_number") is CBOR_ABSENT
+assert pkt.getfieldval("tagged_value") is CBOR_ABSENT
 assert pkt.getfieldval("fallback") is not None
 assert pkt.getfieldval("fallback") is not CBOR_ABSENT
 
@@ -2816,7 +2815,7 @@ else:
 
 # Matching well-formed optional still yields to reserved trailing ANY.
 ok = OptionalTaggedBeforeAny(b"\x81\xc1\x01")
-assert ok.getfieldval("tag_number") is CBOR_ABSENT
+assert ok.getfieldval("tagged_value") is CBOR_ABSENT
 assert ok.fallback is not None
 
 = CBORF_MAP rejects non-text map keys

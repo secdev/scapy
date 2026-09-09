@@ -917,19 +917,17 @@ class CBORcodec_MAP(CBORcodec_Object[Any]):
                 remaining=s)
 
         pairs = []  # type: List[Tuple[Any, Any]]
-        seen_keys = set()  # type: set[bytes]
+        seen_keys = []  # type: List[Any]
 
         def _add_pair(key, value):
             # type: (Any, Any) -> None
-            # CBOR_FLOAT preserves received wire bytes in enc(), so distinct
-            # float/NaN encodings remain distinct while semantic duplicates
-            # (e.g. 1 vs 0x18 0x01) still collapse via preferred encoding.
-            key_wire = CBORcodec_Object.encode_cbor_item(key)
-            if key_wire in seen_keys:
-                raise CBOR_Codec_Decoding_Error(
-                    "Duplicate CBOR map key: %r" % (key,),
-                    remaining=s)
-            seen_keys.add(key_wire)
+            from scapy.cbor.cbor import _cbor_key_equivalent
+            for prev in seen_keys:
+                if _cbor_key_equivalent(prev, key):
+                    raise CBOR_Codec_Decoding_Error(
+                        "Duplicate CBOR map key: %r" % (key,),
+                        remaining=s)
+            seen_keys.append(key)
             pairs.append((key, value))
 
         if length is CBOR_INDEFINITE:
@@ -1317,12 +1315,9 @@ def _encode_cbor_item_deterministic(item):
     if isinstance(item, str):
         return CBORcodec_TEXT_STRING.enc(item)
     if isinstance(item, float):
-        # Preserve dissected wire (e.g. NaN payloads) when known; otherwise
-        # fall back to preferred-width encoding.
-        encoded = getattr(item, "cbor_encoded", None)
-        if encoded is not None:
-            return encoded
-        return CBORcodec_SIMPLE_AND_FLOAT.enc(item)
+        # Deterministic encoding always rebuilds from the semantic float
+        # value (shortest exact representation). Never reuse source wire.
+        return CBORcodec_SIMPLE_AND_FLOAT.enc(float(item))
     if item is None:
         return CBORcodec_SIMPLE_AND_FLOAT.enc(None)
     raise CBOR_Codec_Encoding_Error(
