@@ -19,6 +19,7 @@ import math
 from dataclasses import dataclass
 
 from scapy.cbor.cbor import (
+    CBOR_AdditionalInfo,
     CBOR_Decoding_Error,
     CBOR_Encoding_Error,
     CBOR_FloatAI,
@@ -46,10 +47,8 @@ from scapy.cbor.cborcodec import (
     CBOR_INDEFINITE,
     CBOR_decode_head,
     CBOR_encode_head,
-    CBOR_encode_indefinite_head,
-    CBOR_encode_break,
+    CBOR_encode_initial,
     cbor_count_items,
-    cbor_count_items_until_break,
     cbor_is_break,
     cbor_consume_break,
     CBORcodec_Object,
@@ -968,10 +967,9 @@ class CBORF_NULL(CBORF_field[None]):
         # type: (CBOR_Packet, bytes) -> bool
         if not s or cbor_is_break(s):
             return False
-        return s[0] == (
-            (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
-            | int(CBOR_SimpleValue.NULL)
-        )
+        return s[0] == CBOR_encode_initial(
+            CBOR_MajorTypes.SIMPLE_AND_FLOAT, CBOR_SimpleValue.NULL
+        )[0]
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> None
@@ -1026,10 +1024,9 @@ class CBORF_UNDEFINED(CBORF_field[None]):
         # type: (CBOR_Packet, bytes) -> bool
         if not s or cbor_is_break(s):
             return False
-        return s[0] == (
-            (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
-            | int(CBOR_SimpleValue.UNDEFINED)
-        )
+        return s[0] == CBOR_encode_initial(
+            CBOR_MajorTypes.SIMPLE_AND_FLOAT, CBOR_SimpleValue.UNDEFINED
+        )[0]
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> None
@@ -1275,7 +1272,7 @@ class _CBORF_compound(CBORF_element):
         if count is CBOR_INDEFINITE:
             # Lightweight head/span walk — avoid building CBOR_Object trees
             # just to learn the item budget before the schema pass.
-            item_count = cbor_count_items_until_break(remaining)
+            item_count = cbor_count_items(remaining, until_break=True)
             remaining = self._dissect_children_budgeted(
                 pkt, remaining, item_count
             )
@@ -1424,12 +1421,14 @@ class CBORF_ARRAY(_CBORF_compound):
         items_data, total_items = self._build_children(pkt)
         if self.encode_indefinite:
             data = (
-                CBOR_encode_indefinite_head(int(CBOR_MajorTypes.ARRAY)) +
+                CBOR_encode_initial(
+                    CBOR_MajorTypes.ARRAY, CBOR_AdditionalInfo.INDEFINITE
+                ) +
                 items_data +
-                CBOR_encode_break()
+                b'\xff'
             )
         else:
-            data = CBOR_encode_head(int(CBOR_MajorTypes.ARRAY), total_items)
+            data = CBOR_encode_head(CBOR_MajorTypes.ARRAY, total_items)
             data += items_data
         return CBORBuildResult(data, 1)
 
@@ -1783,7 +1782,7 @@ class CBORF_ARRAY_OF(_CBORF_HOMOGENEOUS):
             raise CBOR_Encoding_Error(
                 "Required collection field %r is None" % self.name)
         parts = [self._encode_element(pkt, item) for item in val]
-        data = CBOR_encode_head(int(CBOR_MajorTypes.ARRAY), len(val))
+        data = CBOR_encode_head(CBOR_MajorTypes.ARRAY, len(val))
         data += b"".join(parts)
         return CBORBuildResult(data, 1)
 
@@ -1940,7 +1939,7 @@ class CBORF_MAP(CBORF_element):
         for key_bytes, value_bytes in pairs:
             parts.append(key_bytes)
             parts.append(value_bytes)
-        data = CBOR_encode_head(int(CBOR_MajorTypes.MAP), len(pairs)) + b"".join(parts)
+        data = CBOR_encode_head(CBOR_MajorTypes.MAP, len(pairs)) + b"".join(parts)
         return CBORBuildResult(data, 1)
 
     def dissect_result(self, pkt, s):
@@ -2122,7 +2121,7 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
 
     def _encode_tagged(self, inner_data):
         # type: (bytes) -> bytes
-        return CBOR_encode_head(int(CBOR_MajorTypes.TAG), self.tag_num) + inner_data
+        return CBOR_encode_head(CBOR_MajorTypes.TAG, self.tag_num) + inner_data
 
     def matches_next_item(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> bool
