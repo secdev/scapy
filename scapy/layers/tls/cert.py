@@ -92,15 +92,19 @@ No need for obnoxious openssl tweaking anymore. :)
 """
 
 import base64
+import calendar
 import enum
 import os
+import socket
+import ssl
 import time
 import warnings
 
 from scapy.config import conf, crypto_validator
-from scapy.compat import Self
+from scapy.compat import Self, plain_str
 from scapy.error import warning
 from scapy.utils import binrepr
+from scapy.pton_ntop import inet_ntop
 from scapy.asn1.asn1 import (
     ASN1_BIT_STRING,
     ASN1_NULL,
@@ -134,6 +138,8 @@ from scapy.layers.x509 import (
     X509_AttributeValue,
     X509_Cert,
     X509_CRL,
+    X509_DNSName,
+    X509_IPAddress,
     X509_SubjectPublicKeyInfo,
 )
 from scapy.layers.tls.crypto.hash import _get_hash
@@ -943,6 +949,55 @@ def _get_csr_sig_hashname(csr):
     return hash_by_oid[sigAlg.algorithm.val]
 
 
+def _parse_subject_alt_name(extnValue):
+    """
+    Collect the DNS names and IP addresses from a subjectAltName extension.
+
+    :param extnValue: the X509_ExtSubjectAltName packet
+    :return: a list of ("DNS", name) and ("IP", address) pairs
+    """
+    names = []
+    for generalName in extnValue.subjectAltName or []:
+        name = generalName.generalName
+        if isinstance(name, X509_DNSName):
+            names.append(("DNS", plain_str(name.dNSName.val)))
+        elif isinstance(name, X509_IPAddress):
+            raw = name.iPAddress.val
+            if len(raw) == 4:
+                names.append(("IP", inet_ntop(socket.AF_INET, raw)))
+            elif len(raw) == 16:
+                names.append(("IP", inet_ntop(socket.AF_INET6, raw)))
+    return names
+
+
+def _match_dns_name(pattern, hostname):
+    """
+    Whether a certificate DNS name matches a hostname, RFC 6125 sect 6.4.3.
+
+    A wildcard is only honoured as the whole leftmost label, and only when the
+    name has at least two more labels after it, so ``*.example.com`` matches
+    ``a.example.com`` but not ``example.com`` or ``a.b.example.com``, and ``*.com``
+    matches nothing.
+
+    :param pattern: a dNSName from the certificate
+    :param hostname: the name the client asked for
+    :return: True if they match
+    """
+    pattern = pattern.lower().rstrip(".")
+    hostname = hostname.lower().rstrip(".")
+    if not pattern or not hostname:
+        return False
+    if not pattern.startswith("*."):
+        return pattern == hostname
+    suffix = pattern[1:]
+    if suffix.count(".") < 2:
+        # A wildcard directly under a public suffix would match too much.
+        return False
+    if not hostname.endswith(suffix):
+        return False
+    return "." not in hostname[:-len(suffix)]
+
+
 class Cert(metaclass=_CertMaker):
     """
     Wrapper for the X509_Cert from layers/x509.py.
@@ -986,6 +1041,11 @@ class Cert(metaclass=_CertMaker):
 
         self.pubkey = PubKey(bytes(tbsCert.subjectPublicKeyInfo))
 
+        # The names this certificate is issued to, as ("DNS", name) or
+        # ("IP", address) pairs. Other GeneralName kinds are not used to
+        # identify a server, so they are not recorded here.
+        self.subjectAltName = []
+
         if tbsCert.extensions:
             for extn in tbsCert.extensions:
                 if extn.extnID.oidname == "basicConstraints":
@@ -998,6 +1058,10 @@ class Cert(metaclass=_CertMaker):
                     self.extKeyUsage = extn.extnValue.get_extendedKeyUsage()
                 elif extn.extnID.oidname == "authorityKeyIdentifier":
                     self.authorityKeyID = extn.extnValue.keyIdentifier.val
+                elif extn.extnID.oidname == "subjectAltName":
+                    self.subjectAltName = _parse_subject_alt_name(
+                        extn.extnValue
+                    )
 
         self.signatureValue = bytes(cert.signatureValue)
         self.signatureLen = len(self.signatureValue)
@@ -1097,6 +1161,53 @@ class Cert(metaclass=_CertMaker):
         diff = (nft - now) / (24.0 * 3600)
         return diff
 
+    def isValidAt(self, now=None):
+        """
+        Whether the current time falls inside the certificate's validity period.
+
+        The comparison is made in UTC, which is how notBefore and notAfter are
+        stored. (:func:`remainingDays` compares in local time and so is off by
+        the local UTC offset.)
+
+        :param now: (optional) a UTC time tuple to compare against, defaulting
+            to the current time
+        :return: True if the certificate is neither expired nor not yet valid
+        """
+        if now is None:
+            now = time.gmtime()
+        now = calendar.timegm(now)
+        return (
+            calendar.timegm(self.notBefore) <= now <=
+            calendar.timegm(self.notAfter)
+        )
+
+    def matchesHostname(self, hostname):
+        """
+        Whether this certificate was issued to the given host.
+
+        Names come from the subjectAltName extension. RFC 6125 sect 6.4.4 says
+        the Common Name is only consulted when there is no subjectAltName at
+        all, and that is what happens here.
+
+        :param hostname: the DNS name or IP address the client asked for
+        :return: True if the certificate names that host
+        """
+        if not hostname:
+            return False
+        hostname = plain_str(hostname)
+        if self.subjectAltName:
+            for kind, name in self.subjectAltName:
+                if kind == "IP":
+                    if name == hostname:
+                        return True
+                elif _match_dns_name(name, hostname):
+                    return True
+            return False
+        for attr in self.subject_str.split("/"):
+            if attr.startswith("CN=") and _match_dns_name(attr[3:], hostname):
+                return True
+        return False
+
     def isRevoked(self, crl_list):
         """
         Given a list of trusted CRL (their signature has already been
@@ -1134,7 +1245,15 @@ class Cert(metaclass=_CertMaker):
 
     @property
     def der(self):
-        return bytes(self.x509Cert)
+        # Cached because __eq__ and __hash__ both read it, and re-encoding the
+        # whole certificate for every comparison is slow enough to matter:
+        # chaining against a system trust store is thousands of comparisons.
+        # A Cert is built once from immutable parsed ASN.1 and never edited.
+        try:
+            return self._der_cache
+        except AttributeError:
+            self._der_cache = bytes(self.x509Cert)
+            return self._der_cache
 
     @property
     def pubKey(self):
@@ -1566,6 +1685,7 @@ class CertTree(CertList):
         self,
         certList: Union[List[Cert], CertList, str],
         rootCAs: Union[List[Cert], CertList, Cert, str, None] = None,
+        load_system_store: bool = False,
     ):
         """
         Construct a chain of certificates that follows issuer/subject matching and
@@ -1578,9 +1698,18 @@ class CertTree(CertList):
             multiple certs/CRL) to try to chain.
         :param rootCAs: (optional) a list of certificates to trust. If not provided,
             trusts any self-signed certificates from the certList.
+        :param load_system_store: use the system trust store when rootCAs is empty.
         """
         # Parse the certificate list
         certList = CertList(certList)
+
+        if not rootCAs and load_system_store:
+            context = ssl.create_default_context()
+            rootCAs = [
+                Cert(der) for der in context.get_ca_certs(binary_form=True)
+            ]
+            if not rootCAs:
+                raise ValueError("The system trust store contains no certificates")
 
         # Find the ROOT CAs if store isn't specified
         if not rootCAs:
@@ -1662,13 +1791,42 @@ class CertTree(CertList):
         else:
             return None
 
-    def verify(self, cert):
+    def verify(self, cert, hostname=None, now=None):
         """
-        Verify that a certificate is properly signed.
+        Verify that a certificate is properly signed, current, and the right one.
+
+        Raises ValueError when the certificate fails any of the checks.
+
+        :param cert: the certificate to verify
+        :param hostname: (optional) the DNS name or IP address the peer was
+            expected to be. Without it the identity of the peer is not checked,
+            so any certificate the store can chain is accepted.
+        :param now: (optional) a UTC time tuple to check validity against,
+            defaulting to the current time
         """
         # Check that we can find a chain to this certificate
-        if not self.getchain(cert):
+        chain = self.getchain(cert)
+        if not chain:
             raise ValueError("Certificate verification failed !")
+        # Nothing in the chain may have expired or be in the future: an issuer
+        # that is out of date does not vouch for anything below it. A chain can
+        # also hold a CSR, which has no validity period to check.
+        for c in chain:
+            if not isinstance(c, Cert):
+                continue
+            if not c.isValidAt(now):
+                raise ValueError(
+                    "Certificate %s is outside its validity period "
+                    "(%s to %s) !" % (
+                        c.subject_str, c.notBefore_str, c.notAfter_str
+                    )
+                )
+        if hostname is not None and not cert.matchesHostname(hostname):
+            raise ValueError(
+                "Certificate %s was not issued to %s !" % (
+                    cert.subject_str, plain_str(hostname)
+                )
+            )
 
     def show(self, ret: bool = False):
         """
