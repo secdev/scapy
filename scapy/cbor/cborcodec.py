@@ -219,15 +219,27 @@ def cbor_skip_item(s):
     )
 
 
-def cbor_count_items_until_break(s):
-    # type: (Any) -> int
-    """Count definite top-level items before a break without building objects."""
+def cbor_count_items(s, max_count=None, until_break=False):
+    # type: (Any, Optional[int], bool) -> int
+    """Count top-level CBOR items with ``cbor_skip_item`` (no object trees).
+
+    When *until_break* is true, stop at a break byte without consuming it.
+    When *max_count* is set, stop after that many items even if more remain.
+    """
     rem = s
     count = 0
-    while rem and not cbor_is_break(rem):
+    while rem and not (until_break and cbor_is_break(rem)):
+        if max_count is not None and count >= max_count:
+            break
         rem = cbor_skip_item(rem)
         count += 1
     return count
+
+
+def cbor_count_items_until_break(s):
+    # type: (Any) -> int
+    """Count definite top-level items before a break without building objects."""
+    return cbor_count_items(s, until_break=True)
 
 
 def CBOR_decode_head(s):
