@@ -329,6 +329,94 @@ def _cbor_nan_preferred_ai(ai, bits):
     return ai
 
 
+def _cbor_nan_components(ai, bits):
+    # type: (int, int) -> Optional[Tuple[int, int]]
+    """Return ``(sign, significand52)`` for a NaN pattern, else ``None``.
+
+    The significand is zero-extended to a binary64-width 52-bit field so
+    half / single / double representations of the same NaN share identity.
+    """
+    if ai == 25:
+        sign = (int(bits) >> 15) & 0x1
+        exponent = (int(bits) >> 10) & 0x1f
+        fraction = int(bits) & 0x3ff
+        if exponent != 31 or not fraction:
+            return None
+        return sign, fraction << 42
+    if ai == 26:
+        sign = (int(bits) >> 31) & 0x1
+        exponent = (int(bits) >> 23) & 0xff
+        fraction = int(bits) & 0x7fffff
+        if exponent != 0xff or not fraction:
+            return None
+        return sign, fraction << 29
+    if ai == 27:
+        sign = (int(bits) >> 63) & 0x1
+        exponent = (int(bits) >> 52) & 0x7ff
+        fraction = int(bits) & ((1 << 52) - 1)
+        if exponent != 0x7ff or not fraction:
+            return None
+        return sign, fraction
+    return None
+
+
+def _cbor_encode_nan(sign, significand52, ai):
+    # type: (int, int, int) -> bytes
+    """Encode a NaN at float AI *ai* preserving *sign* and *significand52*."""
+    if ai == 25:
+        fraction = (significand52 >> 42) & 0x3ff
+        bits = (sign << 15) | (0x1f << 10) | fraction
+        return chb(0xf9) + struct.pack(">H", bits)
+    if ai == 26:
+        fraction = (significand52 >> 29) & 0x7fffff
+        bits = (sign << 31) | (0xff << 23) | fraction
+        return chb(0xfa) + struct.pack(">I", bits)
+    if ai == 27:
+        bits = (
+            (sign << 63) |
+            (0x7ff << 52) |
+            (significand52 & ((1 << 52) - 1))
+        )
+        return chb(0xfb) + struct.pack(">Q", bits)
+    raise CBOR_Codec_Encoding_Error("Invalid NaN float AI: %d" % ai)
+
+
+def _cbor_float_bits_from_encoded(encoded):
+    # type: (bytes) -> Tuple[int, int]
+    """Return ``(ai, bits)`` for a definite CBOR float item."""
+    wire = bytes(encoded)
+    if not wire:
+        raise CBOR_Codec_Encoding_Error("empty CBOR float encoding")
+    ai = wire[0] & 0x1f
+    if ai == 25:
+        if len(wire) < 3:
+            raise CBOR_Codec_Encoding_Error("truncated half float")
+        return ai, struct.unpack(">H", wire[1:3])[0]
+    if ai == 26:
+        if len(wire) < 5:
+            raise CBOR_Codec_Encoding_Error("truncated single float")
+        return ai, struct.unpack(">I", wire[1:5])[0]
+    if ai == 27:
+        if len(wire) < 9:
+            raise CBOR_Codec_Encoding_Error("truncated double float")
+        return ai, struct.unpack(">Q", wire[1:9])[0]
+    raise CBOR_Codec_Encoding_Error("not a CBOR float encoding: ai=%d" % ai)
+
+
+def _cbor_preferred_nan_encoding(encoded):
+    # type: (bytes) -> bytes
+    """Shortest CBOR float encoding preserving NaN sign and significand."""
+    ai, bits = _cbor_float_bits_from_encoded(encoded)
+    comps = _cbor_nan_components(ai, bits)
+    if comps is None:
+        raise CBOR_Codec_Encoding_Error(
+            "encoded float is not a NaN: %r" % (bytes(encoded),)
+        )
+    sign, significand52 = comps
+    preferred = _cbor_nan_preferred_ai(ai, bits)
+    return _cbor_encode_nan(sign, significand52, preferred)
+
+
 def _cbor_preferred_float_ai(value):
     # type: (float) -> int
     """Return the preferred float AI (25/26/27) for a numeric *value*."""
@@ -351,11 +439,10 @@ def _cbor_preferred_float_ai(value):
 def _cbor_preferred_float_ai_from_encoded(ai, bits):
     # type: (int, int) -> int
     """Preferred float AI using the original encoded width and bit pattern."""
-    import math
-    float_val = _cbor_float_from_bits(ai, bits)
-    if math.isnan(float_val):
+    comps = _cbor_nan_components(ai, bits)
+    if comps is not None:
         return _cbor_nan_preferred_ai(ai, bits)
-    return _cbor_preferred_float_ai(float_val)
+    return _cbor_preferred_float_ai(_cbor_float_from_bits(ai, bits))
 
 
 def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
@@ -1235,9 +1322,11 @@ def _encode_cbor_item_deterministic(item):
     :class:`~scapy.cbor.cbor.CBOR_Object` instances are accepted and reduced to
     native values (preferred float encoding, deterministic nested maps).
     """
+    import math
     from scapy.cbor.cbor import (
         CBOR_Object,
         CBOR_ARRAY,
+        CBOR_FLOAT,
         CBOR_MAP,
         CBOR_SEMANTIC_TAG,
         CBOR_SIMPLE_VALUE,
@@ -1248,6 +1337,12 @@ def _encode_cbor_item_deterministic(item):
     if isinstance(item, CBOR_Object):
         if isinstance(item, CBOR_UNDEFINED):
             return CBOR_UNDEFINED().enc()
+        if isinstance(item, CBOR_FLOAT):
+            encoded = getattr(item, "_encoded", None)
+            if encoded is not None and math.isnan(float(item.val)):
+                return _cbor_preferred_nan_encoding(encoded)
+            # Finite floats ignore original width; rebuild preferred form.
+            return CBORcodec_SIMPLE_AND_FLOAT.enc(float(item.val))
         if isinstance(item, CBOR_ARRAY):
             return _encode_cbor_item_deterministic(list(item.val))
         if isinstance(item, CBOR_MAP):
@@ -1287,6 +1382,7 @@ def _encode_cbor_item_deterministic(item):
     if isinstance(item, float):
         # Deterministic encoding always rebuilds from the semantic float
         # value (shortest exact representation). Never reuse source wire.
+        # Plain NaNs without retained CBOR bytes use quiet binary16.
         return CBORcodec_SIMPLE_AND_FLOAT.enc(float(item))
     if item is None:
         return CBORcodec_SIMPLE_AND_FLOAT.enc(None)
