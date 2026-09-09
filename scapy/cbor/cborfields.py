@@ -21,8 +21,11 @@ from dataclasses import dataclass
 from scapy.cbor.cbor import (
     CBOR_Decoding_Error,
     CBOR_Encoding_Error,
+    CBOR_AdditionalInfo,
     CBOR_MajorTypes,
     CBOR_Object,
+    CBOR_SimpleValue,
+    CBOR_UINT64_MAX,
     CBOR_UNSIGNED_INTEGER,
     CBOR_NEGATIVE_INTEGER,
     CBOR_BYTE_STRING,
@@ -647,7 +650,7 @@ class CBORF_UNSIGNED_INTEGER(CBORF_field[int]):
         if x is None:
             return None  # type: ignore
         i = int(x)
-        if i < 0 or i > 0xFFFFFFFFFFFFFFFF:
+        if i < 0 or i > CBOR_UINT64_MAX:
             raise CBOR_Encoding_Error(
                 "Unsigned integer out of CBOR range: %r" % (i,))
         return i
@@ -680,7 +683,7 @@ class CBORF_NEGATIVE_INTEGER(CBORF_field[int]):
         if x is None:
             return None  # type: ignore
         i = int(x)
-        if i >= 0 or i < -(1 << 64):
+        if i >= 0 or i < -(CBOR_UINT64_MAX + 1):
             raise CBOR_Encoding_Error(
                 "Negative integer out of CBOR range: %r" % (i,))
         return i
@@ -722,7 +725,7 @@ class CBORF_INTEGER(CBORF_field[int]):
         if x is None:
             return None  # type: ignore
         i = int(x)
-        if i < -(1 << 64) or i > 0xFFFFFFFFFFFFFFFF:
+        if i < -(CBOR_UINT64_MAX + 1) or i > CBOR_UINT64_MAX:
             raise CBOR_Encoding_Error(
                 "Integer out of CBOR range: %r" % (i,))
         return i
@@ -781,7 +784,7 @@ class CBORF_BYTE_STRING(CBORF_field[bytes]):
                 major_type, length, _rem = CBOR_decode_head(s)
             except CBOR_Codec_Decoding_Error as e:
                 raise CBOR_Decoding_Error(str(e))
-            if major_type != 2:
+            if major_type != int(CBOR_MajorTypes.BYTE_STRING):
                 raise CBOR_Type_Mismatch(
                     "Expected byte string, got major type %d" % major_type)
             if length is CBOR_INDEFINITE:
@@ -861,7 +864,7 @@ class CBORF_BYTE_STRING_PACKET(CBORF_field[Packet]):
                 major_type, length, _rem = CBOR_decode_head(s)
             except CBOR_Codec_Decoding_Error as e:
                 raise CBOR_Decoding_Error(str(e))
-            if major_type != 2:
+            if major_type != int(CBOR_MajorTypes.BYTE_STRING):
                 raise CBOR_Type_Mismatch(
                     "Expected byte string, got major type %d" % major_type)
             if length is CBOR_INDEFINITE:
@@ -922,7 +925,7 @@ class CBORF_BOOLEAN(CBORF_field[bool]):
         if not s or cbor_is_break(s):
             return False
         ai = s[0] & 0x1f
-        return ((s[0] >> 5) & 0x7) == 7 and ai in (20, 21)
+        return ((s[0] >> 5) & 0x7) == int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) and ai in (int(CBOR_SimpleValue.FALSE), int(CBOR_SimpleValue.TRUE))
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> bool
@@ -969,7 +972,7 @@ class CBORF_NULL(CBORF_field[None]):
         # type: (CBOR_Packet, bytes) -> bool
         if not s or cbor_is_break(s):
             return False
-        return s[0] == 0xf6
+        return s[0] == ((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_SimpleValue.NULL))
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> None
@@ -1024,7 +1027,7 @@ class CBORF_UNDEFINED(CBORF_field[None]):
         # type: (CBOR_Packet, bytes) -> bool
         if not s or cbor_is_break(s):
             return False
-        return s[0] == 0xf7
+        return s[0] == ((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_SimpleValue.UNDEFINED))
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> None
@@ -1077,7 +1080,7 @@ class CBORF_FLOAT(CBORF_field[float]):
         if not s or cbor_is_break(s):
             return False
         ai = s[0] & 0x1f
-        return ((s[0] >> 5) & 0x7) == 7 and ai in (25, 26, 27)
+        return ((s[0] >> 5) & 0x7) == int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) and ai in (int(CBOR_AdditionalInfo.TWO_BYTES), int(CBOR_AdditionalInfo.FOUR_BYTES), int(CBOR_AdditionalInfo.EIGHT_BYTES))
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> float
@@ -1431,7 +1434,7 @@ class CBORF_ARRAY(_CBORF_compound):
             major_type, count, remaining = CBOR_decode_head(s)
         except CBOR_Codec_Decoding_Error as e:
             raise CBOR_Decoding_Error(str(e))
-        if major_type != 4:
+        if major_type != int(CBOR_MajorTypes.ARRAY):
             raise CBOR_Type_Mismatch(
                 "Expected major type 4 (array), got %d" % major_type)
         remaining = self._dissect_children(pkt, remaining, count)
@@ -1931,7 +1934,7 @@ class CBORF_MAP(CBORF_element):
         for key_bytes, value_bytes in pairs:
             parts.append(key_bytes)
             parts.append(value_bytes)
-        data = CBOR_encode_head(5, len(pairs)) + b"".join(parts)
+        data = CBOR_encode_head(int(CBOR_MajorTypes.MAP), len(pairs)) + b"".join(parts)
         return CBORBuildResult(data, 1)
 
     def dissect_result(self, pkt, s):
@@ -1940,7 +1943,7 @@ class CBORF_MAP(CBORF_element):
             major_type, count, remaining = CBOR_decode_head(s)
         except CBOR_Codec_Decoding_Error as e:
             raise CBOR_Decoding_Error(str(e))
-        if major_type != 5:
+        if major_type != int(CBOR_MajorTypes.MAP):
             raise CBOR_Type_Mismatch(
                 "Expected major type 5 (map), got %d" % major_type)
 
@@ -2088,7 +2091,7 @@ class CBORF_SEMANTIC_TAG(CBORF_field[int]):
                  ):
         # type: (...) -> None
         self.tag_num = tag_num
-        if tag_num < 0 or tag_num > 0xFFFFFFFFFFFFFFFF:
+        if tag_num < 0 or tag_num > CBOR_UINT64_MAX:
             raise CBOR_Encoding_Error(
                 "Semantic tag number out of uint64 range")
         self.inner_field = inner_field
@@ -2107,7 +2110,7 @@ class CBORF_SEMANTIC_TAG(CBORF_field[int]):
             major_type, tag_num, remaining = CBOR_decode_head(s)
         except CBOR_Codec_Decoding_Error as e:
             raise CBOR_Decoding_Error(str(e))
-        if major_type != 6:
+        if major_type != int(CBOR_MajorTypes.TAG):
             raise CBOR_Type_Mismatch(
                 "Expected major type 6 (semantic tag), got %d" % major_type)
         if require_match and tag_num != self.tag_num:
@@ -2117,7 +2120,7 @@ class CBORF_SEMANTIC_TAG(CBORF_field[int]):
 
     def _encode_tagged(self, inner_data):
         # type: (bytes) -> bytes
-        return CBOR_encode_head(6, self.tag_num) + inner_data
+        return CBOR_encode_head(int(CBOR_MajorTypes.TAG), self.tag_num) + inner_data
 
     def m2i(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> Tuple[int, bytes]
