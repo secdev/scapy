@@ -183,15 +183,7 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
             clone._cbor_raw_cache_items = (  # type: ignore[attr-defined]
                 self._cbor_raw_cache_items
             )
-        from scapy.cbor.cborfields import _cbor_attach_parent
         for f in clone.fields_desc:
-            if not f.holds_packets or f.name not in clone.fields:
-                continue
-            fval = clone.fields[f.name]
-            if isinstance(fval, Packet):
-                _cbor_attach_parent(clone, fval)
-            elif isinstance(fval, list):
-                for item in fval:
-                    if isinstance(item, Packet):
-                        _cbor_attach_parent(clone, item)
+            if f.holds_packets and f.name in clone.fields:
+                clone.fields[f.name] = f.any2i(clone, clone.fields[f.name])
         return clone
