@@ -57,21 +57,21 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
             return False
         return True
 
-    def cbor_build_result(self):
+    def _cbor_build_counted(self):
         # type: () -> Any
-        """Return ``CBORBuildResult`` for this packet's root schema.
+        """Return ``_CBORBuildResult`` for this packet's root schema.
 
         When the raw cache is valid, return the exact received bytes together
         with the dissected top-level item count. Never rebuild an unchanged
         packet merely to recover cardinality.
         """
-        from scapy.cbor.cborfields import CBORBuildResult
+        from scapy.cbor.cborfields import _CBORBuildResult
         if self._raw_cache_is_valid():
             items = getattr(self, "_cbor_raw_cache_items", None)
             if items is None:
                 items = 1
-            return CBORBuildResult(self.raw_packet_cache, items)
-        result = self.CBOR_root.build_result(self)
+            return _CBORBuildResult(self.raw_packet_cache, items)
+        result = self.CBOR_root._build_counted(self)
         self._cbor_raw_cache_items = result.items  # type: ignore[attr-defined]
         return result
 
@@ -118,7 +118,7 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
     def do_dissect(self, s):
         # type: (bytes) -> bytes
         from scapy.cbor.cborfields import CBOR_ABSENT
-        result = self.CBOR_root.dissect_result(self, s)
+        result = self.CBOR_root._dissect_counted(self, s)
         remain = result.remaining
         self.raw_packet_cache = s[:-len(remain)] if remain else s
         self._cbor_raw_cache_items = result.items  # type: ignore[attr-defined]
