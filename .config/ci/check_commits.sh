@@ -6,7 +6,11 @@
 # We copy Wireshark's contributing guide, thanks to them for the idea !
 # This script is inspired by https://gitlab.com/wireshark/wireshark/-/blob/master/.gitlab-ci.yml
 
-commits=$(git rev-list --no-merges --after="2026-01-00T00:00:00" --max-count=$((PR_FETCH_DEPTH - 1)) HEAD)
+if git rev-parse --verify HEAD^2 >/dev/null 2>&1; then
+    commits=$(git rev-list --no-merges HEAD^1..HEAD^2)
+else
+    commits=$(git rev-list --no-merges --max-count=$((PR_FETCH_DEPTH - 1)) HEAD)
+fi
 if [ -z "$commits" ]; then
     echo "No commit to check in PR. OK."
     exit 0
