@@ -29,6 +29,7 @@ from scapy.cbor.cbor import (
     CBOR_Decoding_Error,
     CBOR_Encoding_Error,
     CBOR_Error,
+    CBOR_FloatAI,
     CBOR_MajorTypes,
     CBOR_Object,
     CBOR_SimpleValue,
@@ -326,7 +327,7 @@ def cbor_argument_is_shortest(additional_info, value):
 
 def _cbor_float_from_bits(ai, bits):
     # type: (int, int) -> float
-    if ai == int(CBOR_AdditionalInfo.TWO_BYTES):
+    if ai == int(CBOR_FloatAI.HALF):
         sign = (bits >> 15) & 0x1
         exponent = (bits >> 10) & 0x1f
         fraction = bits & 0x3ff
@@ -339,7 +340,7 @@ def _cbor_float_from_bits(ai, bits):
                 float("-inf") if sign else float("inf")
             )
         return ((-1) ** sign) * (1.0 + fraction / 1024.0) * (2 ** (exponent - 15))
-    if ai == int(CBOR_AdditionalInfo.FOUR_BYTES):
+    if ai == int(CBOR_FloatAI.SINGLE):
         return struct.unpack(">f", struct.pack(">I", bits))[0]
     return struct.unpack(">d", struct.pack(">Q", bits))[0]
 
@@ -370,9 +371,9 @@ def _cbor_float_to_half_bits(value):
         mant = ((mant64 | (1 << 52)) >> shift) if exp64 != -1023 else 0
         half = mant & 0x3FF
         preferred = math.copysign(value, -1.0 if sign else 1.0)
-        if _cbor_float_from_bits(25, sign | half) != preferred:
+        if _cbor_float_from_bits(int(CBOR_FloatAI.HALF), sign | half) != preferred:
             # Compare absolute then restore sign via copysign on left side
-            decoded = _cbor_float_from_bits(25, sign | half)
+            decoded = _cbor_float_from_bits(int(CBOR_FloatAI.HALF), sign | half)
             if decoded != math.copysign(abs(value), -1.0 if sign else 1.0):
                 return None
         return sign | half
@@ -382,7 +383,7 @@ def _cbor_float_to_half_bits(value):
     if mant64 & ((1 << 42) - 1):
         return None
     bits = sign | (half_exp << 10) | half_mant
-    decoded = _cbor_float_from_bits(25, bits)
+    decoded = _cbor_float_from_bits(int(CBOR_FloatAI.HALF), bits)
     if decoded != math.copysign(abs(value), -1.0 if sign else 1.0):
         return None
     return bits
@@ -395,27 +396,27 @@ def _cbor_nan_preferred_ai(ai, bits):
     RFC 8949 prefers a shorter NaN only when zero-padding the shorter
     significand reconstructs the original NaN payload.
     """
-    if ai == int(CBOR_AdditionalInfo.TWO_BYTES):
-        return 25
-    if ai == int(CBOR_AdditionalInfo.FOUR_BYTES):
+    if ai == int(CBOR_FloatAI.HALF):
+        return int(CBOR_FloatAI.HALF)
+    if ai == int(CBOR_FloatAI.SINGLE):
         # binary32 NaN: 1+8+23. Prefer half when low 13 significand bits are 0.
         mant = int(bits) & 0x7FFFFF
         if mant and (mant & ((1 << 13) - 1)) == 0:
-            return 25
-        return 26
-    if ai == int(CBOR_AdditionalInfo.EIGHT_BYTES):
+            return int(CBOR_FloatAI.HALF)
+        return int(CBOR_FloatAI.SINGLE)
+    if ai == int(CBOR_FloatAI.DOUBLE):
         # binary64 NaN: 1+11+52.
         mant = int(bits) & ((1 << 52) - 1)
         if mant == 0:
             # Infinity, not NaN — caller should not use this helper.
-            return 27
+            return int(CBOR_FloatAI.DOUBLE)
         # Prefer half when only the top 10 significand bits are used.
         if (mant & ((1 << 42) - 1)) == 0:
-            return 25
+            return int(CBOR_FloatAI.HALF)
         # Prefer single when only the top 23 significand bits are used.
         if (mant & ((1 << 29) - 1)) == 0:
-            return 26
-        return 27
+            return int(CBOR_FloatAI.SINGLE)
+        return int(CBOR_FloatAI.DOUBLE)
     return ai
 
 
@@ -426,21 +427,21 @@ def _cbor_nan_components(ai, bits):
     The significand is zero-extended to a binary64-width 52-bit field so
     half / single / double representations of the same NaN share identity.
     """
-    if ai == int(CBOR_AdditionalInfo.TWO_BYTES):
+    if ai == int(CBOR_FloatAI.HALF):
         sign = (int(bits) >> 15) & 0x1
         exponent = (int(bits) >> 10) & 0x1f
         fraction = int(bits) & 0x3ff
         if exponent != 31 or not fraction:
             return None
         return sign, fraction << 42
-    if ai == int(CBOR_AdditionalInfo.FOUR_BYTES):
+    if ai == int(CBOR_FloatAI.SINGLE):
         sign = (int(bits) >> 31) & 0x1
         exponent = (int(bits) >> 23) & 0xff
         fraction = int(bits) & 0x7fffff
         if exponent != 0xff or not fraction:
             return None
         return sign, fraction << 29
-    if ai == int(CBOR_AdditionalInfo.EIGHT_BYTES):
+    if ai == int(CBOR_FloatAI.DOUBLE):
         sign = (int(bits) >> 63) & 0x1
         exponent = (int(bits) >> 52) & 0x7ff
         fraction = int(bits) & ((1 << 52) - 1)
@@ -453,21 +454,21 @@ def _cbor_nan_components(ai, bits):
 def _cbor_encode_nan(sign, significand52, ai):
     # type: (int, int, int) -> bytes
     """Encode a NaN at float AI *ai* preserving *sign* and *significand52*."""
-    if ai == int(CBOR_AdditionalInfo.TWO_BYTES):
+    if ai == int(CBOR_FloatAI.HALF):
         fraction = (significand52 >> 42) & 0x3ff
         bits = (sign << 15) | (0x1f << 10) | fraction
         return chb(
             (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
-            | int(CBOR_AdditionalInfo.TWO_BYTES)
+            | int(CBOR_FloatAI.HALF)
         ) + struct.pack(">H", bits)
-    if ai == int(CBOR_AdditionalInfo.FOUR_BYTES):
+    if ai == int(CBOR_FloatAI.SINGLE):
         fraction = (significand52 >> 29) & 0x7fffff
         bits = (sign << 31) | (0xff << 23) | fraction
         return chb(
             (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
-            | int(CBOR_AdditionalInfo.FOUR_BYTES)
+            | int(CBOR_FloatAI.SINGLE)
         ) + struct.pack(">I", bits)
-    if ai == int(CBOR_AdditionalInfo.EIGHT_BYTES):
+    if ai == int(CBOR_FloatAI.DOUBLE):
         bits = (
             (sign << 63) |
             (0x7ff << 52) |
@@ -475,7 +476,7 @@ def _cbor_encode_nan(sign, significand52, ai):
         )
         return chb(
             (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
-            | int(CBOR_AdditionalInfo.EIGHT_BYTES)
+            | int(CBOR_FloatAI.DOUBLE)
         ) + struct.pack(">Q", bits)
     raise CBOR_Codec_Encoding_Error("Invalid NaN float AI: %d" % ai)
 
@@ -487,15 +488,15 @@ def _cbor_float_bits_from_encoded(encoded):
     if not wire:
         raise CBOR_Codec_Encoding_Error("empty CBOR float encoding")
     ai = wire[0] & 0x1f
-    if ai == int(CBOR_AdditionalInfo.TWO_BYTES):
+    if ai == int(CBOR_FloatAI.HALF):
         if len(wire) < 3:
             raise CBOR_Codec_Encoding_Error("truncated half float")
         return ai, struct.unpack(">H", wire[1:3])[0]
-    if ai == int(CBOR_AdditionalInfo.FOUR_BYTES):
+    if ai == int(CBOR_FloatAI.SINGLE):
         if len(wire) < 5:
             raise CBOR_Codec_Encoding_Error("truncated single float")
         return ai, struct.unpack(">I", wire[1:5])[0]
-    if ai == int(CBOR_AdditionalInfo.EIGHT_BYTES):
+    if ai == int(CBOR_FloatAI.DOUBLE):
         if len(wire) < 9:
             raise CBOR_Codec_Encoding_Error("truncated double float")
         return ai, struct.unpack(">Q", wire[1:9])[0]
@@ -518,21 +519,21 @@ def _cbor_preferred_nan_encoding(encoded):
 
 def _cbor_preferred_float_ai(value):
     # type: (float) -> int
-    """Return the preferred float AI (25/26/27) for a numeric *value*."""
+    """Return the preferred float AI for a numeric *value*."""
     import math
     if math.isnan(value):
         # Without the original payload bits, only the quiet binary16 NaN is a
         # safe generic preference. Encoded-width checks use bit patterns.
-        return 25
+        return int(CBOR_FloatAI.HALF)
     if _cbor_float_to_half_bits(value) is not None:
-        return 25
+        return int(CBOR_FloatAI.HALF)
     try:
         single = struct.unpack(">f", struct.pack(">f", value))[0]
     except (OverflowError, struct.error):
-        return 27
+        return int(CBOR_FloatAI.DOUBLE)
     if single == value or (math.isinf(single) and math.isinf(value)):
-        return 26
-    return 27
+        return int(CBOR_FloatAI.SINGLE)
+    return int(CBOR_FloatAI.DOUBLE)
 
 
 def _cbor_preferred_float_ai_from_encoded(ai, bits):
@@ -618,7 +619,11 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                     "Non-shortest CBOR simple value encoding "
                     "(AI=24, value=%d)" % value,
                 ))
-            if ai in (25, 26, 27) and value is not CBOR_INDEFINITE:
+            if ai in (
+                int(CBOR_FloatAI.HALF),
+                int(CBOR_FloatAI.SINGLE),
+                int(CBOR_FloatAI.DOUBLE),
+            ) and value is not CBOR_INDEFINITE:
                 preferred = _cbor_preferred_float_ai_from_encoded(ai, int(value))
                 if preferred is not None and preferred < ai:
                     issues.append((
@@ -1461,25 +1466,25 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
             # preserves the numeric value. Received non-preferred widths are
             # preserved via packet raw caches, not by this encoder.
             ai = _cbor_preferred_float_ai(val)
-            if ai == int(CBOR_AdditionalInfo.TWO_BYTES):
+            if ai == int(CBOR_FloatAI.HALF):
                 half = _cbor_float_to_half_bits(val)
                 if half is not None:
                     return chb(
                         (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
-                        | int(CBOR_AdditionalInfo.TWO_BYTES)
+                        | int(CBOR_FloatAI.HALF)
                     ) + struct.pack(">H", half)
-                ai = int(CBOR_AdditionalInfo.FOUR_BYTES)
-            if ai == int(CBOR_AdditionalInfo.FOUR_BYTES):
+                ai = int(CBOR_FloatAI.SINGLE)
+            if ai == int(CBOR_FloatAI.SINGLE):
                 try:
                     return chb(
                         (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
-                        | int(CBOR_AdditionalInfo.FOUR_BYTES)
+                        | int(CBOR_FloatAI.SINGLE)
                     ) + struct.pack(">f", val)
                 except (OverflowError, struct.error):
                     pass
             return chb(
                 (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
-                | int(CBOR_AdditionalInfo.EIGHT_BYTES)
+                | int(CBOR_FloatAI.DOUBLE)
             ) + struct.pack(">d", val)
         elif isinstance(val, int) and 0 <= val <= 23:
             # Simple value 0-23
@@ -1529,14 +1534,14 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
         elif additional_info == int(CBOR_SimpleValue.UNDEFINED):
             return CBOR_UNDEFINED(), s[1:]
         elif additional_info in (
-            int(CBOR_AdditionalInfo.TWO_BYTES),
-            int(CBOR_AdditionalInfo.FOUR_BYTES),
-            int(CBOR_AdditionalInfo.EIGHT_BYTES),
+            int(CBOR_FloatAI.HALF),
+            int(CBOR_FloatAI.SINGLE),
+            int(CBOR_FloatAI.DOUBLE),
         ):
             width = {
-                int(CBOR_AdditionalInfo.TWO_BYTES): 2,
-                int(CBOR_AdditionalInfo.FOUR_BYTES): 4,
-                int(CBOR_AdditionalInfo.EIGHT_BYTES): 8,
+                int(CBOR_FloatAI.HALF): 2,
+                int(CBOR_FloatAI.SINGLE): 4,
+                int(CBOR_FloatAI.DOUBLE): 8,
             }[additional_info]
             if len(s) < 1 + width:
                 raise CBOR_Codec_Decoding_Error(
