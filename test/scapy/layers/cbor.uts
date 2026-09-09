@@ -3173,6 +3173,76 @@ from scapy.cbor.cborcodec import CBORcodec_Object
 value = CBOR_FLOAT(1.5, encoded=bytes.fromhex("fb3ff8000000000000"))
 assert CBORcodec_Object.encode_cbor_item_deterministic(value) == bytes.fromhex("f93e00")
 
+= Deterministic NaN encoding preserves sign and preferred width
+from scapy.cbor.cbor import CBOR_FLOAT, _cbor_key_equivalent
+from scapy.cbor.cborcodec import (
+    CBORcodec_Object,
+    cbor_find_non_deterministic,
+)
+
+enc = CBORcodec_Object.encode_cbor_item_deterministic
+
+# Already-shortest quiet half NaN stays half
+half = CBOR_FLOAT(float("nan"), encoded=bytes.fromhex("f97e00"))
+assert enc(half) == bytes.fromhex("f97e00")
+assert cbor_find_non_deterministic(enc(half)) == []
+
+# binary64 quiet NaN with only top significand bits shortens to half
+wide_half = CBOR_FLOAT(float("nan"), encoded=bytes.fromhex("fb7ff8000000000000"))
+assert enc(wide_half) == bytes.fromhex("f97e00")
+assert _cbor_key_equivalent(half, wide_half)
+assert cbor_find_non_deterministic(enc(wide_half)) == []
+
+# binary64 NaN using top 23 significand bits shortens to float32, not half
+# significand bits 51..29 set as 0x40000001 << 29? Use mant with bit 29 set:
+# 0x8000000000000 | 0x20000000 = top quiet bit + lowest single-preserved bit
+to_single = CBOR_FLOAT(
+    float("nan"), encoded=bytes.fromhex("fb7ff8000020000000")
+)
+assert enc(to_single) == bytes.fromhex("fa7fc00001")
+assert cbor_find_non_deterministic(bytes.fromhex("fb7ff8000020000000"))
+assert cbor_find_non_deterministic(enc(to_single)) == []
+
+# binary64 NaN with a low significand bit cannot shorten
+irreducible = CBOR_FLOAT(
+    float("nan"), encoded=bytes.fromhex("fb7ff8000000000001")
+)
+assert enc(irreducible) == bytes.fromhex("fb7ff8000000000001")
+assert cbor_find_non_deterministic(enc(irreducible)) == []
+
+# Negative quiet half NaN keeps its sign under deterministic encoding
+neg = CBOR_FLOAT(float("nan"), encoded=bytes.fromhex("fbfff8000000000000"))
+assert enc(neg) == bytes.fromhex("f9fe00")
+assert cbor_find_non_deterministic(enc(neg)) == []
+assert not _cbor_key_equivalent(half, neg)
+
+= Unknown map NaN values keep payload through deterministic rebuild
+from scapy.cbor.cbor import CBOR_FLOAT, _cbor_key_equivalent
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class MapWithUnknown(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_UNSIGNED_INTEGER("a", 0),
+        unknown_field="unknown_pairs",
+    )
+
+# {"a": 1, "n": <binary64 NaN quiet extensible to half>}
+wire = bytes.fromhex("a2616101616efb7ff8000000000000")
+pkt = MapWithUnknown(wire)
+assert pkt.a == 1
+assert len(pkt.unknown_pairs) == 1
+assert isinstance(pkt.unknown_pairs[0][1], CBOR_FLOAT)
+pkt.a = 2  # invalidate raw cache; unknown members rebuild deterministically
+rebuilt = bytes(pkt)
+assert b"\x61a\x02" in rebuilt
+# preferred half NaN with the same identity
+assert bytes.fromhex("f97e00") in rebuilt
+assert _cbor_key_equivalent(
+    pkt.unknown_pairs[0][1],
+    CBOR_FLOAT(float("nan"), encoded=bytes.fromhex("f97e00")),
+)
+
 = Compound CBOR_Object values are unhashable
 from scapy.cbor.cbor import CBOR_ARRAY, CBOR_UNSIGNED_INTEGER
 
