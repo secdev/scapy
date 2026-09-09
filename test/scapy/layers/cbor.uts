@@ -2770,17 +2770,17 @@ assert issues and "break" in issues[0][1].lower()
 issues = cbor_find_non_deterministic(b"\xf8\x14")  # simple 20 via AI=24
 assert issues and "simple" in issues[0][1].lower()
 
-= CBORMapData lookup distinguishes +0.0 from -0.0 map keys
+= CBORMapData lookup treats +0.0 and -0.0 as equivalent map keys
 from scapy.cbor import CBOR_Codecs
+from scapy.cbor.cborcodec import CBOR_Codec_Decoding_Error
 
-# {+0.0: 1, -0.0: 2} as half floats
+# {+0.0: 1, -0.0: 2} as half floats — duplicate under RFC 8949 key equivalence
 wire = b"\xa2\xf9\x00\x00\x01\xf9\x80\x00\x02"
-obj, remaining = CBOR_Codecs.CBOR.dec(wire)
-assert remaining == b""
-md = obj.val
-assert md[0.0].val == 1
-assert md[-0.0].val == 2
-assert md[0.0] is not md[-0.0]
+try:
+    CBOR_Codecs.CBOR.dec(wire)
+    assert False, "+0.0 / -0.0 duplicate keys were accepted"
+except CBOR_Codec_Decoding_Error:
+    pass
 
 = Malformed optional semantic tag does not migrate into trailing CBORF_ANY
 from scapy.cbor.cbor import CBOR_Decoding_Error
@@ -2978,3 +2978,225 @@ assert CBOR_TRUE() != CBOR_FALSE()
 encoded = bytes.fromhex("fa3fc00000")
 assert CBOR_FLOAT(1.5, encoded=encoded).enc() == encoded
 True
+
+
++ PR5125 refactor regressions (RFC + lifecycle)
+
+= RFC map-key equivalence helper covers scalars, containers, tags, and NaNs
+from scapy.cbor.cbor import _cbor_key_equivalent
+from scapy.cbor.cbor import (
+    CBOR_ARRAY,
+    CBOR_FLOAT,
+    CBOR_MAP,
+    CBOR_SEMANTIC_TAG,
+    CBOR_TEXT_STRING,
+    CBOR_UNSIGNED_INTEGER,
+    CBORMapData,
+)
+import math
+
+assert _cbor_key_equivalent(0.0, -0.0)
+assert not _cbor_key_equivalent(1, 1.0)
+assert _cbor_key_equivalent([1, 2], [1, 2])
+assert not _cbor_key_equivalent([1, 2], [2, 1])
+assert _cbor_key_equivalent(
+    CBORMapData([(CBOR_TEXT_STRING("a"), 1), (CBOR_TEXT_STRING("b"), 2)]),
+    CBORMapData([(CBOR_TEXT_STRING("b"), 2), (CBOR_TEXT_STRING("a"), 1)]),
+)
+assert _cbor_key_equivalent(
+    CBOR_SEMANTIC_TAG((1, CBOR_UNSIGNED_INTEGER(5))),
+    CBOR_SEMANTIC_TAG((1, CBOR_UNSIGNED_INTEGER(5))),
+)
+assert not _cbor_key_equivalent(
+    CBOR_SEMANTIC_TAG((1, CBOR_UNSIGNED_INTEGER(5))),
+    CBOR_SEMANTIC_TAG((2, CBOR_UNSIGNED_INTEGER(5))),
+)
+nan_a = CBOR_FLOAT(float("nan"), encoded=bytes.fromhex("f97e00"))
+nan_b = CBOR_FLOAT(float("nan"), encoded=bytes.fromhex("fb7ff8000000000001"))
+assert math.isnan(nan_a.val) and math.isnan(nan_b.val)
+assert _cbor_key_equivalent(nan_a, nan_b)
+assert _cbor_key_equivalent(float("nan"), float("nan"))
+
+= Generic maps reject +0.0 and -0.0 as duplicate keys
+from scapy.cbor import CBOR_Codecs
+from scapy.cbor.cborcodec import CBOR_Codec_Decoding_Error
+
+# {+0.0: 1, -0.0: 2} half-floats — equivalent keys under RFC 8949
+wire = b"\xa2\xf9\x00\x00\x01\xf9\x80\x00\x02"
+try:
+    CBOR_Codecs.CBOR.dec(wire)
+    assert False, "+0.0 and -0.0 were accepted as distinct map keys"
+except CBOR_Codec_Decoding_Error:
+    pass
+
+= Generic maps keep integer 1 and float 1.0 as distinct keys
+from scapy.cbor import CBOR_Codecs
+
+# {1: "i", 1.0: "f"} — half float 1.0 is f93c00
+wire = b"\xa2\x01\x61i\xf9\x3c\x00\x61f"
+obj, rem = CBOR_Codecs.CBOR.dec(wire)
+assert rem == b""
+md = obj.val
+assert md[1].val == "i"
+assert md[1.0].val == "f"
+
+= Generic maps reject reordered equivalent maps used as map keys
+from scapy.cbor import CBOR_Codecs
+from scapy.cbor.cborcodec import CBOR_Codec_Decoding_Error
+
+# {{"a":1,"b":2}: 0, {"b":2,"a":1}: 1} — equivalent map keys
+k1 = b"\xa2\x61a\x01\x61b\x02"
+k2 = b"\xa2\x61b\x02\x61a\x01"
+wire = b"\xa2" + k1 + b"\x00" + k2 + b"\x01"
+try:
+    CBOR_Codecs.CBOR.dec(wire)
+    assert False, "reordered map keys were treated as distinct"
+except CBOR_Codec_Decoding_Error:
+    pass
+
+= Generic maps reject duplicate semantic-tag keys
+from scapy.cbor import CBOR_Codecs
+from scapy.cbor.cborcodec import CBOR_Codec_Decoding_Error
+
+# {1(5): 0, 1(5): 1}
+wire = b"\xa2\xc1\x05\x00\xc1\x05\x01"
+try:
+    CBOR_Codecs.CBOR.dec(wire)
+    assert False, "duplicate tagged keys were accepted"
+except CBOR_Codec_Decoding_Error:
+    pass
+
+= Generic maps reject distinct NaN encodings as duplicate keys
+from scapy.cbor import CBOR_Codecs
+from scapy.cbor.cborcodec import CBOR_Codec_Decoding_Error
+
+# {NaN16: 1, NaN64-payload: 2}
+wire = bytes.fromhex("a2f97e0001fb7ff800000000000102")
+try:
+    CBOR_Codecs.CBOR.dec(wire)
+    assert False, "distinct NaN encodings were accepted as distinct keys"
+except CBOR_Codec_Decoding_Error:
+    pass
+
+= CBORMapData treats +0.0 and -0.0 as the same lookup key
+from scapy.cbor import CBOR_Codecs
+
+# single-entry map keyed by +0.0
+wire = b"\xa1\xf9\x00\x00\x01"
+obj, remaining = CBOR_Codecs.CBOR.dec(wire)
+assert remaining == b""
+md = obj.val
+assert md[0.0].val == 1
+assert md[-0.0].val == 1
+assert md[0.0] is md[-0.0]
+
+= Deterministic encoding rebuilds floats from the semantic value
+from scapy.cbor.cbor import CBORFloatValue
+from scapy.cbor.cborcodec import CBORcodec_Object
+
+# 1.5 received as binary64 must still encode as preferred binary16
+value = CBORFloatValue(1.5, encoded=bytes.fromhex("fb3ff8000000000000"))
+assert CBORcodec_Object.encode_cbor_item_deterministic(value) == bytes.fromhex("f93e00")
+
+= Compound CBOR_Object values are unhashable
+from scapy.cbor.cbor import CBOR_ARRAY, CBOR_UNSIGNED_INTEGER
+
+arr = CBOR_ARRAY([CBOR_UNSIGNED_INTEGER(1)])
+try:
+    hash(arr)
+    assert False, "mutable/compound CBOR_Object remained hashable"
+except TypeError:
+    pass
+
+= Schema-fixed CBORF_SEMANTIC_TAG does not expose an editable tag field
+from scapy.cbor.cborfields import CBORF_SEMANTIC_TAG, CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class TaggedTs(CBOR_Packet):
+    CBOR_root = CBORF_SEMANTIC_TAG(
+        "tag_number",
+        None,
+        1,
+        CBORF_INTEGER("ts", 0),
+    )
+
+assert "tag_number" not in [f.name for f in TaggedTs.fields_desc]
+assert "ts" in [f.name for f in TaggedTs.fields_desc]
+pkt = TaggedTs(b"\xc1\x0a")
+assert pkt.ts == 10
+assert bytes(pkt) == b"\xc1\x0a"
+# Only the inner value is packet state; mutating ts must change the wire.
+pkt.ts = 11
+assert bytes(pkt) == b"\xc1\x0b"
+
+= Two independent CBORF_MAP fields keep separate unknown extensions after mutation
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_MAP,
+    CBORF_UNSIGNED_INTEGER,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class TwoMaps(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_MAP(
+            CBORF_UNSIGNED_INTEGER("a", 0),
+        ),
+        CBORF_MAP(
+            CBORF_UNSIGNED_INTEGER("b", 0),
+        ),
+    )
+
+# [{"a":1,"x":10},{"b":2,"y":20}]
+wire = (
+    b"\x82"
+    b"\xa2\x61a\x01\x61x\x0a"
+    b"\xa2\x61b\x02\x61y\x14"
+)
+pkt = TwoMaps(wire)
+assert pkt.a == 1 and pkt.b == 2
+assert bytes(pkt) == wire
+pkt.a = 3
+# Each map must retain its own unknown: map0 keeps x, map1 keeps y.
+# Deterministic rebuild sorts keys inside each map.
+assert bytes(pkt) == (
+    b"\x82"
+    b"\xa2\x61a\x03\x61x\x0a"
+    b"\xa2\x61b\x02\x61y\x14"
+)
+
+= Nested CBORF_MAP unknown extensions survive outer mutation
+from scapy.cbor.cborfields import (
+    CBORF_MAP,
+    CBORF_PACKET,
+    CBORF_UNSIGNED_INTEGER,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class InnerMapPkt(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_UNSIGNED_INTEGER("inner", 0),
+    )
+
+class OuterMapPkt(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_UNSIGNED_INTEGER("n", 0),
+        CBORF_PACKET("child", None, InnerMapPkt),
+    )
+
+# {"child":{"inner":2,"u":9},"n":1,"x":5}
+wire = (
+    b"\xa3"
+    b"\x65child\xa2\x65inner\x02\x61u\x09"
+    b"\x61n\x01"
+    b"\x61x\x05"
+)
+pkt = OuterMapPkt(wire)
+assert pkt.n == 1
+assert pkt.child.inner == 2
+pkt.n = 4
+built = bytes(pkt)
+# Outer unknowns (x) and nested unknowns (u) must both survive.
+assert b"\x61x\x05" in built
+assert b"\x61u\x09" in built
+assert pkt.child.inner == 2
