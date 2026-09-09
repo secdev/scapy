@@ -416,13 +416,15 @@ class CBOR_ARRAY(CBOR_Object[List[Any]]):
 class CBORMapData(object):
     """Ordered CBOR map pairs with typed dict-like access for scalar keys.
 
-    Preserves full CBOR key objects for faithful ``enc()`` round-trips while
-    still supporting ``map_data['name']`` / ``'name' in map_data`` for the
-    common scalar-key cases used by existing tests.
+    Storage preserves ordered ``(key, value)`` pairs so ``enc()`` can emit a
+    faithful CBOR map.  Lookup (``__getitem__`` / ``__contains__``) uses
+    RFC 8949 map-key equivalence via :func:`_cbor_key_equivalent`, so values
+    that compare equal under Python ``==`` but differ as CBOR items (``1`` vs
+    ``True``, distinct NaN payloads, etc.) stay distinct.
 
-    Lookup uses ``(type(key), key)`` identity so CBOR/Python values that
-    compare equal under ``==`` but differ by type (``1`` vs ``True``) remain
-    distinct.
+    Arbitrary CBOR maps cannot always be represented as Python ``dict``
+    objects; :meth:`as_dict` raises when equivalence or Python key collision
+    would lose distinctions.
     """
 
     __slots__ = ("_pairs",)
@@ -482,60 +484,6 @@ class CBORMapData(object):
     def __iter__(self):
         # type: () -> Any
         return iter(self.keys())
-
-    @staticmethod
-    def _float_key_identity(val, encoded=None):
-        # type: (float, Optional[bytes]) -> Tuple[Any, ...]
-        """Identity that distinguishes +0.0 / -0.0 and NaN payloads."""
-        fval = float(val)
-        if math.isnan(fval):
-            if encoded is not None:
-                return (float, "nan", bytes(encoded))
-            return (float, "nan", struct.pack(">d", fval))
-        # struct.pack preserves the IEEE sign bit so +0.0 != -0.0.
-        return (float, "f", struct.pack(">d", fval))
-
-    @staticmethod
-    def _key_identity(key):
-        # type: (Any) -> Tuple[Any, ...]
-        """Return a typed identity for map-key lookup."""
-        if isinstance(key, CBOR_Object):
-            # Normalize CBOR_Object keys to the native Python type they encode.
-            if isinstance(key, (CBOR_TRUE, CBOR_FALSE)):
-                return (bool, bool(key.val))
-            if isinstance(key, CBOR_NULL):
-                return (type(None), None)
-            if isinstance(key, CBOR_UNDEFINED):
-                return ("undef", None)
-            if isinstance(key, CBOR_UNSIGNED_INTEGER):
-                return (int, int(key.val))
-            if isinstance(key, CBOR_NEGATIVE_INTEGER):
-                return (int, int(key.val))
-            if isinstance(key, CBOR_FLOAT):
-                return CBORMapData._float_key_identity(
-                    key.val, getattr(key, "_encoded", None)
-                )
-            if isinstance(key, CBOR_BYTE_STRING):
-                return (bytes, bytes(key.val))
-            if isinstance(key, CBOR_TEXT_STRING):
-                return (str, str(key.val))
-            if isinstance(key, CBOR_ARRAY):
-                return (list, key)
-            if isinstance(key, CBOR_MAP):
-                return (CBORMapData, key)
-            if isinstance(key, CBOR_SEMANTIC_TAG):
-                return (CBOR_SEMANTIC_TAG, key.val)
-            if isinstance(key, CBOR_SIMPLE_VALUE):
-                return (CBOR_SIMPLE_VALUE, key.val)
-            return (type(key), key.val)
-        # bool is a subclass of int.
-        if isinstance(key, bool):
-            return (bool, key)
-        if isinstance(key, float):
-            return CBORMapData._float_key_identity(key)
-        if isinstance(key, int):
-            return (int, key)
-        return (type(key), key)
 
     def keys(self):
         # type: () -> List[Any]
