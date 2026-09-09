@@ -358,14 +358,13 @@ def _cbor_preferred_float_ai_from_encoded(ai, bits):
     return _cbor_preferred_float_ai(float_val)
 
 
-def cbor_find_non_deterministic(s, allow_indefinite=True, base_offset=0):
+def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
     # type: (bytes, bool, int) -> List[Tuple[int, str]]
-    """Scan *s* for non-shortest CBOR argument encodings.
+    """Scan *s* for encodings that are not RFC 8949 core-deterministic.
 
     Returns a list of ``(absolute_offset, message)`` issues. Indefinite-length
-    items are accepted only when *allow_indefinite* is true (e.g. a BPv7
-    bundle outer array). Callers that require definite-length encoding
-    (primary/canonical blocks per RFC 9171) must pass ``False``.
+    items are rejected by default. Protocols that permit indefinite containers
+    (for example some BPv7 outer arrays) may pass ``allow_indefinite=True``.
     """
     issues = []  # type: List[Tuple[int, str]]
     index = [0]
