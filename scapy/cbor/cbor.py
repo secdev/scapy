@@ -296,6 +296,9 @@ class CBOR_AdditionalInfo(metaclass=Enum_metaclass):
     TWO_BYTES = 25
     FOUR_BYTES = 26
     EIGHT_BYTES = 27
+    RESERVED_28 = 28
+    RESERVED_29 = 29
+    RESERVED_30 = 30
     INDEFINITE = 31
 
 
