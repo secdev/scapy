@@ -435,6 +435,34 @@ class CBORMapData(object):
         # type: () -> List[Tuple[Any, Any]]
         return list(self._pairs)
 
+    @property
+    def pairs(self):
+        # type: () -> List[Tuple[Any, Any]]
+        """Ordered ``(key, value)`` pairs (primary map representation)."""
+        return self.cbor_pairs()
+
+    def as_dict(self):
+        # type: () -> Dict[Any, Any]
+        """Convert to a Python dict, raising if CBOR key distinctions would be lost."""
+        out = {}  # type: Dict[Any, Any]
+        used_norms = []  # type: List[Any]
+        for key, value in self._pairs:
+            norm = _cbor_key_norm(key)
+            if norm in used_norms:
+                raise ValueError(
+                    "CBOR map keys are equivalent under RFC 8949; "
+                    "cannot convert to dict without losing distinctions"
+                )
+            # Also reject Python-dict collisions (True vs 1, etc.).
+            py_key = key.val if isinstance(key, CBOR_Object) else key
+            if py_key in out:
+                raise ValueError(
+                    "Converting CBOR map to dict would collapse distinct keys"
+                )
+            used_norms.append(norm)
+            out[py_key] = value
+        return out
+
     def copy(self):
         # type: () -> CBORMapData
         return copy.deepcopy(self)

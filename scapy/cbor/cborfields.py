@@ -195,7 +195,11 @@ def _cbor_packet_from_bytes(cls, data, parent):
 
 def cbor_object_to_python(obj):
     # type: (Any) -> Any
-    """Convert a :class:`CBOR_Object` tree to native Python values."""
+    """Convert a :class:`CBOR_Object` tree to native Python values.
+
+    Prefer keeping :class:`CBOR_Object` for arbitrary CBOR (``CBORF_ANY``).
+    This helper remains for typed-field coercion and legacy call sites.
+    """
     if not isinstance(obj, CBOR_Object):
         return obj
     if isinstance(obj, CBOR_UNDEFINED):
@@ -203,8 +207,6 @@ def cbor_object_to_python(obj):
     if isinstance(obj, CBOR_ARRAY):
         return [cbor_object_to_python(item) for item in obj.val]
     if isinstance(obj, CBOR_MAP):
-        # Preserve an explicit map wrapper so rebuild cannot confuse maps
-        # with arrays of pairs.
         from scapy.cbor.cbor import CBORMapData
         if isinstance(obj.val, CBORMapData):
             pairs = obj.val.cbor_pairs()
@@ -222,9 +224,72 @@ def cbor_object_to_python(obj):
     if isinstance(obj, CBOR_SIMPLE_VALUE):
         return CBORSimpleValue(obj.val)
     if isinstance(obj, CBOR_FLOAT):
-        from scapy.cbor.cbor import CBORFloatValue
-        return CBORFloatValue(obj.val, encoded=getattr(obj, "_encoded", None))
+        return float(obj.val)
     return obj.val
+
+
+def python_to_cbor_object(value):
+    # type: (Any) -> Any
+    """Convert native Python / legacy wrappers into a :class:`CBOR_Object` tree."""
+    from scapy.cbor.cbor import (
+        CBOR_ARRAY,
+        CBOR_BYTE_STRING,
+        CBOR_FALSE,
+        CBOR_FLOAT,
+        CBOR_MAP,
+        CBOR_NEGATIVE_INTEGER,
+        CBOR_NULL,
+        CBOR_SEMANTIC_TAG,
+        CBOR_SIMPLE_VALUE,
+        CBOR_TEXT_STRING,
+        CBOR_TRUE,
+        CBOR_UNDEFINED,
+        CBOR_UNSIGNED_INTEGER,
+        CBORMapData,
+        CBORFloatValue,
+        CBORSimpleValue,
+        CBORTagValue,
+        CBOR_UNDEFINED_VALUE,
+    )
+    if isinstance(value, CBOR_Object):
+        return value
+    if value is CBOR_UNDEFINED_VALUE:
+        return CBOR_UNDEFINED()
+    if isinstance(value, CBORTagValue):
+        return CBOR_SEMANTIC_TAG(
+            (value.tag, python_to_cbor_object(value.value))
+        )
+    if isinstance(value, CBORSimpleValue):
+        return CBOR_SIMPLE_VALUE(value.value)
+    if isinstance(value, CBORFloatValue):
+        return CBOR_FLOAT(float(value), encoded=value.cbor_encoded)
+    if isinstance(value, CBORMapData):
+        return CBOR_MAP(CBORMapData([
+            (python_to_cbor_object(k), python_to_cbor_object(v))
+            for k, v in value.cbor_pairs()
+        ]))
+    if isinstance(value, bool):
+        return CBOR_TRUE() if value else CBOR_FALSE()
+    if value is None:
+        return CBOR_NULL()
+    if isinstance(value, int):
+        if value >= 0:
+            return CBOR_UNSIGNED_INTEGER(value)
+        return CBOR_NEGATIVE_INTEGER(value)
+    if isinstance(value, float):
+        return CBOR_FLOAT(value)
+    if isinstance(value, bytes):
+        return CBOR_BYTE_STRING(value)
+    if isinstance(value, str):
+        return CBOR_TEXT_STRING(value)
+    if isinstance(value, list):
+        return CBOR_ARRAY([python_to_cbor_object(item) for item in value])
+    if isinstance(value, dict):
+        return CBOR_MAP(CBORMapData([
+            (python_to_cbor_object(k), python_to_cbor_object(v))
+            for k, v in value.items()
+        ]))
+    raise TypeError("Cannot convert %r to CBOR_Object" % (type(value),))
 
 
 class CBORF_element(object):
@@ -488,15 +553,12 @@ class CBORF_field(CBORF_element, Generic[_I]):
 
 
 class CBORF_ANY(CBORF_field[Any]):
-    """Represent any well-formed CBOR value, including recursion."""
+    """Represent any well-formed CBOR value as a lossless ``CBOR_Object``."""
     ismutable = True
-    # Treat composites as atomic values so Packet.__iter__/do_build does not
-    # expand a decoded CBOR array into individual generator elements.
-    islist = 1
 
     def is_empty(self, pkt):
         # type: (CBOR_Packet) -> bool
-        # Python None is CBOR null; only CBOR_ABSENT means "no item".
+        # Python None / CBOR null is a real value; only CBOR_ABSENT means absent.
         return pkt.getfieldval(self.name) is CBOR_ABSENT
 
     def matches_next_item(self, pkt, s):
@@ -513,8 +575,13 @@ class CBORF_ANY(CBORF_field[Any]):
         # type: (Any) -> Any
         if x is CBOR_ABSENT or x is CBOR_UNDEFINED_VALUE or x is CBOR_NO_ITEM:
             return x
-        # Deep-copy composites so in-place nested mutations invalidate cache.
         return copy.deepcopy(x)
+
+    def any2i(self, pkt, x):
+        # type: (CBOR_Packet, Any) -> Any
+        if x is CBOR_ABSENT or x is CBOR_NO_ITEM or x is CBOR_UNDEFINED_VALUE:
+            return x
+        return python_to_cbor_object(x)
 
     def build_result(self, pkt):
         # type: (CBOR_Packet) -> CBORBuildResult
@@ -526,14 +593,14 @@ class CBORF_ANY(CBORF_field[Any]):
     def m2i(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> Tuple[Any, bytes]
         obj, remain = CBORcodec_Object.decode_cbor_item(s)
-        return cbor_object_to_python(obj), remain
+        if isinstance(obj, CBOR_UNDEFINED):
+            return CBOR_UNDEFINED_VALUE, remain
+        return obj, remain
 
     def encode_value(self, x):
         # type: (Any) -> bytes
         if x is CBOR_ABSENT:
             return b""
-        if isinstance(x, CBOR_Object):
-            x = cbor_object_to_python(x)
         return CBORcodec_Object.encode_cbor_item(x)
 
 
@@ -981,10 +1048,9 @@ class CBORF_UNDEFINED(CBORF_field[None]):
 class CBORF_FLOAT(CBORF_field[float]):
     """CBOR float field (major type 7).
 
-    Dissected values retain the received encoding (half / single / double,
-    including NaN payloads) via :class:`~scapy.cbor.cbor.CBORFloatValue`.
-    Assigning a plain ``float`` uses preferred serialization on the next
-    rebuild.
+    Stores a plain Python ``float``. Exact received encodings are preserved
+    only while the packet ``raw_packet_cache`` remains valid; after semantic
+    rebuild, preferred (shortest exact) encoding is used.
     """
     CBOR_tag = CBOR_MajorTypes.SIMPLE_AND_FLOAT
 
@@ -997,35 +1063,28 @@ class CBORF_FLOAT(CBORF_field[float]):
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> float
-        from scapy.cbor.cbor import CBORFloatValue
         if x is CBOR_ABSENT:
             return CBOR_ABSENT  # type: ignore
         if x is None:
             return None  # type: ignore
-        if isinstance(x, CBORFloatValue):
-            return x
         if isinstance(x, CBOR_FLOAT):
-            return CBORFloatValue(x.val, encoded=x._encoded)
+            return float(x.val)
         if isinstance(x, CBOR_Object):
             return float(cbor_object_to_python(x))
         return float(x)
 
     def m2i(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> Tuple[float, bytes]
-        from scapy.cbor.cbor import CBORFloatValue
         obj, remain = CBORcodec_SIMPLE_AND_FLOAT.dec(s)
         if not isinstance(obj, CBOR_FLOAT):
             raise CBOR_Type_Mismatch(
                 "Expected float, got %r" % obj)
-        return CBORFloatValue(obj.val, encoded=obj._encoded), remain
+        return float(obj.val), remain
 
     def encode_value(self, x):
         # type: (Any) -> bytes
-        from scapy.cbor.cbor import CBORFloatValue
         if isinstance(x, CBOR_FLOAT):
-            return x.enc()
-        if isinstance(x, CBORFloatValue) and x.cbor_encoded is not None:
-            return x.cbor_encoded
+            return CBORcodec_SIMPLE_AND_FLOAT.enc(float(x.val))
         return CBORcodec_SIMPLE_AND_FLOAT.enc(float(x))
 
     def i2h(self, pkt, x):
@@ -1861,9 +1920,7 @@ class CBORF_MAP(CBORF_element):
                     raise CBOR_Decoding_Error(
                         "CBOR map value did not decode to a single item"
                     )
-                unknown_pairs.append(
-                    (key, cbor_object_to_python(val_obj))
-                )
+                unknown_pairs.append((key, val_obj))
 
         if count is CBOR_INDEFINITE:
             while True:
@@ -1976,6 +2033,9 @@ class CBORF_SEMANTIC_TAG(CBORF_field[int]):
         self.inner_field = inner_field
         # Honour an explicit default (e.g. CBOR_ABSENT); otherwise the field
         # stores the configured tag number when present.
+        if default is CBOR_ABSENT:
+            # Tag number is schema metadata; absence applies to the value field.
+            self.inner_field.default = CBOR_ABSENT
         if default is None:
             default = tag_num
         super(CBORF_SEMANTIC_TAG, self).__init__(name, default)
