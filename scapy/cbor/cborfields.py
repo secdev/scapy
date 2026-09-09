@@ -184,12 +184,6 @@ def _cbor_attach_parent(parent, child):
     return child
 
 
-def _cbor_packet_from_bytes(cls, data, parent):
-    # type: (Type[Packet], bytes, Optional[Packet]) -> Packet
-    """Instantiate a nested packet with Scapy field-parent ownership."""
-    return cls(data, _parent=parent)  # type: ignore
-
-
 def cbor_object_to_python(obj):
     # type: (Any) -> Any
     """Convert a :class:`CBOR_Object` tree to native Python values.
@@ -218,53 +212,6 @@ def cbor_object_to_python(obj):
     if isinstance(obj, CBOR_FLOAT):
         return float(obj.val)
     return obj.val
-
-
-def python_to_cbor_object(value):
-    # type: (Any) -> Any
-    """Convert native Python values into a :class:`CBOR_Object` tree."""
-    from scapy.cbor.cbor import (
-        CBOR_ARRAY,
-        CBOR_BYTE_STRING,
-        CBOR_FALSE,
-        CBOR_FLOAT,
-        CBOR_MAP,
-        CBOR_NEGATIVE_INTEGER,
-        CBOR_NULL,
-        CBOR_TEXT_STRING,
-        CBOR_TRUE,
-        CBOR_UNSIGNED_INTEGER,
-        CBORMapData,
-    )
-    if isinstance(value, CBOR_Object):
-        return value
-    if isinstance(value, CBORMapData):
-        return CBOR_MAP(CBORMapData([
-            (python_to_cbor_object(k), python_to_cbor_object(v))
-            for k, v in value.cbor_pairs()
-        ]))
-    if isinstance(value, bool):
-        return CBOR_TRUE() if value else CBOR_FALSE()
-    if value is None:
-        return CBOR_NULL()
-    if isinstance(value, int):
-        if value >= 0:
-            return CBOR_UNSIGNED_INTEGER(value)
-        return CBOR_NEGATIVE_INTEGER(value)
-    if isinstance(value, float):
-        return CBOR_FLOAT(value)
-    if isinstance(value, bytes):
-        return CBOR_BYTE_STRING(value)
-    if isinstance(value, str):
-        return CBOR_TEXT_STRING(value)
-    if isinstance(value, list):
-        return CBOR_ARRAY([python_to_cbor_object(item) for item in value])
-    if isinstance(value, dict):
-        return CBOR_MAP(CBORMapData([
-            (python_to_cbor_object(k), python_to_cbor_object(v))
-            for k, v in value.items()
-        ]))
-    raise TypeError("Cannot convert %r to CBOR_Object" % (type(value),))
 
 
 class CBORF_element(object):
@@ -388,29 +335,6 @@ class CBORF_field(CBORF_element, Generic[_I]):
         if isinstance(x, CBOR_Object):
             x = cbor_object_to_python(x)
         return self.h2i(pkt, x)
-
-    def extract_packet(self,
-                       cls,  # type: Type[CBOR_Packet]
-                       s,  # type: bytes
-                       _parent=None,  # type: Optional[CBOR_Packet]
-                       ):
-        # type: (...) -> Tuple[CBOR_Packet, bytes]
-        try:
-            c = cls(s, _parent=_parent)
-        except CBORF_badsequence:
-            c = packet.Raw(s, _parent=_parent)  # type: ignore
-        craw = c.getlayer(config.conf.raw_layer)
-        cpad = c.getlayer(config.conf.padding_layer)
-        s = b""
-        if craw is not None:
-            s = craw.load
-            if craw.underlayer:
-                del craw.underlayer.payload
-        if cpad is not None:
-            s = cpad.load
-            if cpad.underlayer:
-                del cpad.underlayer.payload
-        return c, s
 
     def build_result(self, pkt):
         # type: (CBOR_Packet) -> CBORBuildResult
@@ -558,6 +482,120 @@ class CBORF_ANY(CBORF_field[Any]):
             return x
         return copy.deepcopy(x)
 
+    @staticmethod
+    def python_to_cbor_object(value):
+        # type: (Any) -> Any
+        """Convert native Python values into a :class:`CBOR_Object` tree."""
+        from scapy.cbor.cbor import (
+            CBOR_ARRAY,
+            CBOR_BYTE_STRING,
+            CBOR_FALSE,
+            CBOR_FLOAT,
+            CBOR_MAP,
+            CBOR_NEGATIVE_INTEGER,
+            CBOR_NULL,
+            CBOR_TEXT_STRING,
+            CBOR_TRUE,
+            CBOR_UNSIGNED_INTEGER,
+            CBORMapData,
+        )
+        convert = CBORF_ANY.python_to_cbor_object
+        if isinstance(value, CBOR_Object):
+            return value
+        if isinstance(value, CBORMapData):
+            return CBOR_MAP(CBORMapData([
+                (convert(k), convert(v))
+                for k, v in value.cbor_pairs()
+            ]))
+        if isinstance(value, bool):
+            return CBOR_TRUE() if value else CBOR_FALSE()
+        if value is None:
+            return CBOR_NULL()
+        if isinstance(value, int):
+            if value >= 0:
+                return CBOR_UNSIGNED_INTEGER(value)
+            return CBOR_NEGATIVE_INTEGER(value)
+        if isinstance(value, float):
+            return CBOR_FLOAT(value)
+        if isinstance(value, bytes):
+            return CBOR_BYTE_STRING(value)
+        if isinstance(value, str):
+            return CBOR_TEXT_STRING(value)
+        if isinstance(value, list):
+            return CBOR_ARRAY([convert(item) for item in value])
+        if isinstance(value, dict):
+            return CBOR_MAP(CBORMapData([
+                (convert(k), convert(v))
+                for k, v in value.items()
+            ]))
+        raise TypeError("Cannot convert %r to CBOR_Object" % (type(value),))
+
+    @staticmethod
+    def _cache_fingerprint(obj):
+        # type: (Any) -> Any
+        """Recursive rebuild-relevant fingerprint for ``CBORF_ANY`` values."""
+        from scapy.cbor.cbor import CBORMapData
+        fingerprint = CBORF_ANY._cache_fingerprint
+        if obj is CBOR_ABSENT or obj is CBOR_NO_ITEM:
+            return ("sentinel", obj)
+        if isinstance(obj, CBOR_UNDEFINED):
+            return ("undefined",)
+        if isinstance(obj, CBOR_FLOAT):
+            fval = float(obj.val)
+            if math.isnan(fval):
+                token = ("nan",)  # type: Any
+            elif math.isinf(fval):
+                token = ("inf", math.copysign(1.0, fval))
+            elif fval == 0.0:
+                token = ("zero", math.copysign(1.0, fval))
+            else:
+                token = ("num", fval)
+            encoded = getattr(obj, "_encoded", None)
+            return ("float", token, encoded)
+        if isinstance(obj, CBOR_ARRAY):
+            return (
+                "array",
+                tuple(fingerprint(item) for item in obj.val),
+            )
+        if isinstance(obj, CBOR_MAP):
+            if isinstance(obj.val, CBORMapData):
+                pairs = obj.val.cbor_pairs()
+            elif isinstance(obj.val, dict):
+                pairs = list(obj.val.items())
+            else:
+                pairs = list(obj.val)
+            return (
+                "map",
+                tuple(
+                    (fingerprint(key), fingerprint(value))
+                    for key, value in pairs
+                ),
+            )
+        if isinstance(obj, CBORMapData):
+            return (
+                "mapdata",
+                tuple(
+                    (fingerprint(key), fingerprint(value))
+                    for key, value in obj.cbor_pairs()
+                ),
+            )
+        if isinstance(obj, CBOR_SEMANTIC_TAG):
+            tag_num, inner = obj.val
+            return ("tag", int(tag_num), fingerprint(inner))
+        if isinstance(obj, CBOR_Object):
+            return (type(obj).__name__, obj.val)
+        if isinstance(obj, list):
+            return ("list", tuple(fingerprint(item) for item in obj))
+        if isinstance(obj, dict):
+            return (
+                "dict",
+                tuple(
+                    (fingerprint(key), fingerprint(value))
+                    for key, value in obj.items()
+                ),
+            )
+        return ("py", type(obj).__name__, obj)
+
     def cache_fingerprint(self, x):
         # type: (Any) -> Any
         """Snapshot for Scapy mutable raw-cache comparison.
@@ -566,7 +604,7 @@ class CBORF_ANY(CBORF_field[Any]):
         clears the wire cache is visible even when the semantic float is
         unchanged.
         """
-        return _cbor_any_cache_fingerprint(x)
+        return self._cache_fingerprint(x)
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> Any
@@ -574,7 +612,7 @@ class CBORF_ANY(CBORF_field[Any]):
             return x
         if isinstance(x, CBOR_UNDEFINED):
             return x
-        return python_to_cbor_object(x)
+        return self.python_to_cbor_object(x)
 
     def build_result(self, pkt):
         # type: (CBOR_Packet) -> CBORBuildResult
@@ -592,80 +630,6 @@ class CBORF_ANY(CBORF_field[Any]):
         if x is CBOR_ABSENT:
             return b""
         return CBORcodec_Object.encode_cbor_item(x)
-
-
-def _cbor_any_cache_fingerprint(obj):
-    # type: (Any) -> Any
-    """Recursive rebuild-relevant fingerprint for ``CBORF_ANY`` values."""
-    from scapy.cbor.cbor import CBORMapData
-    if obj is CBOR_ABSENT or obj is CBOR_NO_ITEM:
-        return ("sentinel", obj)
-    if isinstance(obj, CBOR_UNDEFINED):
-        return ("undefined",)
-    if isinstance(obj, CBOR_FLOAT):
-        fval = float(obj.val)
-        if math.isnan(fval):
-            token = ("nan",)  # type: Any
-        elif math.isinf(fval):
-            token = ("inf", math.copysign(1.0, fval))
-        elif fval == 0.0:
-            token = ("zero", math.copysign(1.0, fval))
-        else:
-            token = ("num", fval)
-        encoded = getattr(obj, "_encoded", None)
-        return ("float", token, encoded)
-    if isinstance(obj, CBOR_ARRAY):
-        return (
-            "array",
-            tuple(_cbor_any_cache_fingerprint(item) for item in obj.val),
-        )
-    if isinstance(obj, CBOR_MAP):
-        if isinstance(obj.val, CBORMapData):
-            pairs = obj.val.cbor_pairs()
-        elif isinstance(obj.val, dict):
-            pairs = list(obj.val.items())
-        else:
-            pairs = list(obj.val)
-        return (
-            "map",
-            tuple(
-                (
-                    _cbor_any_cache_fingerprint(key),
-                    _cbor_any_cache_fingerprint(value),
-                )
-                for key, value in pairs
-            ),
-        )
-    if isinstance(obj, CBORMapData):
-        return (
-            "mapdata",
-            tuple(
-                (
-                    _cbor_any_cache_fingerprint(key),
-                    _cbor_any_cache_fingerprint(value),
-                )
-                for key, value in obj.cbor_pairs()
-            ),
-        )
-    if isinstance(obj, CBOR_SEMANTIC_TAG):
-        tag_num, inner = obj.val
-        return ("tag", int(tag_num), _cbor_any_cache_fingerprint(inner))
-    if isinstance(obj, CBOR_Object):
-        return (type(obj).__name__, obj.val)
-    if isinstance(obj, list):
-        return ("list", tuple(_cbor_any_cache_fingerprint(item) for item in obj))
-    if isinstance(obj, dict):
-        return (
-            "dict",
-            tuple(
-                (
-                    _cbor_any_cache_fingerprint(key),
-                    _cbor_any_cache_fingerprint(value),
-                )
-                for key, value in obj.items()
-            ),
-        )
-    return ("py", type(obj).__name__, obj)
 
 
 #############################
@@ -876,7 +840,7 @@ class CBORF_BYTE_STRING_PACKET(CBORF_field[Packet]):
         if pkt_cls is None:
             return packet.Raw(data)
         try:
-            return _cbor_packet_from_bytes(pkt_cls, data, pkt)
+            return pkt_cls(data, _parent=pkt)  # type: ignore
         except Exception as exc:
             raise CBOR_Decoding_Error(
                 "Failed to decode byte-string packet content: %s" % exc
@@ -2055,7 +2019,8 @@ class CBORF_MAP(CBORF_element):
                 continue
             name = fld.name
             if name not in pair_values:
-                self._mark_map_field_absent(pkt, fld)
+                if isinstance(fld, CBORF_optional):
+                    fld._field.mark_absent(pkt)
                 continue
             _dissect_value_bytes(fld, pair_values[name])
 
@@ -2079,11 +2044,6 @@ class CBORF_MAP(CBORF_element):
                 )
         self._unknown_field.set_val(pkt, unknown_pairs)
         return CBORParseResult(remaining=remaining, items=1)
-
-    def _mark_map_field_absent(self, pkt, fld):
-        # type: (CBOR_Packet, Any) -> None
-        if isinstance(fld, CBORF_optional):
-            fld._field.mark_absent(pkt)
 
     def build(self, pkt):
         # type: (CBOR_Packet) -> bytes
@@ -2370,15 +2330,15 @@ class CBORF_PACKET(CBORF_field['CBOR_Packet']):
         """Decode exactly one CBOR item into a nested packet."""
         item_bytes, remain = cbor_item_span(s)
         try:
-            child = _cbor_packet_from_bytes(self.cls, item_bytes, pkt)
+            child = self.cls(item_bytes, _parent=pkt)  # type: ignore
         except CBOR_Decoding_Error:
             raise
         except Exception as exc:
             raise CBOR_Decoding_Error(str(exc))
         return child, remain
 
-    def _build_packet_item(self, pkt, val):
-        # type: (CBOR_Packet, Any) -> CBORBuildResult
+    def _build_packet_item(self, val):
+        # type: (Any) -> CBORBuildResult
         """Encode a nested packet and enforce one top-level CBOR item."""
         if val is None:
             raise CBOR_Encoding_Error(
@@ -2396,7 +2356,7 @@ class CBORF_PACKET(CBORF_field['CBOR_Packet']):
         # type: (CBOR_Packet, Any) -> bytes
         if x is None:
             return b""
-        return self._build_packet_item(pkt, x).data
+        return self._build_packet_item(x).data
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> CBOR_Packet
@@ -2404,7 +2364,7 @@ class CBORF_PACKET(CBORF_field['CBOR_Packet']):
 
     def encode_value(self, x):
         # type: (Any) -> bytes
-        return self._build_packet_item(None, x).data  # type: ignore
+        return self._build_packet_item(x).data
 
     def parse_value(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> CBORParseResult
@@ -2413,11 +2373,11 @@ class CBORF_PACKET(CBORF_field['CBOR_Packet']):
 
     def build_value(self, pkt, value):
         # type: (CBOR_Packet, Any) -> CBORBuildResult
-        return self._build_packet_item(pkt, value)
+        return self._build_packet_item(value)
 
     def build_result(self, pkt):
         # type: (CBOR_Packet) -> CBORBuildResult
-        return self._build_packet_item(pkt, pkt.getfieldval(self.name))
+        return self._build_packet_item(pkt.getfieldval(self.name))
 
     def dissect_result(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> CBORParseResult
