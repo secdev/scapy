@@ -13,8 +13,6 @@ for sentinels (``CBOR_ABSENT``), mutable ANY values, and nested item counts.
 from scapy.base_classes import Packet_metaclass
 from scapy.packet import Packet
 
-import copy
-
 from typing import (
     Any,
     Dict,
@@ -164,18 +162,6 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
             return self.raw_packet_cache
         return self.CBOR_root.build(self)
 
-    def do_build(self):
-        # type: () -> bytes
-        # Packet.do_build() expands via __iter__ when explicit=0 (setfieldval).
-        # That would drop CBOR-only packet state such as unknown map pairs.
-        pkt = self.self_build()
-        for t in self.post_transforms:
-            pkt = t(pkt)
-        pay = self.do_build_payload()
-        if self.raw_packet_cache is None:
-            return self.post_build(pkt, pay)
-        return pkt + pay
-
     def do_dissect(self, x):
         # type: (bytes) -> bytes
         result = self.CBOR_root.dissect_result(self, x)
@@ -191,12 +177,8 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
         ``parent`` for ownership, so reattach after the clone is built.
         """
         clone = super(CBOR_Packet, self).copy()
-        for attr in (
-            "_cbor_raw_cache_items",
-            "_crc_content_span",
-        ):
-            if hasattr(self, attr):
-                setattr(clone, attr, getattr(self, attr))
+        if hasattr(self, "_cbor_raw_cache_items"):
+            clone._cbor_raw_cache_items = self._cbor_raw_cache_items  # type: ignore[attr-defined]
         from scapy.cbor.cborfields import _cbor_attach_parent
         for f in clone.fields_desc:
             if not f.holds_packets or f.name not in clone.fields:

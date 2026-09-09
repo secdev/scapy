@@ -3215,3 +3215,59 @@ built = bytes(pkt)
 assert b"\x61x\x05" in built
 assert b"\x61u\x09" in built
 assert pkt.child.inner == 2
+
+
++ CBOR_Packet standard Scapy lifecycle
+
+= Unknown map extensions survive Packet.__iter__ and standard do_build
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class LifeMap(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_UNSIGNED_INTEGER("a", 0),
+        unknown_field="unknown_pairs",
+    )
+
+wire = b"\xa2\x61a\x01\x61x\x0a"
+pkt = LifeMap(wire)
+pkt.a = 2  # clears explicit / raw cache
+assert bytes(pkt) == b"\xa2\x61a\x02\x61x\x0a"
+iterated = next(iter(pkt))
+assert bytes(iterated) == b"\xa2\x61a\x02\x61x\x0a"
+assert iterated.unknown_pairs[0][0] == "x"
+
+= fuzz() and show() accept CBOR packets with unknown map members
+from scapy.packet import fuzz
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class LifeMap2(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_UNSIGNED_INTEGER("a", 0),
+        unknown_field="unknown_pairs",
+    )
+
+pkt = LifeMap2(b"\xa2\x61a\x01\x61x\x0a")
+fuzzed = fuzz(pkt)
+assert isinstance(fuzzed, LifeMap2)
+pkt.show(dump=True)
+pkt.show2(dump=True)
+
+= copy and deepcopy re-parent nested CBOR packets
+import copy
+from scapy.cbor.cborfields import CBORF_PACKET, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class LifeChild(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("n", 0)
+
+class LifeParent(CBOR_Packet):
+    CBOR_root = CBORF_PACKET("child", None, LifeChild)
+
+pkt = LifeParent(child=LifeChild(n=1))
+cloned = pkt.copy()
+deep = copy.deepcopy(pkt)
+assert cloned.child.parent is cloned
+assert deep.child.parent is deep
+assert cloned.child.n == 1 and deep.child.n == 1
