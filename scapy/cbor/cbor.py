@@ -456,8 +456,14 @@ class CBORMapData(object):
                     "CBOR map keys are equivalent under RFC 8949; "
                     "cannot convert to dict without losing distinctions"
                 )
-            # Also reject Python-dict collisions (True vs 1, etc.).
             py_key = key.val if isinstance(key, CBOR_Object) else key
+            try:
+                hash(py_key)
+            except TypeError:
+                raise ValueError(
+                    "CBOR map key cannot be represented as a Python dict key"
+                )
+            # Also reject Python-dict collisions (True vs 1, etc.).
             if py_key in out:
                 raise ValueError(
                     "Converting CBOR map to dict would collapse distinct keys"
