@@ -48,6 +48,7 @@ from scapy.cbor.cborcodec import (
     CBOR_encode_head,
     CBOR_encode_indefinite_head,
     CBOR_encode_break,
+    cbor_count_items,
     cbor_count_items_until_break,
     cbor_is_break,
     cbor_consume_break,
@@ -1375,23 +1376,11 @@ class CBORF_SEQUENCE(_CBORF_compound):
         # type: (CBOR_Packet, bytes) -> CBORParseResult
         # Count only up to this schema's max so trailing CBOR items remain for
         # a parent (e.g. Raw / Padding), matching definite ARRAY roots.
-        view = memoryview(s) if not isinstance(s, memoryview) else s
-        probe = view
-        item_count = 0
-        max_count = self.max_items(pkt)
-        while probe and not cbor_is_break(probe) and item_count < max_count:
-            _obj, probe = CBORcodec_Object.decode_cbor_item(probe)
-            item_count += 1
+        item_count = cbor_count_items(
+            s, max_count=self.max_items(pkt), until_break=False
+        )
         remaining = self._dissect_children_budgeted(pkt, s, item_count)
         return CBORParseResult(remaining=remaining, items=item_count)
-
-    def build(self, pkt):
-        # type: (CBOR_Packet) -> bytes
-        return self.build_result(pkt).data
-
-    def dissect(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> bytes
-        return self.dissect_result(pkt, s).remaining
 
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
