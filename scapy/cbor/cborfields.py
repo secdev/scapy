@@ -1491,6 +1491,7 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
                  name,  # type: str
                  default,  # type: Any
                  pkt_cls=None,  # type: _ARRAY_T
+                 next_cls_cb=None,  # type: Optional[Callable[..., Optional[Type[Packet]]]]  # noqa: E501
                  max_count=None,  # type: Optional[int]
                  ):
         # type: (...) -> None
@@ -1499,30 +1500,26 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
         self.holds_packets = 0
         self.next_cls_cb = None  # type: Optional[Callable[..., Optional[Type[Packet]]]]
         self.max_count = max_count
-        self._init_element_type(pkt_cls)
-        super(_CBORF_HOMOGENEOUS, self).__init__(name, default)
-
-    def _init_element_type(self, pkt_cls):
-        # type: (_ARRAY_T) -> None
-        chosen = pkt_cls
-        if chosen is None:
-            raise ValueError("Provide pkt_cls")
-        if isinstance(chosen, type) and issubclass(chosen, CBORF_field) or \
-                isinstance(chosen, CBORF_field):
-            if isinstance(chosen, type):
-                self.item_field = chosen("_item", None)  # type: ignore
-            else:
-                self.item_field = chosen
-            self.holds_packets = 0
-        elif (
-            isinstance(chosen, type)
-            and issubclass(chosen, Packet)
-            and hasattr(chosen, "CBOR_root")
-        ):
-            self.cls = cast("Type[CBOR_Packet]", chosen)
+        if next_cls_cb is not None:
+            if pkt_cls is not None:
+                raise ValueError(
+                    "Pass only next_cls_cb, or only pkt_cls"
+                )
+            self.next_cls_cb = next_cls_cb
             self.holds_packets = 1
+        elif pkt_cls is None:
+            raise ValueError("Provide pkt_cls or next_cls_cb")
+        elif isinstance(pkt_cls, type) and issubclass(pkt_cls, CBORF_field) or \
+                isinstance(pkt_cls, CBORF_field):
+            if isinstance(pkt_cls, type):
+                self.item_field = pkt_cls("_item", None)  # type: ignore
+            else:
+                self.item_field = pkt_cls
+            self.holds_packets = 0
         else:
-            raise ValueError("pkt_cls must be a CBORF_field or CBOR_Packet")
+            self.cls = _require_cbor_packet_cls(pkt_cls)
+            self.holds_packets = 1
+        super(_CBORF_HOMOGENEOUS, self).__init__(name, default)
 
     def _list_limit(self):
         # type: () -> int
@@ -1564,6 +1561,7 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
                 )
                 if pkt_cls is CBOR_NO_ITEM or pkt_cls is None:
                     return CBOR_NO_ITEM, s
+                pkt_cls = _require_cbor_packet_cls(pkt_cls)
             item_bytes, remaining = cbor_item_span(s)
             try:
                 child = pkt_cls(item_bytes, _parent=pkt)  # type: ignore
@@ -1609,6 +1607,18 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
         return "<%s %s>" % (self.__class__.__name__, self.name)
 
 
+def _require_cbor_packet_cls(pkt_cls):
+    # type: (Any) -> Type[CBOR_Packet]
+    """Validate a Packet subclass with CBOR_root for collection elements."""
+    if (
+        isinstance(pkt_cls, type)
+        and issubclass(pkt_cls, Packet)
+        and hasattr(pkt_cls, "CBOR_root")
+    ):
+        return cast("Type[CBOR_Packet]", pkt_cls)
+    raise ValueError("pkt_cls must be a CBORF_field or CBOR_Packet")
+
+
 class CBORF_SEQUENCE_OF(_CBORF_HOMOGENEOUS):
     """
     Unframed sequence of homogeneous elements (no CBOR array head).
@@ -1642,22 +1652,13 @@ class CBORF_SEQUENCE_OF(_CBORF_HOMOGENEOUS):
                  max_count=None,  # type: Optional[int]
                  ):
         # type: (...) -> None
-        self.next_cls_cb = None  # type: Optional[Callable[..., Optional[Type[Packet]]]]
         self.count_from = count_from
-        if next_cls_cb is not None:
-            if pkt_cls is not None:
-                raise ValueError(
-                    "Pass only next_cls_cb, or only pkt_cls"
-                )
-            self.next_cls_cb = next_cls_cb
-            self.cls = None
-            self.item_field = None
-            self.holds_packets = 1
-            self.max_count = max_count
-            CBORF_field.__init__(self, name, default)
-            return
         super(CBORF_SEQUENCE_OF, self).__init__(
-            name, default, pkt_cls=pkt_cls, max_count=max_count
+            name,
+            default,
+            pkt_cls=pkt_cls,
+            next_cls_cb=next_cls_cb,
+            max_count=max_count,
         )
 
     @property
