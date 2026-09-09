@@ -932,13 +932,11 @@ from scapy.cbor.cborfields import (
 
 try:
     CBORF_ARRAY(
-        CBORF_optional(
-            CBORF_CONDITIONAL(
-                CBORF_optional(
-                    CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER)
-                ),
-                lambda pkt: True,
-            )
+        CBORF_CONDITIONAL(
+            CBORF_optional(
+                CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER)
+            ),
+            lambda pkt: True,
         ),
         CBORF_UNSIGNED_INTEGER("tail", 0),
     )
@@ -2119,6 +2117,53 @@ pkt._cbor_unknown = [("version", CBOR_UNSIGNED_INTEGER(42))]
 try:
     bytes(pkt)
     assert False, "encode accepted unknown key colliding with known member"
+except CBOR_Encoding_Error:
+    pass
+
+
+= Fixed-schema maps reject unknown keys colliding with absent optional members
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_UNSIGNED_INTEGER, CBORF_optional
+from scapy.cbor.cbor import CBOR_Encoding_Error, CBOR_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class OptMap(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_UNSIGNED_INTEGER("a", 0),
+        CBORF_optional(CBORF_UNSIGNED_INTEGER("opt", None)),
+    )
+
+pkt = OptMap(a=1)
+pkt._cbor_unknown = [("opt", CBOR_UNSIGNED_INTEGER(42))]
+try:
+    bytes(pkt)
+    assert False, "encode accepted unknown key colliding with absent optional"
+except CBOR_Encoding_Error:
+    pass
+
+
+= Fixed-schema maps reject unknown keys colliding with false conditional members
+from scapy.cbor.cborfields import (
+    CBORF_CONDITIONAL,
+    CBORF_MAP,
+    CBORF_UNSIGNED_INTEGER,
+)
+from scapy.cbor.cbor import CBOR_Encoding_Error, CBOR_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class CondMap(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_UNSIGNED_INTEGER("flag", 0),
+        CBORF_CONDITIONAL(
+            CBORF_UNSIGNED_INTEGER("cond", 9),
+            lambda pkt: pkt.getfieldval("flag") == 1,
+        ),
+    )
+
+pkt = CondMap(flag=0)
+pkt._cbor_unknown = [("cond", CBOR_UNSIGNED_INTEGER(42))]
+try:
+    bytes(pkt)
+    assert False, "encode accepted unknown key colliding with false conditional"
 except CBOR_Encoding_Error:
     pass
 
