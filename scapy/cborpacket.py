@@ -156,6 +156,17 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
                 return self.fields[attr]
         return super(CBOR_Packet, self).getfieldval(attr)
 
+    def _raw_packet_cache_field_value(self, fld, val, copy=False):
+        # type: (Any, Any, bool) -> Optional[Any]
+        # Field-local fingerprints (e.g. CBORF_ANY) include wire-cache state
+        # that semantic CBOR_Object equality ignores.
+        cache_fingerprint = getattr(fld, "cache_fingerprint", None)
+        if cache_fingerprint is not None:
+            return cache_fingerprint(val)
+        return super(CBOR_Packet, self)._raw_packet_cache_field_value(
+            fld, val, copy
+        )
+
     def self_build(self):
         # type: () -> bytes
         if _cbor_raw_cache_is_valid(self):

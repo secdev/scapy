@@ -3107,6 +3107,24 @@ rebuilt = bytes(pkt)
 parsed = AnyFloatMutPkt(rebuilt)
 assert parsed.value.val == 2.0
 
+= CBORF_ANY same-value float mutation invalidates the packet raw cache
+from scapy.cbor.cbor import CBOR_FLOAT
+from scapy.cbor.cborfields import CBORF_ANY
+from scapy.cborpacket import CBOR_Packet
+
+class AnyFloatSameMutPkt(CBOR_Packet):
+    CBOR_root = CBORF_ANY("value", None)
+
+wire = bytes.fromhex("fb3ff8000000000000")  # 1.5 as binary64
+pkt = AnyFloatSameMutPkt(wire)
+assert bytes(pkt) == wire
+assert isinstance(pkt.value, CBOR_FLOAT)
+pkt.value.val = 1.5
+rebuilt = bytes(pkt)
+assert rebuilt != wire
+assert rebuilt == bytes.fromhex("f93e00")
+assert AnyFloatSameMutPkt(rebuilt).value.val == 1.5
+
 = CBORF_ANY NaN mutation does not reuse the original encoded payload
 from scapy.cbor.cbor import CBOR_FLOAT
 from scapy.cbor.cborfields import CBORF_ANY
