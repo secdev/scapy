@@ -132,6 +132,9 @@ def CBOR_encode_head(major_type, value):
         )
 
 
+CBOR_BREAK_BYTE = 0xFF
+
+
 def _cbor_buf_bytes(buf):
     # type: (Any) -> bytes
     """Materialize a bytes/memoryview slice as ``bytes``."""
@@ -145,7 +148,7 @@ def _cbor_buf_bytes(buf):
 def cbor_is_break(s):
     # type: (Any) -> bool
     """Return whether *s* begins with a CBOR break byte."""
-    return bool(s) and s[0] == 0xff
+    return bool(s) and s[0] == CBOR_BREAK_BYTE
 
 
 def cbor_consume_break(s):
@@ -157,6 +160,76 @@ def cbor_consume_break(s):
     return s[1:]
 
 
+def _cbor_skip_item(s, depth=0):
+    # type: (Any, int) -> Any
+    """Advance past one well-formed CBOR item without building objects."""
+    if depth > MAX_CBOR_NESTING:
+        raise CBOR_Codec_Decoding_Error(
+            "Maximum CBOR nesting depth exceeded",
+            remaining=_cbor_buf_bytes(s))
+    major_type, value, rem = CBOR_decode_head(s)
+    if major_type in (
+        int(CBOR_MajorTypes.UNSIGNED_INTEGER),
+        int(CBOR_MajorTypes.NEGATIVE_INTEGER),
+        int(CBOR_MajorTypes.SIMPLE_AND_FLOAT),
+    ):
+        return rem
+    if major_type in (
+        int(CBOR_MajorTypes.BYTE_STRING),
+        int(CBOR_MajorTypes.TEXT_STRING),
+    ):
+        if value is CBOR_INDEFINITE:
+            expected_type = major_type
+            while rem and not cbor_is_break(rem):
+                chunk_type, chunk_len, rem = CBOR_decode_head(rem)
+                if chunk_type != expected_type:
+                    raise CBOR_Codec_Decoding_Error(
+                        "Indefinite string chunk must be major type %d, "
+                        "got %d" % (expected_type, chunk_type),
+                        remaining=_cbor_buf_bytes(rem))
+                if chunk_len is CBOR_INDEFINITE:
+                    raise CBOR_Codec_Decoding_Error(
+                        "Nested indefinite string",
+                        remaining=_cbor_buf_bytes(rem))
+                length = int(chunk_len)
+                if len(rem) < length:
+                    raise CBOR_Codec_Decoding_Error(
+                        "Truncated byte/text string chunk",
+                        remaining=_cbor_buf_bytes(rem))
+                rem = rem[length:]
+            return cbor_consume_break(rem)
+        length = int(value)
+        if len(rem) < length:
+            raise CBOR_Codec_Decoding_Error(
+                "Truncated byte/text string",
+                remaining=_cbor_buf_bytes(rem))
+        return rem[length:]
+    if major_type == int(CBOR_MajorTypes.ARRAY):
+        if value is CBOR_INDEFINITE:
+            while rem and not cbor_is_break(rem):
+                rem = _cbor_skip_item(rem, depth + 1)
+            return cbor_consume_break(rem)
+        for _ in range(int(value)):
+            rem = _cbor_skip_item(rem, depth + 1)
+        return rem
+    if major_type == int(CBOR_MajorTypes.MAP):
+        if value is CBOR_INDEFINITE:
+            while rem and not cbor_is_break(rem):
+                rem = _cbor_skip_item(rem, depth + 1)
+                rem = _cbor_skip_item(rem, depth + 1)
+            return cbor_consume_break(rem)
+        for _ in range(int(value)):
+            rem = _cbor_skip_item(rem, depth + 1)
+            rem = _cbor_skip_item(rem, depth + 1)
+        return rem
+    if major_type == int(CBOR_MajorTypes.TAG):
+        return _cbor_skip_item(rem, depth + 1)
+    raise CBOR_Codec_Decoding_Error(
+        "Invalid major type: %d" % major_type,
+        remaining=_cbor_buf_bytes(rem),
+    )
+
+
 def cbor_count_items(s, max_count=None, until_break=False):
     # type: (Any, Optional[int], bool) -> int
     """Count top-level CBOR items without building object trees.
@@ -164,64 +237,12 @@ def cbor_count_items(s, max_count=None, until_break=False):
     When *until_break* is true, stop at a break byte without consuming it.
     When *max_count* is set, stop after that many items even if more remain.
     """
-    def _skip_item(rem, depth=0):
-        # type: (Any, int) -> Any
-        if depth > MAX_CBOR_NESTING:
-            raise CBOR_Codec_Decoding_Error(
-                "Maximum CBOR nesting depth exceeded",
-                remaining=_cbor_buf_bytes(rem))
-        major_type, value, rem = CBOR_decode_head(rem)
-        if major_type in (
-            int(CBOR_MajorTypes.UNSIGNED_INTEGER),
-            int(CBOR_MajorTypes.NEGATIVE_INTEGER),
-            int(CBOR_MajorTypes.SIMPLE_AND_FLOAT),
-        ):
-            return rem
-        if major_type in (
-            int(CBOR_MajorTypes.BYTE_STRING),
-            int(CBOR_MajorTypes.TEXT_STRING),
-        ):
-            if value is CBOR_INDEFINITE:
-                while rem and not cbor_is_break(rem):
-                    rem = _skip_item(rem, depth + 1)
-                return cbor_consume_break(rem)
-            length = int(value)
-            if len(rem) < length:
-                raise CBOR_Codec_Decoding_Error(
-                    "Truncated byte/text string",
-                    remaining=_cbor_buf_bytes(rem))
-            return rem[length:]
-        if major_type == int(CBOR_MajorTypes.ARRAY):
-            if value is CBOR_INDEFINITE:
-                while rem and not cbor_is_break(rem):
-                    rem = _skip_item(rem, depth + 1)
-                return cbor_consume_break(rem)
-            for _ in range(int(value)):
-                rem = _skip_item(rem, depth + 1)
-            return rem
-        if major_type == int(CBOR_MajorTypes.MAP):
-            if value is CBOR_INDEFINITE:
-                while rem and not cbor_is_break(rem):
-                    rem = _skip_item(rem, depth + 1)
-                    rem = _skip_item(rem, depth + 1)
-                return cbor_consume_break(rem)
-            for _ in range(int(value)):
-                rem = _skip_item(rem, depth + 1)
-                rem = _skip_item(rem, depth + 1)
-            return rem
-        if major_type == int(CBOR_MajorTypes.TAG):
-            return _skip_item(rem, depth + 1)
-        raise CBOR_Codec_Decoding_Error(
-            "Invalid major type: %d" % major_type,
-            remaining=_cbor_buf_bytes(rem),
-        )
-
     rem = s if isinstance(s, memoryview) else memoryview(s)
     count = 0
     while rem and not (until_break and cbor_is_break(rem)):
         if max_count is not None and count >= max_count:
             break
-        rem = _skip_item(rem)
+        rem = _cbor_skip_item(rem)
         count += 1
     return count
 
@@ -305,24 +326,6 @@ def CBOR_decode_head(s):
         raise CBOR_Codec_Decoding_Error(
             "Invalid additional info: %d" % additional_info,
             remaining=_cbor_buf_bytes(s))
-
-
-def cbor_argument_is_shortest(additional_info, value):
-    # type: (int, Union[int, CBOR_INDEFINITE]) -> bool
-    """Return True when *additional_info* is the shortest encoding for *value*."""
-    if value is CBOR_INDEFINITE:
-        return additional_info == int(CBOR_AdditionalInfo.INDEFINITE)
-    if additional_info < int(CBOR_AdditionalInfo.ONE_BYTE):
-        return True
-    if additional_info == int(CBOR_AdditionalInfo.ONE_BYTE):
-        return value >= int(CBOR_AdditionalInfo.ONE_BYTE)
-    if additional_info == int(CBOR_AdditionalInfo.TWO_BYTES):
-        return value >= 256
-    if additional_info == int(CBOR_AdditionalInfo.FOUR_BYTES):
-        return value >= 65536
-    if additional_info == int(CBOR_AdditionalInfo.EIGHT_BYTES):
-        return value >= (1 << 32)
-    return additional_info == int(CBOR_AdditionalInfo.INDEFINITE)
 
 
 def _cbor_float_from_bits(ai, bits):
@@ -451,61 +454,6 @@ def _cbor_nan_components(ai, bits):
     return None
 
 
-def _cbor_encode_nan(sign, significand52, ai):
-    # type: (int, int, int) -> bytes
-    """Encode a NaN at float AI *ai* preserving *sign* and *significand52*."""
-    if ai == int(CBOR_FloatAI.HALF):
-        fraction = (significand52 >> 42) & 0x3ff
-        bits = (sign << 15) | (0x1f << 10) | fraction
-        return (
-            CBOR_encode_initial(CBOR_MajorTypes.SIMPLE_AND_FLOAT,
-                                CBOR_FloatAI.HALF)
-            + struct.pack(">H", bits)
-        )
-    if ai == int(CBOR_FloatAI.SINGLE):
-        fraction = (significand52 >> 29) & 0x7fffff
-        bits = (sign << 31) | (0xff << 23) | fraction
-        return (
-            CBOR_encode_initial(CBOR_MajorTypes.SIMPLE_AND_FLOAT,
-                                CBOR_FloatAI.SINGLE)
-            + struct.pack(">I", bits)
-        )
-    if ai == int(CBOR_FloatAI.DOUBLE):
-        bits = (
-            (sign << 63) |
-            (0x7ff << 52) |
-            (significand52 & ((1 << 52) - 1))
-        )
-        return (
-            CBOR_encode_initial(CBOR_MajorTypes.SIMPLE_AND_FLOAT,
-                                CBOR_FloatAI.DOUBLE)
-            + struct.pack(">Q", bits)
-        )
-    raise CBOR_Codec_Encoding_Error("Invalid NaN float AI: %d" % ai)
-
-
-def _cbor_float_bits_from_encoded(encoded):
-    # type: (bytes) -> Tuple[int, int]
-    """Return ``(ai, bits)`` for a definite CBOR float item."""
-    wire = bytes(encoded)
-    if not wire:
-        raise CBOR_Codec_Encoding_Error("empty CBOR float encoding")
-    ai = wire[0] & 0x1f
-    if ai == int(CBOR_FloatAI.HALF):
-        if len(wire) < 3:
-            raise CBOR_Codec_Encoding_Error("truncated half float")
-        return ai, struct.unpack(">H", wire[1:3])[0]
-    if ai == int(CBOR_FloatAI.SINGLE):
-        if len(wire) < 5:
-            raise CBOR_Codec_Encoding_Error("truncated single float")
-        return ai, struct.unpack(">I", wire[1:5])[0]
-    if ai == int(CBOR_FloatAI.DOUBLE):
-        if len(wire) < 9:
-            raise CBOR_Codec_Encoding_Error("truncated double float")
-        return ai, struct.unpack(">Q", wire[1:9])[0]
-    raise CBOR_Codec_Encoding_Error("not a CBOR float encoding: ai=%d" % ai)
-
-
 def _cbor_preferred_float_ai(value):
     # type: (float) -> int
     """Return the preferred float AI for a numeric *value*."""
@@ -537,14 +485,18 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
     issues = []  # type: List[Tuple[int, str]]
     index = [0]
 
-    def _walk():
-        # type: () -> None
+    def _walk(depth=0):
+        # type: (int) -> None
+        if depth > MAX_CBOR_NESTING:
+            raise CBOR_Codec_Decoding_Error(
+                "Maximum CBOR nesting depth exceeded",
+                remaining=s[index[0]:])
         start = index[0]
         if start >= len(s):
             raise CBOR_Codec_Decoding_Error(
                 "Empty CBOR data", remaining=s[start:])
         initial = s[start]
-        if initial == 0xff:
+        if initial == CBOR_BREAK_BYTE:
             issues.append((
                 base_offset + start,
                 "Standalone break byte (0xff)",
@@ -637,7 +589,53 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                 int(CBOR_MajorTypes.TEXT_STRING),
             ):
                 while index[0] < len(s) and not cbor_is_break(s[index[0]:]):
-                    _walk()
+                    chunk_start = index[0]
+                    chunk_major, chunk_len, rem = CBOR_decode_head(s[chunk_start:])
+                    consumed = len(s) - chunk_start - len(rem)
+                    if chunk_major != major:
+                        raise CBOR_Codec_Decoding_Error(
+                            "Indefinite string chunk must be major type %d, "
+                            "got %d" % (major, chunk_major),
+                            remaining=s[chunk_start:])
+                    if chunk_len is CBOR_INDEFINITE:
+                        raise CBOR_Codec_Decoding_Error(
+                            "Nested indefinite string",
+                            remaining=s[chunk_start:])
+                    chunk_ai = s[chunk_start] & 0x1f
+                    # Shortest-argument check for the chunk head.
+                    if chunk_ai == int(CBOR_AdditionalInfo.ONE_BYTE):
+                        if int(chunk_len) < int(CBOR_AdditionalInfo.ONE_BYTE):
+                            issues.append((
+                                base_offset + chunk_start,
+                                "Non-shortest CBOR argument encoding "
+                                "(AI=%d, value=%r)" % (chunk_ai, chunk_len),
+                            ))
+                    elif chunk_ai == int(CBOR_AdditionalInfo.TWO_BYTES):
+                        if int(chunk_len) < 256:
+                            issues.append((
+                                base_offset + chunk_start,
+                                "Non-shortest CBOR argument encoding "
+                                "(AI=%d, value=%r)" % (chunk_ai, chunk_len),
+                            ))
+                    elif chunk_ai == int(CBOR_AdditionalInfo.FOUR_BYTES):
+                        if int(chunk_len) < 65536:
+                            issues.append((
+                                base_offset + chunk_start,
+                                "Non-shortest CBOR argument encoding "
+                                "(AI=%d, value=%r)" % (chunk_ai, chunk_len),
+                            ))
+                    elif chunk_ai == int(CBOR_AdditionalInfo.EIGHT_BYTES):
+                        if int(chunk_len) < (1 << 32):
+                            issues.append((
+                                base_offset + chunk_start,
+                                "Non-shortest CBOR argument encoding "
+                                "(AI=%d, value=%r)" % (chunk_ai, chunk_len),
+                            ))
+                    if len(rem) < int(chunk_len):
+                        raise CBOR_Codec_Decoding_Error(
+                            "Truncated byte/text string chunk",
+                            remaining=s[chunk_start:])
+                    index[0] = chunk_start + consumed + int(chunk_len)
                 if index[0] >= len(s) or not cbor_is_break(s[index[0]:]):
                     raise CBOR_Codec_Decoding_Error(
                         "Expected break byte (0xff)", remaining=s[index[0]:])
@@ -645,7 +643,7 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                 return
             if major == int(CBOR_MajorTypes.ARRAY):
                 while index[0] < len(s) and not cbor_is_break(s[index[0]:]):
-                    _walk()
+                    _walk(depth + 1)
                 if index[0] >= len(s) or not cbor_is_break(s[index[0]:]):
                     raise CBOR_Codec_Decoding_Error(
                         "Expected break byte (0xff)", remaining=s[index[0]:])
@@ -655,9 +653,9 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                 key_encodings = []  # type: List[bytes]
                 while index[0] < len(s) and not cbor_is_break(s[index[0]:]):
                     key_start = index[0]
-                    _walk()
+                    _walk(depth + 1)
                     key_encodings.append(bytes(s[key_start:index[0]]))
-                    _walk()
+                    _walk(depth + 1)
                 if index[0] >= len(s) or not cbor_is_break(s[index[0]:]):
                     raise CBOR_Codec_Decoding_Error(
                         "Expected break byte (0xff)", remaining=s[index[0]:])
@@ -673,7 +671,19 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                 remaining=s[start:],
             )
 
-        if not cbor_argument_is_shortest(ai, value):
+        # Shortest-argument check (was cbor_argument_is_shortest).
+        shortest = True
+        if ai == int(CBOR_AdditionalInfo.ONE_BYTE):
+            shortest = int(value) >= int(CBOR_AdditionalInfo.ONE_BYTE)
+        elif ai == int(CBOR_AdditionalInfo.TWO_BYTES):
+            shortest = int(value) >= 256
+        elif ai == int(CBOR_AdditionalInfo.FOUR_BYTES):
+            shortest = int(value) >= 65536
+        elif ai == int(CBOR_AdditionalInfo.EIGHT_BYTES):
+            shortest = int(value) >= (1 << 32)
+        elif ai >= int(CBOR_AdditionalInfo.ONE_BYTE):
+            shortest = ai == int(CBOR_AdditionalInfo.INDEFINITE)
+        if not shortest:
             issues.append((
                 base_offset + start,
                 "Non-shortest CBOR argument encoding (AI=%d, value=%r)"
@@ -692,15 +702,15 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
             return
         if major == int(CBOR_MajorTypes.ARRAY):
             for _ in range(int(value)):
-                _walk()
+                _walk(depth + 1)
             return
         if major == int(CBOR_MajorTypes.MAP):
             key_encodings = []  # type: List[bytes]
             for _ in range(int(value)):
                 key_start = index[0]
-                _walk()
+                _walk(depth + 1)
                 key_encodings.append(bytes(s[key_start:index[0]]))
-                _walk()
+                _walk(depth + 1)
             if key_encodings != sorted(key_encodings):
                 issues.append((
                     base_offset + start,
@@ -708,7 +718,7 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                 ))
             return
         if major == int(CBOR_MajorTypes.TAG):
-            _walk()
+            _walk(depth + 1)
             return
 
     try:
@@ -905,7 +915,29 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
             if isinstance(item, CBOR_FLOAT):
                 encoded = getattr(item, "_encoded", None)
                 if encoded is not None and math.isnan(float(item.val)):
-                    ai, bits = _cbor_float_bits_from_encoded(encoded)
+                    wire = bytes(encoded)
+                    if not wire:
+                        raise CBOR_Codec_Encoding_Error(
+                            "empty CBOR float encoding")
+                    ai = wire[0] & 0x1f
+                    if ai == int(CBOR_FloatAI.HALF):
+                        if len(wire) < 3:
+                            raise CBOR_Codec_Encoding_Error(
+                                "truncated half float")
+                        bits = struct.unpack(">H", wire[1:3])[0]
+                    elif ai == int(CBOR_FloatAI.SINGLE):
+                        if len(wire) < 5:
+                            raise CBOR_Codec_Encoding_Error(
+                                "truncated single float")
+                        bits = struct.unpack(">I", wire[1:5])[0]
+                    elif ai == int(CBOR_FloatAI.DOUBLE):
+                        if len(wire) < 9:
+                            raise CBOR_Codec_Encoding_Error(
+                                "truncated double float")
+                        bits = struct.unpack(">Q", wire[1:9])[0]
+                    else:
+                        raise CBOR_Codec_Encoding_Error(
+                            "not a CBOR float encoding: ai=%d" % ai)
                     comps = _cbor_nan_components(ai, bits)
                     if comps is None:
                         raise CBOR_Codec_Encoding_Error(
@@ -914,7 +946,38 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
                         )
                     sign, significand52 = comps
                     preferred = _cbor_nan_preferred_ai(ai, bits)
-                    return _cbor_encode_nan(sign, significand52, preferred)
+                    if preferred == int(CBOR_FloatAI.HALF):
+                        fraction = (significand52 >> 42) & 0x3ff
+                        nan_bits = (sign << 15) | (0x1f << 10) | fraction
+                        return (
+                            CBOR_encode_initial(
+                                CBOR_MajorTypes.SIMPLE_AND_FLOAT,
+                                CBOR_FloatAI.HALF)
+                            + struct.pack(">H", nan_bits)
+                        )
+                    if preferred == int(CBOR_FloatAI.SINGLE):
+                        fraction = (significand52 >> 29) & 0x7fffff
+                        nan_bits = (sign << 31) | (0xff << 23) | fraction
+                        return (
+                            CBOR_encode_initial(
+                                CBOR_MajorTypes.SIMPLE_AND_FLOAT,
+                                CBOR_FloatAI.SINGLE)
+                            + struct.pack(">I", nan_bits)
+                        )
+                    if preferred == int(CBOR_FloatAI.DOUBLE):
+                        nan_bits = (
+                            (sign << 63) |
+                            (0x7ff << 52) |
+                            (significand52 & ((1 << 52) - 1))
+                        )
+                        return (
+                            CBOR_encode_initial(
+                                CBOR_MajorTypes.SIMPLE_AND_FLOAT,
+                                CBOR_FloatAI.DOUBLE)
+                            + struct.pack(">Q", nan_bits)
+                        )
+                    raise CBOR_Codec_Encoding_Error(
+                        "Invalid NaN float AI: %d" % preferred)
                 # Finite floats ignore original width; rebuild preferred form.
                 return CBORcodec_SIMPLE_AND_FLOAT.enc(float(item.val))
             if isinstance(item, CBOR_ARRAY):
@@ -1141,7 +1204,7 @@ class CBORcodec_BYTE_STRING(CBORcodec_Object[bytes]):
                     remainder = cbor_consume_break(remainder)
                     break
                 chunk_mt, chunk_len, remainder = CBOR_decode_head(remainder)
-                if chunk_mt != 2:
+                if chunk_mt != int(CBOR_MajorTypes.BYTE_STRING):
                     raise CBOR_Codec_Decoding_Error(
                         "Indefinite byte string chunk must be major type 2",
                         remaining=remainder)
@@ -1205,7 +1268,7 @@ class CBORcodec_TEXT_STRING(CBORcodec_Object[str]):
                     remainder = cbor_consume_break(remainder)
                     break
                 chunk_mt, chunk_len, remainder = CBOR_decode_head(remainder)
-                if chunk_mt != 3:
+                if chunk_mt != int(CBOR_MajorTypes.TEXT_STRING):
                     raise CBOR_Codec_Decoding_Error(
                         "Indefinite text string chunk must be major type 3",
                         remaining=remainder)
