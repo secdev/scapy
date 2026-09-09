@@ -1718,7 +1718,7 @@ class CBORF_ARRAY_OF(_CBORF_HOMOGENEOUS):
         return CBORBuildResult(data, 1)
 
 
-class CBORF_MAP_UNKNOWN(CBORF_field[List[Tuple[str, Any]]]):
+class _CBORF_MAP_UNKNOWN(CBORF_field[List[Tuple[str, Any]]]):
     """Per-map storage for unknown text-key extension pairs.
 
     Not a CBOR wire field by itself: owning :class:`CBORF_MAP` instances read
@@ -1744,13 +1744,13 @@ class CBORF_MAP_UNKNOWN(CBORF_field[List[Tuple[str, Any]]]):
     def encode_value(self, x):
         # type: (Any) -> bytes
         raise CBOR_Encoding_Error(
-            "CBORF_MAP_UNKNOWN is not encoded as a standalone CBOR item"
+            "_CBORF_MAP_UNKNOWN is not encoded as a standalone CBOR item"
         )
 
     def m2i(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> Tuple[Any, bytes]
         raise CBOR_Decoding_Error(
-            "CBORF_MAP_UNKNOWN is not decoded as a standalone CBOR item"
+            "_CBORF_MAP_UNKNOWN is not decoded as a standalone CBOR item"
         )
 
 
@@ -1816,7 +1816,7 @@ class CBORF_MAP(CBORF_element):
                 "CBORF_MAP unknown_field %r collides with a known member"
                 % (unknown_field,)
             )
-        self._unknown_field = CBORF_MAP_UNKNOWN(unknown_field, [])
+        self._unknown_field = _CBORF_MAP_UNKNOWN(unknown_field, [])
 
     def __repr__(self):
         # type: () -> str
@@ -1838,7 +1838,6 @@ class CBORF_MAP(CBORF_element):
         # type: (CBOR_Packet) -> CBORBuildResult
         # Emit pairs sorted by encoded key bytes (RFC 8949 core deterministic).
         pairs = []  # type: List[Tuple[bytes, bytes]]
-        seen = set()  # type: set[str]
         for fld in self.seq:
             value_result = fld.build_result(pkt)
             if value_result.items == 0:
@@ -1849,7 +1848,8 @@ class CBORF_MAP(CBORF_element):
                     % fld.name
                 )
             pairs.append((self._encoded_keys[fld.name], value_result.data))
-            seen.add(fld.name)
+        known_names = set(self._field_by_name)
+        seen_unknown = set()  # type: set[str]
         unknown = pkt.getfieldval(self._unknown_field.name) or []
         for key, value in unknown:
             if not isinstance(key, str):
@@ -1857,11 +1857,11 @@ class CBORF_MAP(CBORF_element):
                     "CBOR map unknown key must be a text string, got %r"
                     % (key,)
                 )
-            if key in seen:
+            if key in known_names or key in seen_unknown:
                 raise CBOR_Encoding_Error(
                     "Duplicate CBOR map key: %r" % (key,)
                 )
-            seen.add(key)
+            seen_unknown.add(key)
             key_bytes = CBORcodec_TEXT_STRING.enc(key)
             value_bytes = CBORcodec_Object.encode_cbor_item_deterministic(value)
             pairs.append((key_bytes, value_bytes))
@@ -2141,17 +2141,11 @@ class CBORF_optional(CBORF_element):
 
     def __init__(self, field):
         # type: (Union[CBORF_field[Any], CBORF_SEMANTIC_TAG]) -> None
-        for attr in (
-            "is_absent",
-            "is_empty",
-            "matches_next_item",
-            "mark_absent",
-        ):
-            if not callable(getattr(field, attr, None)):
-                raise TypeError(
-                    "CBORF_optional requires a field-like element with %s(); "
-                    "got %r" % (attr, type(field).__name__)
-                )
+        if not isinstance(field, (CBORF_field, CBORF_SEMANTIC_TAG)):
+            raise TypeError(
+                "CBORF_optional requires CBORF_field or CBORF_SEMANTIC_TAG; "
+                "got %r" % (type(field).__name__,)
+            )
         self._field = field
 
     def __getattr__(self, attr):
@@ -2160,8 +2154,6 @@ class CBORF_optional(CBORF_element):
 
     def build_result(self, pkt):
         # type: (CBOR_Packet) -> CBORBuildResult
-        if self._field.is_absent(pkt):
-            return CBORBuildResult(b"", 0)
         if self._field.is_empty(pkt):
             return CBORBuildResult(b"", 0)
         return self._field.build_result(pkt)
