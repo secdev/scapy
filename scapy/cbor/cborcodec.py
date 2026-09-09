@@ -515,20 +515,6 @@ def _cbor_float_bits_from_encoded(encoded):
     raise CBOR_Codec_Encoding_Error("not a CBOR float encoding: ai=%d" % ai)
 
 
-def _cbor_preferred_nan_encoding(encoded):
-    # type: (bytes) -> bytes
-    """Shortest CBOR float encoding preserving NaN sign and significand."""
-    ai, bits = _cbor_float_bits_from_encoded(encoded)
-    comps = _cbor_nan_components(ai, bits)
-    if comps is None:
-        raise CBOR_Codec_Encoding_Error(
-            "encoded float is not a NaN: %r" % (bytes(encoded),)
-        )
-    sign, significand52 = comps
-    preferred = _cbor_nan_preferred_ai(ai, bits)
-    return _cbor_encode_nan(sign, significand52, preferred)
-
-
 def _cbor_preferred_float_ai(value):
     # type: (float) -> int
     """Return the preferred float AI for a numeric *value*."""
@@ -546,15 +532,6 @@ def _cbor_preferred_float_ai(value):
     if single == value or (math.isinf(single) and math.isinf(value)):
         return int(CBOR_FloatAI.SINGLE)
     return int(CBOR_FloatAI.DOUBLE)
-
-
-def _cbor_preferred_float_ai_from_encoded(ai, bits):
-    # type: (int, int) -> int
-    """Preferred float AI using the original encoded width and bit pattern."""
-    comps = _cbor_nan_components(ai, bits)
-    if comps is not None:
-        return _cbor_nan_preferred_ai(ai, bits)
-    return _cbor_preferred_float_ai(_cbor_float_from_bits(ai, bits))
 
 
 def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
@@ -636,8 +613,14 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                 int(CBOR_FloatAI.SINGLE),
                 int(CBOR_FloatAI.DOUBLE),
             ) and value is not CBOR_INDEFINITE:
-                preferred = _cbor_preferred_float_ai_from_encoded(ai, int(value))
-                if preferred is not None and preferred < ai:
+                comps = _cbor_nan_components(ai, int(value))
+                if comps is not None:
+                    preferred = _cbor_nan_preferred_ai(ai, int(value))
+                else:
+                    preferred = _cbor_preferred_float_ai(
+                        _cbor_float_from_bits(ai, int(value))
+                    )
+                if preferred < ai:
                     issues.append((
                         base_offset + start,
                         "Non-shortest CBOR float encoding (AI=%d, preferred AI=%d)"
@@ -918,7 +901,16 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
             if isinstance(item, CBOR_FLOAT):
                 encoded = getattr(item, "_encoded", None)
                 if encoded is not None and math.isnan(float(item.val)):
-                    return _cbor_preferred_nan_encoding(encoded)
+                    ai, bits = _cbor_float_bits_from_encoded(encoded)
+                    comps = _cbor_nan_components(ai, bits)
+                    if comps is None:
+                        raise CBOR_Codec_Encoding_Error(
+                            "encoded float is not a NaN: %r"
+                            % (bytes(encoded),)
+                        )
+                    sign, significand52 = comps
+                    preferred = _cbor_nan_preferred_ai(ai, bits)
+                    return _cbor_encode_nan(sign, significand52, preferred)
                 # Finite floats ignore original width; rebuild preferred form.
                 return CBORcodec_SIMPLE_AND_FLOAT.enc(float(item.val))
             if isinstance(item, CBOR_ARRAY):
