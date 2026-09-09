@@ -309,7 +309,11 @@ def CBOR_decode_head(s):
         raise CBOR_Codec_Decoding_Error(
             "Indefinite length not allowed for major type %d" %
             major_type, remaining=_cbor_buf_bytes(s))
-    elif additional_info in (28, 29, 30):
+    elif additional_info in (
+        int(CBOR_AdditionalInfo.RESERVED_28),
+        int(CBOR_AdditionalInfo.RESERVED_29),
+        int(CBOR_AdditionalInfo.RESERVED_30),
+    ):
         raise CBOR_Codec_Decoding_Error(
             "Reserved additional info: %d" % additional_info,
             remaining=_cbor_buf_bytes(s))
@@ -591,13 +595,20 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
             pos += 8
         elif ai == int(CBOR_AdditionalInfo.INDEFINITE):
             value = CBOR_INDEFINITE
+        elif ai in (
+            int(CBOR_AdditionalInfo.RESERVED_28),
+            int(CBOR_AdditionalInfo.RESERVED_29),
+            int(CBOR_AdditionalInfo.RESERVED_30),
+        ):
+            raise CBOR_Codec_Decoding_Error(
+                "Reserved additional info: %d" % ai, remaining=s[start:])
         else:
             raise CBOR_Codec_Decoding_Error(
                 "Invalid additional info: %d" % ai, remaining=s[start:])
         index[0] = pos
 
         # Major type 7: simple values and floats. Check float preferred width.
-        if major == 7:
+        if major == int(CBOR_MajorTypes.SIMPLE_AND_FLOAT):
             if (
                 ai == int(CBOR_AdditionalInfo.ONE_BYTE)
                 and isinstance(value, int)
@@ -634,7 +645,10 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                     base_offset + start,
                     "Indefinite-length item is not allowed",
                 ))
-            if major in (2, 3):
+            if major in (
+                int(CBOR_MajorTypes.BYTE_STRING),
+                int(CBOR_MajorTypes.TEXT_STRING),
+            ):
                 while index[0] < len(s) and not cbor_is_break(s[index[0]:]):
                     _walk()
                 if index[0] >= len(s) or not cbor_is_break(s[index[0]:]):
@@ -642,7 +656,7 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                         "Expected break byte (0xff)", remaining=s[index[0]:])
                 index[0] += 1
                 return
-            if major == 4:
+            if major == int(CBOR_MajorTypes.ARRAY):
                 while index[0] < len(s) and not cbor_is_break(s[index[0]:]):
                     _walk()
                 if index[0] >= len(s) or not cbor_is_break(s[index[0]:]):
@@ -650,7 +664,7 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                         "Expected break byte (0xff)", remaining=s[index[0]:])
                 index[0] += 1
                 return
-            if major == 5:
+            if major == int(CBOR_MajorTypes.MAP):
                 key_encodings = []  # type: List[bytes]
                 while index[0] < len(s) and not cbor_is_break(s[index[0]:]):
                     key_start = index[0]
@@ -679,18 +693,21 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                 % (ai, value),
             ))
 
-        if major in (2, 3):
+        if major in (
+            int(CBOR_MajorTypes.BYTE_STRING),
+            int(CBOR_MajorTypes.TEXT_STRING),
+        ):
             length = int(value)
             if index[0] + length > len(s):
                 raise CBOR_Codec_Decoding_Error(
                     "Truncated byte/text string", remaining=s[start:])
             index[0] += length
             return
-        if major == 4:
+        if major == int(CBOR_MajorTypes.ARRAY):
             for _ in range(int(value)):
                 _walk()
             return
-        if major == 5:
+        if major == int(CBOR_MajorTypes.MAP):
             key_encodings = []  # type: List[bytes]
             for _ in range(int(value)):
                 key_start = index[0]
@@ -703,7 +720,7 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                     "CBOR map keys are not in bytewise lexicographic order",
                 ))
             return
-        if major == 6:
+        if major == int(CBOR_MajorTypes.TAG):
             _walk()
             return
 

@@ -203,7 +203,7 @@ def cbor_object_to_python(obj):
     if isinstance(obj, CBOR_ARRAY):
         return [cbor_object_to_python(item) for item in obj.val]
     if isinstance(obj, CBOR_MAP):
-        from scapy.cbor.cbor import _cbor_map_pairs
+        from scapy.cbor.cbor import CBORMapData, _cbor_map_pairs
         pairs = _cbor_map_pairs(obj)
         return CBORMapData([
             (cbor_object_to_python(k), cbor_object_to_python(v))
