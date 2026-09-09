@@ -2,11 +2,16 @@
 
 [`CONTRIBUTING.md`](CONTRIBUTING.md) is Scapy's contribution guide; this file is its operational companion for agents working in this checkout, not a replacement.
 
+## Code guidelines for Agents
+
+- Follow the coding guidelines from [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- Follow the code patterns that already exist in the file you are editing, in similar layers when editing a layer (in both `layers/` or `contrib/`) or in the rest of the project. Some of those guidelines are detailed below.
+- Do not declare functions for very simple checks or operations. Prefer code readability over trying to reduce code duplication.
+- Never declare a function that is only used once, unless it is meant to be a public API.
+
 ## Put code in the right place
 
-A layer is a `Packet` subclass with a `fields_desc` list. For packet, field,
-binding, and layer-test patterns, use the skill
-[`scapy-packet-fields`](.github/skills/scapy-packet-fields/SKILL.md).
+A layer is a `Packet` subclass with a `fields_desc` list. For packet, field, binding, and layer-test patterns, use the skill [`scapy-packet-fields`](.github/skills/scapy-packet-fields/SKILL.md).
 
 - New protocols may go in either location: `scapy/layers/` normally contains
   protocols found on common networks, while `scapy/contrib/` normally contains
@@ -19,18 +24,21 @@ binding, and layer-test patterns, use the skill
 - Be especially careful about CPU and memory costs in Scapy core code such as
   `scapy/packet.py`; packet initialization is a hot path.
 
-## Code guidelines for Agents
+## Preparing commits, pull requests or advisories messages
 
-- Follow the coding guidelines from [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- Follow the code patterns that already exist in the file you are editing, in similar layers when editing a layer (in both `layers/` or `contrib/`) or in the rest of the project. Some of those guidelines are detailed below.
-- Do not declare functions for very simple checks or operations. Prefer code readability over trying to reduce code duplication.
-- Never declare a function that is only used once, unless it is meant to be a public API.
-- When drafting PR/issue/report messages, be succinct. State a small summary of the issue or the code you're fixing and include code or a pcap that reproduces the issue. Do NOT talk about whether tests pass or not, or coverage, since those are already shown by github.
+Follow [`CONTRIBUTING.md`'s guidance on AI-assisted reports and PRs](CONTRIBUTING.md#ai-assisted-reports-and-prs) and [submitting pull requests](CONTRIBUTING.md#submitting-pull-requests).
 
-## Add UTScapy tests
+You MUST follow the following guidelines, or the report may be dismissed:
+- You MUST use a perfectly neutral English. Only state factual statements, never use superlatives.
+- You MUST focus on keeping the commit messages, PR messages or advisory reports as succint as possible. Stick to the bare minimum: one or two sentences explaining the bug, some code or a pcap that reproduces the issue, and optionally a fix suggestion, that's it.
+- Use github links to point towards the lines you are talking about.
+- Assume that readers / maintainers know how most of the code works already.
+- Do NOT talk about whether tests pass or not, or coverage, since those are already shown by github.
+- ALWAYS disclose that the message was written with the help of AI. For instance: `*This message was written with the help of AI (GPT-5.6-Cyber).*`.
 
-Follow [`CONTRIBUTING.md`'s test requirements](CONTRIBUTING.md#tests). Scapy's
-test suite uses UTScapy `.uts` campaigns under `test/`.
+## When adding UTScapy tests
+
+Follow [`CONTRIBUTING.md`'s test requirements](CONTRIBUTING.md#tests). Scapy's test suite uses UTScapy `.uts` campaigns under `test/`.
 
 A campaign has this form:
 
@@ -87,11 +95,6 @@ The mypy environment runs both Linux and Windows configurations.
 - Update the encoded data in `scapy/libs/bluetoothids.py`,
   `scapy/libs/manuf.py`, and `scapy/libs/ethertypes.py` through their matching
   `scapy/tools/generate_*.py` scripts.
-
-## Prepare commits and pull requests
-
-Follow [`CONTRIBUTING.md`'s guidance on AI-assisted reports and PRs](CONTRIBUTING.md#ai-assisted-reports-and-prs)
-and [submitting pull requests](CONTRIBUTING.md#submitting-pull-requests).
 
 ## Potential security bugs
 
