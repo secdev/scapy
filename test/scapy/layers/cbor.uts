@@ -2660,11 +2660,13 @@ assert bytes(pkt) == b"\xa2\x61x\xa2\x61a\x02\x61b\x01\x61z\x02"
 
 = CBORF_MAP copy isolates nested unknown extension values from the original packet
 from scapy.cbor.cborfields import CBORF_MAP, CBORF_UNSIGNED_INTEGER
+from scapy.cbor.cbor import CBOR_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
 
 class MapCopyIsolation(CBOR_Packet):
     CBOR_root = CBORF_MAP(
         CBORF_UNSIGNED_INTEGER("a", 0),
+        unknown_field="unknown_pairs",
     )
 
 wire = (
@@ -2674,14 +2676,13 @@ wire = (
     b"\x61a\x07"
     b"\xff"
 )
-from scapy.cbor.cbor import CBOR_UNSIGNED_INTEGER
 orig = MapCopyIsolation(wire)
 clone = orig.copy()
-assert clone._cbor_unknown_map_pairs is not orig._cbor_unknown_map_pairs
-assert clone._cbor_unknown_map_pairs[0][1] is not orig._cbor_unknown_map_pairs[0][1]
-clone._cbor_unknown_map_pairs[0][1].val.append(CBOR_UNSIGNED_INTEGER(3))
-assert len(orig._cbor_unknown_map_pairs[0][1].val) == 2
-assert len(clone._cbor_unknown_map_pairs[0][1].val) == 3
+assert clone.unknown_pairs is not orig.unknown_pairs
+assert clone.unknown_pairs[0][1] is not orig.unknown_pairs[0][1]
+clone.unknown_pairs[0][1].val.append(CBOR_UNSIGNED_INTEGER(3))
+assert len(orig.unknown_pairs[0][1].val) == 2
+assert len(clone.unknown_pairs[0][1].val) == 3
 
 
 + CBORF_ARRAY_OF indefinite decoding

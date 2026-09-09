@@ -193,19 +193,10 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
         clone = super(CBOR_Packet, self).copy()
         for attr in (
             "_cbor_raw_cache_items",
-            "_cbor_unknown_map_pairs",
             "_crc_content_span",
         ):
             if hasattr(self, attr):
-                val = getattr(self, attr)
-                if attr == "_cbor_unknown_map_pairs":
-                    setattr(
-                        clone,
-                        attr,
-                        copy.deepcopy(val),
-                    )
-                else:
-                    setattr(clone, attr, val)
+                setattr(clone, attr, getattr(self, attr))
         from scapy.cbor.cborfields import _cbor_attach_parent
         for f in clone.fields_desc:
             if not f.holds_packets or f.name not in clone.fields:
