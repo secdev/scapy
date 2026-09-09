@@ -1934,6 +1934,7 @@ class CBORF_MAP(CBORF_element):
         # type: (CBOR_Packet) -> CBORBuildResult
         # Emit pairs sorted by encoded key bytes (RFC 8949 core deterministic).
         pairs = []  # type: List[Tuple[bytes, bytes]]
+        seen = set()  # type: set[str]
         for fld in self.seq:
             value_result = fld.build_result(pkt)
             if value_result.items == 0:
@@ -1944,8 +1945,19 @@ class CBORF_MAP(CBORF_element):
                     % fld.name
                 )
             pairs.append((self._encoded_keys[fld.name], value_result.data))
+            seen.add(fld.name)
         unknown = pkt.getfieldval(self._unknown_field.name) or []
         for key, value in unknown:
+            if not isinstance(key, str):
+                raise CBOR_Encoding_Error(
+                    "CBOR map unknown key must be a text string, got %r"
+                    % (key,)
+                )
+            if key in seen:
+                raise CBOR_Encoding_Error(
+                    "Duplicate CBOR map key: %r" % (key,)
+                )
+            seen.add(key)
             key_bytes = CBORcodec_TEXT_STRING.enc(key)
             value_bytes = CBORcodec_Object.encode_cbor_item_deterministic(value)
             pairs.append((key_bytes, value_bytes))

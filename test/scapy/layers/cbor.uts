@@ -2103,6 +2103,90 @@ except CBOR_Decoding_Error:
 else:
     raise AssertionError("duplicate fixed-map key was silently accepted")
 
+
+= Fixed-schema maps reject unknown keys that collide with known members on encode
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_UNSIGNED_INTEGER
+from scapy.cbor.cbor import CBOR_Encoding_Error, CBOR_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class VersionMap(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_UNSIGNED_INTEGER("version", 1),
+    )
+
+pkt = VersionMap(version=1)
+pkt._cbor_unknown = [("version", CBOR_UNSIGNED_INTEGER(42))]
+try:
+    bytes(pkt)
+    assert False, "encode accepted unknown key colliding with known member"
+except CBOR_Encoding_Error:
+    pass
+
+
+= Fixed-schema maps reject duplicate unknown text keys on encode
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_UNSIGNED_INTEGER
+from scapy.cbor.cbor import CBOR_Encoding_Error, CBOR_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class ExtMap(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_UNSIGNED_INTEGER("a", 0),
+    )
+
+pkt = ExtMap(a=1)
+pkt._cbor_unknown = [
+    ("x", CBOR_UNSIGNED_INTEGER(1)),
+    ("x", CBOR_UNSIGNED_INTEGER(2)),
+]
+try:
+    bytes(pkt)
+    assert False, "encode accepted duplicate unknown map keys"
+except CBOR_Encoding_Error:
+    pass
+
+
+= Fixed-schema maps still encode distinct unknown extension keys
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_UNSIGNED_INTEGER
+from scapy.cbor.cbor import CBOR_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class ExtOkMap(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_UNSIGNED_INTEGER("a", 0),
+    )
+
+pkt = ExtOkMap(a=1)
+pkt._cbor_unknown = [("x", CBOR_UNSIGNED_INTEGER(2))]
+assert bytes(pkt) == b"\xa2\x61a\x01\x61x\x02"
+
+
+= Generic CBOR maps reject duplicate keys on encode
+from scapy.cbor.cbor import CBOR_MAP, CBORMapData, CBOR_UNSIGNED_INTEGER
+from scapy.cbor.cborcodec import CBOR_Codec_Encoding_Error, CBORcodec_MAP
+
+dup = CBORMapData([
+    (CBOR_UNSIGNED_INTEGER(1), 0),
+    (CBOR_UNSIGNED_INTEGER(1), 1),
+])
+try:
+    CBORcodec_MAP.enc(dup)
+    assert False, "generic map encode accepted duplicate integer keys"
+except CBOR_Codec_Encoding_Error:
+    pass
+
+try:
+    CBOR_MAP(dup).enc()
+    assert False, "CBOR_MAP.enc accepted duplicate integer keys"
+except CBOR_Codec_Encoding_Error:
+    pass
+
+ok = CBORMapData([
+    (CBOR_UNSIGNED_INTEGER(1), 0),
+    (CBOR_UNSIGNED_INTEGER(2), 1),
+])
+assert CBORcodec_MAP.enc(ok) == b"\xa2\x01\x00\x02\x01"
+
+
 + Finding 10 - Indefinite arrays should scale linearly without repeated suffix pre-decodes
 
 = Indefinite array span work remains linear in the input size
