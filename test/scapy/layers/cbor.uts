@@ -346,12 +346,7 @@ from scapy.cborpacket import CBOR_Packet
 class OptionalTaggedThenFallback(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_optional(
-            CBORF_SEMANTIC_TAG(
-                "tag_number",
-                None,
-                1,
-                CBORF_UNSIGNED_INTEGER("tagged_value", None),
-            )
+            CBORF_SEMANTIC_TAG(1, CBORF_UNSIGNED_INTEGER("tagged_value", None))
         ),
         CBORF_ANY("fallback", None),
     )
@@ -374,12 +369,7 @@ from scapy.cborpacket import CBOR_Packet
 class OptionalTaggedUnsigned(CBOR_Packet):
     CBOR_root = CBORF_SEQUENCE(
         CBORF_optional(
-            CBORF_SEMANTIC_TAG(
-                "tag_number",
-                None,
-                1,
-                CBORF_UNSIGNED_INTEGER("tagged_value", None),
-            )
+            CBORF_SEMANTIC_TAG(1, CBORF_UNSIGNED_INTEGER("tagged_value", None))
         )
     )
 
@@ -406,12 +396,7 @@ from scapy.cborpacket import CBOR_Packet
 class OptionalTruncatedTaggedUnsigned(CBOR_Packet):
     CBOR_root = CBORF_SEQUENCE(
         CBORF_optional(
-            CBORF_SEMANTIC_TAG(
-                "tag_number",
-                None,
-                1,
-                CBORF_UNSIGNED_INTEGER("tagged_value", None),
-            )
+            CBORF_SEMANTIC_TAG(1, CBORF_UNSIGNED_INTEGER("tagged_value", None))
         )
     )
 
@@ -440,12 +425,7 @@ from scapy.cborpacket import CBOR_Packet
 class OptionalTaggedBeforeAny(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_optional(
-            CBORF_SEMANTIC_TAG(
-                "tag_number",
-                None,
-                1,
-                CBORF_UNSIGNED_INTEGER("tagged_value", None),
-            )
+            CBORF_SEMANTIC_TAG(1, CBORF_UNSIGNED_INTEGER("tagged_value", None))
         ),
         CBORF_ANY("fallback", None),
     )
@@ -871,7 +851,7 @@ class OptMapPkt(CBOR_Packet):
         CBORF_optional(CBORF_ANY("any", None)),
         CBORF_optional(CBORF_NULL("nil")),
         CBORF_optional(CBORF_UNDEFINED("u")),
-        CBORF_optional(CBORF_SEMANTIC_TAG("tag", None, 1, CBORF_INTEGER("ts", 0))),
+        CBORF_optional(CBORF_SEMANTIC_TAG(1, CBORF_INTEGER("ts", 0))),
         CBORF_optional(CBORF_TEXT_STRING("endpoint", "default")),
     )
 
@@ -1351,12 +1331,7 @@ class RRAbsentTag(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_UNSIGNED_INTEGER("head", 0),
         CBORF_optional(
-            CBORF_SEMANTIC_TAG(
-                "tag_number",
-                None,
-                1,
-                CBORF_UNSIGNED_INTEGER("tagged_value", 7),
-            )
+            CBORF_SEMANTIC_TAG(1, CBORF_UNSIGNED_INTEGER("tagged_value", 7))
         ),
     )
 
@@ -1657,6 +1632,20 @@ try:
     RRKnownMapMember(b"\xa1\x61x\x9f\x01")
     assert False, "Malformed unknown map content was silently accepted"
 except (CBOR_Decoding_Error, CBOR_Codec_Decoding_Error):
+    pass
+
+
+= Multi-map schemas require distinct unknown_field names
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_MAP, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+try:
+    class BadTwoMaps(CBOR_Packet):
+        CBOR_root = CBORF_ARRAY(
+            CBORF_MAP(CBORF_UNSIGNED_INTEGER("a", 0)),
+            CBORF_MAP(CBORF_UNSIGNED_INTEGER("b", 0)),
+        )
+    assert False, "duplicate default unknown_field accepted"
+except ValueError:
     pass
 
 = Duplicate fixed-map schema names are rejected at class construction
@@ -2087,14 +2076,11 @@ from scapy.cborpacket import CBOR_Packet
 class OptionalSemanticTagDefault(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_optional(
-            CBORF_SEMANTIC_TAG(
-                "tag",
-                CBOR_ABSENT,
-                1,
-                CBORF_UNSIGNED_INTEGER("value", 0),
-            )
+            CBORF_SEMANTIC_TAG(1, CBORF_UNSIGNED_INTEGER("value", 0))
         )
     )
+
+OptionalSemanticTagDefault.CBOR_root.seq[0]._field.inner_field.default = CBOR_ABSENT
 
 pkt = OptionalSemanticTagDefault()
 assert pkt.getfieldval("value") is CBOR_ABSENT
@@ -3035,18 +3021,18 @@ assert isinstance(pkt.payload, Raw) or pkt.original.endswith(b"\x03")
 remain = TwoInts.CBOR_root.dissect_result(TwoInts(), b"\x01\x02\x03").remaining
 assert remain == b"\x03"
 
-= CBORF_SEMANTIC_TAG.m2i rejects the wrong tag number
+= CBORF_SEMANTIC_TAG rejects the wrong tag number
 from scapy.cbor.cborfields import (
     CBORF_SEMANTIC_TAG, CBORF_INTEGER, CBOR_Type_Mismatch,
 )
 
-fld = CBORF_SEMANTIC_TAG("tag", None, 1, CBORF_INTEGER("ts", 0))
+fld = CBORF_SEMANTIC_TAG(1, CBORF_INTEGER("ts", 0))
 try:
-    fld.m2i(None, b"\xc2\x00")  # tag 2
+    fld._parse_tag_head(b"\xc2\x00")  # tag 2
 except CBOR_Type_Mismatch:
     pass
 else:
-    raise AssertionError("wrong tag accepted by m2i")
+    raise AssertionError("wrong tag accepted")
 
 = Deterministic encoder accepts CBOR_Object wrappers
 from scapy.cbor.cbor import CBOR_UNSIGNED_INTEGER, CBOR_TEXT_STRING, CBOR_MAP, CBORMapData
@@ -3094,12 +3080,7 @@ from scapy.cborpacket import CBOR_Packet
 class OptionalTaggedBeforeAny(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_optional(
-            CBORF_SEMANTIC_TAG(
-                "tag_number",
-                None,
-                1,
-                CBORF_UNSIGNED_INTEGER("tagged_value", None),
-            )
+            CBORF_SEMANTIC_TAG(1, CBORF_UNSIGNED_INTEGER("tagged_value", None))
         ),
         CBORF_ANY("fallback", None),
     )
@@ -3696,12 +3677,7 @@ from scapy.cbor.cborfields import CBORF_SEMANTIC_TAG, CBORF_INTEGER
 from scapy.cborpacket import CBOR_Packet
 
 class TaggedTs(CBOR_Packet):
-    CBOR_root = CBORF_SEMANTIC_TAG(
-        "tag_number",
-        None,
-        1,
-        CBORF_INTEGER("ts", 0),
-    )
+    CBOR_root = CBORF_SEMANTIC_TAG(1, CBORF_INTEGER("ts", 0))
 
 assert "tag_number" not in [f.name for f in TaggedTs.fields_desc]
 assert "ts" in [f.name for f in TaggedTs.fields_desc]
@@ -3724,9 +3700,11 @@ class TwoMaps(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_MAP(
             CBORF_UNSIGNED_INTEGER("a", 0),
+            unknown_field="unknown_a",
         ),
         CBORF_MAP(
             CBORF_UNSIGNED_INTEGER("b", 0),
+            unknown_field="unknown_b",
         ),
     )
 

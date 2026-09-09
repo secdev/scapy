@@ -416,9 +416,7 @@ class RRCbor2UIntArray(CBOR_Packet):
 
 
 class RRCbor2TaggedText(CBOR_Packet):
-    CBOR_root = CBORF_SEMANTIC_TAG(
-        "tag_number", None, 60000, CBORF_TEXT_STRING("value", "")
-    )
+    CBOR_root = CBORF_SEMANTIC_TAG(60000, CBORF_TEXT_STRING("value", ""))
 
 + Oracle version and API assumptions
 
