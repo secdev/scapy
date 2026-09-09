@@ -652,17 +652,39 @@ assert repr_str == '/OU=Domain Control Validated/CN=*.tools.ietf.org [Not Self S
 
 = CertTree class : verify
 
-CertTree([c1, c2]).verify(c0)
+# c0 expired in 2016, so the validity check needs a date it was still current on.
+in2016 = (2016, 1, 1, 0, 0, 0, 4, 1, 0)
+
+CertTree([c1, c2]).verify(c0, now=in2016)
 CertTree([c2]).verify(c1)
 
 try:
-    CertTree([c1]).verify(c0)
+    CertTree([c1]).verify(c0, now=in2016)
     assert False
 except ValueError:
     pass
 
 try:
-    CertTree([c2]).verify(c0)
+    CertTree([c2]).verify(c0, now=in2016)
+    assert False
+except ValueError:
+    pass
+
+= CertTree class : verify rejects an expired certificate
+
+# The chain is intact; only the date is wrong.
+try:
+    CertTree([c1, c2]).verify(c0)
+    assert False
+except ValueError:
+    pass
+
+= CertTree class : verify checks the hostname when given one
+
+CertTree([c1, c2]).verify(c0, hostname="www.tools.ietf.org", now=in2016)
+
+try:
+    CertTree([c1, c2]).verify(c0, hostname="www.example.com", now=in2016)
     assert False
 except ValueError:
     pass
