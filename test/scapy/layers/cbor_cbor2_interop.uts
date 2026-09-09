@@ -412,7 +412,9 @@ class RRCbor2Float(CBOR_Packet):
 
 
 class RRCbor2UIntArray(CBOR_Packet):
-    CBOR_root = CBORF_ARRAY_OF("values", [], CBORF_UNSIGNED_INTEGER)
+    CBOR_root = CBORF_ARRAY_OF(
+        "values", [], CBORF_UNSIGNED_INTEGER, max_count=4096
+    )
 
 
 class RRCbor2TaggedText(CBOR_Packet):
