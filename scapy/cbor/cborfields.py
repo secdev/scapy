@@ -90,10 +90,6 @@ if TYPE_CHECKING:
     from scapy.cborpacket import CBOR_Packet  # noqa: F401
 
 
-class CBORF_badsequence(Exception):
-    pass
-
-
 class CBOR_Type_Mismatch(CBOR_Decoding_Error):
     """Raised when a CBOR field encounters an unexpected major type."""
 
@@ -181,21 +177,19 @@ class CBORF_element(object):
 
     def build_result(self, pkt):
         # type: (CBOR_Packet) -> CBORBuildResult
-        data = self.build(pkt)
-        return CBORBuildResult(data, self.min_items(pkt))
+        raise NotImplementedError
 
     def dissect_result(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> CBORParseResult
-        remaining = self.dissect(pkt, s)
-        return CBORParseResult(remaining=remaining, items=self.max_items(pkt))
+        raise NotImplementedError
 
     def build(self, pkt):
         # type: (CBOR_Packet) -> bytes
-        raise NotImplementedError
+        return self.build_result(pkt).data
 
     def dissect(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> bytes
-        raise NotImplementedError
+        return self.dissect_result(pkt, s).remaining
 
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
@@ -353,14 +347,6 @@ class CBORF_field(CBORF_element, Generic[_I]):
             data=self.i2m(pkt, self.any2i(pkt, value)),
             items=1,
         )
-
-    def build(self, pkt):
-        # type: (CBOR_Packet) -> bytes
-        return self.build_result(pkt).data
-
-    def dissect(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> bytes
-        return self.dissect_result(pkt, s).remaining
 
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
@@ -1127,52 +1113,6 @@ class CBORF_FLOAT(CBORF_field[float]):
 #    Structured CBOR Fields  #
 ##############################
 
-class CBORF_UNSIGNED_ENUM(CBORF_UNSIGNED_INTEGER):
-    """
-    Display like EnumField, codec like CBORF
-    """
-    def __init__(self,
-                 name,  # type: str
-                 default,  # type: Optional[int]
-                 enum,  # type: fields._EnumType[int]
-                 ):
-        # type: (...) -> None
-        self._enum = fields.EnumField(name, default, enum, "Q")
-        CBORF_UNSIGNED_INTEGER.__init__(self, name, default)
-
-    def i2repr(self, pkt, x):
-        return self._enum.i2repr(pkt, x)
-
-    def any2i(self, pkt, x):
-        if isinstance(x, CBOR_Object):
-            x = x.val
-        x = self._enum.any2i(pkt, x)
-        return super().any2i(pkt, x)
-
-
-class CBORF_UNSIGNED_FLAGS(CBORF_UNSIGNED_INTEGER):
-    """
-    Display like FlagsField, codec like CBORF
-    """
-    def __init__(self,
-                 name,  # type: str
-                 default,  # type: Optional[Union[int, fields.FlagValue]]
-                 size,  # type: int
-                 names,  # type: Union[List[str], str, Dict[int, str]]
-                 ):
-        # type: (...) -> None
-        self._flags = fields.FlagsField(name, default, size, names)
-        CBORF_UNSIGNED_INTEGER.__init__(self, name, default)
-
-    def i2repr(self, pkt, x):
-        return self._flags.i2repr(pkt, x)
-
-    def any2i(self, pkt, x):
-        if isinstance(x, CBOR_Object):
-            x = x.val
-        x = self._flags.any2i(pkt, x)
-        return super().any2i(pkt, x)
-
 
 class _CBORF_compound(CBORF_element):
     """Shared helpers for sequence-like CBOR field containers."""
@@ -1250,14 +1190,6 @@ class _CBORF_compound(CBORF_element):
                     "in the sequence (or provide count_from=)"
                 )
 
-    def build(self, pkt):
-        # type: (CBOR_Packet) -> bytes
-        return self.build_result(pkt).data
-
-    def dissect(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> bytes
-        return self.dissect_result(pkt, s).remaining
-
     def _dissect_children_budgeted(self, pkt, s, count):
         # type: (CBOR_Packet, bytes, int) -> bytes
         remaining = s
@@ -1291,23 +1223,17 @@ class _CBORF_compound(CBORF_element):
                     field._field.parse_value(pkt, remaining)
                 self._mark_absent(pkt, field)
                 continue
-            try:
-                if isinstance(field, CBORF_SEQUENCE_OF):
-                    result = field.dissect_result(
-                        pkt, remaining, max_items=available
-                    )
-                elif isinstance(field, CBORF_optional):
-                    if not field._field.matches_next_item(pkt, remaining):
-                        self._mark_absent(pkt, field)
-                        continue
-                    result = field.dissect_result(pkt, remaining)
-                else:
-                    result = field.dissect_result(pkt, remaining)
-            except CBORF_badsequence:
-                if needed > 0:
-                    raise CBOR_Decoding_Error("CBOR item count mismatch")
-                self._mark_absent(pkt, field)
-                continue
+            if isinstance(field, CBORF_SEQUENCE_OF):
+                result = field.dissect_result(
+                    pkt, remaining, max_items=available
+                )
+            elif isinstance(field, CBORF_optional):
+                if not field._field.matches_next_item(pkt, remaining):
+                    self._mark_absent(pkt, field)
+                    continue
+                result = field.dissect_result(pkt, remaining)
+            else:
+                result = field.dissect_result(pkt, remaining)
             if result.items > items_left:
                 raise CBOR_Decoding_Error(
                     "CBOR field consumed more items than remaining"
@@ -1966,13 +1892,10 @@ class CBORF_MAP(CBORF_element):
         def _collect_pair():
             # type: () -> None
             nonlocal remaining
-            # Keep encoded key bytes so unknown extensions round-trip exactly.
-            key_bytes, after_key = cbor_item_span(remaining)
-            key_obj, key_rest = CBORcodec_Object.decode_cbor_item(key_bytes)
-            if key_rest:
-                raise CBOR_Decoding_Error(
-                    "CBOR map key did not decode to a single item"
-                )
+            try:
+                key_obj, after_key = CBORcodec_Object.decode_cbor_item(remaining)
+            except CBOR_Codec_Decoding_Error as e:
+                raise CBOR_Decoding_Error(str(e))
             if not isinstance(key_obj, CBOR_TEXT_STRING):
                 raise CBOR_Decoding_Error(
                     "CBOR map field key must be a text string, got %r"
@@ -1984,15 +1907,19 @@ class CBORF_MAP(CBORF_element):
                     "Duplicate CBOR map field name: %r" % (key,)
                 )
             seen_keys.add(key)
-            val_bytes, remaining = cbor_item_span(after_key)
             if key in field_map:
+                try:
+                    val_bytes, remaining = cbor_item_span(after_key)
+                except CBOR_Codec_Decoding_Error as e:
+                    raise CBOR_Decoding_Error(str(e))
                 pair_values[key] = val_bytes
             else:
-                val_obj, val_rest = CBORcodec_Object.decode_cbor_item(val_bytes)
-                if val_rest:
-                    raise CBOR_Decoding_Error(
-                        "CBOR map value did not decode to a single item"
+                try:
+                    val_obj, remaining = CBORcodec_Object.decode_cbor_item(
+                        after_key
                     )
+                except CBOR_Codec_Decoding_Error as e:
+                    raise CBOR_Decoding_Error(str(e))
                 unknown_pairs.append((key, val_obj))
 
         if count is CBOR_INDEFINITE:
@@ -2053,14 +1980,6 @@ class CBORF_MAP(CBORF_element):
         self._unknown_field.set_val(pkt, unknown_pairs)
         return CBORParseResult(remaining=remaining, items=1)
 
-    def build(self, pkt):
-        # type: (CBOR_Packet) -> bytes
-        return self.build_result(pkt).data
-
-    def dissect(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> bytes
-        return self.dissect_result(pkt, s).remaining
-
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
         return 1
@@ -2105,8 +2024,8 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
         """Map/schema key identity comes from the tagged value field."""
         return self.inner_field.name
 
-    def _parse_tag_head(self, s, require_match=True):
-        # type: (bytes, bool) -> Tuple[int, bytes]
+    def _parse_tag_head(self, s):
+        # type: (bytes) -> Tuple[int, bytes]
         try:
             major_type, tag_num, remaining = CBOR_decode_head(s)
         except CBOR_Codec_Decoding_Error as e:
@@ -2114,7 +2033,7 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
         if major_type != int(CBOR_MajorTypes.TAG):
             raise CBOR_Type_Mismatch(
                 "Expected major type 6 (semantic tag), got %d" % major_type)
-        if require_match and tag_num != self.tag_num:
+        if tag_num != self.tag_num:
             raise CBOR_Type_Mismatch(
                 "Expected tag %d, got %d" % (self.tag_num, tag_num))
         return tag_num, remaining
@@ -2145,10 +2064,6 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
                 "Semantic tag content must be exactly one CBOR item")
         return CBORParseResult(remaining=inner.remaining, items=1)
 
-    def dissect(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> bytes
-        return self.dissect_result(pkt, s).remaining
-
     def build_result(self, pkt):
         # type: (CBOR_Packet) -> CBORBuildResult
         inner = self.inner_field.build_result(pkt)
@@ -2156,10 +2071,6 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
             raise CBOR_Encoding_Error(
                 "Semantic tag content must be exactly one CBOR item")
         return CBORBuildResult(self._encode_tagged(inner.data), 1)
-
-    def build(self, pkt):
-        # type: (CBOR_Packet) -> bytes
-        return self.build_result(pkt).data
 
     def parse_value(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> CBORParseResult
@@ -2220,15 +2131,27 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
 
 class CBORF_optional(CBORF_element):
     """
-    Wrapper making a CBOR schema element optional.
+    Wrapper making a CBOR field or semantic-tag field optional.
 
-    Absence is recorded as ``CBOR_ABSENT`` on every path (lookahead mismatch,
-    exhausted parent array, missing map key).  If the next item matches but
-    decoding fails, the error propagates (the value is present but malformed).
+    Accepts :class:`CBORF_field` or :class:`CBORF_SEMANTIC_TAG` (presence
+    methods required). Absence is recorded as ``CBOR_ABSENT`` on every path
+    (lookahead mismatch, exhausted parent array, missing map key).  If the
+    next item matches but decoding fails, the error propagates.
     """
 
     def __init__(self, field):
-        # type: (CBORF_element) -> None
+        # type: (Union[CBORF_field[Any], CBORF_SEMANTIC_TAG]) -> None
+        for attr in (
+            "is_absent",
+            "is_empty",
+            "matches_next_item",
+            "mark_absent",
+        ):
+            if not callable(getattr(field, attr, None)):
+                raise TypeError(
+                    "CBORF_optional requires a field-like element with %s(); "
+                    "got %r" % (attr, type(field).__name__)
+                )
         self._field = field
 
     def __getattr__(self, attr):
@@ -2249,14 +2172,6 @@ class CBORF_optional(CBORF_element):
             self._field.mark_absent(pkt)
             return CBORParseResult(remaining=s, items=0)
         return self._field.dissect_result(pkt, s)
-
-    def build(self, pkt):
-        # type: (CBOR_Packet) -> bytes
-        return self.build_result(pkt).data
-
-    def dissect(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> bytes
-        return self.dissect_result(pkt, s).remaining
 
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
@@ -2299,14 +2214,6 @@ class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
         if self._evalcond(pkt):
             return self.fld.dissect_result(pkt, s)
         return CBORParseResult(remaining=s, items=0)
-
-    def build(self, pkt):
-        # type: (CBOR_Packet) -> bytes
-        return self.build_result(pkt).data
-
-    def dissect(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> bytes
-        return self.dissect_result(pkt, s).remaining
 
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int

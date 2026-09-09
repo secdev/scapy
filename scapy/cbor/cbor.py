@@ -471,12 +471,6 @@ class CBORMapData(object):
         # type: () -> List[Tuple[Any, Any]]
         return list(self._pairs)
 
-    @property
-    def pairs(self):
-        # type: () -> List[Tuple[Any, Any]]
-        """Ordered ``(key, value)`` pairs (primary map representation)."""
-        return self.cbor_pairs()
-
     def as_dict(self):
         # type: () -> Dict[Any, Any]
         """Convert to a Python dict, raising if CBOR key distinctions would be lost."""
@@ -765,6 +759,28 @@ class CBOR_FLOAT(CBOR_Object[float]):
         return super(CBOR_FLOAT, self).enc(codec)
 
 
+def _cbor_float_wire_parts(encoded):
+    # type: (bytes) -> Tuple[int, int]
+    """Return ``(ai, bits)`` for a definite CBOR float encoding."""
+    wire = bytes(encoded)
+    if not wire:
+        raise ValueError("empty CBOR float encoding")
+    ai = wire[0] & 0x1f
+    if ai == int(CBOR_FloatAI.HALF):
+        if len(wire) < 3:
+            raise ValueError("truncated half float")
+        return ai, struct.unpack(">H", wire[1:3])[0]
+    if ai == int(CBOR_FloatAI.SINGLE):
+        if len(wire) < 5:
+            raise ValueError("truncated single float")
+        return ai, struct.unpack(">I", wire[1:5])[0]
+    if ai == int(CBOR_FloatAI.DOUBLE):
+        if len(wire) < 9:
+            raise ValueError("truncated double float")
+        return ai, struct.unpack(">Q", wire[1:9])[0]
+    raise ValueError("not a CBOR float encoding: ai=%d" % ai)
+
+
 def _cbor_float_key_identity(value, encoded=None):
     # type: (float, Optional[bytes]) -> Tuple[Any, ...]
     """Return RFC 8949 floating-point map-key identity for *value*.
@@ -775,14 +791,8 @@ def _cbor_float_key_identity(value, encoded=None):
     and sign survive Python's NaN canonicalization.
     """
     if encoded is not None:
-        wire = bytes(encoded)
-        if not wire:
-            raise ValueError("empty CBOR float encoding")
-        ai = wire[0] & 0x1f
+        ai, bits = _cbor_float_wire_parts(encoded)
         if ai == int(CBOR_FloatAI.HALF):
-            if len(wire) < 3:
-                raise ValueError("truncated half float")
-            bits = struct.unpack(">H", wire[1:3])[0]
             sign = (bits >> 15) & 0x1
             exponent = (bits >> 10) & 0x1f
             fraction = bits & 0x3ff
@@ -805,9 +815,6 @@ def _cbor_float_key_identity(value, encoded=None):
                 )
             return _cbor_float_key_identity(float_val)
         if ai == int(CBOR_FloatAI.SINGLE):
-            if len(wire) < 5:
-                raise ValueError("truncated single float")
-            bits = struct.unpack(">I", wire[1:5])[0]
             sign = (bits >> 31) & 0x1
             exponent = (bits >> 23) & 0xff
             fraction = bits & 0x7fffff
@@ -815,18 +822,15 @@ def _cbor_float_key_identity(value, encoded=None):
                 return ("nan", sign, fraction << 29)
             float_val = struct.unpack(">f", struct.pack(">I", bits))[0]
             return _cbor_float_key_identity(float_val)
-        if ai == int(CBOR_FloatAI.DOUBLE):
-            if len(wire) < 9:
-                raise ValueError("truncated double float")
-            bits = struct.unpack(">Q", wire[1:9])[0]
-            sign = (bits >> 63) & 0x1
-            exponent = (bits >> 52) & 0x7ff
-            fraction = bits & ((1 << 52) - 1)
-            if exponent == 0x7ff and fraction:
-                return ("nan", sign, fraction)
-            float_val = struct.unpack(">d", struct.pack(">Q", bits))[0]
-            return _cbor_float_key_identity(float_val)
-        raise ValueError("not a CBOR float encoding: ai=%d" % ai)
+        # DOUBLE
+        sign = (bits >> 63) & 0x1
+        exponent = (bits >> 52) & 0x7ff
+        fraction = bits & ((1 << 52) - 1)
+        if exponent == 0x7ff and fraction:
+            return ("nan", sign, fraction)
+        float_val = struct.unpack(">d", struct.pack(">Q", bits))[0]
+        return _cbor_float_key_identity(float_val)
+
     fval = float(value)
     if math.isnan(fval):
         bits = struct.unpack(">Q", struct.pack(">d", fval))[0]
