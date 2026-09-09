@@ -2920,6 +2920,85 @@ assert pkt.children[0].n == 1
 assert pkt.children[0].parent is pkt
 assert pkt.children[1].parent is pkt
 
+
++ Homogeneous collection max_count limits
+
+= CBORF_ARRAY_OF respects explicit max_count on definite arrays
+from scapy.cbor.cbor import CBOR_Decoding_Error
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class LimitedArray(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF(
+        "values", [], pkt_cls=CBORF_UNSIGNED_INTEGER, max_count=2
+    )
+
+assert LimitedArray(b"\x82\x01\x02").values == [1, 2]
+try:
+    LimitedArray(b"\x83\x01\x02\x03")
+    assert False, "definite ARRAY_OF ignored max_count"
+except CBOR_Decoding_Error:
+    pass
+
+
+= CBORF_ARRAY_OF respects explicit max_count on indefinite arrays
+from scapy.cbor.cbor import CBOR_Decoding_Error
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class LimitedIndefArray(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF(
+        "values", [], pkt_cls=CBORF_UNSIGNED_INTEGER, max_count=2
+    )
+
+assert LimitedIndefArray(b"\x9f\x01\x02\xff").values == [1, 2]
+try:
+    LimitedIndefArray(b"\x9f\x01\x02\x03\xff")
+    assert False, "indefinite ARRAY_OF ignored max_count"
+except CBOR_Decoding_Error:
+    pass
+
+
+= CBORF_ARRAY_OF falls back to conf.max_list_count
+from scapy.config import conf
+from scapy.cbor.cbor import CBOR_Decoding_Error
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class ConfLimitedArray(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF("values", [], pkt_cls=CBORF_UNSIGNED_INTEGER)
+
+old = conf.max_list_count
+conf.max_list_count = 2
+try:
+    assert ConfLimitedArray(b"\x82\x01\x02").values == [1, 2]
+    try:
+        ConfLimitedArray(b"\x83\x01\x02\x03")
+        assert False, "ARRAY_OF ignored conf.max_list_count"
+    except CBOR_Decoding_Error:
+        pass
+finally:
+    conf.max_list_count = old
+
+
+= CBORF_SEQUENCE_OF respects max_count
+from scapy.cbor.cbor import CBOR_Decoding_Error
+from scapy.cbor.cborfields import CBORF_SEQUENCE_OF, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class LimitedSeq(CBOR_Packet):
+    CBOR_root = CBORF_SEQUENCE_OF(
+        "values", [], pkt_cls=CBORF_UNSIGNED_INTEGER, max_count=2
+    )
+
+assert LimitedSeq(b"\x01\x02").values == [1, 2]
+try:
+    LimitedSeq(b"\x01\x02\x03")
+    assert False, "SEQUENCE_OF ignored max_count"
+except CBOR_Decoding_Error:
+    pass
+
+
 + Medium-severity review follow-ups
 
 = CBORF_FLOAT rebuilds preferred half-float after cache clear
