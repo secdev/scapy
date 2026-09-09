@@ -17,6 +17,7 @@ from typing import (
     Generic,
     List,
     Optional,
+    Set,
     Tuple,
     Type,
     TypeVar,
@@ -447,7 +448,7 @@ class CBORMapData(object):
         # type: () -> Dict[Any, Any]
         """Convert to a Python dict, raising if CBOR key distinctions would be lost."""
         out = {}  # type: Dict[Any, Any]
-        used_norms = []  # type: List[Any]
+        used_norms = set()  # type: Set[Any]
         for key, value in self._pairs:
             norm = _cbor_key_norm(key)
             if norm in used_norms:
@@ -461,7 +462,7 @@ class CBORMapData(object):
                 raise ValueError(
                     "Converting CBOR map to dict would collapse distinct keys"
                 )
-            used_norms.append(norm)
+            used_norms.add(norm)
             out[py_key] = value
         return out
 

@@ -2612,6 +2612,36 @@ except ValueError:
 else:
     raise AssertionError("conflicting SEQUENCE_OF selectors accepted")
 
+= CBORF_SEQUENCE_OF rejects a packet instance as pkt_cls
+from scapy.cbor.cborfields import CBORF_SEQUENCE_OF, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class SeqOfChild(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("value", 0)
+
+CBORF_SEQUENCE_OF("ok", [], pkt_cls=SeqOfChild)
+try:
+    CBORF_SEQUENCE_OF("bad", [], pkt_cls=SeqOfChild())
+except ValueError:
+    pass
+else:
+    raise AssertionError("SEQUENCE_OF accepted a packet instance as pkt_cls")
+
+= CBORF_ARRAY_OF rejects a packet instance as pkt_cls
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class ArrayOfChild(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("value", 0)
+
+CBORF_ARRAY_OF("ok", [], pkt_cls=ArrayOfChild)
+try:
+    CBORF_ARRAY_OF("bad", [], pkt_cls=ArrayOfChild())
+except ValueError:
+    pass
+else:
+    raise AssertionError("ARRAY_OF accepted a packet instance as pkt_cls")
+
 
 + TypeError must not be used for callback signature probing
 
@@ -3323,6 +3353,43 @@ md = obj.val
 assert md[0.0].val == 1
 assert md[-0.0].val == 1
 assert md[0.0] is md[-0.0]
+
+= CBORMapData.as_dict converts distinct keys and rejects collisions
+from scapy.cbor.cbor import (
+    CBOR_FLOAT,
+    CBOR_TEXT_STRING,
+    CBOR_TRUE,
+    CBOR_UNSIGNED_INTEGER,
+    CBORMapData,
+)
+
+md = CBORMapData([
+    (CBOR_TEXT_STRING("a"), CBOR_UNSIGNED_INTEGER(10)),
+    (CBOR_UNSIGNED_INTEGER(1), CBOR_UNSIGNED_INTEGER(20)),
+])
+as_dict = md.as_dict()
+assert as_dict["a"].val == 10
+assert as_dict[1].val == 20
+
+# RFC-equivalent keys (+0.0 / -0.0) cannot become a Python dict.
+try:
+    CBORMapData([
+        (CBOR_FLOAT(0.0), 1),
+        (CBOR_FLOAT(-0.0), 2),
+    ]).as_dict()
+    assert False, "equivalent float keys were collapsed into a dict"
+except ValueError:
+    pass
+
+# Python dict key collision (True vs 1) is rejected even when CBOR norms differ.
+try:
+    CBORMapData([
+        (CBOR_UNSIGNED_INTEGER(1), "i"),
+        (CBOR_TRUE(), "b"),
+    ]).as_dict()
+    assert False, "True/1 Python key collision was accepted by as_dict"
+except ValueError:
+    pass
 
 = Deterministic encoding rebuilds floats from the semantic value
 from scapy.cbor.cbor import CBOR_FLOAT
