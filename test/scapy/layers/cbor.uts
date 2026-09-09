@@ -2316,7 +2316,11 @@ assert bytes(pkt) == b"\xa2\x01\x61i\xf5\x61b"
 
 = Large binary64 values do not crash the deterministic scanner
 import struct
-from scapy.cbor.cborcodec import cbor_find_non_deterministic
+from importlib.machinery import SourceFileLoader
+cbor_find_non_deterministic = SourceFileLoader(
+    "cbor_test_utils",
+    scapy_path("/test/scapy/layers/cbor_test_utils.py"),
+).load_module().cbor_find_non_deterministic
 
 # RFC 8949 Appendix A example: 1.0e+300 as binary64
 wire = bytes.fromhex("fb7e37e43c8800759c")
@@ -2326,7 +2330,11 @@ wire = struct.pack(">B", 0xfb) + struct.pack(">d", -1e300)
 assert cbor_find_non_deterministic(wire) == []
 
 = Indefinite maps require bytewise lexicographic key order
-from scapy.cbor.cborcodec import cbor_find_non_deterministic
+from importlib.machinery import SourceFileLoader
+cbor_find_non_deterministic = SourceFileLoader(
+    "cbor_test_utils",
+    scapy_path("/test/scapy/layers/cbor_test_utils.py"),
+).load_module().cbor_find_non_deterministic
 
 assert not cbor_find_non_deterministic(
     bytes.fromhex("bf616101616202ff"),
@@ -2338,7 +2346,11 @@ assert cbor_find_non_deterministic(
 )
 
 = NaN preferred width uses the original payload bit pattern
-from scapy.cbor.cborcodec import cbor_find_non_deterministic
+from importlib.machinery import SourceFileLoader
+cbor_find_non_deterministic = SourceFileLoader(
+    "cbor_test_utils",
+    scapy_path("/test/scapy/layers/cbor_test_utils.py"),
+).load_module().cbor_find_non_deterministic
 
 # binary64 NaN with a low payload bit cannot shorten to binary16/32
 assert cbor_find_non_deterministic(bytes.fromhex("fb7ff8000000000001")) == []
@@ -2347,10 +2359,12 @@ assert cbor_find_non_deterministic(bytes.fromhex("fb7ff8000000000001")) == []
 assert cbor_find_non_deterministic(bytes.fromhex("fb7ffc000000000000"))
 
 = Non-det walker enforces nesting depth and indefinite string chunks
-from scapy.cbor.cborcodec import (
-    MAX_CBOR_NESTING,
-    cbor_find_non_deterministic,
-)
+from scapy.cbor.cborcodec import MAX_CBOR_NESTING
+from importlib.machinery import SourceFileLoader
+cbor_find_non_deterministic = SourceFileLoader(
+    "cbor_test_utils",
+    scapy_path("/test/scapy/layers/cbor_test_utils.py"),
+).load_module().cbor_find_non_deterministic
 
 # Malformed indefinite strings: checker must not raise RecursionError.
 bad_bstr = b"\x5f\x61a\xff"  # byte string with a text chunk
@@ -2582,7 +2596,11 @@ assert bytes(parent) == b"\x01\x02"
 + deterministic fixed-schema maps
 
 = CBORF_MAP emits deterministic encoded-key order independent of declaration order
-from scapy.cbor.cborcodec import cbor_find_non_deterministic
+from importlib.machinery import SourceFileLoader
+cbor_find_non_deterministic = SourceFileLoader(
+    "cbor_test_utils",
+    scapy_path("/test/scapy/layers/cbor_test_utils.py"),
+).load_module().cbor_find_non_deterministic
 from scapy.cbor.cborfields import CBORF_MAP
 
 class ReverseDeclaredMap(CBOR_Packet):
@@ -3214,7 +3232,11 @@ wire = CBORcodec_Object.encode_cbor_item_deterministic(obj)
 assert wire == b"\xa2\x61a\x02\x61b\x01"
 
 = Non-determinism scanner reports bare break and short simples
-from scapy.cbor.cborcodec import cbor_find_non_deterministic
+from importlib.machinery import SourceFileLoader
+cbor_find_non_deterministic = SourceFileLoader(
+    "cbor_test_utils",
+    scapy_path("/test/scapy/layers/cbor_test_utils.py"),
+).load_module().cbor_find_non_deterministic
 
 issues = cbor_find_non_deterministic(b"\xff")
 assert issues and "break" in issues[0][1].lower()
@@ -3891,10 +3913,12 @@ assert CBORcodec_Object.encode_cbor_item_deterministic(value) == bytes.fromhex("
 
 = Deterministic NaN encoding preserves sign and preferred width
 from scapy.cbor.cbor import CBOR_FLOAT, _cbor_key_equivalent
-from scapy.cbor.cborcodec import (
-    CBORcodec_Object,
-    cbor_find_non_deterministic,
-)
+from scapy.cbor.cborcodec import CBORcodec_Object
+from importlib.machinery import SourceFileLoader
+cbor_find_non_deterministic = SourceFileLoader(
+    "cbor_test_utils",
+    scapy_path("/test/scapy/layers/cbor_test_utils.py"),
+).load_module().cbor_find_non_deterministic
 
 enc = CBORcodec_Object.encode_cbor_item_deterministic
 
