@@ -56,7 +56,6 @@ from scapy.cbor.cborcodec import (
     CBORcodec_TEXT_STRING,
     CBORcodec_SIMPLE_AND_FLOAT,
 )
-from scapy.error import log_runtime
 from scapy.packet import Packet
 from scapy.volatile import (
     RandChoice,
@@ -767,11 +766,7 @@ class CBORF_BYTE_STRING(CBORF_field[bytes]):
 
     def encode_value(self, x):
         # type: (Any) -> bytes
-        data = bytes(x)
-        if self.definite_only:
-            # Always emit definite form (codec already does).
-            pass
-        return CBORcodec_BYTE_STRING.enc(data)
+        return CBORcodec_BYTE_STRING.enc(bytes(x))
 
     def randval(self):
         # type: () -> RandString
@@ -803,30 +798,24 @@ class CBORF_BYTE_STRING_PACKET(CBORF_field[Packet]):
         super(CBORF_BYTE_STRING_PACKET, self).__init__(name, default)
 
     def _resolve_packet_class(self, pkt, data):
-        # type: (CBOR_Packet, bytes) -> Tuple[Optional[Type[Packet]], bool]
+        # type: (CBOR_Packet, bytes) -> Optional[Type[Packet]]
         if self.pkt_cls is not None:
-            return self.pkt_cls, True
+            return self.pkt_cls
         if self.cls_cb is not None:
-            pkt_cls = self.cls_cb(pkt, data)
-            return pkt_cls, pkt_cls is not None
-        return None, False
+            return self.cls_cb(pkt, data)
+        return None
 
     def _decode_packet_value(self, pkt, data):
         # type: (CBOR_Packet, bytes) -> Packet
-        pkt_cls, registered = self._resolve_packet_class(pkt, data)
+        pkt_cls = self._resolve_packet_class(pkt, data)
         if pkt_cls is None:
-            return _cbor_packet_from_bytes(packet.Raw, data, pkt)
+            return packet.Raw(data)
         try:
             return _cbor_packet_from_bytes(pkt_cls, data, pkt)
         except Exception as exc:
-            if registered:
-                raise CBOR_Decoding_Error(
-                    "Failed to decode registered block-type-specific data: %s"
-                    % exc
-                )
-            log_runtime.exception(
-                "Failed to decode byte string content to %s", pkt_cls)
-            return _cbor_packet_from_bytes(packet.Raw, data, pkt)
+            raise CBOR_Decoding_Error(
+                "Failed to decode byte-string packet content: %s" % exc
+            ) from exc
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> Packet
