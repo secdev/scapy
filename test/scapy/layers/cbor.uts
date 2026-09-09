@@ -3420,6 +3420,8 @@ assert md[0.0] is md[-0.0]
 
 = CBORMapData.as_dict converts distinct keys and rejects collisions
 from scapy.cbor.cbor import (
+    CBOR_BYTE_STRING,
+    CBOR_FALSE,
     CBOR_FLOAT,
     CBOR_TEXT_STRING,
     CBOR_TRUE,
@@ -3430,10 +3432,14 @@ from scapy.cbor.cbor import (
 md = CBORMapData([
     (CBOR_TEXT_STRING("a"), CBOR_UNSIGNED_INTEGER(10)),
     (CBOR_UNSIGNED_INTEGER(1), CBOR_UNSIGNED_INTEGER(20)),
+    (CBOR_BYTE_STRING(b"b"), CBOR_UNSIGNED_INTEGER(30)),
+    (CBOR_FALSE(), CBOR_UNSIGNED_INTEGER(40)),
 ])
 as_dict = md.as_dict()
 assert as_dict["a"].val == 10
 assert as_dict[1].val == 20
+assert as_dict[b"b"].val == 30
+assert as_dict[False].val == 40
 
 # RFC-equivalent keys (+0.0 / -0.0) cannot become a Python dict.
 try:
@@ -3454,6 +3460,33 @@ try:
     assert False, "True/1 Python key collision was accepted by as_dict"
 except ValueError:
     pass
+
+= CBORMapData.as_dict rejects unhashable array and map keys
+from scapy.cbor.cbor import (
+    CBOR_ARRAY,
+    CBOR_MAP,
+    CBOR_UNSIGNED_INTEGER,
+    CBORMapData,
+)
+
+try:
+    CBORMapData([
+        (CBOR_ARRAY([CBOR_UNSIGNED_INTEGER(1)]), CBOR_UNSIGNED_INTEGER(0)),
+    ]).as_dict()
+    assert False, "array map key did not raise ValueError"
+except ValueError as exc:
+    assert "cannot be represented as a Python dict key" in str(exc)
+
+try:
+    CBORMapData([
+        (
+            CBOR_MAP(CBORMapData([(CBOR_UNSIGNED_INTEGER(1), CBOR_UNSIGNED_INTEGER(2))])),
+            CBOR_UNSIGNED_INTEGER(0),
+        ),
+    ]).as_dict()
+    assert False, "map map key did not raise ValueError"
+except ValueError as exc:
+    assert "cannot be represented as a Python dict key" in str(exc)
 
 = Deterministic encoding rebuilds floats from the semantic value
 from scapy.cbor.cbor import CBOR_FLOAT
