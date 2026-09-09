@@ -1667,6 +1667,16 @@ a.value.val[0].val.append(CBOR_UNSIGNED_INTEGER(1))
 assert len(b.value.val[0].val) == 1
 assert b.value.val[0].val[0].val == 0
 
+= Mutable defaults are isolated without reading the sibling first
+class RRMutableDefaultNoPeerRead(CBOR_Packet):
+    CBOR_root = CBORF_ANY("value", [[0]])
+
+a = RRMutableDefaultNoPeerRead()
+a.value.val[0].val.append(CBOR_UNSIGNED_INTEGER(1))
+b = RRMutableDefaultNoPeerRead()
+assert len(b.value.val[0].val) == 1
+assert b.value.val[0].val[0].val == 0
+
 = Mutable semantic-tag defaults are isolated between packet instances
 class RRMutableTagDefault(CBOR_Packet):
     CBOR_root = CBORF_ANY("value", CBOR_SEMANTIC_TAG((1, CBOR_ARRAY([]))))
