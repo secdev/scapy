@@ -575,46 +575,30 @@ class CBORMapData(object):
         if isinstance(other, dict):
             # Do not use dict(self.items()): Python collapses True/1 (and
             # similar) as equal keys, which is not the CBOR data model.
-            if len(other) != len(self._pairs):
-                return False
             other_items = list(other.items())
-            used = [False] * len(other_items)
-            for map_key, value in self._pairs:
-                matched = False
-                for idx, (other_key, other_value) in enumerate(other_items):
-                    if used[idx]:
-                        continue
-                    if not _cbor_key_equivalent(map_key, other_key):
-                        continue
-                    if value != other_value:
-                        return False
-                    used[idx] = True
-                    matched = True
-                    break
-                if not matched:
-                    return False
-            return True
-        if isinstance(other, CBORMapData):
+        elif isinstance(other, CBORMapData):
             # RFC 8949 maps are unordered; pair order is not identity.
-            if len(self._pairs) != len(other._pairs):
-                return False
-            used = [False] * len(other._pairs)
-            for map_key, value in self._pairs:
-                matched = False
-                for idx, (other_key, other_value) in enumerate(other._pairs):
-                    if used[idx]:
-                        continue
-                    if not _cbor_key_equivalent(map_key, other_key):
-                        continue
-                    if value != other_value:
-                        return False
-                    used[idx] = True
-                    matched = True
-                    break
-                if not matched:
+            other_items = other._pairs
+        else:
+            return NotImplemented
+        if len(self._pairs) != len(other_items):
+            return False
+        used = [False] * len(other_items)
+        for map_key, value in self._pairs:
+            matched = False
+            for idx, (other_key, other_value) in enumerate(other_items):
+                if used[idx]:
+                    continue
+                if not _cbor_key_equivalent(map_key, other_key):
+                    continue
+                if value != other_value:
                     return False
-            return True
-        return NotImplemented
+                used[idx] = True
+                matched = True
+                break
+            if not matched:
+                return False
+        return True
 
     def __repr__(self):
         # type: () -> str
