@@ -99,16 +99,28 @@ def CBOR_encode_head(major_type, value):
         return chb((major_type << 5) | value)
     elif value < 256:
         # 1-byte value follows
-        return chb((major_type << 5) | int(CBOR_AdditionalInfo.ONE_BYTE)) + chb(value)
+        return (
+            chb((major_type << 5) | int(CBOR_AdditionalInfo.ONE_BYTE))
+            + chb(value)
+        )
     elif value < 65536:
         # 2-byte value follows
-        return chb((major_type << 5) | int(CBOR_AdditionalInfo.TWO_BYTES)) + struct.pack(">H", value)
+        return (
+            chb((major_type << 5) | int(CBOR_AdditionalInfo.TWO_BYTES))
+            + struct.pack(">H", value)
+        )
     elif value < 4294967296:
         # 4-byte value follows
-        return chb((major_type << 5) | int(CBOR_AdditionalInfo.FOUR_BYTES)) + struct.pack(">I", value)
+        return (
+            chb((major_type << 5) | int(CBOR_AdditionalInfo.FOUR_BYTES))
+            + struct.pack(">I", value)
+        )
     else:
         # 8-byte value follows
-        return chb((major_type << 5) | int(CBOR_AdditionalInfo.EIGHT_BYTES)) + struct.pack(">Q", value)
+        return (
+            chb((major_type << 5) | int(CBOR_AdditionalInfo.EIGHT_BYTES))
+            + struct.pack(">Q", value)
+        )
 
 
 def CBOR_encode_indefinite_head(major_type):
@@ -119,7 +131,7 @@ def CBOR_encode_indefinite_head(major_type):
         int(CBOR_MajorTypes.TEXT_STRING),
         int(CBOR_MajorTypes.ARRAY),
         int(CBOR_MajorTypes.MAP),
-):
+    ):
         raise CBOR_Codec_Encoding_Error(
             "Indefinite length not allowed for major type %d" % major_type
         )
@@ -444,18 +456,27 @@ def _cbor_encode_nan(sign, significand52, ai):
     if ai == int(CBOR_AdditionalInfo.TWO_BYTES):
         fraction = (significand52 >> 42) & 0x3ff
         bits = (sign << 15) | (0x1f << 10) | fraction
-        return chb((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_AdditionalInfo.TWO_BYTES)) + struct.pack(">H", bits)
+        return chb(
+            (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
+            | int(CBOR_AdditionalInfo.TWO_BYTES)
+        ) + struct.pack(">H", bits)
     if ai == int(CBOR_AdditionalInfo.FOUR_BYTES):
         fraction = (significand52 >> 29) & 0x7fffff
         bits = (sign << 31) | (0xff << 23) | fraction
-        return chb((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_AdditionalInfo.FOUR_BYTES)) + struct.pack(">I", bits)
+        return chb(
+            (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
+            | int(CBOR_AdditionalInfo.FOUR_BYTES)
+        ) + struct.pack(">I", bits)
     if ai == int(CBOR_AdditionalInfo.EIGHT_BYTES):
         bits = (
             (sign << 63) |
             (0x7ff << 52) |
             (significand52 & ((1 << 52) - 1))
         )
-        return chb((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_AdditionalInfo.EIGHT_BYTES)) + struct.pack(">Q", bits)
+        return chb(
+            (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
+            | int(CBOR_AdditionalInfo.EIGHT_BYTES)
+        ) + struct.pack(">Q", bits)
     raise CBOR_Codec_Encoding_Error("Invalid NaN float AI: %d" % ai)
 
 
@@ -587,7 +608,11 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
 
         # Major type 7: simple values and floats. Check float preferred width.
         if major == 7:
-            if ai == int(CBOR_AdditionalInfo.ONE_BYTE) and isinstance(value, int) and value < 32:
+            if (
+                ai == int(CBOR_AdditionalInfo.ONE_BYTE)
+                and isinstance(value, int)
+                and value < 32
+            ):
                 issues.append((
                     base_offset + start,
                     "Non-shortest CBOR simple value encoding "
@@ -1132,7 +1157,10 @@ class CBORcodec_TEXT_STRING(CBORcodec_Object[str]):
             text_bytes = text.encode('utf-8')
         else:
             text_bytes = bytes(text)
-        return CBOR_encode_head(int(CBOR_MajorTypes.TEXT_STRING), len(text_bytes)) + text_bytes
+        return (
+            CBOR_encode_head(int(CBOR_MajorTypes.TEXT_STRING), len(text_bytes))
+            + text_bytes
+        )
 
     @classmethod
     def do_dec(cls,
@@ -1388,13 +1416,25 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
 
         # Check if obj is a CBOR object instance (for special cases like UNDEFINED)
         if isinstance(obj, CBOR_UNDEFINED):
-            return chb((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_SimpleValue.UNDEFINED))
+            return chb(
+                (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
+                | int(CBOR_SimpleValue.UNDEFINED)
+            )
         elif isinstance(obj, CBOR_NULL):
-            return chb((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_SimpleValue.NULL))
+            return chb(
+                (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
+                | int(CBOR_SimpleValue.NULL)
+            )
         elif isinstance(obj, CBOR_TRUE):
-            return chb((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_SimpleValue.TRUE))
+            return chb(
+                (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
+                | int(CBOR_SimpleValue.TRUE)
+            )
         elif isinstance(obj, CBOR_FALSE):
-            return chb((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_SimpleValue.FALSE))
+            return chb(
+                (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
+                | int(CBOR_SimpleValue.FALSE)
+            )
         elif isinstance(obj, CBOR_Object):
             # For other CBOR objects, use their val attribute
             val = obj.val
@@ -1402,11 +1442,20 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
             val = obj
 
         if val is False:
-            return chb((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_SimpleValue.FALSE))
+            return chb(
+                (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
+                | int(CBOR_SimpleValue.FALSE)
+            )
         elif val is True:
-            return chb((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_SimpleValue.TRUE))
+            return chb(
+                (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
+                | int(CBOR_SimpleValue.TRUE)
+            )
         elif val is None:
-            return chb((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_SimpleValue.NULL))
+            return chb(
+                (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
+                | int(CBOR_SimpleValue.NULL)
+            )
         elif isinstance(val, float):
             # Preferred serialization (RFC 8949): shortest float that
             # preserves the numeric value. Received non-preferred widths are
@@ -1415,19 +1464,31 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
             if ai == int(CBOR_AdditionalInfo.TWO_BYTES):
                 half = _cbor_float_to_half_bits(val)
                 if half is not None:
-                    return chb((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_AdditionalInfo.TWO_BYTES)) + struct.pack(">H", half)
+                    return chb(
+                        (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
+                        | int(CBOR_AdditionalInfo.TWO_BYTES)
+                    ) + struct.pack(">H", half)
                 ai = int(CBOR_AdditionalInfo.FOUR_BYTES)
             if ai == int(CBOR_AdditionalInfo.FOUR_BYTES):
                 try:
-                    return chb((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_AdditionalInfo.FOUR_BYTES)) + struct.pack(">f", val)
+                    return chb(
+                        (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
+                        | int(CBOR_AdditionalInfo.FOUR_BYTES)
+                    ) + struct.pack(">f", val)
                 except (OverflowError, struct.error):
                     pass
-            return chb((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_AdditionalInfo.EIGHT_BYTES)) + struct.pack(">d", val)
+            return chb(
+                (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
+                | int(CBOR_AdditionalInfo.EIGHT_BYTES)
+            ) + struct.pack(">d", val)
         elif isinstance(val, int) and 0 <= val <= 23:
             # Simple value 0-23
             return CBOR_encode_head(int(CBOR_MajorTypes.SIMPLE_AND_FLOAT), val)
         elif isinstance(val, int) and 32 <= val <= 255:
-            return chb((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_AdditionalInfo.ONE_BYTE)) + chb(val)
+            return chb(
+                (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
+                | int(CBOR_AdditionalInfo.ONE_BYTE)
+            ) + chb(val)
         else:
             raise CBOR_Codec_Encoding_Error(
                 "Cannot encode value as simple/float: %r" % val)

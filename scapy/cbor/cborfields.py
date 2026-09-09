@@ -926,7 +926,13 @@ class CBORF_BOOLEAN(CBORF_field[bool]):
         if not s or cbor_is_break(s):
             return False
         ai = s[0] & 0x1f
-        return ((s[0] >> 5) & 0x7) == int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) and ai in (int(CBOR_SimpleValue.FALSE), int(CBOR_SimpleValue.TRUE))
+        return (
+            ((s[0] >> 5) & 0x7) == int(CBOR_MajorTypes.SIMPLE_AND_FLOAT)
+            and ai in (
+                int(CBOR_SimpleValue.FALSE),
+                int(CBOR_SimpleValue.TRUE),
+            )
+        )
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> bool
@@ -973,7 +979,10 @@ class CBORF_NULL(CBORF_field[None]):
         # type: (CBOR_Packet, bytes) -> bool
         if not s or cbor_is_break(s):
             return False
-        return s[0] == ((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_SimpleValue.NULL))
+        return s[0] == (
+            (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
+            | int(CBOR_SimpleValue.NULL)
+        )
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> None
@@ -1028,7 +1037,10 @@ class CBORF_UNDEFINED(CBORF_field[None]):
         # type: (CBOR_Packet, bytes) -> bool
         if not s or cbor_is_break(s):
             return False
-        return s[0] == ((int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5) | int(CBOR_SimpleValue.UNDEFINED))
+        return s[0] == (
+            (int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) << 5)
+            | int(CBOR_SimpleValue.UNDEFINED)
+        )
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> None
@@ -1081,7 +1093,14 @@ class CBORF_FLOAT(CBORF_field[float]):
         if not s or cbor_is_break(s):
             return False
         ai = s[0] & 0x1f
-        return ((s[0] >> 5) & 0x7) == int(CBOR_MajorTypes.SIMPLE_AND_FLOAT) and ai in (int(CBOR_AdditionalInfo.TWO_BYTES), int(CBOR_AdditionalInfo.FOUR_BYTES), int(CBOR_AdditionalInfo.EIGHT_BYTES))
+        return (
+            ((s[0] >> 5) & 0x7) == int(CBOR_MajorTypes.SIMPLE_AND_FLOAT)
+            and ai in (
+                int(CBOR_AdditionalInfo.TWO_BYTES),
+                int(CBOR_AdditionalInfo.FOUR_BYTES),
+                int(CBOR_AdditionalInfo.EIGHT_BYTES),
+            )
+        )
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> float
@@ -1793,7 +1812,6 @@ class CBORF_ARRAY_OF(_CBORF_HOMOGENEOUS):
         data = CBOR_encode_head(int(CBOR_MajorTypes.ARRAY), len(val))
         data += b"".join(parts)
         return CBORBuildResult(data, 1)
-
 
 
 class CBORF_MAP_UNKNOWN(CBORF_field[List[Tuple[str, Any]]]):
