@@ -1477,7 +1477,7 @@ class RawPcapReader(metaclass=PcapReader_metaclass):
                 raise EOFError
             sec, usec, caplen, wirelen = struct.unpack(self.endian + "IIII", hdr)
             data = self.f.read(caplen)[:size]
-        except (gzip.BadGzipFile, OverflowError) as e:
+        except (OSError, OverflowError) as e:
             warning(f"Pcap: {e}")
             raise EOFError
 
