@@ -441,6 +441,16 @@ class CBORF_field(CBORF_element, Generic[_I]):
             return
         pkt.setfieldval(self.name, val)
 
+    def mark_absent(self, pkt):
+        # type: (CBOR_Packet) -> None
+        """Record that this field was not present on the wire."""
+        self.set_val(pkt, CBOR_ABSENT)
+
+    def is_absent(self, pkt):
+        # type: (CBOR_Packet) -> bool
+        """Return True when this field is marked :data:`CBOR_ABSENT`."""
+        return pkt.getfieldval(self.name) is CBOR_ABSENT
+
     def is_empty(self, pkt):
         # type: (CBOR_Packet) -> bool
         val = pkt.getfieldval(self.name)
@@ -1126,7 +1136,7 @@ class _CBORF_compound(CBORF_element):
         # type: (CBOR_Packet, Any) -> None
         """Record that an optional/conditional field was not present."""
         if isinstance(field, CBORF_optional):
-            field._field.set_val(pkt, CBOR_ABSENT)
+            field._field.mark_absent(pkt)
         elif isinstance(field, CBORF_CONDITIONAL):
             # Condition false or skipped: leave value untouched.
             pass
@@ -1915,7 +1925,7 @@ class CBORF_MAP(CBORF_element):
     def _mark_map_field_absent(self, pkt, fld):
         # type: (CBOR_Packet, Any) -> None
         if isinstance(fld, CBORF_optional):
-            fld._field.set_val(pkt, CBOR_ABSENT)
+            fld._field.mark_absent(pkt)
 
     def build(self, pkt):
         # type: (CBOR_Packet) -> bytes
@@ -1938,10 +1948,9 @@ class CBORF_SEMANTIC_TAG(CBORF_field[int]):
     """
     CBOR semantic tag field (major type 6).
 
-    Wraps an ``inner_field`` with the given numeric ``tag_num``.  The inner
-    field handles encoding and decoding of the tagged value.  The outer field
-    (named ``name``) stores the tag number, while the inner field stores its
-    value under its own name on the packet.
+    Wraps an ``inner_field`` with the given numeric ``tag_num``.  The tag
+    number is schema metadata only: it is not stored as editable packet
+    field state.  The inner field stores its value under its own name.
 
     Example::
 
@@ -2010,7 +2019,6 @@ class CBORF_SEMANTIC_TAG(CBORF_field[int]):
         if inner.items != 1:
             raise CBOR_Decoding_Error(
                 "Semantic tag content must be exactly one CBOR item")
-        self.set_val(pkt, tag_num)
         return CBORParseResult(remaining=inner.remaining, items=1)
 
     def dissect(self, pkt, s):
@@ -2044,11 +2052,28 @@ class CBORF_SEMANTIC_TAG(CBORF_field[int]):
 
     def get_fields_list(self):
         # type: () -> List[CBORF_field[Any]]
-        return [self] + self.inner_field.get_fields_list()
+        # Tag number is schema metadata; only the tagged value is packet state.
+        return self.inner_field.get_fields_list()
+
+    def mark_absent(self, pkt):
+        # type: (CBOR_Packet) -> None
+        self.inner_field.mark_absent(pkt)
+
+    def is_absent(self, pkt):
+        # type: (CBOR_Packet) -> bool
+        return self.inner_field.is_absent(pkt)
 
     def is_empty(self, pkt):
         # type: (CBOR_Packet) -> bool
-        return pkt.getfieldval(self.name) is CBOR_ABSENT
+        return self.is_absent(pkt)
+
+    def set_val(self, pkt, val):
+        # type: (CBOR_Packet, Any) -> None
+        # Presence bookkeeping for optional wrappers targets the inner value.
+        if val is CBOR_ABSENT:
+            self.mark_absent(pkt)
+            return
+        self.inner_field.set_val(pkt, val)
 
 
 ##############################
@@ -2074,7 +2099,7 @@ class CBORF_optional(CBORF_element):
 
     def build_result(self, pkt):
         # type: (CBOR_Packet) -> CBORBuildResult
-        if pkt.getfieldval(self._field.name) is CBOR_ABSENT:
+        if self._field.is_absent(pkt):
             return CBORBuildResult(b"", 0)
         if self._field.is_empty(pkt):
             return CBORBuildResult(b"", 0)
@@ -2083,7 +2108,7 @@ class CBORF_optional(CBORF_element):
     def dissect_result(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> CBORParseResult
         if not self._field.matches_next_item(pkt, s):
-            self._field.set_val(pkt, CBOR_ABSENT)
+            self._field.mark_absent(pkt)
             return CBORParseResult(remaining=s, items=0)
         return self._field.dissect_result(pkt, s)
 
