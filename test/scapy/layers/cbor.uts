@@ -359,7 +359,7 @@ class OptionalTaggedThenFallback(CBOR_Packet):
 pkt = OptionalTaggedThenFallback(b"\x81\x07")
 from scapy.cbor.cborfields import CBOR_ABSENT
 assert pkt.tagged_value is CBOR_ABSENT
-assert pkt.fallback == 7
+assert pkt.fallback.val == 7
 
 = A matching optional semantic tag with the wrong inner type is malformed
 from scapy.cbor.cbor import CBOR_Decoding_Error
@@ -474,7 +474,8 @@ class OptionalAnyWithTail(CBOR_Packet):
     )
 
 pkt = OptionalAnyWithTail(b"\x82\xf6\x01")
-assert pkt.value is None
+from scapy.cbor.cbor import CBOR_NULL
+assert isinstance(pkt.value, CBOR_NULL)
 assert pkt.tail == 1
 
 # Mutating another field invalidates Scapy's raw-packet cache. The rebuilt
@@ -657,7 +658,7 @@ except CBOR_Codec_Decoding_Error:
 
 = Empty CBORF_ANY map survives sibling mutation as a map
 from scapy.cbor.cborfields import CBORF_ANY, CBORF_ARRAY, CBORF_UNSIGNED_INTEGER, CBOR_ABSENT
-from scapy.cbor.cbor import CBORMapData
+from scapy.cbor.cbor import CBOR_MAP, CBORMapData
 from scapy.cborpacket import CBOR_Packet
 
 class AnyMapPkt(CBOR_Packet):
@@ -667,14 +668,15 @@ class AnyMapPkt(CBOR_Packet):
     )
 
 pkt = AnyMapPkt(b"\x82\xa0\x00")
-assert isinstance(pkt.a, CBORMapData)
-assert len(pkt.a) == 0
+assert isinstance(pkt.a, CBOR_MAP)
+assert isinstance(pkt.a.val, CBORMapData)
+assert len(pkt.a.val) == 0
 pkt.b = 1
 assert bytes(pkt) == b"\x82\xa0\x01"
 
 = Non-empty CBORF_ANY map survives sibling mutation
 from scapy.cbor.cborfields import CBORF_ANY, CBORF_ARRAY, CBORF_UNSIGNED_INTEGER
-from scapy.cbor.cbor import CBORMapData
+from scapy.cbor.cbor import CBOR_MAP, CBORMapData
 from scapy.cborpacket import CBOR_Packet
 
 class AnyMapPkt2(CBOR_Packet):
@@ -684,13 +686,15 @@ class AnyMapPkt2(CBOR_Packet):
     )
 
 pkt = AnyMapPkt2(b"\x82\xa1\x01\x02\x00")
-assert isinstance(pkt.a, CBORMapData)
-assert pkt.a[1] == 2
+assert isinstance(pkt.a, CBOR_MAP)
+assert isinstance(pkt.a.val, CBORMapData)
+assert pkt.a.val[1].val == 2
 pkt.b = 1
 assert bytes(pkt) == b"\x82\xa1\x01\x02\x01"
 
 = In-place mutation of CBORF_ANY list invalidates raw cache
 from scapy.cbor.cborfields import CBORF_ANY
+from scapy.cbor.cbor import CBOR_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
 
 class AnyRoot(CBOR_Packet):
@@ -698,7 +702,7 @@ class AnyRoot(CBOR_Packet):
 
 pkt = AnyRoot(b"\x82\x01\x02")
 assert pkt.raw_packet_cache == b"\x82\x01\x02"
-pkt.value.append(3)
+pkt.value.val.append(CBOR_UNSIGNED_INTEGER(3))
 assert bytes(pkt) == b"\x83\x01\x02\x03"
 
 = Typed map lookup distinguishes integer 1 from boolean True
@@ -875,7 +879,7 @@ pkt = OptMapPkt(b"\xa1\x61n\x00")
 assert pkt.any is CBOR_ABSENT
 assert pkt.nil is CBOR_ABSENT
 assert pkt.u is CBOR_ABSENT
-assert pkt.tag is CBOR_ABSENT
+assert pkt.ts is CBOR_ABSENT
 assert pkt.endpoint is CBOR_ABSENT
 pkt.n = 1
 assert bytes(pkt) == b"\xa1\x61n\x01"
@@ -1140,10 +1144,11 @@ class RROptionalBooleanThenAny(CBOR_Packet):
         CBORF_ANY("value", None),
     )
 
+from scapy.cbor.cbor import CBOR_SIMPLE_VALUE
 for wire, expected in ((b"\xf0", 16), (b"\xf8\x20", 32)):
     pkt = RROptionalBooleanThenAny(wire)
-    assert isinstance(pkt.value, CBORSimpleValue)
-    assert pkt.value.value == expected
+    assert isinstance(pkt.value, CBOR_SIMPLE_VALUE)
+    assert pkt.value.val == expected
 
 = Optional null and undefined do not consume each other's wire values
 class RROptionalNullThenUndefined(CBOR_Packet):
@@ -1370,11 +1375,15 @@ assert pkt.tail == 3
 + Finding 5: recursive CBORF_ANY mutations must invalidate the raw cache
 
 = Appending to a decoded root CBORF_ANY array changes serialized bytes
+from scapy.cbor.cbor import (
+    CBOR_ARRAY, CBOR_MAP, CBOR_SEMANTIC_TAG, CBOR_SIMPLE_VALUE,
+    CBOR_UNSIGNED_INTEGER, CBORMapData,
+)
 class RRMutableAnyRoot(CBOR_Packet):
     CBOR_root = CBORF_ANY("value", None)
 
 pkt = RRMutableAnyRoot(b"\x82\x01\x02")
-pkt.value.append(3)
+pkt.value.val.append(CBOR_UNSIGNED_INTEGER(3))
 assert bytes(pkt) == b"\x83\x01\x02\x03"
 
 = Mutating a nested CBORF_ANY array changes serialized bytes
@@ -1385,31 +1394,32 @@ class RRMutableAnyNested(CBOR_Packet):
     )
 
 pkt = RRMutableAnyNested(b"\x82\x82\x01\x02\x00")
-pkt.value.append(3)
+pkt.value.val.append(CBOR_UNSIGNED_INTEGER(3))
 assert bytes(pkt) == b"\x82\x83\x01\x02\x03\x00"
 
 = Mutating the list inside a decoded semantic tag changes serialized bytes
 pkt = RRMutableAnyRoot(b"\xd8\x2a\x82\x01\x02")
-assert isinstance(pkt.value, CBORTagValue)
-pkt.value.value.append(3)
+assert isinstance(pkt.value, CBOR_SEMANTIC_TAG)
+pkt.value.val[1].val.append(CBOR_UNSIGNED_INTEGER(3))
 assert bytes(pkt) == b"\xd8\x2a\x83\x01\x02\x03"
 
 = Mutating a decoded semantic tag number changes serialized bytes
 pkt = RRMutableAnyRoot(b"\xd8\x2a\x01")
-assert isinstance(pkt.value, CBORTagValue)
-pkt.value.tag = 43
+assert isinstance(pkt.value, CBOR_SEMANTIC_TAG)
+pkt.value.val = (43, pkt.value.val[1])
 assert bytes(pkt) == b"\xd8\x2b\x01"
 
 = Mutating a decoded extended simple value changes serialized bytes
 pkt = RRMutableAnyRoot(b"\xf8\x20")
-assert isinstance(pkt.value, CBORSimpleValue)
-pkt.value.value = 33
+assert isinstance(pkt.value, CBOR_SIMPLE_VALUE)
+pkt.value.val = 33
 assert bytes(pkt) == b"\xf8\x21"
 
 = Mutating an array value inside a decoded map changes serialized bytes
 pkt = RRMutableAnyRoot(b"\xa1\x61a\x81\x01")
-assert isinstance(pkt.value, CBORMapData)
-pkt.value["a"].append(2)
+assert isinstance(pkt.value, CBOR_MAP)
+assert isinstance(pkt.value.val, CBORMapData)
+pkt.value.val["a"].val.append(CBOR_UNSIGNED_INTEGER(2))
 assert bytes(pkt) == b"\xa1\x61a\x82\x01\x02"
 
 
@@ -1536,22 +1546,24 @@ except ValueError:
     pass
 
 = Nested mutable CBORF_ANY defaults are isolated between packet instances
+from scapy.cbor.cbor import CBOR_ARRAY, CBOR_UNSIGNED_INTEGER, CBOR_SEMANTIC_TAG
 class RRNestedMutableDefault(CBOR_Packet):
     CBOR_root = CBORF_ANY("value", [[0]])
 
 a = RRNestedMutableDefault()
 b = RRNestedMutableDefault()
-a.value[0].append(1)
-assert b.value == [[0]]
+a.value.val[0].val.append(CBOR_UNSIGNED_INTEGER(1))
+assert len(b.value.val[0].val) == 1
+assert b.value.val[0].val[0].val == 0
 
 = Mutable semantic-tag defaults are isolated between packet instances
 class RRMutableTagDefault(CBOR_Packet):
-    CBOR_root = CBORF_ANY("value", CBORTagValue(1, []))
+    CBOR_root = CBORF_ANY("value", CBOR_SEMANTIC_TAG((1, CBOR_ARRAY([]))))
 
 a = RRMutableTagDefault()
 b = RRMutableTagDefault()
-a.value.value.append(1)
-assert b.value == CBORTagValue(1, [])
+a.value.val[1].val.append(CBOR_UNSIGNED_INTEGER(1))
+assert len(b.value.val[1].val) == 0
 
 = Semantically duplicate map keys are rejected despite different encodings
 try:
@@ -1610,6 +1622,7 @@ pkt.tail = 8
 assert bytes(pkt) == b"\xa2\x64flag\x00\x64tail\x08"
 
 = Mutable CBORMapData defaults are isolated between packet instances
+from scapy.cbor.cbor import CBOR_MAP, CBOR_UNSIGNED_INTEGER, CBORMapData, CBOR_TEXT_STRING
 class RRMutableMapDefault(CBOR_Packet):
     CBOR_root = CBORF_ANY(
         "value",
@@ -1618,8 +1631,9 @@ class RRMutableMapDefault(CBOR_Packet):
 
 a = RRMutableMapDefault()
 b = RRMutableMapDefault()
-a.value["a"].append(1)
-assert b.value["a"] == []
+assert isinstance(a.value, CBOR_MAP)
+a.value.val["a"].val.append(CBOR_UNSIGNED_INTEGER(1))
+assert len(b.value.val["a"].val) == 0
 
 = Direct and extended simple values round-trip through CBORF_ANY
 for wire in (b"\xf0", b"\xf8\x20", b"\xf8\xff"):
@@ -1688,9 +1702,10 @@ class AnyUndefinedMap(CBOR_Packet):
 
 wire = b"\xa1\x61u\xf7"
 pkt = AnyUndefinedMap(wire)
-assert pkt.value["u"] is CBOR_UNDEFINED_VALUE
+from scapy.cbor.cbor import CBOR_UNDEFINED
+assert isinstance(pkt.value.val["u"], CBOR_UNDEFINED)
 clone = pkt.copy()
-assert clone.value["u"] is CBOR_UNDEFINED_VALUE
+assert isinstance(clone.value.val["u"], CBOR_UNDEFINED)
 assert bytes(clone) == wire
 
 + Finding 2 - Positional reservation must protect trailing required fields
@@ -1722,12 +1737,12 @@ class OptionalBoolThenAnySequence(CBOR_Packet):
 # Therefore the optional Boolean must be absent even though the item is Boolean.
 arr = OptionalBoolThenAnyArray(b"\x81\xf5")
 assert arr.getfieldval("maybe") is CBOR_ABSENT
-assert arr.required is True
+assert arr.required.val is True
 assert bytes(arr) == b"\x81\xf5"
 
 seq = OptionalBoolThenAnySequence(b"\xf5")
 assert seq.getfieldval("maybe") is CBOR_ABSENT
-assert seq.required is True
+assert seq.required.val is True
 assert bytes(seq) == b"\xf5"
 
 = Indefinite arrays reserve the final item for a required ANY field
@@ -1748,7 +1763,7 @@ class OptionalBoolThenAnyIndefinite(CBOR_Packet):
 
 pkt = OptionalBoolThenAnyIndefinite(b"\x9f\xf5\xff")
 assert pkt.getfieldval("maybe") is CBOR_ABSENT
-assert pkt.required is True
+assert pkt.required.val is True
 assert bytes(pkt) == b"\x9f\xf5\xff"
 
 = Optional ANY does not consume an item required by a trailing typed field
@@ -1804,7 +1819,7 @@ class OptionalPacketThenAny(CBOR_Packet):
 
 pkt = OptionalPacketThenAny(b"\x81\xf5")
 assert pkt.getfieldval("child") is CBOR_ABSENT
-assert pkt.required is True
+assert pkt.required.val is True
 
 = Nonterminal SEQUENCE_OF stops at a typed delimiter in an unframed sequence
 from scapy.cbor.cborfields import (
@@ -1961,7 +1976,7 @@ class OptionalSemanticTagDefault(CBOR_Packet):
     )
 
 pkt = OptionalSemanticTagDefault()
-assert pkt.getfieldval("tag") is CBOR_ABSENT
+assert pkt.getfieldval("value") is CBOR_ABSENT
 assert bytes(pkt) == b"\x80"
 
 = Fixed-schema maps reject duplicate known keys instead of silently taking the last value
@@ -2072,7 +2087,7 @@ class AnyMapWithSibling(CBOR_Packet):
 
 wire = b"\x82\xa1\x01\x02\x00"
 pkt = AnyMapWithSibling(wire)
-assert pkt.value[1] == 2
+assert pkt.value.val[1].val == 2
 pkt.sibling = 1
 assert bytes(pkt) == b"\x82\xa1\x01\x02\x01"
 
@@ -2086,8 +2101,9 @@ class AnyArrayWithSibling(CBOR_Packet):
         CBORF_UNSIGNED_INTEGER("sibling", 0),
     )
 
+from scapy.cbor.cbor import CBOR_UNSIGNED_INTEGER
 pkt = AnyArrayWithSibling(b"\x82\x82\x01\x02\x00")
-pkt.value.append(3)
+pkt.value.val.append(CBOR_UNSIGNED_INTEGER(3))
 assert bytes(pkt) == b"\x82\x83\x01\x02\x03\x00"
 
 = Generic map lookup keeps integer 1 and Boolean true as distinct CBOR keys
@@ -2098,9 +2114,9 @@ class TypedKeyMap(CBOR_Packet):
     CBOR_root = CBORF_ANY("value", None)
 
 pkt = TypedKeyMap(b"\xa2\x01\x61i\xf5\x61b")
-assert pkt.value[1] == "i"
-assert pkt.value[True] == "b"
-assert len(pkt.value.cbor_pairs()) == 2
+assert pkt.value.val[1].val == "i"
+assert pkt.value.val[True].val == "b"
+assert len(pkt.value.val.cbor_pairs()) == 2
 assert bytes(pkt) == b"\xa2\x01\x61i\xf5\x61b"
 
 + Deterministic CBOR and float edge cases
@@ -2658,13 +2674,14 @@ wire = (
     b"\x61a\x07"
     b"\xff"
 )
+from scapy.cbor.cbor import CBOR_UNSIGNED_INTEGER
 orig = MapCopyIsolation(wire)
 clone = orig.copy()
 assert clone._cbor_unknown_map_pairs is not orig._cbor_unknown_map_pairs
 assert clone._cbor_unknown_map_pairs[0][1] is not orig._cbor_unknown_map_pairs[0][1]
-clone._cbor_unknown_map_pairs[0][1].append(3)
-assert len(orig._cbor_unknown_map_pairs[0][1]) == 2
-assert clone._cbor_unknown_map_pairs[0][1] == [1, {"k": 2}, 3]
+clone._cbor_unknown_map_pairs[0][1].val.append(CBOR_UNSIGNED_INTEGER(3))
+assert len(orig._cbor_unknown_map_pairs[0][1].val) == 2
+assert len(clone._cbor_unknown_map_pairs[0][1].val) == 3
 
 
 + CBORF_ARRAY_OF indefinite decoding
@@ -2701,8 +2718,7 @@ assert pkt.children[1].parent is pkt
 
 + Medium-severity review follow-ups
 
-= CBORF_FLOAT preserves received half-float wire after cache clear
-from scapy.cbor.cbor import CBORFloatValue
+= CBORF_FLOAT rebuilds preferred half-float after cache clear
 from scapy.cbor.cborfields import CBORF_FLOAT
 from scapy.cborpacket import CBOR_Packet
 
@@ -2711,14 +2727,13 @@ class FloatPkt(CBOR_Packet):
 
 wire = b"\xf9\x3e\x00"  # 1.5 as half
 pkt = FloatPkt(wire)
-assert isinstance(pkt.value, CBORFloatValue)
 assert abs(pkt.value - 1.5) < 1e-6
-assert pkt.value.cbor_encoded == wire
+assert bytes(pkt) == wire  # untouched raw cache
 pkt.raw_packet_cache = None
 pkt.raw_packet_cache_fields = None
-assert bytes(pkt) == wire
+assert bytes(pkt) == wire  # preferred encoding for 1.5 is half
 pkt.value = 1.5
-assert bytes(pkt) == wire  # preferred half for 1.5
+assert bytes(pkt) == wire
 
 = Unframed CBORF_SEQUENCE leaves trailing CBOR items
 from scapy.cbor.cborfields import CBORF_SEQUENCE, CBORF_UNSIGNED_INTEGER
@@ -2850,23 +2865,22 @@ else:
 obj, rem = CBOR_Codecs.CBOR.dec(b"\x7f\x62\xc3\xa4\x61\x61\xff")
 assert rem == b"" and obj.val == "äa"
 
-= CBORF_FLOAT preserves non-preferred NaN payload wire after cache clear
-from scapy.cbor.cbor import CBORFloatValue
+= CBORF_FLOAT preserves non-preferred NaN payload only while raw cache is valid
 from scapy.cbor.cborfields import CBORF_FLOAT
 from scapy.cborpacket import CBOR_Packet
 
 class FloatPkt(CBOR_Packet):
     CBOR_root = CBORF_FLOAT("value", 0.0)
 
-# binary64 NaN with a low payload bit (preferred width stays binary64)
+# binary64 NaN with a low payload bit
 wire = bytes.fromhex("fb7ff8000000000001")
 pkt = FloatPkt(wire)
-assert isinstance(pkt.value, CBORFloatValue)
 assert pkt.value != pkt.value  # NaN
-assert pkt.value.cbor_encoded == wire
+assert bytes(pkt) == wire
 pkt.raw_packet_cache = None
 pkt.raw_packet_cache_fields = None
-assert bytes(pkt) == wire
+# After cache clear, rebuild uses preferred quiet NaN (binary16).
+assert bytes(pkt) == bytes.fromhex("f97e00")
 
 = CBORF_TEXT_STRING rejects bytes values instead of str(bytes) corruption
 from scapy.cbor.cborfields import CBORF_TEXT_STRING
@@ -2883,8 +2897,8 @@ except TypeError:
 else:
     raise AssertionError("bytes were coerced via str(bytes)")
 
-= CBORF_ANY preserves non-preferred float wire after cache clear
-from scapy.cbor.cbor import CBORFloatValue
+= CBORF_ANY preserves non-preferred float wire only while raw cache is valid
+from scapy.cbor.cbor import CBOR_FLOAT
 from scapy.cbor.cborfields import CBORF_ANY
 from scapy.cborpacket import CBOR_Packet
 
@@ -2894,11 +2908,12 @@ class AnyFloatPkt(CBOR_Packet):
 # binary64 NaN with a low payload bit
 wire = bytes.fromhex("fb7ff8000000000001")
 pkt = AnyFloatPkt(wire)
-assert isinstance(pkt.value, CBORFloatValue)
-assert pkt.value != pkt.value  # NaN
-assert pkt.value.cbor_encoded == wire
+assert isinstance(pkt.value, CBOR_FLOAT)
+assert pkt.value.val != pkt.value.val  # NaN
+assert bytes(pkt) == wire
 pkt.raw_packet_cache = None
 pkt.raw_packet_cache_fields = None
+# CBOR_FLOAT.enc() still preserves _encoded when present on the object.
 assert bytes(pkt) == wire
 
 = RandCBORObject generates encodable objects including nested containers
