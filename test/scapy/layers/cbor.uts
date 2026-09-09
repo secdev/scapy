@@ -1688,7 +1688,7 @@ assert bytes(undefined.copy()) == b"\xf7"
 
 = CBOR structural sentinels preserve singleton identity under copy operations
 import copy
-from scapy.cbor import CBOR_NO_ITEM, CBOR_UNDEFINED_VALUE
+from scapy.cbor.cbor import CBOR_NO_ITEM, CBOR_UNDEFINED_VALUE
 from scapy.cbor.cborfields import CBOR_ABSENT
 
 for sentinel in (CBOR_ABSENT, CBOR_UNDEFINED_VALUE, CBOR_NO_ITEM):
@@ -2152,8 +2152,14 @@ assert cbor_find_non_deterministic(wire) == []
 = Indefinite maps require bytewise lexicographic key order
 from scapy.cbor.cborcodec import cbor_find_non_deterministic
 
-assert not cbor_find_non_deterministic(bytes.fromhex("bf616101616202ff"))
-assert cbor_find_non_deterministic(bytes.fromhex("bf616201616102ff"))
+assert not cbor_find_non_deterministic(
+    bytes.fromhex("bf616101616202ff"),
+    allow_indefinite=True,
+)
+assert cbor_find_non_deterministic(
+    bytes.fromhex("bf616201616102ff"),
+    allow_indefinite=True,
+)
 
 = NaN preferred width uses the original payload bit pattern
 from scapy.cbor.cborcodec import cbor_find_non_deterministic
