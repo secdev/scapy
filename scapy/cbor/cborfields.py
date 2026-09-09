@@ -1509,7 +1509,133 @@ _ARRAY_T = Union[
 ]
 
 
-class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
+class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
+    """Shared machinery for homogeneous CBOR collections."""
+    islist = 1
+
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: Any
+                 pkt_cls=None,  # type: _ARRAY_T
+                 max_count=None,  # type: Optional[int]
+                 ):
+        # type: (...) -> None
+        self.cls = None
+        self.item_field = None
+        self.holds_packets = 0
+        self.next_cls_cb = None  # type: Optional[Callable[..., Optional[Type[Packet]]]]
+        self.max_count = max_count
+        self._init_element_type(pkt_cls)
+        super(_CBORF_HOMOGENEOUS, self).__init__(name, default)
+
+    def _init_element_type(self, pkt_cls):
+        # type: (_ARRAY_T) -> None
+        chosen = pkt_cls
+        if chosen is None:
+            raise ValueError("Provide pkt_cls")
+        if isinstance(chosen, type) and issubclass(chosen, CBORF_field) or \
+                isinstance(chosen, CBORF_field):
+            if isinstance(chosen, type):
+                self.item_field = chosen("_item", None)  # type: ignore
+            else:
+                self.item_field = chosen
+            self.holds_packets = 0
+        elif (
+            isinstance(chosen, type)
+            and issubclass(chosen, Packet)
+            and hasattr(chosen, "CBOR_root")
+        ):
+            self.cls = cast("Type[CBOR_Packet]", chosen)
+            self.holds_packets = 1
+        else:
+            raise ValueError("pkt_cls must be a CBORF_field or CBOR_Packet")
+
+    def _list_limit(self):
+        # type: () -> int
+        if self.max_count is not None:
+            return self.max_count
+        return config.conf.max_list_count
+
+    def _check_list_limit(self, consumed):
+        # type: (int) -> None
+        limit = self._list_limit()
+        if consumed >= limit:
+            raise CBOR_Decoding_Error(
+                "CBOR %s exceeded max_count=%d"
+                % (self.__class__.__name__, limit)
+            )
+
+    def any2i(self, pkt, x):
+        # type: (CBOR_Packet, Any) -> List[Any]
+        if x is None:
+            return None  # type: ignore
+        if self.holds_packets:
+            items = list(x)
+            for item in items:
+                _cbor_attach_parent(pkt, item)
+            return items
+        return [self.item_field.any2i(pkt, item) for item in x]
+
+    def _decode_element(self, pkt, s, values=None):
+        # type: (CBOR_Packet, bytes, Optional[List[Any]]) -> Tuple[Any, bytes]
+        if self.holds_packets:
+            pkt_cls = self.cls
+            if self.next_cls_cb is not None:
+                values = values if values is not None else []
+                pkt_cls = self.next_cls_cb(
+                    pkt,
+                    values,
+                    values[-1] if values else None,
+                    s,
+                )
+                if pkt_cls is CBOR_NO_ITEM or pkt_cls is None:
+                    return CBOR_NO_ITEM, s
+            item_bytes, remaining = cbor_item_span(s)
+            try:
+                child = pkt_cls(item_bytes, _parent=pkt)  # type: ignore
+            except CBOR_Decoding_Error:
+                raise
+            except Exception as exc:
+                raise CBOR_Decoding_Error(str(exc))
+            return child, remaining
+        result = self.item_field.parse_value(pkt, s)
+        if result.items != 1:
+            raise CBOR_Decoding_Error(
+                "%s element must consume exactly one item"
+                % self.__class__.__name__
+            )
+        return result.value, result.remaining
+
+    def _encode_element(self, pkt, item):
+        # type: (CBOR_Packet, Any) -> bytes
+        if self.holds_packets:
+            return _encode_exactly_one_cbor_item(
+                item, context="%s element" % self.__class__.__name__
+            )
+        result = self.item_field.build_value(pkt, item)
+        if result.items != 1:
+            raise CBOR_Encoding_Error(
+                "%s element must emit exactly one item"
+                % self.__class__.__name__
+            )
+        return result.data
+
+    def i2repr(self, pkt, x):
+        # type: (CBOR_Packet, Any) -> str
+        if self.holds_packets:
+            return repr(x)
+        if x is None:
+            return self._empty_repr
+        return self._open_repr + ", ".join(
+            self.item_field.i2repr(pkt, item) for item in x
+        ) + self._close_repr
+
+    def __repr__(self):
+        # type: () -> str
+        return "<%s %s>" % (self.__class__.__name__, self.name)
+
+
+class CBORF_SEQUENCE_OF(_CBORF_HOMOGENEOUS):
     """
     Unframed sequence of homogeneous elements (no CBOR array head).
 
@@ -1529,7 +1655,9 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
     and ``max_count`` to cap decoding (defaults to ``conf.max_list_count``).
     """
     CBOR_tag = None
-    islist = 1
+    _empty_repr = "()"
+    _open_repr = "("
+    _close_repr = ")"
 
     def __init__(self,
                  name,  # type: str
@@ -1541,60 +1669,27 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
                  ):
         # type: (...) -> None
         self.next_cls_cb = None  # type: Optional[Callable[..., Optional[Type[Packet]]]]
-        self.cls = None
-        self.item_field = None
-        self.holds_packets = 0
         self.count_from = count_from
-        self.max_count = max_count
-
         if next_cls_cb is not None:
             if pkt_cls is not None:
                 raise ValueError(
                     "Pass only next_cls_cb, or only pkt_cls"
                 )
             self.next_cls_cb = next_cls_cb
+            self.cls = None
+            self.item_field = None
             self.holds_packets = 1
-        else:
-            chosen = pkt_cls
-            if isinstance(chosen, type) and issubclass(chosen, CBORF_field) or \
-                    isinstance(chosen, CBORF_field):
-                if isinstance(chosen, type):
-                    self.item_field = chosen("_item", None)  # type: ignore
-                else:
-                    self.item_field = chosen
-                self.holds_packets = 0
-            elif (
-                isinstance(chosen, type)
-                and issubclass(chosen, Packet)
-                and hasattr(chosen, "CBOR_root")
-            ):
-                self.cls = cast("Type[CBOR_Packet]", chosen)
-                self.holds_packets = 1
-            else:
-                raise ValueError(
-                    "Provide pkt_cls or next_cls_cb"
-                )
-        super(CBORF_SEQUENCE_OF, self).__init__(name, default)
+            self.max_count = max_count
+            CBORF_field.__init__(self, name, default)
+            return
+        super(CBORF_SEQUENCE_OF, self).__init__(
+            name, default, pkt_cls=pkt_cls, max_count=max_count
+        )
 
     @property
     def is_unbounded(self):
         # type: () -> bool
         return self.count_from is None
-
-    def _list_limit(self):
-        # type: () -> int
-        return self.max_count or config.conf.max_list_count
-
-    def any2i(self, pkt, x):
-        # type: (CBOR_Packet, Any) -> List[Any]
-        if x is None:
-            return None  # type: ignore
-        if self.holds_packets:
-            items = list(x)
-            for item in items:
-                _cbor_attach_parent(pkt, item)
-            return items
-        return [self.item_field.any2i(pkt, item) for item in x]
 
     def _decode_items(self, pkt, data, max_items=None):
         # type: (CBOR_Packet, bytes, Optional[int]) -> Tuple[List[Any], bytes, int]
@@ -1602,7 +1697,6 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
         values = []  # type: List[Any]
         remaining = data
         consumed = 0
-        limit = self._list_limit()
         if self.count_from is not None:
             if callable(self.count_from):
                 max_items = int(self.count_from(pkt))
@@ -1611,47 +1705,19 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
         while remaining and not cbor_is_break(remaining):
             if max_items is not None and consumed >= max_items:
                 break
-            if consumed >= limit:
-                raise CBOR_Decoding_Error(
-                    "CBOR SEQUENCE_OF exceeded max_count=%d" % limit
-                )
+            self._check_list_limit(consumed)
             before_len = len(remaining)
-            if self.holds_packets:
-                pkt_cls = self.cls
-                if self.next_cls_cb is not None:
-                    pkt_cls = self.next_cls_cb(
-                        pkt,
-                        values,
-                        values[-1] if values else None,
-                        remaining,
-                    )
-                    if pkt_cls is CBOR_NO_ITEM or pkt_cls is None:
-                        break
-                item_bytes, next_remaining = cbor_item_span(remaining)
-                if len(next_remaining) >= before_len:
-                    raise CBOR_Decoding_Error(
-                        "Sequence decoder did not consume input")
-                try:
-                    child = _cbor_packet_from_bytes(pkt_cls, item_bytes, pkt)
-                except CBOR_Decoding_Error:
-                    raise
-                except Exception as exc:
-                    raise CBOR_Decoding_Error(str(exc))
-                values.append(child)
-                consumed += 1
-                remaining = next_remaining
-            else:
-                result = self.item_field.parse_value(pkt, remaining)
-                if result.items != 1:
-                    raise CBOR_Decoding_Error(
-                        "SEQUENCE_OF element must consume exactly one item"
-                    )
-                if len(result.remaining) >= before_len:
-                    raise CBOR_Decoding_Error(
-                        "Sequence decoder did not consume input")
-                values.append(result.value)
-                consumed += 1
-                remaining = result.remaining
+            item, next_remaining = self._decode_element(
+                pkt, remaining, values=values
+            )
+            if item is CBOR_NO_ITEM:
+                break
+            if len(next_remaining) >= before_len:
+                raise CBOR_Decoding_Error(
+                    "Sequence decoder did not consume input")
+            values.append(item)
+            consumed += 1
+            remaining = next_remaining
         return values, remaining, consumed
 
     def m2i(self, pkt, s):
@@ -1673,25 +1739,8 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
         if val is None:
             raise CBOR_Encoding_Error(
                 "Required collection field %r is None" % self.name)
-        parts = []  # type: List[bytes]
-        total_items = 0
-        for item in val:
-            if self.holds_packets:
-                parts.append(
-                    _encode_exactly_one_cbor_item(
-                        item, context="SEQUENCE_OF element"
-                    )
-                )
-                total_items += 1
-            else:
-                result = self.item_field.build_value(pkt, item)
-                if result.items != 1:
-                    raise CBOR_Encoding_Error(
-                        "SEQUENCE_OF element must emit exactly one item"
-                    )
-                parts.append(result.data)
-                total_items += 1
-        return CBORBuildResult(b"".join(parts), total_items)
+        parts = [self._encode_element(pkt, item) for item in val]
+        return CBORBuildResult(b"".join(parts), len(val))
 
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
@@ -1707,23 +1756,8 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
             return self.min_items(pkt)
         return self._list_limit()
 
-    def i2repr(self, pkt, x):
-        # type: (CBOR_Packet, Any) -> str
-        if self.holds_packets:
-            return repr(x)
-        elif x is None:
-            return "()"
-        else:
-            return "(%s)" % ", ".join(
-                self.item_field.i2repr(pkt, item) for item in x
-            )
 
-    def __repr__(self):
-        # type: () -> str
-        return "<%s %s>" % (self.__class__.__name__, self.name)
-
-
-class CBORF_ARRAY_OF(CBORF_field[List[Any]]):
+class CBORF_ARRAY_OF(_CBORF_HOMOGENEOUS):
     """
     CBOR array of homogeneous elements (major type 4).
 
@@ -1735,47 +1769,23 @@ class CBORF_ARRAY_OF(CBORF_field[List[Any]]):
     ``pkt_cls`` may be a :class:`CBOR_Packet` subclass or a
     :class:`CBORF_field` class/instance. Do not use a ``cls=`` keyword:
     :class:`~typing.Generic` reserves that name on Python 3.7.
+    Use ``max_count`` to cap decoding (defaults to ``conf.max_list_count``).
     """
     CBOR_tag = CBOR_MajorTypes.ARRAY
-    islist = 1
+    _empty_repr = "[]"
+    _open_repr = "["
+    _close_repr = "]"
 
     def __init__(self,
                  name,  # type: str
                  default,  # type: Any
                  pkt_cls=None,  # type: _ARRAY_T
+                 max_count=None,  # type: Optional[int]
                  ):
         # type: (...) -> None
-        chosen = pkt_cls
-        if chosen is None:
-            raise ValueError("Provide pkt_cls")
-        if isinstance(chosen, type) and issubclass(chosen, CBORF_field) or \
-                isinstance(chosen, CBORF_field):
-            if isinstance(chosen, type):
-                self.item_field = chosen("_item", None)  # type: ignore
-            else:
-                self.item_field = chosen
-            self.holds_packets = 0
-        elif (
-            isinstance(chosen, type)
-            and issubclass(chosen, Packet)
-            and hasattr(chosen, "CBOR_root")
-        ):
-            self.cls = cast("Type[CBOR_Packet]", chosen)
-            self.holds_packets = 1
-        else:
-            raise ValueError("pkt_cls must be a CBORF_field or CBOR_Packet")
-        super(CBORF_ARRAY_OF, self).__init__(name, default)
-
-    def any2i(self, pkt, x):
-        # type: (CBOR_Packet, Any) -> List[Any]
-        if x is None:
-            return None  # type: ignore
-        if self.holds_packets:
-            items = list(x)
-            for item in items:
-                _cbor_attach_parent(pkt, item)
-            return items
-        return [self.item_field.any2i(pkt, item) for item in x]
+        super(CBORF_ARRAY_OF, self).__init__(
+            name, default, pkt_cls=pkt_cls, max_count=max_count
+        )
 
     def m2i(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> Tuple[List[Any], bytes]
@@ -1783,41 +1793,27 @@ class CBORF_ARRAY_OF(CBORF_field[List[Any]]):
             major_type, count, s = CBOR_decode_head(s)
         except CBOR_Codec_Decoding_Error as e:
             raise CBOR_Decoding_Error(str(e))
-        if major_type != 4:
+        if major_type != int(CBOR_MajorTypes.ARRAY):
             raise CBOR_Type_Mismatch(
                 "Expected major type 4 (array), got %d" % major_type)
         lst = []  # type: List[Any]
-
-        def _decode_element():
-            # type: () -> None
-            nonlocal s
-            if self.holds_packets:
-                item_bytes, s = cbor_item_span(s)
-                try:
-                    child = _cbor_packet_from_bytes(self.cls, item_bytes, pkt)
-                except CBOR_Decoding_Error:
-                    raise
-                except Exception as exc:
-                    raise CBOR_Decoding_Error(str(exc))
-                lst.append(child)
-            else:
-                result = self.item_field.parse_value(pkt, s)
-                if result.items != 1:
-                    raise CBOR_Decoding_Error(
-                        "ARRAY_OF element must consume exactly one item"
-                    )
-                lst.append(result.value)
-                s = result.remaining
-
         if count is CBOR_INDEFINITE:
             while True:
                 if cbor_is_break(s):
                     s = cbor_consume_break(s)
                     break
-                _decode_element()
+                self._check_list_limit(len(lst))
+                item, s = self._decode_element(pkt, s)
+                lst.append(item)
         else:
+            if count > self._list_limit():
+                raise CBOR_Decoding_Error(
+                    "CBOR %s exceeded max_count=%d"
+                    % (self.__class__.__name__, self._list_limit())
+                )
             for _ in range(count):
-                _decode_element()
+                item, s = self._decode_element(pkt, s)
+                lst.append(item)
         return lst, s
 
     def build_result(self, pkt):
@@ -1826,39 +1822,11 @@ class CBORF_ARRAY_OF(CBORF_field[List[Any]]):
         if val is None:
             raise CBOR_Encoding_Error(
                 "Required collection field %r is None" % self.name)
-        parts = []  # type: List[bytes]
-        for item in val:
-            if self.holds_packets:
-                parts.append(
-                    _encode_exactly_one_cbor_item(
-                        item, context="ARRAY_OF element"
-                    )
-                )
-            else:
-                result = self.item_field.build_value(pkt, item)
-                if result.items != 1:
-                    raise CBOR_Encoding_Error(
-                        "ARRAY_OF element must emit exactly one item"
-                    )
-                parts.append(result.data)
-        items = b"".join(parts)
-        data = CBOR_encode_head(4, len(val)) + items
+        parts = [self._encode_element(pkt, item) for item in val]
+        data = CBOR_encode_head(int(CBOR_MajorTypes.ARRAY), len(val))
+        data += b"".join(parts)
         return CBORBuildResult(data, 1)
 
-    def i2repr(self, pkt, x):
-        # type: (CBOR_Packet, Any) -> str
-        if self.holds_packets:
-            return repr(x)
-        elif x is None:
-            return "[]"
-        else:
-            return "[%s]" % ", ".join(
-                self.item_field.i2repr(pkt, item) for item in x
-            )
-
-    def __repr__(self):
-        # type: () -> str
-        return "<%s %s>" % (self.__class__.__name__, self.name)
 
 
 class CBORF_MAP_UNKNOWN(CBORF_field[List[Tuple[str, Any]]]):
