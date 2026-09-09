@@ -500,14 +500,13 @@ class CBORMapData(object):
         # type: (Any) -> Tuple[Any, ...]
         """Return a typed identity for map-key lookup."""
         if isinstance(key, CBOR_Object):
-            # Normalize CBOR wrappers to the native Python type they encode.
+            # Normalize CBOR_Object keys to the native Python type they encode.
             if isinstance(key, (CBOR_TRUE, CBOR_FALSE)):
                 return (bool, bool(key.val))
             if isinstance(key, CBOR_NULL):
                 return (type(None), None)
             if isinstance(key, CBOR_UNDEFINED):
-                from scapy.cbor.cbor import CBOR_UNDEFINED_VALUE
-                return (type(CBOR_UNDEFINED_VALUE), CBOR_UNDEFINED_VALUE)
+                return ("undef", None)
             if isinstance(key, CBOR_UNSIGNED_INTEGER):
                 return (int, int(key.val))
             if isinstance(key, CBOR_NEGATIVE_INTEGER):
@@ -529,12 +528,11 @@ class CBORMapData(object):
             if isinstance(key, CBOR_SIMPLE_VALUE):
                 return (CBOR_SIMPLE_VALUE, key.val)
             return (type(key), key.val)
-        # bool is a subclass of int; float includes CBORFloatValue.
+        # bool is a subclass of int.
         if isinstance(key, bool):
             return (bool, key)
         if isinstance(key, float):
-            encoded = getattr(key, "cbor_encoded", None)
-            return CBORMapData._float_key_identity(key, encoded)
+            return CBORMapData._float_key_identity(key)
         if isinstance(key, int):
             return (int, key)
         return (type(key), key)
@@ -686,82 +684,32 @@ class CBOR_NULL(CBOR_Object[None]):
 
 
 class CBOR_UNDEFINED(CBOR_Object[None]):
-    """CBOR undefined value"""
+    """CBOR undefined value (singleton)."""
     tag = CBOR_MajorTypes.SIMPLE_AND_FLOAT
+    _instance = None  # type: Optional["CBOR_UNDEFINED"]
+
+    def __new__(cls):
+        # type: () -> CBOR_UNDEFINED
+        if cls._instance is None:
+            cls._instance = CBOR_Object.__new__(cls)
+        return cls._instance
 
     def __init__(self):
         # type: () -> None
-        super(CBOR_UNDEFINED, self).__init__(None)
-
-
-class CBORTagValue(object):
-    """Packet-field internal representation of a CBOR semantic tag."""
-    __slots__ = ("tag", "value")
-
-    def __init__(self, tag, value):
-        # type: (int, Any) -> None
-        self.tag = int(tag)
-        self.value = value
-
-    def __repr__(self):
-        # type: () -> str
-        return "CBORTagValue(tag=%r, value=%r)" % (self.tag, self.value)
-
-    def __eq__(self, other):
-        # type: (object) -> bool
-        return (
-            isinstance(other, CBORTagValue) and
-            self.tag == other.tag and
-            self.value == other.value
-        )
-
-    def __hash__(self):
-        # type: () -> int
-        return hash((self.tag, self.value))
-
-
-class CBORSimpleValue(object):
-    """Packet-field internal representation of a CBOR simple value."""
-    __slots__ = ("value",)
-
-    def __init__(self, value):
-        # type: (int) -> None
-        self.value = int(value)
-
-    def __repr__(self):
-        # type: () -> str
-        return "CBORSimpleValue(%r)" % self.value
-
-    def __eq__(self, other):
-        # type: (object) -> bool
-        return isinstance(other, CBORSimpleValue) and self.value == other.value
-
-    def __hash__(self):
-        # type: () -> int
-        return hash(self.value)
-
-
-class _CBORUndefined(object):
-    """Sentinel for CBOR undefined (distinct from Python ``None`` / null)."""
-
-    def __repr__(self):
-        # type: () -> str
-        return "CBOR_UNDEFINED"
+        if not hasattr(self, "val"):
+            super(CBOR_UNDEFINED, self).__init__(None)
 
     def __bool__(self):
         # type: () -> bool
         return False
 
     def __copy__(self):
-        # type: () -> _CBORUndefined
+        # type: () -> CBOR_UNDEFINED
         return self
 
     def __deepcopy__(self, memo):
-        # type: (dict) -> _CBORUndefined
+        # type: (dict) -> CBOR_UNDEFINED
         return self
-
-
-CBOR_UNDEFINED_VALUE = _CBORUndefined()
 
 
 class _CBORNoItem(object):
@@ -800,38 +748,6 @@ class CBOR_FLOAT(CBOR_Object[float]):
         return super(CBOR_FLOAT, self).enc(codec)
 
 
-class CBORFloatValue(float):
-    """Native float that optionally retains the exact CBOR encoding.
-
-    Used by :class:`~scapy.cbor.cborfields.CBORF_FLOAT` and
-    :class:`~scapy.cbor.cborfields.CBORF_ANY` so dissected half / single /
-    double (and NaN payloads) survive field storage and rebuild when the
-    packet raw cache is cleared, until the value is replaced by a plain
-    ``float``.
-    """
-
-    __slots__ = ("_cbor_encoded",)
-
-    def __new__(cls, value, encoded=None):
-        # type: (float, Optional[bytes]) -> CBORFloatValue
-        self = float.__new__(cls, value)
-        object.__setattr__(self, "_cbor_encoded", encoded)
-        return self
-
-    @property
-    def cbor_encoded(self):
-        # type: () -> Optional[bytes]
-        return getattr(self, "_cbor_encoded", None)
-
-    def __copy__(self):
-        # type: () -> CBORFloatValue
-        return CBORFloatValue(float(self), self.cbor_encoded)
-
-    def __deepcopy__(self, memo):
-        # type: (dict) -> CBORFloatValue
-        return self.__copy__()
-
-
 def _cbor_key_norm(value):
     # type: (Any) -> Any
     """Return a hashable RFC 8949 map-key equivalence form for *value*.
@@ -841,12 +757,6 @@ def _cbor_key_norm(value):
     order-sensitively; maps compare as unordered pairs of norms.  Semantic
     tags require the same tag number and an equivalent tagged value.
     """
-    if isinstance(value, CBORTagValue):
-        return ("tag", int(value.tag), _cbor_key_norm(value.value))
-    if isinstance(value, CBORSimpleValue):
-        return ("simple", int(value.value))
-    if value is CBOR_UNDEFINED_VALUE:
-        return ("undef", None)
     if isinstance(value, CBOR_Object):
         if isinstance(value, (CBOR_TRUE, CBOR_FALSE)):
             return ("bool", bool(value.val))

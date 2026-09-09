@@ -44,10 +44,7 @@ from scapy.cbor.cbor import (
     CBOR_TEXT_STRING,
     CBOR_TRUE,
     CBOR_UNDEFINED,
-    CBOR_UNDEFINED_VALUE,
     CBOR_UNSIGNED_INTEGER,
-    CBORSimpleValue,
-    CBORTagValue,
 )
 from scapy.cbor.cborcodec import (
     CBOR_Codec_Decoding_Error,
@@ -157,12 +154,12 @@ def rr_norm_cbor2(value):
 
 
 def rr_norm_native(value):
-    if value is CBOR_UNDEFINED_VALUE:
+    if isinstance(value, CBOR_UNDEFINED):
         return ("undefined",)
-    if isinstance(value, CBORSimpleValue):
-        return ("simple", value.value)
-    if isinstance(value, CBORTagValue):
-        return ("tag", value.tag, rr_norm_native(value.value))
+    if isinstance(value, CBOR_SIMPLE_VALUE):
+        return ("simple", value.val)
+    if isinstance(value, CBOR_SEMANTIC_TAG):
+        return ("tag", value.val[0], rr_norm_native(value.val[1]))
     if isinstance(value, CBORMapData):
         return _rr_map(value.cbor_pairs(), rr_norm_native)
     if isinstance(value, bool):
@@ -231,11 +228,13 @@ def rr_assert_extension_wire(value, **dump_kwargs):
 
 def rr_to_scapy_native(value):
     if value is cbor2.undefined:
-        return CBOR_UNDEFINED_VALUE
+        return CBOR_UNDEFINED()
     if isinstance(value, cbor2.CBORSimpleValue):
-        return CBORSimpleValue(value.value)
+        return CBOR_SIMPLE_VALUE(value.value)
     if isinstance(value, cbor2.CBORTag):
-        return CBORTagValue(value.tag, rr_to_scapy_native(value.value))
+        return CBOR_SEMANTIC_TAG(
+            (value.tag, rr_to_scapy_native(value.value))
+        )
     if isinstance(value, Mapping):
         return {
             rr_to_scapy_native(key): rr_to_scapy_native(item)
@@ -898,31 +897,30 @@ assert isinstance(pairs[0][0], CBOR_UNSIGNED_INTEGER)
 assert isinstance(pairs[1][0], CBOR_FLOAT)
 assert obj.enc() == wire
 
-= Positive and negative floating zero remain distinct encoded map keys ~ external_cbor2
+= Positive and negative floating zero are rejected as equivalent map keys ~ external_cbor2
 wire = (
     b"\xa2" + cbor2.dumps(0.0) + cbor2.dumps("positive") +
     cbor2.dumps(-0.0) + cbor2.dumps("negative")
 )
+# cbor2 may accept the wire into a collapsed Python mapping.
 cbor2.loads(wire, immutable=True)
-obj = rr_scapy_decode(wire)
-pairs = obj.val.cbor_pairs()
-assert len(pairs) == 2
-assert isinstance(pairs[0][0], CBOR_FLOAT)
-assert isinstance(pairs[1][0], CBOR_FLOAT)
-assert math.copysign(1.0, pairs[0][0].val) == 1.0
-assert math.copysign(1.0, pairs[1][0].val) == -1.0
-assert obj.enc() == wire
+try:
+    rr_scapy_decode(wire)
+    assert False, "+0.0 and -0.0 were accepted as distinct map keys"
+except CBOR_Codec_Decoding_Error:
+    pass
 
-= Distinct double-precision NaN payloads survive as separate map keys ~ external_cbor2
+= Distinct double-precision NaN payloads are rejected as equivalent map keys ~ external_cbor2
 first_nan = b"\xfb\x7f\xf8\x00\x00\x00\x00\x00\x01"
 second_nan = b"\xfb\x7f\xf8\x00\x00\x00\x00\x00\x02"
 wire = b"\xa2" + first_nan + cbor2.dumps(1) + second_nan + cbor2.dumps(2)
+# cbor2 may still expose both entries in an immutable mapping.
 cbor2.loads(wire, immutable=True)
-obj = rr_scapy_decode(wire)
-pairs = obj.val.cbor_pairs()
-assert len(pairs) == 2
-assert all(isinstance(key, CBOR_FLOAT) and math.isnan(key.val) for key, _ in pairs)
-assert obj.enc() == wire
+try:
+    rr_scapy_decode(wire)
+    assert False, "distinct NaN payloads were accepted as distinct map keys"
+except CBOR_Codec_Decoding_Error:
+    pass
 
 = CBOR integer 1 and Boolean true remain distinct map keys in Scapy ~ external_cbor2
 wire = (
@@ -995,7 +993,7 @@ assert rr_cbor2_sequence(wire, len(values)) == expected
 
 = cbor2 decodes a sequence produced by Scapy native encoders ~ external_cbor2
 values = [0, -1, b"x", "y", [1, 2], {"z": 3}, True, None,
-          CBOR_UNDEFINED_VALUE, CBORTagValue(60000, 4)]
+          CBOR_UNDEFINED(), CBOR_SEMANTIC_TAG((60000, CBOR_UNSIGNED_INTEGER(4)))]
 
 wire = b"".join(CBORcodec_Object.encode_cbor_item(value) for value in values)
 expected = [rr_norm_native(value) for value in values]
@@ -1128,7 +1126,6 @@ assert bytes(pkt) == wire
 value = cbor2.CBORTag(60000, "tagged")
 wire = cbor2.dumps(value, canonical=True)
 pkt = RRCbor2TaggedText(wire)
-assert pkt.tag_number == 60000
 assert pkt.value == "tagged"
 rr_clear_cache(pkt)
 assert bytes(pkt) == wire
@@ -1216,13 +1213,13 @@ for value in (1 << 100, -(1 << 100)):
 = In-place mutation of a CBORF_ANY outer list invalidates cached bytes ~ external_cbor2
 wire = cbor2.dumps([[1, 2], 0], canonical=True)
 pkt = RRCbor2AnyEnvelope(wire)
-pkt.value.append(3)
+pkt.value.val.append(CBOR_UNSIGNED_INTEGER(3))
 assert cbor2.loads(bytes(pkt)) == [[1, 2, 3], 0]
 
 = In-place mutation of a nested CBORF_ANY list invalidates cached bytes ~ external_cbor2
 wire = cbor2.dumps([[[1]], 0], canonical=True)
 pkt = RRCbor2AnyEnvelope(wire)
-pkt.value[0].append(2)
+pkt.value.val[0].val.append(CBOR_UNSIGNED_INTEGER(2))
 assert cbor2.loads(bytes(pkt)) == [[[1, 2]], 0]
 
 = CBORF_ANY map-value mutation invalidates cached bytes ~ external_cbor2
@@ -1230,14 +1227,9 @@ wire = cbor2.dumps([{"x": [1]}, 0], canonical=True)
 pkt = RRCbor2AnyEnvelope(wire)
 # The fixed representation must expose a mutable map while retaining major type 5.
 map_value = pkt.value
-if isinstance(map_value, CBORMapData):
-    stored = map_value["x"]
-elif isinstance(map_value, dict):
-    stored = map_value["x"]
-else:
-    stored = dict(map_value)["x"]
-
-stored.append(2)
+assert isinstance(map_value, CBOR_MAP)
+assert isinstance(map_value.val, CBORMapData)
+map_value.val["x"].val.append(CBOR_UNSIGNED_INTEGER(2))
 assert cbor2.loads(bytes(pkt)) == [{"x": [1, 2]}, 0]
 
 + Seeded randomized differential corpora

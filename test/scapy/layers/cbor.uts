@@ -973,8 +973,6 @@ from scapy.cbor.cbor import (
     CBOR_FALSE,
     CBOR_TRUE,
     CBOR_FLOAT,
-    CBORTagValue,
-    CBORSimpleValue,
 )
 from scapy.cbor.cborcodec import (
     CBOR_Codec_Decoding_Error,
@@ -1660,9 +1658,9 @@ for wire in (b"\xf0", b"\xf8\x20", b"\xf8\xff"):
 
 + Finding 1 - CBOR sentinel identity survives Scapy copying
 
-= CBOR_ABSENT and CBOR_UNDEFINED_VALUE survive Packet.copy and deepcopy
+= CBOR_ABSENT and CBOR_UNDEFINED survive Packet.copy and deepcopy
 import copy
-from scapy.cbor import CBOR_UNDEFINED_VALUE
+from scapy.cbor import CBOR_UNDEFINED
 from scapy.cbor.cborfields import CBORF_ANY, CBORF_ARRAY, CBORF_optional, CBOR_ABSENT
 from scapy.cborpacket import CBOR_Packet
 
@@ -1672,7 +1670,7 @@ class OptionalAnyCopy(CBOR_Packet):
     )
 
 class UndefinedAnyCopy(CBOR_Packet):
-    CBOR_root = CBORF_ANY("value", CBOR_UNDEFINED_VALUE)
+    CBOR_root = CBORF_ANY("value", CBOR_UNDEFINED())
 
 absent = OptionalAnyCopy(b"\x80")
 assert absent.getfieldval("value") is CBOR_ABSENT
@@ -1681,17 +1679,17 @@ assert copy.deepcopy(absent).getfieldval("value") is CBOR_ABSENT
 assert bytes(absent.copy()) == b"\x80"
 
 undefined = UndefinedAnyCopy(b"\xf7")
-assert undefined.getfieldval("value") is CBOR_UNDEFINED_VALUE
-assert undefined.copy().getfieldval("value") is CBOR_UNDEFINED_VALUE
-assert copy.deepcopy(undefined).getfieldval("value") is CBOR_UNDEFINED_VALUE
+assert undefined.getfieldval("value") is CBOR_UNDEFINED()
+assert undefined.copy().getfieldval("value") is CBOR_UNDEFINED()
+assert copy.deepcopy(undefined).getfieldval("value") is CBOR_UNDEFINED()
 assert bytes(undefined.copy()) == b"\xf7"
 
 = CBOR structural sentinels preserve singleton identity under copy operations
 import copy
-from scapy.cbor.cbor import CBOR_NO_ITEM, CBOR_UNDEFINED_VALUE
+from scapy.cbor.cbor import CBOR_NO_ITEM, CBOR_UNDEFINED
 from scapy.cbor.cborfields import CBOR_ABSENT
 
-for sentinel in (CBOR_ABSENT, CBOR_UNDEFINED_VALUE, CBOR_NO_ITEM):
+for sentinel in (CBOR_ABSENT, CBOR_UNDEFINED(), CBOR_NO_ITEM):
     assert copy.copy(sentinel) is sentinel
     assert copy.deepcopy(sentinel) is sentinel
 
@@ -1711,7 +1709,7 @@ assert fresh.copy().getfieldval("value") is CBOR_ABSENT
 assert bytes(fresh.copy()) == b"\x80"
 
 = Undefined values nested in a generic map survive packet copies
-from scapy.cbor import CBOR_UNDEFINED_VALUE
+from scapy.cbor import CBOR_UNDEFINED
 from scapy.cbor.cborfields import CBORF_ANY
 from scapy.cborpacket import CBOR_Packet
 
@@ -2980,9 +2978,10 @@ from scapy.cbor.cbor import (
     CBORMapData,
     CBOR_Object,
     CBOR_TRUE,
-    CBORSimpleValue,
-    CBORTagValue,
-    CBOR_UNDEFINED_VALUE,
+    CBOR_SEMANTIC_TAG,
+    CBOR_SIMPLE_VALUE,
+    CBOR_TEXT_STRING,
+    CBOR_UNDEFINED,
     CBOR_UNSIGNED_INTEGER,
 )
 
@@ -2991,12 +2990,12 @@ assert "CBOR_ARRAY" in CBOR_ARRAY([CBOR_UNSIGNED_INTEGER(1), 2]).strshow()
 assert "CBOR_MAP" in CBOR_MAP(CBORMapData([(1, CBOR_TRUE())])).strshow()
 assert "CBOR_MAP" in CBOR_MAP({1: CBOR_FALSE()}).strshow()
 assert "CBORMapData" in repr(CBORMapData([(b"k", 1)]))
-assert "CBORTagValue" in repr(CBORTagValue(1, "x"))
-assert "CBORSimpleValue" in repr(CBORSimpleValue(41))
-assert repr(CBOR_UNDEFINED_VALUE) == "CBOR_UNDEFINED"
-assert not CBOR_UNDEFINED_VALUE
-assert copy.copy(CBOR_UNDEFINED_VALUE) is CBOR_UNDEFINED_VALUE
-assert copy.deepcopy(CBOR_UNDEFINED_VALUE) is CBOR_UNDEFINED_VALUE
+assert "CBOR_SEMANTIC_TAG" in repr(CBOR_SEMANTIC_TAG((1, CBOR_TEXT_STRING("x"))))
+assert "CBOR_SIMPLE_VALUE" in repr(CBOR_SIMPLE_VALUE(41))
+assert isinstance(CBOR_UNDEFINED(), CBOR_UNDEFINED)
+assert not CBOR_UNDEFINED()
+assert copy.copy(CBOR_UNDEFINED()) is CBOR_UNDEFINED()
+assert copy.deepcopy(CBOR_UNDEFINED()) is CBOR_UNDEFINED()
 bad = bytes.fromhex("ff")
 err = CBOR_DECODING_ERROR(bad, exc=ValueError("boom"))
 assert "boom" in repr(err)
@@ -3127,11 +3126,11 @@ assert md[-0.0].val == 1
 assert md[0.0] is md[-0.0]
 
 = Deterministic encoding rebuilds floats from the semantic value
-from scapy.cbor.cbor import CBORFloatValue
+from scapy.cbor.cbor import CBOR_FLOAT
 from scapy.cbor.cborcodec import CBORcodec_Object
 
 # 1.5 received as binary64 must still encode as preferred binary16
-value = CBORFloatValue(1.5, encoded=bytes.fromhex("fb3ff8000000000000"))
+value = CBOR_FLOAT(1.5, encoded=bytes.fromhex("fb3ff8000000000000"))
 assert CBORcodec_Object.encode_cbor_item_deterministic(value) == bytes.fromhex("f93e00")
 
 = Compound CBOR_Object values are unhashable
