@@ -52,16 +52,9 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
     def _raw_cache_is_valid(self):
         # type: () -> bool
         """Return True if ``raw_packet_cache`` still matches nested field state."""
-        if self.raw_packet_cache is None or self.raw_packet_cache_fields is None:
+        if not super(CBOR_Packet, self)._raw_packet_cache_is_valid():
+            self._cbor_raw_cache_items = None  # type: ignore[attr-defined]
             return False
-        for fname, fval in self.raw_packet_cache_fields.items():
-            fld, val = self.getfield_and_val(fname)
-            if self._raw_packet_cache_field_value(fld, val) != fval:
-                self.raw_packet_cache = None
-                self.raw_packet_cache_fields = None
-                self._cbor_raw_cache_items = None  # type: ignore[attr-defined]
-                self.wirelen = None
-                return False
         return True
 
     def cbor_build_result(self):
