@@ -135,10 +135,12 @@ def _encode_exactly_one_cbor_item(val, context="value"):
     # type: (Any, str) -> bytes
     """Serialize *val* and require it to be exactly one well-formed CBOR item.
 
-    Used by packet-valued fields so Raw/bytes/Packet fallbacks cannot claim
-    ``items=1`` while emitting multiple or malformed CBOR items.
+    Trusted :class:`CBOR_Packet` values use their counted build contract.
+    Raw/bytes/generic Packet fallbacks are fully decoded to prove well-formed
+    single-item cardinality.
     """
-    if hasattr(val, "_cbor_build_counted"):
+    from scapy.cborpacket import CBOR_Packet
+    if isinstance(val, CBOR_Packet):
         result = val._cbor_build_counted()
         if result.items != 1:
             raise CBOR_Encoding_Error(
@@ -146,9 +148,8 @@ def _encode_exactly_one_cbor_item(val, context="value"):
                 "but encoded %d"
                 % (getattr(type(val), "__name__", context), result.items)
             )
-        data = result.data
-    else:
-        data = bytes(val)
+        return result.data
+    data = bytes(val)
     try:
         _obj, remaining = CBORcodec_Object.decode_cbor_item(data)
     except Exception as exc:
@@ -221,7 +222,6 @@ class CBORF_field(CBORF_element, Generic[_I]):
     holds_packets = 0
     islist = 0
     ismutable = False
-    allows_none = False
     CBOR_tag = None  # type: Optional[Any]
 
     def __init__(self,
@@ -328,8 +328,6 @@ class CBORF_field(CBORF_element, Generic[_I]):
         """Encode this field's value from *pkt* (ASN.1-style leaf build)."""
         val = pkt.getfieldval(self.name)
         if val is None:
-            if self.allows_none:
-                return b""
             raise CBOR_Encoding_Error(
                 "Required field %r is None" % self.name)
         return self.i2m(pkt, val)
@@ -343,13 +341,7 @@ class CBORF_field(CBORF_element, Generic[_I]):
 
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
-        val = pkt.getfieldval(self.name)
-        if val is None:
-            if self.allows_none:
-                return _CBORBuildResult(b"", 0)
-            raise CBOR_Encoding_Error(
-                "Required field %r is None" % self.name)
-        return _CBORBuildResult(self.i2m(pkt, val), 1)
+        return _CBORBuildResult(self.build(pkt), 1)
 
     def _dissect_counted(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> _CBORParseResult
@@ -369,14 +361,6 @@ class CBORF_field(CBORF_element, Generic[_I]):
             data=self.i2m(pkt, self.any2i(pkt, value)),
             items=1,
         )
-
-    def min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return 1
-
-    def max_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return 1
 
     def do_copy(self, x):
         # type: (Any) -> Any
@@ -961,7 +945,6 @@ class CBORF_BOOLEAN(CBORF_field[bool]):
 class CBORF_NULL(CBORF_field[None]):
     """CBOR null field (major type 7, simple value 22)."""
     CBOR_tag = CBOR_MajorTypes.SIMPLE_AND_FLOAT
-    allows_none = True
 
     def __init__(self,
                  name,  # type: str
@@ -996,29 +979,27 @@ class CBORF_NULL(CBORF_field[None]):
         # type: (Any) -> bytes
         return CBOR_NULL().enc()
 
+    def build(self, pkt):
+        # type: (CBOR_Packet) -> bytes
+        if pkt.getfieldval(self.name) is CBOR_ABSENT:
+            return b""
+        return self.encode_value(None)
+
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
-        if pkt.getfieldval(self.name) is CBOR_ABSENT:
+        data = self.build(pkt)
+        if not data:
             return _CBORBuildResult(b"", 0)
-        return _CBORBuildResult(self.encode_value(None), 1)
+        return _CBORBuildResult(data, 1)
 
     def is_empty(self, pkt):
         # type: (CBOR_Packet) -> bool
         return pkt.getfieldval(self.name) is CBOR_ABSENT
 
-    def min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return 1
-
-    def max_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return 1
-
 
 class CBORF_UNDEFINED(CBORF_field[None]):
     """CBOR undefined field (major type 7, simple value 23)."""
     CBOR_tag = CBOR_MajorTypes.SIMPLE_AND_FLOAT
-    allows_none = True
 
     def __init__(self,
                  name,  # type: str
@@ -1053,23 +1034,22 @@ class CBORF_UNDEFINED(CBORF_field[None]):
         # type: (Any) -> bytes
         return CBOR_UNDEFINED().enc()
 
+    def build(self, pkt):
+        # type: (CBOR_Packet) -> bytes
+        if pkt.getfieldval(self.name) is CBOR_ABSENT:
+            return b""
+        return self.encode_value(None)
+
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
-        if pkt.getfieldval(self.name) is CBOR_ABSENT:
+        data = self.build(pkt)
+        if not data:
             return _CBORBuildResult(b"", 0)
-        return _CBORBuildResult(self.encode_value(None), 1)
+        return _CBORBuildResult(data, 1)
 
     def is_empty(self, pkt):
         # type: (CBOR_Packet) -> bool
         return pkt.getfieldval(self.name) is CBOR_ABSENT
-
-    def min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return 1
-
-    def max_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return 1
 
 
 class CBORF_FLOAT(CBORF_field[float]):
@@ -1404,14 +1384,6 @@ class CBORF_ARRAY(_CBORF_compound):
             )
         return _CBORParseResult(remaining=remaining, items=1)
 
-    def min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return 1
-
-    def max_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return 1
-
 
 class CBORF_ARRAY_INDEFINITE(CBORF_ARRAY):
     """A field to act as an array but to always encode to indefinite-length."""
@@ -1458,8 +1430,10 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
             self.holds_packets = 1
         elif pkt_cls is None:
             raise ValueError("Provide pkt_cls or next_cls_cb")
-        elif isinstance(pkt_cls, type) and issubclass(pkt_cls, CBORF_field) or \
-                isinstance(pkt_cls, CBORF_field):
+        elif (
+            (isinstance(pkt_cls, type) and issubclass(pkt_cls, CBORF_field))
+            or isinstance(pkt_cls, CBORF_field)
+        ):
             if isinstance(pkt_cls, type):
                 self.item_field = pkt_cls("_item", None)  # type: ignore
             else:
@@ -1480,7 +1454,9 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
             and hasattr(pkt_cls, "CBOR_root")
         ):
             return cast("Type[CBOR_Packet]", pkt_cls)
-        raise ValueError("pkt_cls must be a CBORF_field or CBOR_Packet")
+        raise ValueError(
+            "pkt_cls must be a CBOR_Packet subclass with CBOR_root"
+        )
 
     def _list_limit(self):
         # type: () -> int
@@ -1529,6 +1505,8 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
             except CBOR_Decoding_Error:
                 raise
             except Exception as exc:
+                if config.conf.debug_dissector:
+                    raise
                 raise CBOR_Decoding_Error(str(exc))
             return child, remaining
         result = self.item_field._parse_value(pkt, s)
@@ -2014,14 +1992,6 @@ class CBORF_MAP(CBORF_element):
         self._unknown_field.set_val(pkt, unknown_pairs)
         return _CBORParseResult(remaining=remaining, items=1)
 
-    def min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return 1
-
-    def max_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return 1
-
 
 class CBORF_SEMANTIC_TAG(CBORF_element):
     """
@@ -2137,14 +2107,6 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
     def is_empty(self, pkt):
         # type: (CBOR_Packet) -> bool
         return self.inner_field.is_empty(pkt)
-
-    def min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return 1
-
-    def max_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return 1
 
 
 ##############################
@@ -2271,6 +2233,8 @@ class CBORF_PACKET(CBORF_field['CBOR_Packet']):
         except CBOR_Decoding_Error:
             raise
         except Exception as exc:
+            if config.conf.debug_dissector:
+                raise
             raise CBOR_Decoding_Error(str(exc))
         return child, remain
 
