@@ -3361,6 +3361,54 @@ assert isinstance(only_recursive, CBOR_UNSIGNED_INTEGER)
 simple = RandCBORObject(objlist=[CBOR_TEXT_STRING, CBOR_NULL])._fix()
 assert bytes(simple)
 
+= Lightweight count path rejects nesting beyond MAX_CBOR_NESTING
+from scapy.cbor.cborcodec import (
+    CBOR_Codec_Decoding_Error,
+    MAX_CBOR_NESTING,
+    cbor_count_items,
+)
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY_INDEFINITE,
+    CBORF_SEQUENCE,
+    CBORF_UNSIGNED_INTEGER,
+)
+from scapy.cborpacket import CBOR_Packet
+
+# Nested arrays: 0x81 (array of 1) repeated, then unsigned 0.
+too_deep = b"\x81" * (MAX_CBOR_NESTING + 1) + b"\x00"
+try:
+    cbor_count_items(too_deep)
+    assert False, "expected nesting-depth error"
+except CBOR_Codec_Decoding_Error as err:
+    assert "nesting" in str(err).lower()
+except RecursionError:
+    assert False, "pre-scan leaked RecursionError"
+
+class DeepSeq(CBOR_Packet):
+    CBOR_root = CBORF_SEQUENCE(CBORF_UNSIGNED_INTEGER("n", 0))
+
+try:
+    DeepSeq(too_deep)
+    assert False, "SEQUENCE accepted over-nested input"
+except Exception as err:
+    assert not isinstance(err, RecursionError)
+    assert "nesting" in str(err).lower()
+
+# Indefinite array pre-scan uses the same depth-limited skip path.
+indef_too_deep = b"\x9f" + too_deep + b"\xff"
+
+class DeepIndef(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_INDEFINITE(
+        CBORF_UNSIGNED_INTEGER("n", 0),
+    )
+
+try:
+    DeepIndef(indef_too_deep)
+    assert False, "indefinite ARRAY accepted over-nested input"
+except Exception as err:
+    assert not isinstance(err, RecursionError)
+    assert "nesting" in str(err).lower()
+
 = CBOR object display helpers and decoding-error repr
 import copy
 from scapy.cbor.cbor import (

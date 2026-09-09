@@ -103,7 +103,7 @@ def CBOR_encode_head(major_type, value):
     if value < 0 or value > CBOR_UINT64_MAX:
         raise CBOR_Codec_Encoding_Error(
             "CBOR head value out of uint64 range: %r" % (value,))
-    if value < 24:
+    if value < int(CBOR_AdditionalInfo.ONE_BYTE):
         # Value fits in 5 bits
         return CBOR_encode_initial(major_type, value)
     elif value < 256:
@@ -157,68 +157,71 @@ def cbor_consume_break(s):
     return s[1:]
 
 
-def cbor_skip_item(s):
-    # type: (Any) -> Any
-    """Advance past one well-formed CBOR item without building objects."""
-    major_type, value, rem = CBOR_decode_head(s)
-    if major_type in (
-        int(CBOR_MajorTypes.UNSIGNED_INTEGER),
-        int(CBOR_MajorTypes.NEGATIVE_INTEGER),
-        int(CBOR_MajorTypes.SIMPLE_AND_FLOAT),
-    ):
-        return rem
-    if major_type in (
-        int(CBOR_MajorTypes.BYTE_STRING),
-        int(CBOR_MajorTypes.TEXT_STRING),
-    ):
-        if value is CBOR_INDEFINITE:
-            while rem and not cbor_is_break(rem):
-                rem = cbor_skip_item(rem)
-            return cbor_consume_break(rem)
-        length = int(value)
-        if len(rem) < length:
-            raise CBOR_Codec_Decoding_Error(
-                "Truncated byte/text string", remaining=_cbor_buf_bytes(s))
-        return rem[length:]
-    if major_type == int(CBOR_MajorTypes.ARRAY):
-        if value is CBOR_INDEFINITE:
-            while rem and not cbor_is_break(rem):
-                rem = cbor_skip_item(rem)
-            return cbor_consume_break(rem)
-        for _ in range(int(value)):
-            rem = cbor_skip_item(rem)
-        return rem
-    if major_type == int(CBOR_MajorTypes.MAP):
-        if value is CBOR_INDEFINITE:
-            while rem and not cbor_is_break(rem):
-                rem = cbor_skip_item(rem)
-                rem = cbor_skip_item(rem)
-            return cbor_consume_break(rem)
-        for _ in range(int(value)):
-            rem = cbor_skip_item(rem)
-            rem = cbor_skip_item(rem)
-        return rem
-    if major_type == int(CBOR_MajorTypes.TAG):
-        return cbor_skip_item(rem)
-    raise CBOR_Codec_Decoding_Error(
-        "Invalid major type: %d" % major_type,
-        remaining=_cbor_buf_bytes(s),
-    )
-
-
 def cbor_count_items(s, max_count=None, until_break=False):
     # type: (Any, Optional[int], bool) -> int
-    """Count top-level CBOR items with ``cbor_skip_item`` (no object trees).
+    """Count top-level CBOR items without building object trees.
 
     When *until_break* is true, stop at a break byte without consuming it.
     When *max_count* is set, stop after that many items even if more remain.
     """
-    rem = s
+    def _skip_item(rem, depth=0):
+        # type: (Any, int) -> Any
+        if depth > MAX_CBOR_NESTING:
+            raise CBOR_Codec_Decoding_Error(
+                "Maximum CBOR nesting depth exceeded",
+                remaining=_cbor_buf_bytes(rem))
+        major_type, value, rem = CBOR_decode_head(rem)
+        if major_type in (
+            int(CBOR_MajorTypes.UNSIGNED_INTEGER),
+            int(CBOR_MajorTypes.NEGATIVE_INTEGER),
+            int(CBOR_MajorTypes.SIMPLE_AND_FLOAT),
+        ):
+            return rem
+        if major_type in (
+            int(CBOR_MajorTypes.BYTE_STRING),
+            int(CBOR_MajorTypes.TEXT_STRING),
+        ):
+            if value is CBOR_INDEFINITE:
+                while rem and not cbor_is_break(rem):
+                    rem = _skip_item(rem, depth + 1)
+                return cbor_consume_break(rem)
+            length = int(value)
+            if len(rem) < length:
+                raise CBOR_Codec_Decoding_Error(
+                    "Truncated byte/text string",
+                    remaining=_cbor_buf_bytes(rem))
+            return rem[length:]
+        if major_type == int(CBOR_MajorTypes.ARRAY):
+            if value is CBOR_INDEFINITE:
+                while rem and not cbor_is_break(rem):
+                    rem = _skip_item(rem, depth + 1)
+                return cbor_consume_break(rem)
+            for _ in range(int(value)):
+                rem = _skip_item(rem, depth + 1)
+            return rem
+        if major_type == int(CBOR_MajorTypes.MAP):
+            if value is CBOR_INDEFINITE:
+                while rem and not cbor_is_break(rem):
+                    rem = _skip_item(rem, depth + 1)
+                    rem = _skip_item(rem, depth + 1)
+                return cbor_consume_break(rem)
+            for _ in range(int(value)):
+                rem = _skip_item(rem, depth + 1)
+                rem = _skip_item(rem, depth + 1)
+            return rem
+        if major_type == int(CBOR_MajorTypes.TAG):
+            return _skip_item(rem, depth + 1)
+        raise CBOR_Codec_Decoding_Error(
+            "Invalid major type: %d" % major_type,
+            remaining=_cbor_buf_bytes(rem),
+        )
+
+    rem = s if isinstance(s, memoryview) else memoryview(s)
     count = 0
     while rem and not (until_break and cbor_is_break(rem)):
         if max_count is not None and count >= max_count:
             break
-        rem = cbor_skip_item(rem)
+        rem = _skip_item(rem)
         count += 1
     return count
 
@@ -237,7 +240,7 @@ def CBOR_decode_head(s):
     major_type = initial_byte >> 5
     additional_info = initial_byte & 0x1f
 
-    if additional_info < 24:
+    if additional_info < int(CBOR_AdditionalInfo.ONE_BYTE):
         # Value is in the additional info
         return major_type, additional_info, s[1:]
     elif additional_info == int(CBOR_AdditionalInfo.ONE_BYTE):
@@ -309,10 +312,10 @@ def cbor_argument_is_shortest(additional_info, value):
     """Return True when *additional_info* is the shortest encoding for *value*."""
     if value is CBOR_INDEFINITE:
         return additional_info == int(CBOR_AdditionalInfo.INDEFINITE)
-    if additional_info < 24:
+    if additional_info < int(CBOR_AdditionalInfo.ONE_BYTE):
         return True
     if additional_info == int(CBOR_AdditionalInfo.ONE_BYTE):
-        return value >= 24
+        return value >= int(CBOR_AdditionalInfo.ONE_BYTE)
     if additional_info == int(CBOR_AdditionalInfo.TWO_BYTES):
         return value >= 256
     if additional_info == int(CBOR_AdditionalInfo.FOUR_BYTES):
@@ -551,7 +554,7 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
         major = initial >> 5
         ai = initial & 0x1f
         pos = start + 1
-        if ai < 24:
+        if ai < int(CBOR_AdditionalInfo.ONE_BYTE):
             value = ai  # type: Union[int, CBOR_INDEFINITE]
         elif ai == int(CBOR_AdditionalInfo.ONE_BYTE):
             if pos + 1 > len(s):
@@ -1551,7 +1554,7 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
             float_val = _cbor_float_from_bits(additional_info, bits)
             encoded = _cbor_buf_bytes(s[:1 + width])
             return CBOR_FLOAT(float_val, encoded=encoded), s[1 + width:]
-        elif additional_info < 24:
+        elif additional_info < int(CBOR_AdditionalInfo.ONE_BYTE):
             # Simple value 0-23
             return CBOR_SIMPLE_VALUE(additional_info), s[1:]
         else:
