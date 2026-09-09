@@ -2642,6 +2642,52 @@ except ValueError:
 else:
     raise AssertionError("ARRAY_OF accepted a packet instance as pkt_cls")
 
+= CBORF_SEQUENCE_OF and ARRAY_OF reject fake CBOR_root classes
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY_OF,
+    CBORF_SEQUENCE_OF,
+    CBORF_UNSIGNED_INTEGER,
+)
+
+class FakeRoot(object):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("x", 0)
+
+try:
+    CBORF_SEQUENCE_OF("items", [], pkt_cls=FakeRoot)
+except ValueError:
+    pass
+else:
+    raise AssertionError("SEQUENCE_OF accepted a non-Packet CBOR_root class")
+
+try:
+    CBORF_ARRAY_OF("items", [], pkt_cls=FakeRoot)
+except ValueError:
+    pass
+else:
+    raise AssertionError("ARRAY_OF accepted a non-Packet CBOR_root class")
+
+= CBORF_SEQUENCE_OF and ARRAY_OF reject plain Packet without CBOR_root
+from scapy.packet import Packet
+from scapy.fields import ByteField
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_SEQUENCE_OF
+
+class PlainPacket(Packet):
+    fields_desc = [ByteField("x", 0)]
+
+try:
+    CBORF_SEQUENCE_OF("items", [], pkt_cls=PlainPacket)
+except ValueError:
+    pass
+else:
+    raise AssertionError("SEQUENCE_OF accepted Packet without CBOR_root")
+
+try:
+    CBORF_ARRAY_OF("items", [], pkt_cls=PlainPacket)
+except ValueError:
+    pass
+else:
+    raise AssertionError("ARRAY_OF accepted Packet without CBOR_root")
+
 
 + TypeError must not be used for callback signature probing
 
