@@ -16,6 +16,7 @@ from scapy.cbor.cbor import (
     CBOR_MajorTypes,
     CBOR_AdditionalInfo,
     CBOR_SimpleValue,
+    CBOR_FloatAI,
     CBOR_UINT64_MAX,
     CBOR_Object,
     CBOR_UNSIGNED_INTEGER,
@@ -88,6 +89,7 @@ __all__ = [
     "CBOR_MajorTypes",
     "CBOR_AdditionalInfo",
     "CBOR_SimpleValue",
+    "CBOR_FloatAI",
     "CBOR_UINT64_MAX",
     # Objects
     "CBOR_Object",

@@ -308,6 +308,14 @@ class CBOR_SimpleValue(metaclass=Enum_metaclass):
     UNDEFINED = 23
 
 
+class CBOR_FloatAI(metaclass=Enum_metaclass):
+    """Float additional-info codes under major type 7 (RFC 8949 §3.3)."""
+    name = "CBOR_FLOAT_AI"
+    HALF = 25    # IEEE binary16
+    SINGLE = 26  # IEEE binary32
+    DOUBLE = 27  # IEEE binary64
+
+
 CBOR_UINT64_MAX = (1 << 64) - 1
 
 
@@ -753,12 +761,12 @@ class CBOR_FLOAT(CBOR_Object[float]):
 
 def _cbor_float_key_identity_from_encoded(encoded):
     # type: (bytes) -> Tuple[Any, ...]
-    """Map-key identity for a CBOR float encoding (AI 25/26/27)."""
+    """Map-key identity for a CBOR float encoding (half/single/double)."""
     wire = bytes(encoded)
     if not wire:
         raise ValueError("empty CBOR float encoding")
     ai = wire[0] & 0x1f
-    if ai == 25:
+    if ai == int(CBOR_FloatAI.HALF):
         if len(wire) < 3:
             raise ValueError("truncated half float")
         bits = struct.unpack(">H", wire[1:3])[0]
@@ -782,7 +790,7 @@ def _cbor_float_key_identity_from_encoded(encoded):
                 (2 ** (exponent - 15))
             )
         return _cbor_float_key_identity(float_val)
-    if ai == 26:
+    if ai == int(CBOR_FloatAI.SINGLE):
         if len(wire) < 5:
             raise ValueError("truncated single float")
         bits = struct.unpack(">I", wire[1:5])[0]
@@ -793,7 +801,7 @@ def _cbor_float_key_identity_from_encoded(encoded):
             return ("nan", sign, fraction << 29)
         float_val = struct.unpack(">f", struct.pack(">I", bits))[0]
         return _cbor_float_key_identity(float_val)
-    if ai == 27:
+    if ai == int(CBOR_FloatAI.DOUBLE):
         if len(wire) < 9:
             raise ValueError("truncated double float")
         bits = struct.unpack(">Q", wire[1:9])[0]
