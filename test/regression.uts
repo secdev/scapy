@@ -2291,7 +2291,25 @@ pcapngdefaults = BytesIO(base64.b64decode(b'Cg0NChwAAABNPCsaAQAAAP//////////HAAA
 = Read a pcap file
 pktpcap = rdpcap(pcapfile)
 
-= Preserve complete captures when the final gzip CRC is invalid
+= Read a pcapng file
+pktpcapng = rdpcap(pcapngfile)
+assert pktpcapng[0].time == 1454163407.666223
+
+= Read a pcap file with nanosecond precision
+pktpcapnano = rdpcap(pcapnanofile)
+assert pktpcapnano[0].time == 1454163407.666223049
+
+= Read a pcapng file with nanosecond precision and default tsresol
+pktpcapngdefaults = rdpcap(pcapngdefaults)
+assert pktpcapngdefaults[0].time == 1575115986.114775512
+assert Ether in pktpcapngdefaults[0]
+
+= Read a pcapng with little-endian SHB
+pktcapng = sniff(offline=scapy_path("/test/pcaps/macos.pcapng.gz"))
+assert len(pktcapng) != 0
+
+= Read a pcap - final gzip CRC is invalid
+~ needs_py38plus
 
 import gzip
 import struct
@@ -2311,22 +2329,24 @@ with open(badgzfile, "wb") as stream:
 assert len(rdpcap(badgzfile)) == 1
 assert len(rdpcap(BytesIO(goodgzpcap))) == 1
 
-= Read a pcapng file
-pktpcapng = rdpcap(pcapngfile)
-assert pktpcapng[0].time == 1454163407.666223
+= Read a pcap - gzip capture from a named nonseekable stream
+~ needs_py38plus
 
-= Read a pcap file with nanosecond precision
-pktpcapnano = rdpcap(pcapnanofile)
-assert pktpcapnano[0].time == 1454163407.666223049
+import gzip
+import os
+import struct
+from unittest.mock import patch
 
-= Read a pcapng file with nanosecond precision and default tsresol
-pktpcapngdefaults = rdpcap(pcapngdefaults)
-assert pktpcapngdefaults[0].time == 1575115986.114775512
-assert Ether in pktpcapngdefaults[0]
-
-= Read a pcapng with little-endian SHB
-pktcapng = sniff(offline=scapy_path("/test/pcaps/macos.pcapng.gz"))
-assert len(pktcapng) != 0
+frame = bytes(Ether(src="00:00:00:00:00:01", dst="00:00:00:00:00:02"))
+capture = struct.pack("<IHHiIII", 0xa1b2c3d4, 2, 4, 0, 0, 0xffff, 1)
+capture += struct.pack("<IIII", 0, 0, len(frame), len(frame)) + frame
+capture = gzip.compress(capture, mtime=0)
+read_fd, write_fd = os.pipe()
+assert os.write(write_fd, capture) == len(capture)
+os.close(write_fd)
+stream = os.fdopen(read_fd, "rb")
+with patch("builtins.open", return_value=stream):
+    assert len(rdpcap("capture.pcap.gz")) == 1
 
 = Write a pcapng
 
@@ -5399,21 +5419,3 @@ c2 = CLI2(cli=False)
 
 assert c1.shares() == 1
 assert c2.shares() == 2
-
-= Read a gzip capture from a named nonseekable stream
-
-import gzip
-import os
-import struct
-from unittest.mock import patch
-
-frame = bytes(Ether(src="00:00:00:00:00:01", dst="00:00:00:00:00:02"))
-capture = struct.pack("<IHHiIII", 0xa1b2c3d4, 2, 4, 0, 0, 0xffff, 1)
-capture += struct.pack("<IIII", 0, 0, len(frame), len(frame)) + frame
-capture = gzip.compress(capture, mtime=0)
-read_fd, write_fd = os.pipe()
-assert os.write(write_fd, capture) == len(capture)
-os.close(write_fd)
-stream = os.fdopen(read_fd, "rb")
-with patch("builtins.open", return_value=stream):
-    assert len(rdpcap("capture.pcap.gz")) == 1
