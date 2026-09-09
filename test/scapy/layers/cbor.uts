@@ -3461,6 +3461,42 @@ try:
 except ValueError:
     pass
 
+= CBORMapData equality is independent of pair order
+from scapy.cbor.cbor import (
+    CBOR_TRUE,
+    CBOR_UNSIGNED_INTEGER,
+    CBORMapData,
+)
+
+a = CBORMapData([
+    (CBOR_UNSIGNED_INTEGER(1), "a"),
+    (CBOR_UNSIGNED_INTEGER(2), "b"),
+])
+b = CBORMapData([
+    (CBOR_UNSIGNED_INTEGER(2), "b"),
+    (CBOR_UNSIGNED_INTEGER(1), "a"),
+])
+assert a == b
+assert b == a
+assert a != CBORMapData([(CBOR_UNSIGNED_INTEGER(1), "a")])
+assert a != CBORMapData([
+    (CBOR_UNSIGNED_INTEGER(1), "a"),
+    (CBOR_UNSIGNED_INTEGER(2), "c"),
+])
+# Integer 1 and Boolean true remain distinct CBOR keys.
+typed = CBORMapData([
+    (CBOR_UNSIGNED_INTEGER(1), "i"),
+    (CBOR_TRUE(), "b"),
+])
+assert typed == CBORMapData([
+    (CBOR_TRUE(), "b"),
+    (CBOR_UNSIGNED_INTEGER(1), "i"),
+])
+assert typed != CBORMapData([
+    (CBOR_UNSIGNED_INTEGER(1), "i"),
+    (CBOR_UNSIGNED_INTEGER(1), "b"),
+])
+
 = CBORMapData.as_dict rejects unhashable array and map keys
 from scapy.cbor.cbor import (
     CBOR_ARRAY,
