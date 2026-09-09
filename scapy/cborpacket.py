@@ -178,7 +178,9 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
         """
         clone = super(CBOR_Packet, self).copy()
         if hasattr(self, "_cbor_raw_cache_items"):
-            clone._cbor_raw_cache_items = self._cbor_raw_cache_items  # type: ignore[attr-defined]
+            clone._cbor_raw_cache_items = (  # type: ignore[attr-defined]
+                self._cbor_raw_cache_items
+            )
         from scapy.cbor.cborfields import _cbor_attach_parent
         for f in clone.fields_desc:
             if not f.holds_packets or f.name not in clone.fields:

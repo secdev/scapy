@@ -29,13 +29,9 @@ from scapy.cbor.cbor import (
     CBOR_NULL,
     CBOR_UNDEFINED,
     CBOR_UNDEFINED_VALUE,
-    CBOR_NO_ITEM,
     CBOR_FLOAT,
-    CBORFloatValue,
     CBOR_DECODING_ERROR,
     RandCBORObject,
-    CBORTagValue,
-    CBORSimpleValue,
 )
 
 from scapy.cbor.cborcodec import (
@@ -51,8 +47,6 @@ from scapy.cbor.cborcodec import (
 )
 
 from scapy.cbor.cborfields import (
-    CBORBuildResult,
-    CBORParseResult,
     CBORF_element,
     CBORF_field,
     CBORF_ANY,
@@ -106,12 +100,8 @@ __all__ = [
     "CBOR_NULL",
     "CBOR_UNDEFINED",
     "CBOR_UNDEFINED_VALUE",
-    "CBOR_NO_ITEM",
     "CBOR_FLOAT",
-    "CBORFloatValue",
     "CBOR_DECODING_ERROR",
-    "CBORTagValue",
-    "CBORSimpleValue",
     # Random/Fuzzing
     "RandCBORObject",
     # Codec classes
@@ -124,9 +114,6 @@ __all__ = [
     "CBORcodec_MAP",
     "CBORcodec_SEMANTIC_TAG",
     "CBORcodec_SIMPLE_AND_FLOAT",
-    # Result types
-    "CBORBuildResult",
-    "CBORParseResult",
     # Field base classes
     "CBORF_element",
     "CBORF_field",
