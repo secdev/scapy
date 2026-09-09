@@ -842,9 +842,25 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
                 "Cannot encode type: %s" % type(item))
 
     @staticmethod
+    def _reject_duplicate_map_keys(pairs):
+        # type: (Any) -> None
+        """Raise if *pairs* contain CBOR-equivalent duplicate keys."""
+        from scapy.cbor.cbor import _cbor_key_norm
+        seen_norms = set()  # type: Set[Any]
+        for key, _value in pairs:
+            norm = _cbor_key_norm(key)
+            if norm in seen_norms:
+                raise CBOR_Codec_Encoding_Error(
+                    "Duplicate CBOR map key: %r" % (key,)
+                )
+            seen_norms.add(norm)
+
+    @staticmethod
     def _encode_cbor_map_deterministic(pairs):
         # type: (Any) -> bytes
         """Encode map pairs in RFC 8949 core-deterministic key order."""
+        pairs = list(pairs)
+        CBORcodec_Object._reject_duplicate_map_keys(pairs)
         encoded_pairs = []  # type: List[Tuple[bytes, bytes]]
         for key, value in pairs:
             key_bytes = CBORcodec_Object.encode_cbor_item_deterministic(key)
@@ -1297,6 +1313,7 @@ class CBORcodec_MAP(CBORcodec_Object[Any]):
             pairs = list(mapping.items())
         else:
             pairs = list(mapping)
+        CBORcodec_Object._reject_duplicate_map_keys(pairs)
         parts = [CBOR_encode_head(int(CBOR_MajorTypes.MAP), len(pairs))]
         for key, value in pairs:
             parts.append(CBORcodec_Object.encode_cbor_item(key))
