@@ -689,6 +689,14 @@ class CBOR_FLOAT(CBOR_Object[float]):
         # Exact received float encoding when known; preferred width when None.
         self._encoded = encoded
 
+    def __setattr__(self, name, value):
+        # type: (str, Any) -> None
+        # After construction, assigning val invalidates the wire cache even
+        # when the new semantic value compares equal to the old one.
+        if name == "val" and hasattr(self, "_encoded"):
+            object.__setattr__(self, "_encoded", None)
+        super(CBOR_FLOAT, self).__setattr__(name, value)
+
     def enc(self, codec=None):
         # type: (Any) -> bytes
         if self._encoded is not None:
