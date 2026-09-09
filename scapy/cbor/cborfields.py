@@ -43,11 +43,13 @@ from scapy.cbor.cbor import (
     CBOR_SIMPLE_VALUE,
 )
 from scapy.cbor.cborcodec import (
+    CBOR_BREAK_BYTE,
     CBOR_Codec_Decoding_Error,
     CBOR_INDEFINITE,
     CBOR_decode_head,
     CBOR_encode_head,
     CBOR_encode_initial,
+    _cbor_skip_item,
     cbor_count_items,
     cbor_is_break,
     cbor_consume_break,
@@ -136,10 +138,10 @@ CBOR_ABSENT = _CBORAbsent()
 def cbor_item_span(s):
     # type: (bytes) -> Tuple[bytes, bytes]
     """Split *s* into the first well-formed CBOR item and the remainder."""
-    _obj, remain = CBORcodec_Object.decode_cbor_item(s)
-    if remain:
-        return s[:-len(remain)], remain
-    return s, b""
+    rem = s if isinstance(s, memoryview) else memoryview(s)
+    after = _cbor_skip_item(rem)
+    n = len(s) - len(after)
+    return bytes(s[:n]), bytes(s[n:])
 
 
 def _encode_exactly_one_cbor_item(val, context="value"):
@@ -709,7 +711,10 @@ class CBORF_INTEGER(CBORF_field[int]):
             major_type, _info, _rem = CBOR_decode_head(s)
         except CBOR_Codec_Decoding_Error:
             return False
-        return major_type in (0, 1)
+        return major_type in (
+            int(CBOR_MajorTypes.UNSIGNED_INTEGER),
+            int(CBOR_MajorTypes.NEGATIVE_INTEGER),
+        )
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> int
@@ -728,10 +733,10 @@ class CBORF_INTEGER(CBORF_field[int]):
         if not s:
             raise CBOR_Decoding_Error("Empty CBOR data")
         major_type = (s[0] >> 5) & 0x7
-        if major_type == 0:
+        if major_type == int(CBOR_MajorTypes.UNSIGNED_INTEGER):
             obj, remain = CBORcodec_UNSIGNED_INTEGER.dec(s)
             return obj.val, remain
-        elif major_type == 1:
+        elif major_type == int(CBOR_MajorTypes.NEGATIVE_INTEGER):
             obj, remain = CBORcodec_NEGATIVE_INTEGER.dec(s)
             return obj.val, remain
         raise CBOR_Type_Mismatch(
@@ -1415,7 +1420,7 @@ class CBORF_ARRAY(_CBORF_compound):
                     CBOR_MajorTypes.ARRAY, CBOR_AdditionalInfo.INDEFINITE
                 ) +
                 items_data +
-                b'\xff'
+                bytes([CBOR_BREAK_BYTE])
             )
         else:
             data = CBOR_encode_head(CBOR_MajorTypes.ARRAY, total_items)
@@ -1972,8 +1977,16 @@ class CBORF_MAP(CBORF_element):
         pair_values = {}  # type: Dict[str, bytes]
         unknown_pairs = []  # type: List[Tuple[str, Any]]
 
-        def _map_text_key(key_obj):
-            # type: (Any) -> str
+        def _collect_pair():
+            # type: () -> None
+            nonlocal remaining
+            # Keep encoded key bytes so unknown extensions round-trip exactly.
+            key_bytes, after_key = cbor_item_span(remaining)
+            key_obj, key_rest = CBORcodec_Object.decode_cbor_item(key_bytes)
+            if key_rest:
+                raise CBOR_Decoding_Error(
+                    "CBOR map key did not decode to a single item"
+                )
             if not isinstance(key_obj, CBOR_TEXT_STRING):
                 raise CBOR_Decoding_Error(
                     "CBOR map field key must be a text string, got %r"
@@ -1985,19 +1998,6 @@ class CBORF_MAP(CBORF_element):
                     "Duplicate CBOR map field name: %r" % (key,)
                 )
             seen_keys.add(key)
-            return key
-
-        def _collect_pair():
-            # type: () -> None
-            nonlocal remaining
-            # Keep encoded key bytes so unknown extensions round-trip exactly.
-            key_bytes, after_key = cbor_item_span(remaining)
-            key_obj, key_rest = CBORcodec_Object.decode_cbor_item(key_bytes)
-            if key_rest:
-                raise CBOR_Decoding_Error(
-                    "CBOR map key did not decode to a single item"
-                )
-            key = _map_text_key(key_obj)
             val_bytes, remaining = cbor_item_span(after_key)
             if key in field_map:
                 pair_values[key] = val_bytes
