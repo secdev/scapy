@@ -48,6 +48,7 @@ from scapy.cbor.cborcodec import (
     CBOR_encode_head,
     CBOR_encode_indefinite_head,
     CBOR_encode_break,
+    cbor_count_items_until_break,
     cbor_is_break,
     cbor_consume_break,
     CBORcodec_Object,
@@ -1252,16 +1253,9 @@ class _CBORF_compound(CBORF_element):
         # type: (CBOR_Packet, bytes, Union[int, CBOR_INDEFINITE]) -> bytes
         remaining = s
         if count is CBOR_INDEFINITE:
-            # Count items with a memoryview cursor (no suffix copies / span).
-            if not isinstance(remaining, memoryview):
-                view = memoryview(remaining)
-            else:
-                view = remaining
-            probe = view
-            item_count = 0
-            while probe and not cbor_is_break(probe):
-                _obj, probe = CBORcodec_Object.decode_cbor_item(probe)
-                item_count += 1
+            # Lightweight head/span walk — avoid building CBOR_Object trees
+            # just to learn the item budget before the schema pass.
+            item_count = cbor_count_items_until_break(remaining)
             remaining = self._dissect_children_budgeted(
                 pkt, remaining, item_count
             )
@@ -1273,10 +1267,13 @@ class _CBORF_compound(CBORF_element):
         # type: (CBOR_Packet, bytes, int) -> bytes
         remaining = s
         items_left = count
+        nfields = len(self.seq)
+        # suffix_mins[i] == sum(min_items of seq[i:])
+        suffix_mins = [0] * (nfields + 1)
+        for i in range(nfields - 1, -1, -1):
+            suffix_mins[i] = suffix_mins[i + 1] + self.seq[i].min_items(pkt)
         for index, field in enumerate(self.seq):
-            reserved = sum(
-                f.min_items(pkt) for f in self.seq[index + 1:]
-            )
+            reserved = suffix_mins[index + 1]
             available = items_left - reserved
             needed = field.min_items(pkt)
             if available < 0:
