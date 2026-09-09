@@ -3641,6 +3641,44 @@ assert typed != CBORMapData([
     (CBOR_UNSIGNED_INTEGER(1), "b"),
 ])
 
+
+= CBOR_MAP normalizes constructors to CBORMapData and equates list-of-pairs keys
+from scapy.cbor.cbor import (
+    CBOR_MAP,
+    CBOR_TEXT_STRING,
+    CBOR_UNSIGNED_INTEGER,
+    CBORMapData,
+    _cbor_key_equivalent,
+)
+from scapy.cbor.cborcodec import CBOR_Codec_Encoding_Error, CBORcodec_MAP
+
+empty = CBOR_MAP({})
+assert isinstance(empty.val, CBORMapData)
+assert empty.val == {}
+
+a = CBOR_TEXT_STRING("a")
+b = CBOR_TEXT_STRING("b")
+one = CBOR_UNSIGNED_INTEGER(1)
+two = CBOR_UNSIGNED_INTEGER(2)
+k1 = CBOR_MAP([(a, one), (b, two)])
+k2 = CBOR_MAP([(b, two), (a, one)])
+k3 = CBOR_MAP({"a": 1, "b": 2})
+k4 = CBOR_MAP(CBORMapData([(a, one), (b, two)]))
+assert isinstance(k1.val, CBORMapData)
+assert _cbor_key_equivalent(k1, k2)
+assert _cbor_key_equivalent(k1, k4)
+# Native dict keys normalize to the same text/int norms as CBOR objects.
+assert _cbor_key_equivalent(k1, k3)
+
+# Encode must reject reorder-equivalent map-valued keys.
+dup = CBORMapData([(k1, 0), (k2, 1)])
+try:
+    CBORcodec_MAP.enc(dup)
+    assert False, "encode accepted reorder-equivalent map-valued keys"
+except CBOR_Codec_Encoding_Error:
+    pass
+
+
 = CBORMapData.as_dict rejects unhashable array and map keys
 from scapy.cbor.cbor import (
     CBOR_ARRAY,
