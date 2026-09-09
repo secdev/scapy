@@ -372,6 +372,7 @@ class Packet(
                 value = self.default_fields[fname]
                 fld = self.fieldtype[fname]
                 self.fields[fname] = fld.do_copy(value)
+
     def prepare_cached_fields(self, flist):
         # type: (Sequence[AnyField]) -> None
         """
@@ -787,7 +788,7 @@ class Packet(
         Create the default layer regarding fields_desc dict
         """
         if self._raw_packet_cache_is_valid():
-            return self.raw_packet_cache
+            return cast(bytes, self.raw_packet_cache)
         p = b""
         for f in self.fields_desc:
             val = self.getfieldval(f.name)
