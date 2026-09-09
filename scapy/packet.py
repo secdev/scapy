@@ -764,22 +764,30 @@ class Packet(
                         fsubval.clear_cache()
         self.payload.clear_cache()
 
+    def _raw_packet_cache_is_valid(self):
+        # type: () -> bool
+        """Return True if ``raw_packet_cache`` still matches nested field state.
+
+        On mismatch, clear the cache fingerprints and ``wirelen``.
+        """
+        if self.raw_packet_cache is None or self.raw_packet_cache_fields is None:
+            return False
+        for fname, fval in self.raw_packet_cache_fields.items():
+            fld, val = self.getfield_and_val(fname)
+            if self._raw_packet_cache_field_value(fld, val) != fval:
+                self.raw_packet_cache = None
+                self.raw_packet_cache_fields = None
+                self.wirelen = None
+                return False
+        return True
+
     def self_build(self):
         # type: () -> bytes
         """
         Create the default layer regarding fields_desc dict
         """
-        if self.raw_packet_cache is not None and \
-                self.raw_packet_cache_fields is not None:
-            for fname, fval in self.raw_packet_cache_fields.items():
-                fld, val = self.getfield_and_val(fname)
-                if self._raw_packet_cache_field_value(fld, val) != fval:
-                    self.raw_packet_cache = None
-                    self.raw_packet_cache_fields = None
-                    self.wirelen = None
-                    break
-            if self.raw_packet_cache is not None:
-                return self.raw_packet_cache
+        if self._raw_packet_cache_is_valid():
+            return self.raw_packet_cache
         p = b""
         for f in self.fields_desc:
             val = self.getfieldval(f.name)
