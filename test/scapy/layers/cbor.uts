@@ -886,7 +886,23 @@ assert bytes(pkt) == b"\xa1\x61n\x01"
 
 + array item reservation
 
-= Nonterminal SEQUENCE_OF reserves items for a later required field
+= Nonterminal unbounded SEQUENCE_OF is rejected at schema construction
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_SEQUENCE_OF,
+    CBORF_UNSIGNED_INTEGER,
+)
+
+try:
+    CBORF_ARRAY(
+        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
+        CBORF_UNSIGNED_INTEGER("tail", 0),
+    )
+    assert False, "nonterminal unbounded SEQUENCE_OF was accepted"
+except ValueError:
+    pass
+
+= SEQUENCE_OF with count_from consumes an explicit number of items
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_SEQUENCE_OF,
@@ -894,15 +910,20 @@ from scapy.cbor.cborfields import (
 )
 from scapy.cborpacket import CBOR_Packet
 
-class SeqThenReq(CBOR_Packet):
+class CountedSeq(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
-        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
-        CBORF_UNSIGNED_INTEGER("tail", 0),
+        CBORF_UNSIGNED_INTEGER("n", 0),
+        CBORF_SEQUENCE_OF(
+            "vals",
+            [],
+            CBORF_UNSIGNED_INTEGER,
+            count_from=lambda pkt: pkt.n,
+        ),
     )
 
-pkt = SeqThenReq(b"\x83\x01\x02\x03")
-assert pkt.vals == [1, 2]
-assert pkt.tail == 3
+pkt = CountedSeq(b"\x83\x02\x0a\x0b")
+assert pkt.n == 2
+assert pkt.vals == [10, 11]
 
 = Optional same-type scalar reserves the sole item for a required tail
 from scapy.cbor.cborfields import (
@@ -923,23 +944,21 @@ pkt = OptThenReq(b"\x81\x07")
 assert pkt.opt is CBOR_ABSENT
 assert pkt.req == 7
 
-= Indefinite array reserves SEQUENCE_OF items for a required tail
+= Indefinite array rejects nonterminal unbounded SEQUENCE_OF
 from scapy.cbor.cborfields import (
     CBORF_ARRAY_INDEFINITE,
     CBORF_SEQUENCE_OF,
     CBORF_UNSIGNED_INTEGER,
 )
-from scapy.cborpacket import CBOR_Packet
 
-class IndefSeqThenReq(CBOR_Packet):
-    CBOR_root = CBORF_ARRAY_INDEFINITE(
+try:
+    CBORF_ARRAY_INDEFINITE(
         CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
         CBORF_UNSIGNED_INTEGER("tail", 0),
     )
-
-pkt = IndefSeqThenReq(b"\x9f\x01\x02\x03\xff")
-assert pkt.vals == [1, 2]
-assert pkt.tail == 3
+    assert False, "nonterminal unbounded SEQUENCE_OF was accepted"
+except ValueError:
+    pass
 
 + Shared helpers
 
@@ -1296,9 +1315,9 @@ assert bytes(pkt) == b"\x82\xf6\x01"
 
 + Finding 4: positional arrays must reserve items for later required fields
 
-= Definite arrays reserve the final item after a nonterminal SEQUENCE_OF
-class RRSequenceThenTail(CBOR_Packet):
-    CBOR_root = CBORF_ARRAY(
+= Definite arrays reject nonterminal unbounded SEQUENCE_OF
+try:
+    CBORF_ARRAY(
         CBORF_SEQUENCE_OF(
             "values",
             [],
@@ -1306,14 +1325,13 @@ class RRSequenceThenTail(CBOR_Packet):
         ),
         CBORF_UNSIGNED_INTEGER("tail", None),
     )
+    assert False, "nonterminal unbounded SEQUENCE_OF accepted"
+except ValueError:
+    pass
 
-pkt = RRSequenceThenTail(b"\x83\x01\x02\x03")
-assert pkt.values == [1, 2]
-assert pkt.tail == 3
-
-= Indefinite arrays reserve the final item after a nonterminal SEQUENCE_OF
-class RRIndefiniteSequenceThenTail(CBOR_Packet):
-    CBOR_root = CBORF_ARRAY_INDEFINITE(
+= Indefinite arrays reject nonterminal unbounded SEQUENCE_OF
+try:
+    CBORF_ARRAY_INDEFINITE(
         CBORF_SEQUENCE_OF(
             "values",
             [],
@@ -1321,10 +1339,9 @@ class RRIndefiniteSequenceThenTail(CBOR_Packet):
         ),
         CBORF_UNSIGNED_INTEGER("tail", None),
     )
-
-pkt = RRIndefiniteSequenceThenTail(b"\x9f\x01\x02\x03\xff")
-assert pkt.values == [1, 2]
-assert pkt.tail == 3
+    assert False, "nonterminal unbounded SEQUENCE_OF accepted"
+except ValueError:
+    pass
 
 = An optional scalar yields a sole item to a required scalar of the same type
 class RROptionalThenRequiredUnsigned(CBOR_Packet):
@@ -1351,7 +1368,7 @@ class RROptionalThenRequiredPacket(CBOR_Packet):
 pkt = RROptionalThenRequiredPacket(b"\x81\x07")
 assert pkt.required_child.value == 7
 
-= A SEQUENCE_OF reserves an item for a later required conditional field
+= A SEQUENCE_OF before a required conditional field must use count_from
 class RRSequenceThenConditionalTail(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_UNSIGNED_INTEGER("flag", 0),
@@ -1359,6 +1376,7 @@ class RRSequenceThenConditionalTail(CBOR_Packet):
             "values",
             [],
             CBORF_UNSIGNED_INTEGER("item", None),
+            count_from=lambda pkt: 1,
         ),
         CBORF_CONDITIONAL(
             CBORF_UNSIGNED_INTEGER("tail", None),
@@ -1821,25 +1839,22 @@ pkt = OptionalPacketThenAny(b"\x81\xf5")
 assert pkt.getfieldval("child") is CBOR_ABSENT
 assert pkt.required.val is True
 
-= Nonterminal SEQUENCE_OF stops at a typed delimiter in an unframed sequence
+= Nonterminal unbounded SEQUENCE_OF is rejected in unframed sequences
 from scapy.cbor.cborfields import (
     CBORF_SEQUENCE,
     CBORF_SEQUENCE_OF,
     CBORF_TEXT_STRING,
     CBORF_UNSIGNED_INTEGER,
 )
-from scapy.cborpacket import CBOR_Packet
 
-class IntSequenceThenText(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+try:
+    CBORF_SEQUENCE(
         CBORF_SEQUENCE_OF("items", [], CBORF_UNSIGNED_INTEGER),
         CBORF_TEXT_STRING("tail", ""),
     )
-
-pkt = IntSequenceThenText(b"\x01\x02\x61x")
-assert pkt.items == [1, 2]
-assert pkt.tail == "x"
-assert bytes(pkt) == b"\x01\x02\x61x"
+    assert False, "nonterminal unbounded SEQUENCE_OF accepted"
+except ValueError:
+    pass
 
 = Ambiguous unbounded array schema is rejected even with an optional field between sequences
 from scapy.cbor.cborfields import (
