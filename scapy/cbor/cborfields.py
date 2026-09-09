@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from scapy.cbor.cbor import (
     CBOR_Decoding_Error,
     CBOR_Encoding_Error,
-    CBOR_AdditionalInfo,
+    CBOR_FloatAI,
     CBOR_MajorTypes,
     CBOR_Object,
     CBOR_SimpleValue,
@@ -1096,9 +1096,9 @@ class CBORF_FLOAT(CBORF_field[float]):
         return (
             ((s[0] >> 5) & 0x7) == int(CBOR_MajorTypes.SIMPLE_AND_FLOAT)
             and ai in (
-                int(CBOR_AdditionalInfo.TWO_BYTES),
-                int(CBOR_AdditionalInfo.FOUR_BYTES),
-                int(CBOR_AdditionalInfo.EIGHT_BYTES),
+                int(CBOR_FloatAI.HALF),
+                int(CBOR_FloatAI.SINGLE),
+                int(CBOR_FloatAI.DOUBLE),
             )
         )
 
