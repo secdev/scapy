@@ -3046,11 +3046,28 @@ assert not _cbor_key_equivalent(
     CBOR_SEMANTIC_TAG((1, CBOR_UNSIGNED_INTEGER(5))),
     CBOR_SEMANTIC_TAG((2, CBOR_UNSIGNED_INTEGER(5))),
 )
-nan_a = CBOR_FLOAT(float("nan"), encoded=bytes.fromhex("f97e00"))
-nan_b = CBOR_FLOAT(float("nan"), encoded=bytes.fromhex("fb7ff8000000000001"))
-assert math.isnan(nan_a.val) and math.isnan(nan_b.val)
-assert _cbor_key_equivalent(nan_a, nan_b)
+# Case A: same quiet-NaN significand across half and binary64 widths
+nan_half = CBOR_FLOAT(float("nan"), encoded=bytes.fromhex("f97e00"))
+nan_double_same = CBOR_FLOAT(
+    float("nan"), encoded=bytes.fromhex("fb7ff8000000000000")
+)
+assert math.isnan(nan_half.val) and math.isnan(nan_double_same.val)
+assert _cbor_key_equivalent(nan_half, nan_double_same)
+# Case B: different significand payloads are distinct keys
+nan_payload = CBOR_FLOAT(
+    float("nan"), encoded=bytes.fromhex("fb7ff8000000000001")
+)
+assert not _cbor_key_equivalent(nan_half, nan_payload)
+# Case C: opposite sign with the same payload
+nan_neg = CBOR_FLOAT(float("nan"), encoded=bytes.fromhex("f9fe00"))
+assert not _cbor_key_equivalent(nan_half, nan_neg)
+# Plain Python NaNs (best-effort binary64 identity) remain self-equivalent
 assert _cbor_key_equivalent(float("nan"), float("nan"))
+# Finite float width differences with the same numeric value are equivalent
+assert _cbor_key_equivalent(
+    CBOR_FLOAT(1.5, encoded=bytes.fromhex("f93e00")),
+    CBOR_FLOAT(1.5, encoded=bytes.fromhex("fb3ff8000000000000")),
+)
 
 = Generic maps reject +0.0 and -0.0 as duplicate keys
 from scapy.cbor import CBOR_Codecs
@@ -3101,17 +3118,40 @@ try:
 except CBOR_Codec_Decoding_Error:
     pass
 
-= Generic maps reject distinct NaN encodings as duplicate keys
+= Generic maps keep distinct NaN payloads as separate keys
+from scapy.cbor import CBOR_Codecs
+import math
+
+# {NaN16: 1, NaN64-low-payload: 2} — different significands
+wire = bytes.fromhex("a2f97e0001fb7ff800000000000102")
+obj, rem = CBOR_Codecs.CBOR.dec(wire)
+assert rem == b""
+pairs = obj.val.cbor_pairs()
+assert len(pairs) == 2
+assert all(math.isnan(key.val) for key, _ in pairs)
+assert obj.enc() == wire
+
+= Generic maps reject identical NaN keys as duplicates
 from scapy.cbor import CBOR_Codecs
 from scapy.cbor.cborcodec import CBOR_Codec_Decoding_Error
 
-# {NaN16: 1, NaN64-payload: 2}
-wire = bytes.fromhex("a2f97e0001fb7ff800000000000102")
+# {NaN16: 1, same NaN as binary64 extension: 2}
+wire = bytes.fromhex("a2f97e0001fb7ff800000000000002")
 try:
     CBOR_Codecs.CBOR.dec(wire)
-    assert False, "distinct NaN encodings were accepted as distinct keys"
+    assert False, "equivalent NaN keys were accepted"
 except CBOR_Codec_Decoding_Error:
     pass
+
+= Generic maps keep opposite-sign NaNs with the same payload as distinct keys
+from scapy.cbor import CBOR_Codecs
+
+# {+NaN16: 1, -NaN16: 2} — opposite signs are distinct keys
+wire = bytes.fromhex("a2f97e0001f9fe0002")
+obj, rem = CBOR_Codecs.CBOR.dec(wire)
+assert rem == b""
+assert len(obj.val.cbor_pairs()) == 2
+assert obj.enc() == wire
 
 = CBORMapData treats +0.0 and -0.0 as the same lookup key
 from scapy.cbor import CBOR_Codecs

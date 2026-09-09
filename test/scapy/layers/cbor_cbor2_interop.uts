@@ -910,17 +910,16 @@ try:
 except CBOR_Codec_Decoding_Error:
     pass
 
-= Distinct double-precision NaN payloads are rejected as equivalent map keys ~ external_cbor2
+= Distinct double-precision NaN payloads remain distinct map keys ~ external_cbor2
 first_nan = b"\xfb\x7f\xf8\x00\x00\x00\x00\x00\x01"
 second_nan = b"\xfb\x7f\xf8\x00\x00\x00\x00\x00\x02"
 wire = b"\xa2" + first_nan + cbor2.dumps(1) + second_nan + cbor2.dumps(2)
-# cbor2 may still expose both entries in an immutable mapping.
 cbor2.loads(wire, immutable=True)
-try:
-    rr_scapy_decode(wire)
-    assert False, "distinct NaN payloads were accepted as distinct map keys"
-except CBOR_Codec_Decoding_Error:
-    pass
+obj = rr_scapy_decode(wire)
+pairs = obj.val.cbor_pairs()
+assert len(pairs) == 2
+assert all(isinstance(key, CBOR_FLOAT) and math.isnan(key.val) for key, _ in pairs)
+assert obj.enc() == wire
 
 = CBOR integer 1 and Boolean true remain distinct map keys in Scapy ~ external_cbor2
 wire = (
