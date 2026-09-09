@@ -32,13 +32,10 @@ from scapy.cbor.cbor import (
     CBOR_TRUE,
     CBOR_NULL,
     CBOR_UNDEFINED,
-    CBOR_UNDEFINED_VALUE,
     CBOR_NO_ITEM,
     CBOR_FLOAT,
     CBOR_MAP,
     CBOR_SIMPLE_VALUE,
-    CBORTagValue,
-    CBORSimpleValue,
 )
 from scapy.cbor.cborcodec import (
     CBOR_Codec_Decoding_Error,
@@ -197,12 +194,12 @@ def cbor_object_to_python(obj):
     """Convert a :class:`CBOR_Object` tree to native Python values.
 
     Prefer keeping :class:`CBOR_Object` for arbitrary CBOR (``CBORF_ANY``).
-    This helper remains for typed-field coercion and legacy call sites.
+    Tags, simples, and undefined stay as ``CBOR_Object`` instances.
     """
     if not isinstance(obj, CBOR_Object):
         return obj
-    if isinstance(obj, CBOR_UNDEFINED):
-        return CBOR_UNDEFINED_VALUE
+    if isinstance(obj, (CBOR_UNDEFINED, CBOR_SEMANTIC_TAG, CBOR_SIMPLE_VALUE)):
+        return obj
     if isinstance(obj, CBOR_ARRAY):
         return [cbor_object_to_python(item) for item in obj.val]
     if isinstance(obj, CBOR_MAP):
@@ -217,11 +214,6 @@ def cbor_object_to_python(obj):
             (cbor_object_to_python(k), cbor_object_to_python(v))
             for k, v in pairs
         ])
-    if isinstance(obj, CBOR_SEMANTIC_TAG):
-        tag_num, item = obj.val
-        return CBORTagValue(tag_num, cbor_object_to_python(item))
-    if isinstance(obj, CBOR_SIMPLE_VALUE):
-        return CBORSimpleValue(obj.val)
     if isinstance(obj, CBOR_FLOAT):
         return float(obj.val)
     return obj.val
@@ -229,7 +221,7 @@ def cbor_object_to_python(obj):
 
 def python_to_cbor_object(value):
     # type: (Any) -> Any
-    """Convert native Python / legacy wrappers into a :class:`CBOR_Object` tree."""
+    """Convert native Python values into a :class:`CBOR_Object` tree."""
     from scapy.cbor.cbor import (
         CBOR_ARRAY,
         CBOR_BYTE_STRING,
@@ -238,30 +230,13 @@ def python_to_cbor_object(value):
         CBOR_MAP,
         CBOR_NEGATIVE_INTEGER,
         CBOR_NULL,
-        CBOR_SEMANTIC_TAG,
-        CBOR_SIMPLE_VALUE,
         CBOR_TEXT_STRING,
         CBOR_TRUE,
-        CBOR_UNDEFINED,
         CBOR_UNSIGNED_INTEGER,
         CBORMapData,
-        CBORFloatValue,
-        CBORSimpleValue,
-        CBORTagValue,
-        CBOR_UNDEFINED_VALUE,
     )
     if isinstance(value, CBOR_Object):
         return value
-    if value is CBOR_UNDEFINED_VALUE:
-        return CBOR_UNDEFINED()
-    if isinstance(value, CBORTagValue):
-        return CBOR_SEMANTIC_TAG(
-            (value.tag, python_to_cbor_object(value.value))
-        )
-    if isinstance(value, CBORSimpleValue):
-        return CBOR_SIMPLE_VALUE(value.value)
-    if isinstance(value, CBORFloatValue):
-        return CBOR_FLOAT(float(value), encoded=value.cbor_encoded)
     if isinstance(value, CBORMapData):
         return CBOR_MAP(CBORMapData([
             (python_to_cbor_object(k), python_to_cbor_object(v))
@@ -405,7 +380,9 @@ class CBORF_field(CBORF_element, Generic[_I]):
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> _I
-        if x is CBOR_ABSENT or x is CBOR_UNDEFINED_VALUE or x is CBOR_NO_ITEM:
+        if x is CBOR_ABSENT or x is CBOR_NO_ITEM:
+            return cast(_I, x)
+        if isinstance(x, CBOR_UNDEFINED):
             return cast(_I, x)
         if isinstance(x, CBOR_Object):
             x = cbor_object_to_python(x)
@@ -482,7 +459,9 @@ class CBORF_field(CBORF_element, Generic[_I]):
 
     def do_copy(self, x):
         # type: (Any) -> Any
-        if x is CBOR_ABSENT or x is CBOR_UNDEFINED_VALUE or x is CBOR_NO_ITEM:
+        if x is CBOR_ABSENT or x is CBOR_NO_ITEM:
+            return x
+        if isinstance(x, CBOR_UNDEFINED):
             return x
         if isinstance(x, list):
             return copy.deepcopy(x)
@@ -572,13 +551,17 @@ class CBORF_ANY(CBORF_field[Any]):
 
     def do_copy(self, x):  # type: ignore[override]
         # type: (Any) -> Any
-        if x is CBOR_ABSENT or x is CBOR_UNDEFINED_VALUE or x is CBOR_NO_ITEM:
+        if x is CBOR_ABSENT or x is CBOR_NO_ITEM:
+            return x
+        if isinstance(x, CBOR_UNDEFINED):
             return x
         return copy.deepcopy(x)
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> Any
-        if x is CBOR_ABSENT or x is CBOR_NO_ITEM or x is CBOR_UNDEFINED_VALUE:
+        if x is CBOR_ABSENT or x is CBOR_NO_ITEM:
+            return x
+        if isinstance(x, CBOR_UNDEFINED):
             return x
         return python_to_cbor_object(x)
 
@@ -591,10 +574,7 @@ class CBORF_ANY(CBORF_field[Any]):
 
     def m2i(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> Tuple[Any, bytes]
-        obj, remain = CBORcodec_Object.decode_cbor_item(s)
-        if isinstance(obj, CBOR_UNDEFINED):
-            return CBOR_UNDEFINED_VALUE, remain
-        return obj, remain
+        return CBORcodec_Object.decode_cbor_item(s)
 
     def encode_value(self, x):
         # type: (Any) -> bytes
