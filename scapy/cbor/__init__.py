@@ -28,7 +28,6 @@ from scapy.cbor.cbor import (
     CBOR_TRUE,
     CBOR_NULL,
     CBOR_UNDEFINED,
-    CBOR_UNDEFINED_VALUE,
     CBOR_FLOAT,
     CBOR_DECODING_ERROR,
     RandCBORObject,
@@ -99,7 +98,6 @@ __all__ = [
     "CBOR_TRUE",
     "CBOR_NULL",
     "CBOR_UNDEFINED",
-    "CBOR_UNDEFINED_VALUE",
     "CBOR_FLOAT",
     "CBOR_DECODING_ERROR",
     # Random/Fuzzing

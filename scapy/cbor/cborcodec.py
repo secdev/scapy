@@ -1176,25 +1176,11 @@ def _encode_cbor_item(item):
     """Encode a Python value to CBOR bytes"""
     from scapy.cbor.cbor import (
         CBOR_Object,
-        CBOR_UNDEFINED,
-        CBOR_UNDEFINED_VALUE,
         CBORMapData,
-        CBORTagValue,
-        CBORSimpleValue,
-        CBOR_SIMPLE_VALUE,
     )
 
     if isinstance(item, CBOR_Object):
         return item.enc()
-    elif item is CBOR_UNDEFINED_VALUE:
-        return CBOR_UNDEFINED().enc()
-    elif isinstance(item, CBORTagValue):
-        return (
-            CBOR_encode_head(6, item.tag) +
-            _encode_cbor_item(item.value)
-        )
-    elif isinstance(item, CBORSimpleValue):
-        return CBORcodec_SIMPLE_AND_FLOAT.enc(CBOR_SIMPLE_VALUE(item.value))
     elif isinstance(item, CBORMapData):
         return CBORcodec_MAP.enc(item)
     elif isinstance(item, bool):
@@ -1214,9 +1200,6 @@ def _encode_cbor_item(item):
     elif isinstance(item, dict):
         return CBORcodec_MAP.enc(item)
     elif isinstance(item, float):
-        encoded = getattr(item, "cbor_encoded", None)
-        if encoded is not None:
-            return encoded
         return CBORcodec_SIMPLE_AND_FLOAT.enc(item)
     elif item is None:
         return CBORcodec_SIMPLE_AND_FLOAT.enc(None)
@@ -1249,7 +1232,7 @@ def _encode_cbor_item_deterministic(item):
     sorted by their deterministic encoded bytes. Intended for schema-driven
     rebuild paths such as preserved unknown ``CBORF_MAP`` members.
 
-    :class:`~scapy.cbor.cbor.CBOR_Object` wrappers are accepted and reduced to
+    :class:`~scapy.cbor.cbor.CBOR_Object` instances are accepted and reduced to
     native values (preferred float encoding, deterministic nested maps).
     """
     from scapy.cbor.cbor import (
@@ -1259,10 +1242,7 @@ def _encode_cbor_item_deterministic(item):
         CBOR_SEMANTIC_TAG,
         CBOR_SIMPLE_VALUE,
         CBOR_UNDEFINED,
-        CBOR_UNDEFINED_VALUE,
         CBORMapData,
-        CBORTagValue,
-        CBORSimpleValue,
     )
 
     if isinstance(item, CBOR_Object):
@@ -1285,15 +1265,6 @@ def _encode_cbor_item_deterministic(item):
         if isinstance(item, CBOR_SIMPLE_VALUE):
             return CBORcodec_SIMPLE_AND_FLOAT.enc(item)
         return _encode_cbor_item_deterministic(item.val)
-    if item is CBOR_UNDEFINED_VALUE:
-        return CBOR_UNDEFINED().enc()
-    if isinstance(item, CBORTagValue):
-        return (
-            CBOR_encode_head(6, item.tag)
-            + _encode_cbor_item_deterministic(item.value)
-        )
-    if isinstance(item, CBORSimpleValue):
-        return CBORcodec_SIMPLE_AND_FLOAT.enc(CBOR_SIMPLE_VALUE(item.value))
     if isinstance(item, CBORMapData):
         return _encode_cbor_map_deterministic(item.cbor_pairs())
     if isinstance(item, dict):
