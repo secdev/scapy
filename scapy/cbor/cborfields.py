@@ -1502,7 +1502,6 @@ class CBORF_ARRAY_INDEFINITE(CBORF_ARRAY):
 
 
 _ARRAY_T = Union[
-    Type['CBOR_Packet'],
     Type[Packet],
     Type['CBORF_field[Any]'],
     'CBORF_PACKET',
@@ -1564,8 +1563,10 @@ class CBORF_SEQUENCE_OF(CBORF_field[List[Any]]):
                 else:
                     self.item_field = chosen
                 self.holds_packets = 0
-            elif isinstance(chosen, type) and (
-                hasattr(chosen, "CBOR_root") or issubclass(chosen, Packet)
+            elif (
+                isinstance(chosen, type)
+                and issubclass(chosen, Packet)
+                and hasattr(chosen, "CBOR_root")
             ):
                 self.cls = cast("Type[CBOR_Packet]", chosen)
                 self.holds_packets = 1
@@ -1754,8 +1755,10 @@ class CBORF_ARRAY_OF(CBORF_field[List[Any]]):
             else:
                 self.item_field = chosen
             self.holds_packets = 0
-        elif isinstance(chosen, type) and (
-            hasattr(chosen, "CBOR_root") or issubclass(chosen, Packet)
+        elif (
+            isinstance(chosen, type)
+            and issubclass(chosen, Packet)
+            and hasattr(chosen, "CBOR_root")
         ):
             self.cls = cast("Type[CBOR_Packet]", chosen)
             self.holds_packets = 1
