@@ -673,7 +673,11 @@ class CoAPSocketImpl:
                                       "ID=%s; Value=%s;",
                                       option[0], option[1])
             elif option_type_id == URI_PATH:
-                req_uri += option_value.decode("ascii").casefold()
+                try:
+                    req_uri += option_value.decode("utf-8").casefold()
+                except UnicodeDecodeError:
+                    log_coap_sock.warning("Invalid UTF-8 in URI-Path, ignoring request")
+                    return
                 req_uri += "/"
             else:
                 lst_options.append(option)

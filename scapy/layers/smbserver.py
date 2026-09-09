@@ -46,14 +46,9 @@ from scapy.layers.ntlm import (
 )
 from scapy.layers.smb import (
     SMBNegotiate_Request,
-    SMBNegotiate_Response_Extended_Security,
-    SMBNegotiate_Response_Security,
     SMBSession_Null,
     SMBSession_Setup_AndX_Request,
     SMBSession_Setup_AndX_Request_Extended_Security,
-    SMBSession_Setup_AndX_Response,
-    SMBSession_Setup_AndX_Response_Extended_Security,
-    SMBTree_Connect_AndX,
     SMB_Header,
 )
 from scapy.layers.windows.security import SECURITY_DESCRIPTOR
@@ -230,8 +225,6 @@ class SMB_Server(Automaton):
         # Various SMB server arguments
         self.ANONYMOUS_LOGIN = kwargs.pop("ANONYMOUS_LOGIN", False)
         self.GUEST_LOGIN = kwargs.pop("GUEST_LOGIN", None)
-        self.EXTENDED_SECURITY = kwargs.pop("EXTENDED_SECURITY", True)
-        self.USE_SMB1 = kwargs.pop("USE_SMB1", False)
         self.REQUIRE_SIGNATURE = kwargs.pop("REQUIRE_SIGNATURE", None)
         self.REQUIRE_ENCRYPTION = kwargs.pop("REQUIRE_ENCRYPTION", False)
         self.MAX_DIALECT = kwargs.pop("MAX_DIALECT", 0x0311)
@@ -278,8 +271,6 @@ class SMB_Server(Automaton):
             "LOCAL_IPS", [get_if_addr(kwargs.get("iface", conf.iface) or conf.iface)]
         )
         self.DOMAIN_REFERRALS = kwargs.pop("DOMAIN_REFERRALS", [])
-        if self.USE_SMB1:
-            log_runtime.warning("Serving SMB1 is not supported :/")
         self.readonly = readonly
         # We don't want to update the parent shares argument
         self.shares = shares.copy()
@@ -301,11 +292,17 @@ class SMB_Server(Automaton):
         if "DCERPC_SERVER_CLS" in kwargs:
             self.rpc_server.extend(kwargs.pop("DCERPC_SERVER_CLS"))
         # Internal Session information
-        self.SMB2 = False
         self.NegotiateCapabilities = None
         self.GUID = RandUUID()._fix()
         self.NextForceSign = False
         self.NextForceEncrypt = False
+
+        # Credits/Sequence handling
+        self.MaxCreditCount = 2048  # [MS-SMB2] note: windows max default
+        self.ClientCreditCount = 1
+        self.SequenceWindow = (0, 0)
+        self.SequenceNumbers = set([0])  # keep track of allowed MIDs
+
         # Compounds are handled on receiving by the StreamSocket,
         # and on aggregated in a CompoundQueue to be sent in one go
         self.NextCompound = False
@@ -361,226 +358,190 @@ class SMB_Server(Automaton):
         self.authenticated = False
 
     @ATMT.receive_condition(BEGIN)
-    def received_negotiate(self, pkt):
+    def received_negotiate_smb1(self, pkt):
         if SMBNegotiate_Request in pkt:
             raise self.NEGOTIATED().action_parameters(pkt)
 
     @ATMT.receive_condition(BEGIN)
     def received_negotiate_smb2_begin(self, pkt):
         if SMB2_Negotiate_Protocol_Request in pkt:
-            self.SMB2 = True
             raise self.NEGOTIATED().action_parameters(pkt)
 
     @ATMT.action(received_negotiate_smb2_begin)
     def on_negotiate_smb2_begin(self, pkt):
         self.on_negotiate(pkt)
 
-    @ATMT.action(received_negotiate)
+    @ATMT.action(received_negotiate_smb1)
     def on_negotiate(self, pkt):
         self.session.sspcontext, spnego_token = self.session.ssp.NegTokenInit2()
-        # Build negotiate response
-        DialectIndex = None
-        DialectRevision = None
-        if SMB2_Negotiate_Protocol_Request in pkt:
+
+        # Build SMB2 header
+        self.smb_header = DirectTCP() / SMB2_Header(
+            Flags="SMB2_FLAGS_SERVER_TO_REDIR",
+            CreditRequest=1,
+            CreditCharge=1,
+        )
+
+        if SMBNegotiate_Request in pkt:
+            # SMB1. We don't support anything else than a Multi-Protocol Negotiate.
+            # [MS-SMB2] 3.2.4.2.2.1 Multi-Protocol Negotiate
+
+            # Find a dialect matching SMB2, or error.
+            DialectIndexes = [
+                x.DialectString for x in pkt[SMBNegotiate_Request].Dialects
+            ]
+            for key, rev in [(b"SMB 2.???", 0x02FF), (b"SMB 2.002", 0x0202)]:
+                if key in DialectIndexes:
+                    DialectRevision = rev
+                    break
+            else:
+                # Error: client only supports SMB1. We must answer in SMB1.
+                resp = DirectTCP() / SMB_Header(
+                    Command="SMB_COM_NEGOTIATE",
+                    Status="STATUS_NOT_SUPPORTED",
+                    Flags="REPLY+CASE_INSENSITIVE+CANONICALIZED_PATHS",
+                    Flags2=(
+                        "LONG_NAMES+EAS+NT_STATUS+SMB_SECURITY_SIGNATURE+"
+                        "UNICODE+IS_LONG_NAME+EXTENDED_SECURITY"
+                    ),
+                    TID=pkt.TID,
+                    MID=pkt.MID,
+                    UID=pkt.UID,
+                    PIDLow=pkt.PIDLow,
+                )
+                resp /= SMBSession_Null()
+                self.send(resp)
+                return
+
+            # Multi-Protocol Negotiate: allocate credit 1
+            self.SequenceWindow = (1, 1)
+            self.SequenceNumbers = set([1])
+
+        elif SMB2_Negotiate_Protocol_Request in pkt:
             # SMB2
+            self.update_smbheader(pkt)
+
+            # Find common revisions
             DialectRevisions = pkt[SMB2_Negotiate_Protocol_Request].Dialects
             DialectRevisions = [x for x in DialectRevisions if x <= self.MAX_DIALECT]
             DialectRevisions.sort(reverse=True)
             if DialectRevisions:
                 DialectRevision = DialectRevisions[0]
-        else:
-            # SMB1
-            DialectIndexes = [
-                x.DialectString for x in pkt[SMBNegotiate_Request].Dialects
-            ]
-            if self.USE_SMB1:
-                # Enforce SMB1
-                DialectIndex = DialectIndexes.index(b"NT LM 0.12")
-            else:
-                # Find a value matching SMB2, fallback to SMB1
-                for key, rev in [(b"SMB 2.???", 0x02FF), (b"SMB 2.002", 0x0202)]:
-                    try:
-                        DialectIndex = DialectIndexes.index(key)
-                        DialectRevision = rev
-                        self.SMB2 = True
-                        break
-                    except ValueError:
-                        pass
-                else:
-                    DialectIndex = DialectIndexes.index(b"NT LM 0.12")
-        if DialectRevision and DialectRevision & 0xFF != 0xFF:
-            # Version isn't SMB X.???
-            self.session.Dialect = DialectRevision
-        cls = None
-        if self.SMB2:
-            # SMB2
-            cls = SMB2_Negotiate_Protocol_Response
-            self.smb_header = DirectTCP() / SMB2_Header(
-                Flags="SMB2_FLAGS_SERVER_TO_REDIR",
-                CreditRequest=1,
-                CreditCharge=1,
-            )
-            if SMB2_Negotiate_Protocol_Request in pkt:
-                self.update_smbheader(pkt)
-        else:
-            # SMB1
-            self.smb_header = DirectTCP() / SMB_Header(
-                Flags="REPLY+CASE_INSENSITIVE+CANONICALIZED_PATHS",
-                Flags2=(
-                    "LONG_NAMES+EAS+NT_STATUS+SMB_SECURITY_SIGNATURE+"
-                    "UNICODE+EXTENDED_SECURITY"
-                ),
-                TID=pkt.TID,
-                MID=pkt.MID,
-                UID=pkt.UID,
-                PIDLow=pkt.PIDLow,
-            )
-            if self.EXTENDED_SECURITY:
-                cls = SMBNegotiate_Response_Extended_Security
-            else:
-                cls = SMBNegotiate_Response_Security
-        if DialectRevision is None and DialectIndex is None:
+                if DialectRevision & 0xFF != 0xFF:
+                    # Version isn't SMB X.???
+                    self.session.Dialect = DialectRevision
+
+            # SecurityMode
+            if pkt.SecurityMode.SIGNING_REQUIRED:
+                self.session.SigningRequired = True
+
+        if DialectRevision is None:
             # No common dialect found.
-            if self.SMB2:
-                resp = self.smb_header.copy() / SMB2_Error_Response()
-                resp.Command = "SMB2_NEGOTIATE"
-            else:
-                resp = self.smb_header.copy() / SMBSession_Null()
-                resp.Command = "SMB_COM_NEGOTIATE"
+            resp = self.smb_header.copy() / SMB2_Error_Response()
+            resp.Command = "SMB2_NEGOTIATE"
             resp.Status = "STATUS_NOT_SUPPORTED"
             self.send(resp)
             return
-        if self.SMB2:  # SMB2
-            # SecurityMode
-            if SMB2_Header in pkt and pkt.SecurityMode.SIGNING_REQUIRED:
-                self.session.SigningRequired = True
-            # Capabilities: [MS-SMB2] 3.3.5.4
-            self.NegotiateCapabilities = "+".join(
+
+        # Capabilities: [MS-SMB2] 3.3.5.4
+        self.NegotiateCapabilities = "+".join(
+            [
+                "DFS",
+                "LEASING",
+                "LARGE_MTU",
+            ]
+        )
+        if DialectRevision >= 0x0300:
+            # "if Connection.Dialect belongs to the SMB 3.x dialect family,
+            # the server supports..."
+            self.NegotiateCapabilities += "+" + "+".join(
                 [
-                    "DFS",
-                    "LEASING",
-                    "LARGE_MTU",
+                    "MULTI_CHANNEL",
+                    "PERSISTENT_HANDLES",
+                    "DIRECTORY_LEASING",
+                    "ENCRYPTION",
                 ]
             )
-            if DialectRevision >= 0x0300:
-                # "if Connection.Dialect belongs to the SMB 3.x dialect family,
-                # the server supports..."
-                self.NegotiateCapabilities += "+" + "+".join(
-                    [
-                        "MULTI_CHANNEL",
-                        "PERSISTENT_HANDLES",
-                        "DIRECTORY_LEASING",
-                        "ENCRYPTION",
-                    ]
-                )
-            # Build response
-            resp = self.smb_header.copy() / cls(
-                DialectRevision=DialectRevision,
-                SecurityMode=(
-                    "SIGNING_ENABLED+SIGNING_REQUIRED"
-                    if self.session.SigningRequired
-                    else "SIGNING_ENABLED"
+
+        # Build response
+        resp = self.smb_header.copy() / SMB2_Negotiate_Protocol_Response(
+            DialectRevision=DialectRevision,
+            SecurityMode=(
+                "SIGNING_ENABLED+SIGNING_REQUIRED"
+                if self.session.SigningRequired
+                else "SIGNING_ENABLED"
+            ),
+            ServerTime=(time.time() + 11644473600) * 1e7,
+            ServerStartTime=0,
+            MaxTransactionSize=65536,
+            MaxReadSize=65536,
+            MaxWriteSize=65536,
+            Capabilities=self.NegotiateCapabilities,
+            GUID=self.GUID,
+        )
+        # SMB >= 3.0.0
+        if DialectRevision >= 0x0300:
+            # [MS-SMB2] sect 3.3.5.3.1 note 253
+            resp.MaxTransactionSize = 0x800000
+            resp.MaxReadSize = 0x800000
+            resp.MaxWriteSize = 0x800000
+        # SMB 3.1.1
+        if DialectRevision >= 0x0311 and pkt.NegotiateContextsCount:
+            # Negotiate context-capabilities
+            for ngctx in pkt.NegotiateContexts:
+                if ngctx.ContextType == 0x0002:
+                    # SMB2_ENCRYPTION_CAPABILITIES
+                    for ciph in ngctx.Ciphers:
+                        tciph = SMB2_ENCRYPTION_CIPHERS.get(ciph, None)
+                        if tciph in self.session.SupportedCipherIds:
+                            # Common !
+                            self.session.CipherId = tciph
+                            self.session.SupportsEncryption = True
+                            break
+                elif ngctx.ContextType == 0x0008:
+                    # SMB2_SIGNING_CAPABILITIES
+                    for signalg in ngctx.SigningAlgorithms:
+                        tsignalg = SMB2_SIGNING_ALGORITHMS.get(signalg, None)
+                        if tsignalg in self.session.SupportedSigningAlgorithmIds:
+                            # Common !
+                            self.session.SigningAlgorithmId = tsignalg
+                            break
+            # Send back the negotiated algorithms
+            resp.NegotiateContexts = [
+                # Preauth capabilities
+                SMB2_Negotiate_Context()
+                / SMB2_Preauth_Integrity_Capabilities(
+                    # SHA-512 by default
+                    HashAlgorithms=[self.session.PreauthIntegrityHashId],
+                    Salt=self.session.Salt,
                 ),
-                ServerTime=(time.time() + 11644473600) * 1e7,
-                ServerStartTime=0,
-                MaxTransactionSize=65536,
-                MaxReadSize=65536,
-                MaxWriteSize=65536,
-                Capabilities=self.NegotiateCapabilities,
-            )
-            # SMB >= 3.0.0
-            if DialectRevision >= 0x0300:
-                # [MS-SMB2] sect 3.3.5.3.1 note 253
-                resp.MaxTransactionSize = 0x800000
-                resp.MaxReadSize = 0x800000
-                resp.MaxWriteSize = 0x800000
-            # SMB 3.1.1
-            if DialectRevision >= 0x0311 and pkt.NegotiateContextsCount:
-                # Negotiate context-capabilities
-                for ngctx in pkt.NegotiateContexts:
-                    if ngctx.ContextType == 0x0002:
-                        # SMB2_ENCRYPTION_CAPABILITIES
-                        for ciph in ngctx.Ciphers:
-                            tciph = SMB2_ENCRYPTION_CIPHERS.get(ciph, None)
-                            if tciph in self.session.SupportedCipherIds:
-                                # Common !
-                                self.session.CipherId = tciph
-                                self.session.SupportsEncryption = True
-                                break
-                    elif ngctx.ContextType == 0x0008:
-                        # SMB2_SIGNING_CAPABILITIES
-                        for signalg in ngctx.SigningAlgorithms:
-                            tsignalg = SMB2_SIGNING_ALGORITHMS.get(signalg, None)
-                            if tsignalg in self.session.SupportedSigningAlgorithmIds:
-                                # Common !
-                                self.session.SigningAlgorithmId = tsignalg
-                                break
-                # Send back the negotiated algorithms
-                resp.NegotiateContexts = [
-                    # Preauth capabilities
-                    SMB2_Negotiate_Context()
-                    / SMB2_Preauth_Integrity_Capabilities(
-                        # SHA-512 by default
-                        HashAlgorithms=[self.session.PreauthIntegrityHashId],
-                        Salt=self.session.Salt,
-                    ),
-                    # Encryption capabilities
-                    SMB2_Negotiate_Context()
-                    / SMB2_Encryption_Capabilities(
-                        # AES-128-CCM by default
-                        Ciphers=[self.session.CipherId],
-                    ),
-                    # Signing capabilities
-                    SMB2_Negotiate_Context()
-                    / SMB2_Signing_Capabilities(
-                        # AES-128-CCM by default
-                        SigningAlgorithms=[self.session.SigningAlgorithmId],
-                    ),
-                ]
-        else:
-            # SMB1
-            resp = self.smb_header.copy() / cls(
-                DialectIndex=DialectIndex,
-                ServerCapabilities=(
-                    "UNICODE+LARGE_FILES+NT_SMBS+RPC_REMOTE_APIS+STATUS32+"
-                    "LEVEL_II_OPLOCKS+LOCK_AND_READ+NT_FIND+"
-                    "LWIO+INFOLEVEL_PASSTHRU+LARGE_READX+LARGE_WRITEX"
+                # Encryption capabilities
+                SMB2_Negotiate_Context()
+                / SMB2_Encryption_Capabilities(
+                    # AES-128-CCM by default
+                    Ciphers=[self.session.CipherId],
                 ),
-                SecurityMode=(
-                    "SIGNING_ENABLED+SIGNING_REQUIRED"
-                    if self.session.SigningRequired
-                    else "SIGNING_ENABLED"
+                # Signing capabilities
+                SMB2_Negotiate_Context()
+                / SMB2_Signing_Capabilities(
+                    # AES-128-CCM by default
+                    SigningAlgorithms=[self.session.SigningAlgorithmId],
                 ),
-                ServerTime=(time.time() + 11644473600) * 1e7,
-                ServerTimeZone=0x3C,
-            )
-            if self.EXTENDED_SECURITY:
-                resp.ServerCapabilities += "EXTENDED_SECURITY"
-        if self.EXTENDED_SECURITY or self.SMB2:
-            # Extended SMB1 / SMB2
-            resp.GUID = self.GUID
-            # Add security blob
-            resp.SecurityBlob = spnego_token
-        else:
-            # Non-extended SMB1
-            # FIXME never tested.
-            resp.SecurityBlob = spnego_token
-            resp.Flags2 -= "EXTENDED_SECURITY"
-        if not self.SMB2:
-            resp[SMB_Header].Flags2 = (
-                resp[SMB_Header].Flags2
-                - "SMB_SECURITY_SIGNATURE"
-                + "SMB_SECURITY_SIGNATURE_REQUIRED+IS_LONG_NAME"
-            )
-        if SMB2_Header in pkt:
+            ]
+
+        # Add security blob
+        resp.SecurityBlob = spnego_token
+
+        if SMB2_Negotiate_Protocol_Request in pkt:
             # If required, compute sessions
             self.session.computeSMBConnectionPreauth(
                 bytes(pkt[SMB2_Header]),  # nego request
                 bytes(resp[SMB2_Header]),  # nego response
             )
+
         self.send(resp)
 
-    @ATMT.state(final=1)
+    @ATMT.state(error=1)
     def NEGO_FAILED(self):
         self.vprint("SMB Negotiate failed: encryption was not negotiated.")
         self.end()
@@ -589,16 +550,95 @@ class SMB_Server(Automaton):
     def NEGOTIATED(self):
         pass
 
+    @ATMT.state(error=1)
+    def INVALID_SEQUENCE_WINDOW(self, MID, CreditCharge):
+        self.vprint(
+            "SMB: Invalid sequence [%s:%s] in %s. (%s)"
+            % (
+                MID,
+                MID + CreditCharge - 1,
+                repr(self.SequenceWindow),
+                repr(self.SequenceNumbers),
+            )
+        )
+        self.end()
+
+    @ATMT.state(error=1)
+    def INSUFFICIENT_CREDITS(self):
+        self.vprint("SMB Negotiate failed: encryption was not negotiated.")
+        self.end()
+
     def update_smbheader(self, pkt):
         """
         Called when receiving a SMB2 packet to update the current smb_header
         """
-        # [MS-SMB2] sect 3.2.5.1.4 - always grant client its credits
-        self.smb_header.CreditRequest = pkt.CreditRequest
+        # [MS-SMB2] sect 3.3.1.1 - Algorithm for Handling MIDs
+        MID = pkt.MID
+        if self.session.Dialect >= 0x0210:
+            # SMB 2.1.0+ - Credits
+            CreditCharge = pkt.CreditCharge
+            Consumed = range(MID, MID + CreditCharge)
+            if (
+                (
+                    CreditCharge <= 0
+                    and not isinstance(
+                        pkt.payload.payload, SMB2_Negotiate_Protocol_Request
+                    )
+                )
+                or CreditCharge >= self.MaxCreditCount
+                or not (self.SequenceWindow[0] <= MID <= self.SequenceWindow[1])
+                or not self.SequenceNumbers.issuperset(Consumed)
+            ):
+                raise self.INVALID_SEQUENCE_WINDOW(MID, CreditCharge)
+
+            # [MS-SMB2] sect 3.3.1.2 - Algorithm for the Granting of Credits
+            CreditGranted = min(
+                pkt.CreditRequest, self.MaxCreditCount - self.ClientCreditCount
+            )
+            if (
+                self.SequenceWindow[1] - self.SequenceWindow[0]
+                >= 2 * self.ClientCreditCount
+            ):
+                # "the server will not allow the difference between the smallest
+                # available sequence number and the largest available sequence number
+                # to exceed 2*[Credit Granted]"
+                CreditGranted = 0
+            self.smb_header.CreditRequest = CreditGranted
+            self.ClientCreditCount += CreditGranted
+            self.ClientCreditCount -= CreditCharge
+            if self.ClientCreditCount <= 0:
+                raise self.INSUFFICIENT_CREDITS()
+
+        else:
+            # SMB 2.0.2 - No credits
+            if not (self.SequenceWindow[0] <= MID <= self.SequenceWindow[1]):
+                raise self.INVALID_SEQUENCE_WINDOW()
+            CreditGranted = 1
+            Consumed = [MID]
+
+        # Update allowed sequence numbers (protect against replay)
+        self.SequenceNumbers -= set(Consumed)
+
+        # Store granted sequence numbers
+        self.SequenceNumbers |= set(
+            range(
+                self.SequenceWindow[1] + 1,
+                self.SequenceWindow[1] + 1 + CreditGranted,
+            )
+        )
+        # And update sequence window
+        self.SequenceWindow = (
+            min(self.SequenceNumbers),
+            self.SequenceWindow[1] + CreditGranted,
+        )
+
         # [MS-SMB2] sect 3.3.4.1
         # "the server SHOULD set the CreditCharge field in the SMB2 header
         # of the response to the CreditCharge value in the SMB2 header of the request."
         self.smb_header.CreditCharge = pkt.CreditCharge
+        # TODO: check that the announced CreditCharge is correct for the message.
+        # Right now we trust the client.
+
         # If the packet has a NextCommand, set NextCompound to True
         self.NextCompound = bool(pkt.NextCommand)
         # [MS-SMB2] sect 3.3.4.1.1 - "If the request was signed by the client..."
@@ -612,16 +652,19 @@ class SMB_Server(Automaton):
         # client request for which Request.IsEncrypted is TRUE"
         if pkt[SMB2_Header]._decrypted:
             self.NextForceEncrypt = True
+
         # [MS-SMB2] sect 3.3.5.2.7.2
         # Add SMB2_FLAGS_RELATED_OPERATIONS to the response if present
         if pkt.Flags.SMB2_FLAGS_RELATED_OPERATIONS:
             self.smb_header.Flags += "SMB2_FLAGS_RELATED_OPERATIONS"
         else:
             self.smb_header.Flags -= "SMB2_FLAGS_RELATED_OPERATIONS"
+
         # [MS-SMB2] sect 2.2.1.2 - Priority
         if (self.session.Dialect or 0) >= 0x0311:
             self.smb_header.Flags &= 0xFF8F
             self.smb_header.Flags |= int(pkt.Flags) & 0x70
+
         # Update IDs
         self.smb_header.SessionId = pkt.SessionId
         self.smb_header.TID = pkt.TID
@@ -637,24 +680,22 @@ class SMB_Server(Automaton):
     def on_negotiate_smb2(self, pkt):
         self.on_negotiate(pkt)
 
+    @ATMT.state(error=1)
+    def INVALID_SMB_VERSION(self):
+        log_runtime.warning("Tree request in SMB1: unimplemented. Quit")
+        self.end()
+
     @ATMT.receive_condition(NEGOTIATED)
     def receive_setup_andx_request(self, pkt):
+        if SMB2_Session_Setup_Request in pkt:
+            # SMB2
+            ssp_blob = pkt.SecurityBlob
+            raise self.RECEIVED_SETUP_ANDX_REQUEST().action_parameters(pkt, ssp_blob)
         if (
             SMBSession_Setup_AndX_Request_Extended_Security in pkt
             or SMBSession_Setup_AndX_Request in pkt
         ):
-            # SMB1
-            if SMBSession_Setup_AndX_Request_Extended_Security in pkt:
-                # Extended
-                ssp_blob = pkt.SecurityBlob
-            else:
-                # Non-extended
-                ssp_blob = pkt[SMBSession_Setup_AndX_Request].UnicodePassword
-            raise self.RECEIVED_SETUP_ANDX_REQUEST().action_parameters(pkt, ssp_blob)
-        elif SMB2_Session_Setup_Request in pkt:
-            # SMB2
-            ssp_blob = pkt.SecurityBlob
-            raise self.RECEIVED_SETUP_ANDX_REQUEST().action_parameters(pkt, ssp_blob)
+            raise self.INVALID_SMB_VERSION()
 
     @ATMT.state()
     def RECEIVED_SETUP_ANDX_REQUEST(self):
@@ -667,19 +708,10 @@ class SMB_Server(Automaton):
             ssp_blob,
         )
         self.update_smbheader(pkt)
-        if SMB2_Session_Setup_Request in pkt:
-            # SMB2
-            self.smb_header.SessionId = 0x0001000000000015
+        self.smb_header.SessionId = 0x0001000000000015
         if status not in [GSS_S_CONTINUE_NEEDED, GSS_S_COMPLETE]:
             # Error
-            if SMB2_Session_Setup_Request in pkt:
-                # SMB2
-                resp = self.smb_header.copy() / SMB2_Session_Setup_Response()
-                # Set security blob (if any)
-                resp.SecurityBlob = tok
-            else:
-                # SMB1
-                resp = self.smb_header.copy() / SMBSession_Null()
+            resp = self.smb_header.copy() / SMB2_Session_Setup_Response()
             # Map some GSS return codes to NTStatus
             if status == GSS_S_CREDENTIALS_EXPIRED:
                 resp.Status = "STATUS_PASSWORD_EXPIRED"
@@ -689,45 +721,24 @@ class SMB_Server(Automaton):
             self.session.SessionPreauthIntegrityHashValue = None
         else:
             # Negotiation
-            if (
-                SMBSession_Setup_AndX_Request_Extended_Security in pkt
-                or SMB2_Session_Setup_Request in pkt
-            ):
-                # SMB1 extended / SMB2
-                if SMB2_Session_Setup_Request in pkt:
-                    resp = self.smb_header.copy() / SMB2_Session_Setup_Response()
-                    if self.GUEST_LOGIN:
-                        # "If the security subsystem indicates that the session
-                        # was established by a guest user, Session.SigningRequired
-                        # MUST be set to FALSE and Session.IsGuest MUST be set to TRUE."
-                        resp.SessionFlags = "IS_GUEST"
-                        self.session.IsGuest = True
-                        self.session.SigningRequired = False
-                    if self.ANONYMOUS_LOGIN:
-                        resp.SessionFlags = "IS_NULL"
-                    # [MS-SMB2] sect 3.3.5.5.3
-                    if self.session.Dialect >= 0x0300 and self.REQUIRE_ENCRYPTION:
-                        resp.SessionFlags += "ENCRYPT_DATA"
-                else:
-                    # SMB1 extended
-                    resp = (
-                        self.smb_header.copy()
-                        / SMBSession_Setup_AndX_Response_Extended_Security(
-                            NativeOS="Windows 4.0",
-                            NativeLanMan="Windows 4.0",
-                        )
-                    )
-                    if self.GUEST_LOGIN:
-                        resp.Action = "SMB_SETUP_GUEST"
-                # Set security blob
-                resp.SecurityBlob = tok
-            elif SMBSession_Setup_AndX_Request in pkt:
-                # Non-extended
-                resp = self.smb_header.copy() / SMBSession_Setup_AndX_Response(
-                    NativeOS="Windows 4.0",
-                    NativeLanMan="Windows 4.0",
-                )
+            resp = self.smb_header.copy() / SMB2_Session_Setup_Response()
+            if self.GUEST_LOGIN:
+                # "If the security subsystem indicates that the session
+                # was established by a guest user, Session.SigningRequired
+                # MUST be set to FALSE and Session.IsGuest MUST be set to TRUE."
+                resp.SessionFlags = "IS_GUEST"
+                self.session.IsGuest = True
+                self.session.SigningRequired = False
+            if self.ANONYMOUS_LOGIN:
+                resp.SessionFlags = "IS_NULL"
+            # [MS-SMB2] sect 3.3.5.5.3
+            if self.session.Dialect >= 0x0300 and self.REQUIRE_ENCRYPTION:
+                resp.SessionFlags += "ENCRYPT_DATA"
             resp.Status = 0x0 if (status == GSS_S_COMPLETE) else 0xC0000016
+
+        # Set security blob (if any)
+        resp.SecurityBlob = tok
+
         # We have a response. If required, compute sessions
         if status == GSS_S_CONTINUE_NEEDED:
             # the setup session response is used in hash
@@ -758,6 +769,7 @@ class SMB_Server(Automaton):
         ):
             # [MS-SMB2] sect 3.3.5.5.3: from now on, turn encryption on !
             self.session.EncryptData = True
+            self.session.EncryptionRequired = True
             self.session.SigningRequired = False
 
     @ATMT.condition(RECEIVED_SETUP_ANDX_REQUEST)
@@ -836,13 +848,6 @@ class SMB_Server(Automaton):
     @ATMT.receive_condition(SERVING)
     def receive_setup_andx_request_in_serving(self, pkt):
         self.receive_setup_andx_request(pkt)
-
-    @ATMT.receive_condition(SERVING)
-    def is_smb1_tree(self, pkt):
-        if SMBTree_Connect_AndX in pkt:
-            # Unsupported
-            log_runtime.warning("Tree request in SMB1: unimplemented. Quit")
-            raise self.END()
 
     @ATMT.receive_condition(SERVING)
     def receive_tree_connect(self, pkt):

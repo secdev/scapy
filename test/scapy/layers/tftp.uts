@@ -25,7 +25,6 @@ y[TFTP_Option].oname
 y[TFTP_Option:2].oname
 assert len(y[TFTP_Options].options) == 2 and y[TFTP_Option].oname == b"blksize"
 
-
 + TFTP Automatons
 ~ linux
 
@@ -161,6 +160,19 @@ tftp_wrq = TFTP_WRQ_server(ip="1.2.3.4", sport=0x2807,
                            recvsock=MockWRQSocket)
 assert tftp_wrq.run() == (b"scapy.txt", (b"P" * 512 + b"<3"))
 
+= TFTP_WRQ_server rejects DATA from a different peer
+~ linux
+
+class MockWRQSocket(MockTFTPSocket):
+    packets = [IP(src="192.0.2.10", dst="1.2.3.4") / UDP(sport=41000, dport=0x2807) / TFTP() / TFTP_WRQ(filename="scapy.txt"),
+               IP(src="203.0.113.77", dst="1.2.3.4") / UDP(sport=52000, dport=0x2807) / TFTP() / TFTP_DATA(block=1) / "attacker",
+               IP(src="192.0.2.10", dst="1.2.3.4") / UDP(sport=41000, dport=0x2807) / TFTP() / TFTP_DATA(block=1) / "victim"]
+
+tftp_wrq = TFTP_WRQ_server(ip="1.2.3.4", sport=0x2807,
+                           ll=MockWRQSocket,
+                           recvsock=MockWRQSocket)
+assert tftp_wrq.run() == (b"scapy.txt", b"victim")
+
 = TFTP_WRQ_server() automaton with options
 ~ linux
 
@@ -206,3 +218,82 @@ assert received_data == sent_data
 
 import os
 os.unlink(filename)
+
+
++ TFTP RRQ server option validation
+
+= TFTP_RRQ_server ignores a zero blksize option
+
+from scapy.automaton import select_objects
+
+class MockInvalidRRQSocket(object):
+    packets = [raw(IP(src="1.2.3.4", dst="1.2.3.5") / UDP(sport=12345, dport=69) /
+                   TFTP() / TFTP_RRQ(filename="file") /
+                   TFTP_Options(options=[TFTP_Option(oname="blksize", value="0")])),
+               raw(IP(src="1.2.3.4", dst="1.2.3.5") / UDP(sport=12345, dport=10055) /
+                   TFTP(op=4) / TFTP_ACK(block=1))]
+    def __init__(self, iface):
+        self.iface = iface
+    def recv(self, n=None):
+        return IP(self.packets.pop(0))
+    def send(self, *args, **kwargs):
+        pass
+    def close(self):
+        pass
+    @classmethod
+    def select(cls, inputs, remain):
+        sockets = [item for item in inputs if isinstance(item, cls)]
+        if sockets and sockets[0].packets:
+            return sockets
+        return select_objects(
+            [item for item in inputs if not isinstance(item, cls)], remain
+        )
+
+tftp_rrq = TFTP_RRQ_server(ip="1.2.3.5", sport=10055, store={"file": b"payload"}, serve_one=True,
+                           ll=MockInvalidRRQSocket, recvsock=MockInvalidRRQSocket)
+assert tftp_rrq.run() is None
+
+= TFTP_WRQ_server ignores an out-of-range blksize option
+
+class MockInvalidWRQSocket(object):
+    packets = [raw(IP(src="1.2.3.4", dst="1.2.3.5") / UDP(sport=12345, dport=69) /
+                   TFTP() / TFTP_WRQ(filename="file") /
+                   TFTP_Options(options=[TFTP_Option(oname="blksize", value="0")])),
+               raw(IP(src="1.2.3.4", dst="1.2.3.5") / UDP(sport=12345, dport=10056) /
+                   TFTP(op=3) / TFTP_DATA(block=1) / b"AAAA")]
+    def __init__(self, iface):
+        self.iface = iface
+    def recv(self, n=None):
+        return IP(self.packets.pop(0))
+    def send(self, *args, **kwargs):
+        pass
+    def close(self):
+        pass
+    @classmethod
+    def select(cls, inputs, remain):
+        sockets = [item for item in inputs if isinstance(item, cls)]
+        if sockets and sockets[0].packets:
+            return sockets
+        return select_objects(
+            [item for item in inputs if not isinstance(item, cls)], remain
+        )
+
+# blksize=0 would leave `len(data.load) < self.blksize` never true, so the transfer
+# would never reach END and the four data bytes would never be returned.
+tftp_wrq = TFTP_WRQ_server(ip="1.2.3.5", sport=10056,
+                           ll=MockInvalidWRQSocket, recvsock=MockInvalidWRQSocket)
+assert tftp_wrq.run() == (b"file", b"AAAA")
+
+= TFTP_WRQ_server ignores a non-numeric blksize option
+
+class MockTextWRQSocket(MockInvalidWRQSocket):
+    packets = [raw(IP(src="1.2.3.4", dst="1.2.3.5") / UDP(sport=12345, dport=69) /
+                   TFTP() / TFTP_WRQ(filename="file") /
+                   TFTP_Options(options=[TFTP_Option(oname="blksize", value="abc")])),
+               raw(IP(src="1.2.3.4", dst="1.2.3.5") / UDP(sport=12345, dport=10057) /
+                   TFTP(op=3) / TFTP_DATA(block=1) / b"AAAA")]
+
+# Without the guard this raises ValueError out of the action and ends the server.
+tftp_wrq = TFTP_WRQ_server(ip="1.2.3.5", sport=10057,
+                           ll=MockTextWRQSocket, recvsock=MockTextWRQSocket)
+assert tftp_wrq.run() == (b"file", b"AAAA")

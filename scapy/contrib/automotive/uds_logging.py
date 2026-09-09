@@ -156,8 +156,8 @@ def UDS_RDBIPR_get_log(self):
 def UDS_RMBA_get_log(self):
     # type: (Packet) -> Tuple[str, Any]
     return self.sprintf("%UDS.service%"), \
-        (getattr(self, "memoryAddress%d" % self.memoryAddressLen),
-         getattr(self, "memorySize%d" % self.memorySizeLen))
+        (getattr(self, "memoryAddress%d" % self.memoryAddressLen, None),
+         getattr(self, "memorySize%d" % self.memorySizeLen, None))
 
 
 @Ecu.extend_pkt_with_logging(UDS_RMBAPR)

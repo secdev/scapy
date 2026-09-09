@@ -1477,6 +1477,8 @@ class DICOMSocket:
                         continue
                     max_len = sub_item[DICOMMaximumLength]
                     server_max = max_len.max_pdu_length
+                    if server_max == 0:
+                        server_max = self._proposed_max_pdu
                     self.max_pdu_length = min(
                         self._proposed_max_pdu, server_max
                     )

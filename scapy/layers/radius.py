@@ -1731,6 +1731,7 @@ class Radius_am(AnsweringMachine):
         except Scapy_Exception as ex:
             # display a warning
             log_runtime.warning(str(ex))
+            rad.code = 3
 
         # Add additional records if it's an accept
         if rad.code == 2:

@@ -19,6 +19,7 @@ from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
     FieldListField, PacketField, ShortEnumField, ShortField, \
     StrFixedLenField, StrLenField
 from scapy.packet import Packet, Raw, Padding
+from scapy.volatile import RandBin
 from scapy.layers.tls.cert import PubKeyRSA, PrivKeyRSA
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import _tls_version, _TLSClientVersionField
@@ -909,7 +910,7 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
     name = "RSA Encrypted PreMaster Secret"
     fields_desc = [_TLSClientVersionField("client_version", None,
                                           _tls_version),
-                   StrFixedLenField("random", None, 46)]
+                   StrFixedLenField("random", RandBin(46), 46)]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):

@@ -964,6 +964,8 @@ class DceRpc5(DceRpc):
     def tcp_reassemble(cls, data, _, session):
         if data[0:1] != b"\x05":
             return
+        if len(data) < 10:
+            return
         endian = struct.unpack("!B", data[4:5])[0] >> 4
         if endian not in [0, 1]:
             return
@@ -2991,6 +2993,16 @@ class DceRpcSession(DefaultSession):
         body = None
         if conf.raw_layer in pkt.payload:
             body = bytes(pkt.payload[conf.raw_layer])
+        if (
+            self.sspcontext is not None
+            and self.auth_level in (
+                RPC_C_AUTHN_LEVEL.PKT_INTEGRITY,
+                RPC_C_AUTHN_LEVEL.PKT_PRIVACY,
+            )
+            and isinstance(pkt.payload, (DceRpc5Request, DceRpc5Response))
+            and not (pkt.auth_verifier and pkt.auth_verifier.is_protected())
+        ):
+            raise ValueError("DCE/RPC packet protection is required !")
         # If we are doing passive sniffing
         if conf.dcerpc_session_enable and conf.winssps_passive:
             # We have Windows SSPs, and no current context

@@ -65,6 +65,22 @@ f.addfield(None, b'', f.default) == hex_bytes('0123456789abcdef0123456789abcdef'
 
 + DCE/RPC v5
 
+= Require a verifier for requests after packet-protection negotiation
+
+protected_session = DceRpcSession(
+    sspcontext=object(),
+    auth_level=RPC_C_AUTHN_LEVEL.PKT_PRIVACY,
+)
+for protected_payload in (DceRpc5Request(), DceRpc5Response()):
+    unsigned_packet = DceRpc5(
+        pfc_flags="PFC_FIRST_FRAG+PFC_LAST_FRAG",
+    ) / protected_payload
+    try:
+        protected_session.in_pkt(unsigned_packet)
+        assert False, "The unsigned packet was accepted"
+    except ValueError as exc:
+        assert str(exc) == "DCE/RPC packet protection is required !"
+
 = Dissect DCE/RPC v5 Request with Kerberos GSSAPI/RFC1964
 
 pkt = DceRpc(b"\x05\x00\x00\x03\x10\x00\x00\x00\xcd\x00-\x00\x01\x00\x00\x00x\x00\x00\x00\x00\x00\x00\x00j\x87\xb4\xa8DrE3\xfa\xc1\x1d\x9e\xb7\x8a_\xffr\xbe\x13\xc4<\x85\xf0\xf2'y\x84t%u|e\xef/\x04\xb0m\x98\xb1\xd2\x00KwW#P\x8f2\xecB\x81\x19\xf3g\xd2o[\x07L-\xb8\x89\x05\xcf?\xcf\t\xeb\xb3&&6\xb7\x84\xb6\xcd8Ao\x8c\x94\xca\x03\xe3\x0e\x86'-\xfaHj\xcez\xf0A\x83\x9dX\r\xe8\x96\x07Bs\xaf\x9c[=2\x9eS\xb1\x18\x84 \xb4y\n9\xdf\x92\x1c\xd8\xe2e\xd3^,\t\x06\x08\x00pj\x8f\x04`+\x06\t*\x86H\x86\xf7\x12\x01\x02\x02\x02\x01\x11\x00\x10\x00\xff\xffp\xc0\\m\xfe\xa4\xe1!\xf7\xdf\xbf\xa4\xad\xdf\xcb\x16\x1e\xb5+{\x97\xaf\xd5~")
@@ -601,6 +617,15 @@ assert pkts[22][ept_map_Response].valueof("ITowers")[0].tower_octet_string == b'
 
 % The fact that all of this actually works is crazy to me.
 
+= Server faults a request received before bind
+from scapy.layers.dcerpc import DCERPC_Transport, DceRpc5Fault
+from scapy.layers.msrpce.rpcserver import DCERPC_Server
+
+server = DCERPC_Server(DCERPC_Transport.NCACN_IP_TCP, port=135, verb=False)
+request = hex_bytes("050000031000000018000000000000000000000000000000")
+server.recv(request)
+assert DceRpc5Fault in server.get_response()
+
 = Functional: Define a MS-RPC server
 % Same as in dcerpc.rst
 
@@ -644,6 +669,27 @@ class MyRPCServer(DCERPC_Server):
             ),
             ndr64=self.ndr64,
         )
+
+= Auth3 cannot lower the protection level negotiated during bind
+
+class TestSSP:
+    def GSS_Accept_sec_context(self, context, token):
+        return object(), None, 0
+
+server = DCERPC_Server(
+    DCERPC_Transport.NCACN_IP_TCP,
+    verb=False,
+    ssp=TestSSP(),
+)
+server.session.rpc_bind_interface = find_dcerpc_interface("wkssvc")
+server.session.auth_level = DCE_C_AUTHN_LEVEL.PKT_INTEGRITY
+auth3 = DceRpc5() / DceRpc5Auth3()
+auth3.auth_verifier = CommonAuthVerifier(
+    auth_level=DCE_C_AUTHN_LEVEL.CONNECT,
+    auth_value=Raw(b"authenticate"),
+)
+server.recv(auth3)
+assert server.session.auth_level == DCE_C_AUTHN_LEVEL.PKT_INTEGRITY
 
 = Functional: Define wrapper over samba's rpcclient
 ~ linux samba

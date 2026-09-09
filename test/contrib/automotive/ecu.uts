@@ -601,6 +601,33 @@ assert response.supports_state(EcuState())
 assert response.key_response.service == 80
 assert unanswered_packets[0].diagnosticSessionType == 4
 
+= Learned SecurityAccess responses retain the captured key
+
+learned = Ecu(logging=False, verbose=False, store_supported_responses=True)
+learned.reset()
+learned.update(UDS()/UDS_SA(securityAccessType=2, securityKey=b"captured"))
+learned.update(UDS()/UDS_SAPR(securityAccessType=2))
+
+simulated = EcuAnsweringMachine(
+    supported_responses=learned.supported_responses,
+    basecls=UDS,
+    main_socket=None,
+)
+wrong = simulated.make_reply(
+    UDS()/UDS_SA(securityAccessType=2, securityKey=b"wrong"))[0]
+assert wrong.service == 0x7f
+assert not hasattr(simulated.state, "security_level")
+
+simulated = EcuAnsweringMachine(
+    supported_responses=learned.supported_responses,
+    basecls=UDS,
+    main_socket=None,
+)
+accepted = simulated.make_reply(
+    UDS()/UDS_SA(securityAccessType=2, securityKey=b"captured"))[0]
+assert accepted.service == 0x67
+assert simulated.state.security_level == 2
+
 
 + Ecu Advanced checks
 
@@ -658,6 +685,12 @@ ecu.update(EcuLookupPacket(kind=1, identifier=32))
 assert EcuLookupPacket.comparisons <= 1
 
 + EcuSession tests
+
+= Unsupported UDS memory address length does not stop EcuSession
+
+session = EcuSession(verbose=False)
+request = UDS(bytes.fromhex("23150158"))
+assert session.process(request) is request
 
 = Analyze on the fly with EcuSession
 

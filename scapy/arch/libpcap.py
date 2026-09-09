@@ -407,7 +407,7 @@ if conf.use_pcap:
                 float(self.header.contents.ts.tv_usec) / 1e6
             )
             pkt = bytes(bytearray(
-                self.pkt_data[:self.header.contents.len]
+                self.pkt_data[:self.header.contents.caplen]
             ))
             return ts, pkt
         __next__ = next

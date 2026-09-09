@@ -1717,7 +1717,10 @@ class LDAP_SASL_Buffer(Packet):
             return None
         if data[0] == 0x30:
             # Add a heuristic to detect LDAP errors
-            xlen, x = BER_len_dec(BER_id_dec(data)[1])
+            try:
+                xlen, x = BER_len_dec(BER_id_dec(data)[1])
+            except (BER_Decoding_Error, IndexError):
+                return None
             if xlen and xlen == len(x):
                 return LDAP(data)
         # Check BufferLength
@@ -1958,6 +1961,10 @@ class LDAP_Client(object):
                         resp.Buffer,
                     )
                 )
+                if not resp.unsolicited and resp.messageID != self.messageID:
+                    raise ValueError(
+                        "LDAP response message ID does not match request !"
+                    )
             else:
                 resp = None
 

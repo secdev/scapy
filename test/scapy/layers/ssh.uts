@@ -61,6 +61,11 @@ assert pkts[10].pay.H_hash.value.data.key.value == b"\xef\xecj=~\xe4Y'\xe9\xad\x
 assert isinstance(pkts[10][SSH:2].pay, SSHNewKeys)
 assert isinstance(pkts[12].pay, SSHNewKeys)
 
+= Summarize a truncated binary packet
+
+truncated = Ether(bytes(Ether()/IP()/TCP(dport=22)/Raw(b"\x00\x00\x00\x0c\x0a")))
+assert truncated[SSH].summary() == "SSH"
+
 = ComaStrField encode/decode
 
 import struct

@@ -427,6 +427,7 @@ class tlsSession(object):
         # authentication, while server_rsa_key is used only for RSAkx.)
         self.server_key = None
         self.server_rsa_key = None
+        self.server_cert_verify_valid = None
         # self.server_ecdsa_key = None
 
         # A dictionary containing keys extracted from a NSS Keys Log using
@@ -445,6 +446,7 @@ class tlsSession(object):
         # to provide the key associated with the first certificate.
         self.client_certs = []
         self.client_key = None
+        self.client_cert_verify_valid = None
 
         # Ephemeral key exchange parameters
 
@@ -1202,6 +1204,8 @@ class _GenericTLSSessionInheritance(Packet):
         from scapy.layers.tls.record import TLS
         from scapy.layers.tls.record_tls13 import TLS13
         if cls in (TLS, TLS13):
+            if len(data) < 5:
+                return None
             length = struct.unpack("!H", data[3:5])[0] + 5
             if len(data) >= length:
                 # get the underlayer as it is used to populate tls_session

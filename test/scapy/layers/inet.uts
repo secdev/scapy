@@ -92,6 +92,18 @@ pkts = sniff(offline=pkts, session=IPSession)
 assert len(pkts) == 2
 assert pkts[1].load == b"X" * 1500
 
+= IPSession - overlapping fragments do not stop later packets
+
+datagram = b"A" * 32
+first = IP(src="10.0.0.1", dst="10.0.0.2", id=99, proto=253, flags="MF")
+first /= Raw(datagram[:16])
+overlap = IP(src="10.0.0.1", dst="10.0.0.2", id=99, proto=253, frag=1)
+overlap /= Raw(datagram[16:])
+trailing = IP(src="10.0.0.3", dst="10.0.0.4", proto=253) / Raw(b"ok")
+pkts = sniff(offline=[first, overlap, trailing], session=IPSession)
+assert len(pkts) == 1
+assert pkts[0][IP].src == "10.0.0.3"
+
 = IPSession - summary with RandIP() does not crash
 
 pkt = IP(dst=RandIP())

@@ -869,6 +869,8 @@ class ModbusADURequest(Packet):
         function_code = payload[0]
 
         if function_code == 0x2B:
+            if len(payload) < 2:
+                return conf.raw_layer
             sub_code = payload[1]
             try:
                 return _mei_types_request[sub_code]
@@ -906,6 +908,8 @@ class ModbusADUResponse(Packet):
         function_code = payload[0]
 
         if function_code == 0x2B:
+            if len(payload) < 2:
+                return conf.raw_layer
             sub_code = payload[1]
             try:
                 return _mei_types_response[sub_code]

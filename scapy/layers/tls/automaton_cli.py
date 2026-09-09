@@ -1355,7 +1355,16 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def TLS13_HANDLED_CERTIFICATE_VERIFY(self):
-        pass
+        if not self.cur_session.server_cert_verify_valid:
+            raise self.TLS13_INVALID_CERTIFICATE_VERIFY()
+
+    @ATMT.state()
+    def TLS13_INVALID_CERTIFICATE_VERIFY(self):
+        self.vprint("Invalid CertificateVerify!")
+        self.add_record()
+        self.add_msg(TLSAlert(level=2, descr=51))
+        self.flush_records()
+        raise self.FINAL()
 
     @ATMT.condition(TLS13_HANDLED_CERTIFICATE_VERIFY, prio=1)
     def tls13_should_handle_finished(self):

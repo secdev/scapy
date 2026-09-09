@@ -357,13 +357,19 @@ class TFTP_WRQ_server(Automaton):
         self.sport = sport
 
     def master_filter(self, pkt):
-        return TFTP in pkt and (not self.ip or pkt[IP].dst == self.ip)
+        return (
+            TFTP in pkt and
+            (not self.ip or pkt[IP].dst == self.ip) and
+            (self.client is None or
+             self.client == (pkt[IP].src, pkt[UDP].sport))
+        )
 
     @ATMT.state(initial=1)
     def BEGIN(self):
         self.blksize = 512
         self.blk = 1
         self.filedata = b""
+        self.client = None
         self.my_tid = self.sport or random.randint(10000, 65500)
         bind_bottom_up(UDP, TFTP, dport=self.my_tid)
 
@@ -377,6 +383,7 @@ class TFTP_WRQ_server(Automaton):
         ip = pkt[IP]
         self.ip = ip.dst
         self.dst = ip.src
+        self.client = (ip.src, pkt[UDP].sport)
         self.filename = pkt[TFTP_WRQ].filename
         options = pkt.getlayer(TFTP_Options)
         self.l3 = IP(src=ip.dst, dst=ip.src) / UDP(sport=self.my_tid, dport=pkt.sport) / TFTP()  # noqa: E501
@@ -386,8 +393,14 @@ class TFTP_WRQ_server(Automaton):
         else:
             opt = [x for x in options.options if x.oname.upper() == b"BLKSIZE"]
             if opt:
-                self.blksize = int(opt[0].value)
-                self.debug(2, "Negotiated new blksize at %i" % self.blksize)
+                try:
+                    blksize = int(opt[0].value)
+                    if blksize < 8 or blksize > 65464:
+                        raise ValueError
+                    self.blksize = blksize
+                    self.debug(2, "Negotiated new blksize at %i" % self.blksize)
+                except ValueError:
+                    opt = []
             self.last_packet = self.l3 / TFTP_OACK() / TFTP_Options(options=opt)  # noqa: E501
             self.send(self.last_packet)
 
@@ -441,6 +454,8 @@ class TFTP_RRQ_server(Automaton):
     :param serve_one: (optional) close after serving one client (default: False)
     """
 
+    MAX_RETRIES = 3
+
     def parse_args(self, store=None, joker=None, dir=None, ip=None, sport=None, serve_one=False, **kargs):  # noqa: E501
         if "iface" not in kargs and ip:
             ip = str(Net(ip))
@@ -481,6 +496,8 @@ class TFTP_RRQ_server(Automaton):
         self.l3 = IP(src=ip.dst, dst=ip.src) / UDP(sport=self.my_tid, dport=ip.sport) / TFTP()  # noqa: E501
         self.filename = pkt[TFTP_RRQ].filename.decode("utf-8", "ignore")
         self.blk = 1
+        self.retry_block = self.blk
+        self.retries = 0
         self.data = None
         if self.filename in self.store:
             self.data = self.store[self.filename]
@@ -498,8 +515,14 @@ class TFTP_RRQ_server(Automaton):
         if options:
             opt = [x for x in options.options if x.oname.upper() == b"BLKSIZE"]
             if opt:
-                self.blksize = int(opt[0].value)
-                self.debug(2, "Negotiated new blksize at %i" % self.blksize)
+                try:
+                    blksize = int(opt[0].value)
+                    if blksize < 8 or blksize > 65464:
+                        raise ValueError
+                    self.blksize = blksize
+                    self.debug(2, "Negotiated new blksize at %i" % self.blksize)
+                except ValueError:
+                    opt = []
             self.last_packet = self.l3 / TFTP_OACK() / TFTP_Options(options=opt)  # noqa: E501
             self.send(self.last_packet)
 
@@ -530,6 +553,14 @@ class TFTP_RRQ_server(Automaton):
 
     @ATMT.timeout(SEND_FILE, 3)
     def timeout_waiting_ack(self):
+        if self.retry_block != self.blk:
+            self.retry_block = self.blk
+            self.retries = 0
+        if self.retries >= self.MAX_RETRIES:
+            if self.serve_one:
+                raise self.END()
+            raise self.WAIT_RRQ()
+        self.retries += 1
         raise self.SEND_FILE()
 
     @ATMT.receive_condition(SEND_FILE)

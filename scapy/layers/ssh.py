@@ -181,6 +181,8 @@ class SSH(Packet):
     def mysummary(self):
         if self.pay:
             if isinstance(self.pay, conf.raw_layer):
+                if not self.pay.load:
+                    return "SSH", [TCP, SSH]
                 return "SSH type " + str(self.pay.load[0]), [TCP, SSH]
             return "SSH " + self.pay.sprintf("%type%"), [TCP, SSH]
         return "SSH", [TCP, SSH]

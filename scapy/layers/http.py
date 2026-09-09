@@ -676,7 +676,7 @@ class HTTP(Packet):
                 return http_packet
             is_response = isinstance(http_packet.payload, cls.clsresp)
             # Packets may have a Content-Length we must honnor
-            length = http_packet.Content_Length
+            length = getattr(http_packet, "Content_Length", None)
             if length:
                 # Parse the length as an integer
                 try:
@@ -824,7 +824,7 @@ class HTTP_Client(object):
         if port is None:
             port = 443 if tls else 80
         # If the current socket matches, keep it.
-        if self._sockinfo == (host, port):
+        if self._sockinfo == (host, port, tls):
             return
         # A new socket is needed
         if self._sockinfo:
@@ -869,7 +869,7 @@ class HTTP_Client(object):
         else:
             self.sock = StreamSocket(sock, HTTP)
         # Store information regarding the current socket
-        self._sockinfo = (host, port)
+        self._sockinfo = (host, port, tls)
 
     def sr1(self, req, **kwargs):
         if self.verb:

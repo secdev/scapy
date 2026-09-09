@@ -398,6 +398,8 @@ class TCPConnectPipe(Source):
             raise
         if msg:
             self._send(msg)
+        else:
+            self.is_exhausted = True
 
 
 class TCPListenPipe(TCPConnectPipe):
@@ -445,6 +447,8 @@ class TCPListenPipe(TCPConnectPipe):
                 raise
             if msg:
                 self._send(msg)
+            else:
+                self.is_exhausted = True
         else:
             fd, frm = self.fd.accept()
             self._high_send(frm)

@@ -1489,6 +1489,8 @@ def _netflowv9_defragment_packet(pkt, definitions, definitions_opts, ignored):
                     llist.append((tmpl.fieldLength, tmpl.fieldType))
                 if llist:
                     tot_len = sum(x[0] for x in llist)
+                    if not tot_len:
+                        continue
                     cls = _GenNetflowRecordV9(NetflowRecordV9, llist)
                     definitions[ntv9.templateID] = (tot_len, cls)
             current = current.payload

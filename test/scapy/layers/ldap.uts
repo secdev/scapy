@@ -6,6 +6,9 @@
 
 from scapy.layers.ldap import *
 
+= LDAP SASL reassembly waits for a complete BER length
+assert LDAP_SASL_Buffer.tcp_reassemble(bytes.fromhex("30840000"), {}, None) is None
+
 = LDAP_UnbindRequest
 
 pkt = Ether(b'RT\x00!l+RT\x00\x0cG\xab\x08\x00E\x00\x003\xb2\x8a@\x00\x80\x06\xd2F\xc0\xa8z\x06\xc0\xa8z\x9c\xc2\xfb\x01\x85\xa6\x89q"\xa1\x076\xdeP\x18\x03\xffG\xf0\x00\x000\x05\x02\x01\x07B\x00')
@@ -190,6 +193,64 @@ pkt = LDAP(
 assert bytes(pkt) == b'0\x84\x00\x00\x00\x9e\x02\x01\x02c\x84\x00\x00\x00o\x04\x00\n\x01\x00\n\x01\x00\x02\x01\x01\x02\x01d\x01\x01\x00\x87\x0bobjectClass0\x84\x00\x00\x00K\x04\x17rootDomainNamingContext\x04\x14defaultNamingContext\x04\x1aconfigurationNamingContext\xa0\x84\x00\x00\x00 0\x84\x00\x00\x00\x1a\x04\x161.2.840.113556.1.4.529\x04\x00'
 
 conf.ASN1_default_long_size = 0
+
+= Protected LDAP responses retain the requested message ID
+
+from scapy.layers.gssapi import GSS_C_FLAGS, GSS_QOP_REQ_FLAGS
+from scapy.layers.kerberos import EncryptionType, KerberosSSP
+from scapy.libs.rfc3961 import Key
+
+class ProtectedPeer:
+    def __init__(self, response):
+        self.response = response
+    def sr1(self, request, **kwargs):
+        assert self.response.answers(request)
+        return self.response
+
+def protected_ldap_response(response_message_id, encrypt):
+    ssp = KerberosSSP()
+    flags = (
+        GSS_C_FLAGS.GSS_C_REPLAY_FLAG |
+        GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG |
+        GSS_C_FLAGS.GSS_C_INTEG_FLAG |
+        (GSS_C_FLAGS.GSS_C_CONF_FLAG if encrypt else 0)
+    )
+    client_context = KerberosSSP.CONTEXT(IsAcceptor=False, req_flags=flags)
+    server_context = KerberosSSP.CONTEXT(IsAcceptor=True, req_flags=flags)
+    key = Key(EncryptionType.AES128_CTS_HMAC_SHA1_96, key=b"L" * 16)
+    client_context.KrbSessionKey = server_context.KrbSessionKey = key
+    response = LDAP_SASL_Buffer(bytes(LDAP_SASL_Buffer(
+        Buffer=ssp.GSS_Wrap(
+            server_context,
+            bytes(LDAP(
+                messageID=response_message_id,
+                protocolOp=(
+                    LDAP_ExtendedResponse(resultCode=0)
+                    if response_message_id == 0
+                    else LDAP_SearchResponseResultDone(resultCode=0)
+                ),
+            )),
+            conf_req_flag=encrypt,
+            qop_req=GSS_QOP_REQ_FLAGS.GSS_S_NO_SECBUFFER_PADDING,
+        )
+    )))
+    client = LDAP_Client(verb=False)
+    client.ssp = ssp
+    client.sspcontext = client_context
+    client.sign = True
+    client.encrypt = encrypt
+    client.sasl_wrap = True
+    client.sock = ProtectedPeer(response)
+    return client.sr1(LDAP_SearchRequest())
+
+for encrypt in (False, True):
+    assert protected_ldap_response(1, encrypt).messageID == 1
+    assert protected_ldap_response(0, encrypt)[LDAP].messageID == 0
+    try:
+        protected_ldap_response(2, encrypt)
+        assert False, "protected response with another message ID was accepted"
+    except ValueError as ex:
+        assert str(ex) == "LDAP response message ID does not match request !"
 
 + NETLOGON_SAM_LOGON tests
 

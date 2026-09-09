@@ -1193,6 +1193,25 @@ assert isinstance(cfin, TLSFinished)
 = Verify MAC - TLSFinished record
 assert (t6.payload.payload.mac == b'\x10\xce\xca2\xb4\xc3m\xf1\x16c\xdb\xfc\x08\x16\x1d\x82\x83U\x8c\xe1')
 
+= RSA premaster secret uses a random suffix
+
+from scapy.layers.tls.cert import Cert
+from scapy.layers.tls.keyexchange import EncryptedPreMasterSecret
+from scapy.layers.tls.session import tlsSession
+
+premasters = []
+for _ in range(2):
+    session = tlsSession(connection_end="client")
+    session.tls_version = 0x0303
+    session.server_certs = [Cert(scapy_path("/test/scapy/layers/tls/pki/srv_cert.pem"))]
+    session.extms = True
+    EncryptedPreMasterSecret(tls_session=session).build()
+    premasters.append(session.pre_master_secret)
+
+assert all(len(pms) == 48 and pms[:2] == b"\x03\x03" for pms in premasters)
+assert all(pms[2:] != b"\x00" * 46 for pms in premasters)
+assert premasters[0] != premasters[1]
+
 ###############################################################################
 ################## Reading TLS vulnerable test session ########################
 ###############################################################################
@@ -1254,6 +1273,40 @@ assert res[4].getlayer(TLS, 2).msg[0].data == b"To boldly go where no man has go
 
 conf.tls_session_enable = False
 
+= TCPSession waits for a complete TLS record header
+
+import io
+import struct
+
+def make_pcap(*packets):
+    header = struct.pack("<IHHiIII", 0xA1B2C3D4, 2, 4, 0, 0, 0x40000, 1)
+    records = (
+        struct.pack("<IIII", index, 0, len(packet), len(packet)) + packet
+        for index, packet in enumerate(packets)
+    )
+    return header + b"".join(records)
+
+client_hello = bytes(TLS(msg=[TLSClientHello(
+    gmt_unix_time=0, random_bytes=b"R" * 28, ciphers=[0x1301], comp=[0], ext=[]
+)]))
+following = bytes(Ether() / IP() / UDP(sport=1111, dport=2222) / Raw(b"tail"))
+partial = bytes(Ether() / IP() / TCP(dport=443, flags="PA") / Raw(client_hello[:4]))
+with no_debug_dissector():
+    packets = sniff(offline=io.BytesIO(make_pcap(partial, following)), session=TCPSession)
+
+assert len(packets) == 1
+assert UDP in packets[0]
+
+= Complete record header waits and complete ClientHello parses
+
+for payload, count in ((client_hello[:5], 1), (client_hello, 2)):
+    first = bytes(Ether() / IP() / TCP(dport=443, flags="PA") / Raw(payload))
+    with no_debug_dissector():
+        packets = sniff(offline=io.BytesIO(make_pcap(first, following)), session=TCPSession)
+    assert len(packets) == count
+
+assert TLS in packets[0]
+
 ###############################################################################
 ############################## Building packets ###############################
 ###############################################################################
@@ -1272,6 +1325,16 @@ raw(TLSClientKeyExchange())
 raw(TLSAlert())
 raw(TLSChangeCipherSpec())
 raw(TLSApplicationData()) == b""
+
+= Parsing TLS certificate bytes does not resolve local file paths
+cert_path = b"test/scapy/layers/tls/pki/srv_cert.pem"
+packet = Ether() / IP() / TCP(dport=443) / TLS(
+    msg=[TLSCertificate(certs=[(len(cert_path), cert_path)])]
+)
+with no_debug_dissector():
+    parsed = Ether(bytes(packet))
+
+assert Raw in parsed[TLS]
 
 
 = Building packets - ClientHello with automatic length computation
