@@ -49,8 +49,8 @@ from scapy.cbor.cborcodec import (
     CBOR_decode_head,
     CBOR_encode_head,
     CBOR_encode_initial,
-    _cbor_skip_item,
     cbor_count_items,
+    cbor_item_span,
     cbor_is_break,
     cbor_consume_break,
     CBORcodec_Object,
@@ -135,15 +135,6 @@ class _CBORAbsent(object):
 CBOR_ABSENT = _CBORAbsent()
 
 
-def cbor_item_span(s):
-    # type: (bytes) -> Tuple[bytes, bytes]
-    """Split *s* into the first well-formed CBOR item and the remainder."""
-    rem = s if isinstance(s, memoryview) else memoryview(s)
-    after = _cbor_skip_item(rem)
-    n = len(s) - len(after)
-    return bytes(s[:n]), bytes(s[n:])
-
-
 def _encode_exactly_one_cbor_item(val, context="value"):
     # type: (Any, str) -> bytes
     """Serialize *val* and require it to be exactly one well-formed CBOR item.
@@ -163,7 +154,7 @@ def _encode_exactly_one_cbor_item(val, context="value"):
     else:
         data = bytes(val)
     try:
-        item, remaining = cbor_item_span(data)
+        _obj, remaining = CBORcodec_Object.decode_cbor_item(data)
     except Exception as exc:
         raise CBOR_Encoding_Error(
             "%s did not encode a well-formed CBOR item: %s"
@@ -172,11 +163,6 @@ def _encode_exactly_one_cbor_item(val, context="value"):
     if remaining:
         raise CBOR_Encoding_Error(
             "%s encoded more than one top-level CBOR item"
-            % context
-        )
-    if item != data:
-        raise CBOR_Encoding_Error(
-            "%s encoded a CBOR item that does not cover the full payload"
             % context
         )
     return data
@@ -286,13 +272,13 @@ class CBORF_field(CBORF_element, Generic[_I]):
         if isinstance(x, fields.RawVal):
             data = bytes(x)
             try:
-                item, remaining = cbor_item_span(data)
+                _obj, remaining = CBORcodec_Object.decode_cbor_item(data)
             except Exception as exc:
                 raise CBOR_Encoding_Error(
                     "RawVal for %r is not well-formed CBOR: %s"
                     % (self.name, exc)
                 )
-            if remaining or item != data:
+            if remaining:
                 raise CBOR_Encoding_Error(
                     "RawVal for %r must contain exactly one CBOR item"
                     % self.name
