@@ -1382,6 +1382,14 @@ class CBORF_SEQUENCE(_CBORF_compound):
         remaining = self._dissect_children_budgeted(pkt, s, item_count)
         return CBORParseResult(remaining=remaining, items=item_count)
 
+    def build(self, pkt):
+        # type: (CBOR_Packet) -> bytes
+        return self.build_result(pkt).data
+
+    def dissect(self, pkt, s):
+        # type: (CBOR_Packet, bytes) -> bytes
+        return self.dissect_result(pkt, s).remaining
+
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
         return sum(f.min_items(pkt) for f in self.seq)
