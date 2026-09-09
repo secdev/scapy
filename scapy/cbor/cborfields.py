@@ -14,6 +14,7 @@ this module should prefer ``build`` / ``dissect``.
 """
 
 import copy
+import math
 
 from dataclasses import dataclass
 
@@ -557,6 +558,16 @@ class CBORF_ANY(CBORF_field[Any]):
             return x
         return copy.deepcopy(x)
 
+    def cache_fingerprint(self, x):
+        # type: (Any) -> Any
+        """Snapshot for Scapy mutable raw-cache comparison.
+
+        Includes ``CBOR_FLOAT._encoded`` so explicit ``.val`` assignment that
+        clears the wire cache is visible even when the semantic float is
+        unchanged.
+        """
+        return _cbor_any_cache_fingerprint(x)
+
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> Any
         if x is CBOR_ABSENT or x is CBOR_NO_ITEM:
@@ -581,6 +592,80 @@ class CBORF_ANY(CBORF_field[Any]):
         if x is CBOR_ABSENT:
             return b""
         return CBORcodec_Object.encode_cbor_item(x)
+
+
+def _cbor_any_cache_fingerprint(obj):
+    # type: (Any) -> Any
+    """Recursive rebuild-relevant fingerprint for ``CBORF_ANY`` values."""
+    from scapy.cbor.cbor import CBORMapData
+    if obj is CBOR_ABSENT or obj is CBOR_NO_ITEM:
+        return ("sentinel", obj)
+    if isinstance(obj, CBOR_UNDEFINED):
+        return ("undefined",)
+    if isinstance(obj, CBOR_FLOAT):
+        fval = float(obj.val)
+        if math.isnan(fval):
+            token = ("nan",)  # type: Any
+        elif math.isinf(fval):
+            token = ("inf", math.copysign(1.0, fval))
+        elif fval == 0.0:
+            token = ("zero", math.copysign(1.0, fval))
+        else:
+            token = ("num", fval)
+        encoded = getattr(obj, "_encoded", None)
+        return ("float", token, encoded)
+    if isinstance(obj, CBOR_ARRAY):
+        return (
+            "array",
+            tuple(_cbor_any_cache_fingerprint(item) for item in obj.val),
+        )
+    if isinstance(obj, CBOR_MAP):
+        if isinstance(obj.val, CBORMapData):
+            pairs = obj.val.cbor_pairs()
+        elif isinstance(obj.val, dict):
+            pairs = list(obj.val.items())
+        else:
+            pairs = list(obj.val)
+        return (
+            "map",
+            tuple(
+                (
+                    _cbor_any_cache_fingerprint(key),
+                    _cbor_any_cache_fingerprint(value),
+                )
+                for key, value in pairs
+            ),
+        )
+    if isinstance(obj, CBORMapData):
+        return (
+            "mapdata",
+            tuple(
+                (
+                    _cbor_any_cache_fingerprint(key),
+                    _cbor_any_cache_fingerprint(value),
+                )
+                for key, value in obj.cbor_pairs()
+            ),
+        )
+    if isinstance(obj, CBOR_SEMANTIC_TAG):
+        tag_num, inner = obj.val
+        return ("tag", int(tag_num), _cbor_any_cache_fingerprint(inner))
+    if isinstance(obj, CBOR_Object):
+        return (type(obj).__name__, obj.val)
+    if isinstance(obj, list):
+        return ("list", tuple(_cbor_any_cache_fingerprint(item) for item in obj))
+    if isinstance(obj, dict):
+        return (
+            "dict",
+            tuple(
+                (
+                    _cbor_any_cache_fingerprint(key),
+                    _cbor_any_cache_fingerprint(value),
+                )
+                for key, value in obj.items()
+            ),
+        )
+    return ("py", type(obj).__name__, obj)
 
 
 #############################
