@@ -662,7 +662,7 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
                ):
         # type: (...) -> Tuple[CBOR_Object[Any], bytes]
         """Decode CBOR data using automatic dispatch based on major type."""
-        return _decode_cbor_item(s, safe=False, depth=_depth)
+        return CBORcodec_Object.decode_cbor_item(s, depth=_depth)
 
     @classmethod
     def dec(cls,
@@ -695,6 +695,211 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
     def enc(cls, s):
         # type: (_K) -> bytes
         raise NotImplementedError("Subclasses must implement enc")
+
+    @staticmethod
+    def encode_cbor_item(item):
+        # type: (Any) -> bytes
+        """Encode a Python value to CBOR bytes"""
+        from scapy.cbor.cbor import (
+            CBOR_Object,
+            CBORMapData,
+        )
+
+        if isinstance(item, CBOR_Object):
+            return item.enc()
+        elif isinstance(item, CBORMapData):
+            return CBORcodec_MAP.enc(item)
+        elif isinstance(item, bool):
+            # Must check bool before int (bool is subclass of int)
+            return CBORcodec_SIMPLE_AND_FLOAT.enc(item)
+        elif isinstance(item, int):
+            if item >= 0:
+                return CBORcodec_UNSIGNED_INTEGER.enc(item)
+            else:
+                return CBORcodec_NEGATIVE_INTEGER.enc(item)
+        elif isinstance(item, bytes):
+            return CBORcodec_BYTE_STRING.enc(item)
+        elif isinstance(item, str):
+            return CBORcodec_TEXT_STRING.enc(item)
+        elif isinstance(item, list):
+            return CBORcodec_ARRAY.enc(item)
+        elif isinstance(item, dict):
+            return CBORcodec_MAP.enc(item)
+        elif isinstance(item, float):
+            return CBORcodec_SIMPLE_AND_FLOAT.enc(item)
+        elif item is None:
+            return CBORcodec_SIMPLE_AND_FLOAT.enc(None)
+        else:
+            raise CBOR_Codec_Encoding_Error(
+                "Cannot encode type: %s" % type(item))
+
+    @staticmethod
+    def _encode_cbor_map_deterministic(pairs):
+        # type: (Any) -> bytes
+        """Encode map pairs in RFC 8949 core-deterministic key order."""
+        encoded_pairs = []  # type: List[Tuple[bytes, bytes]]
+        for key, value in pairs:
+            key_bytes = CBORcodec_Object.encode_cbor_item_deterministic(key)
+            value_bytes = CBORcodec_Object.encode_cbor_item_deterministic(
+                value
+            )
+            encoded_pairs.append((key_bytes, value_bytes))
+        encoded_pairs.sort(key=lambda item: item[0])
+        parts = [CBOR_encode_head(5, len(encoded_pairs))]
+        for key_bytes, value_bytes in encoded_pairs:
+            parts.append(key_bytes)
+            parts.append(value_bytes)
+        return b"".join(parts)
+
+    @staticmethod
+    def encode_cbor_item_deterministic(item):
+        # type: (Any) -> bytes
+        """Encode a Python value using RFC 8949 core-deterministic rules.
+
+        Unlike :meth:`encode_cbor_item`, map keys at every nesting level are
+        sorted by their deterministic encoded bytes. Intended for schema-driven
+        rebuild paths such as preserved unknown ``CBORF_MAP`` members.
+
+        :class:`~scapy.cbor.cbor.CBOR_Object` instances are accepted and reduced
+        to native values (preferred float encoding, deterministic nested maps).
+        """
+        import math
+        from scapy.cbor.cbor import (
+            CBOR_Object,
+            CBOR_ARRAY,
+            CBOR_FLOAT,
+            CBOR_MAP,
+            CBOR_SEMANTIC_TAG,
+            CBOR_SIMPLE_VALUE,
+            CBOR_UNDEFINED,
+            CBORMapData,
+        )
+
+        if isinstance(item, CBOR_Object):
+            if isinstance(item, CBOR_UNDEFINED):
+                return CBOR_UNDEFINED().enc()
+            if isinstance(item, CBOR_FLOAT):
+                encoded = getattr(item, "_encoded", None)
+                if encoded is not None and math.isnan(float(item.val)):
+                    return _cbor_preferred_nan_encoding(encoded)
+                # Finite floats ignore original width; rebuild preferred form.
+                return CBORcodec_SIMPLE_AND_FLOAT.enc(float(item.val))
+            if isinstance(item, CBOR_ARRAY):
+                return CBORcodec_Object.encode_cbor_item_deterministic(
+                    list(item.val)
+                )
+            if isinstance(item, CBOR_MAP):
+                if isinstance(item.val, CBORMapData):
+                    return CBORcodec_Object._encode_cbor_map_deterministic(
+                        item.val.cbor_pairs()
+                    )
+                if isinstance(item.val, list):
+                    return CBORcodec_Object._encode_cbor_map_deterministic(
+                        item.val
+                    )
+                return CBORcodec_Object._encode_cbor_map_deterministic(
+                    list(item.val.items())
+                )
+            if isinstance(item, CBOR_SEMANTIC_TAG):
+                tag_num, inner = item.val
+                return (
+                    CBOR_encode_head(6, tag_num)
+                    + CBORcodec_Object.encode_cbor_item_deterministic(inner)
+                )
+            if isinstance(item, CBOR_SIMPLE_VALUE):
+                return CBORcodec_SIMPLE_AND_FLOAT.enc(item)
+            return CBORcodec_Object.encode_cbor_item_deterministic(item.val)
+        if isinstance(item, CBORMapData):
+            return CBORcodec_Object._encode_cbor_map_deterministic(
+                item.cbor_pairs()
+            )
+        if isinstance(item, dict):
+            return CBORcodec_Object._encode_cbor_map_deterministic(
+                list(item.items())
+            )
+        if isinstance(item, list):
+            encoded_items = [
+                CBORcodec_Object.encode_cbor_item_deterministic(element)
+                for element in item
+            ]
+            return (
+                CBOR_encode_head(4, len(encoded_items))
+                + b"".join(encoded_items)
+            )
+        if isinstance(item, bool):
+            return CBORcodec_SIMPLE_AND_FLOAT.enc(item)
+        if isinstance(item, int):
+            if item >= 0:
+                return CBORcodec_UNSIGNED_INTEGER.enc(item)
+            return CBORcodec_NEGATIVE_INTEGER.enc(item)
+        if isinstance(item, bytes):
+            return CBORcodec_BYTE_STRING.enc(item)
+        if isinstance(item, str):
+            return CBORcodec_TEXT_STRING.enc(item)
+        if isinstance(item, float):
+            # Deterministic encoding always rebuilds from the semantic float
+            # value (shortest exact representation). Never reuse source wire.
+            # Plain NaNs without retained CBOR bytes use quiet binary16.
+            return CBORcodec_SIMPLE_AND_FLOAT.enc(float(item))
+        if item is None:
+            return CBORcodec_SIMPLE_AND_FLOAT.enc(None)
+        raise CBOR_Codec_Encoding_Error(
+            "Cannot deterministically encode type: %s" % type(item)
+        )
+
+    @staticmethod
+    def decode_cbor_item(s, depth=0):
+        # type: (Any, int) -> Tuple[CBOR_Object[Any], Any]
+        """Decode CBOR bytes to a CBOR_Object.
+
+        Top-level callers may pass ``bytes`` (or a subclass). Decoding then
+        works on a ``memoryview`` so unread suffixes are not recopied per item.
+        """
+        if depth > MAX_CBOR_NESTING:
+            raise CBOR_Codec_Decoding_Error(
+                "Maximum CBOR nesting depth exceeded",
+                remaining=_cbor_buf_bytes(s))
+        if not isinstance(s, memoryview):
+            obj, rem = CBORcodec_Object.decode_cbor_item(
+                memoryview(s), depth=depth
+            )
+            return (
+                obj,
+                _cbor_buf_bytes(rem) if isinstance(rem, memoryview) else rem,
+            )
+        if not s:
+            raise CBOR_Codec_Decoding_Error(
+                "Empty CBOR data", remaining=_cbor_buf_bytes(s))
+
+        if cbor_is_break(s):
+            raise CBOR_Codec_Decoding_Error(
+                "Standalone break byte (0xff)",
+                remaining=_cbor_buf_bytes(s))
+
+        initial_byte = s[0]
+        major_type = initial_byte >> 5
+
+        # Dispatch to appropriate codec based on major type
+        if major_type == 0:
+            return CBORcodec_UNSIGNED_INTEGER.dec(s, safe=False, _depth=depth)
+        elif major_type == 1:
+            return CBORcodec_NEGATIVE_INTEGER.dec(s, safe=False, _depth=depth)
+        elif major_type == 2:
+            return CBORcodec_BYTE_STRING.dec(s, safe=False, _depth=depth)
+        elif major_type == 3:
+            return CBORcodec_TEXT_STRING.dec(s, safe=False, _depth=depth)
+        elif major_type == 4:
+            return CBORcodec_ARRAY.dec(s, safe=False, _depth=depth)
+        elif major_type == 5:
+            return CBORcodec_MAP.dec(s, safe=False, _depth=depth)
+        elif major_type == 6:
+            return CBORcodec_SEMANTIC_TAG.dec(s, safe=False, _depth=depth)
+        elif major_type == 7:
+            return CBORcodec_SIMPLE_AND_FLOAT.dec(s, safe=False, _depth=depth)
+        else:
+            raise CBOR_Codec_Decoding_Error(
+                "Invalid major type: %d" % major_type,
+                remaining=_cbor_buf_bytes(s))
 
 
 CBOR_Codecs.CBOR.register_stem(CBORcodec_Object)
@@ -947,7 +1152,7 @@ class CBORcodec_ARRAY(CBORcodec_Object[List[Any]]):
                     raise CBOR_Codec_Decoding_Error(
                         "Not enough items in array", remaining=s)
                 item, remainder = CBORcodec_Object.decode_cbor_item(
-                    remainder, safe=False, depth=_depth + 1)
+                    remainder, depth=_depth + 1)
                 items.append(item)
         else:
             for _ in range(length):
@@ -955,7 +1160,7 @@ class CBORcodec_ARRAY(CBORcodec_Object[List[Any]]):
                     raise CBOR_Codec_Decoding_Error(
                         "Not enough items in array", remaining=s)
                 item, remainder = CBORcodec_Object.decode_cbor_item(
-                    remainder, safe=False, depth=_depth + 1)
+                    remainder, depth=_depth + 1)
                 items.append(item)
 
         return cls.cbor_object(items), remainder
@@ -1026,12 +1231,12 @@ class CBORcodec_MAP(CBORcodec_Object[Any]):
                     raise CBOR_Codec_Decoding_Error(
                         "Not enough key-value pairs in map", remaining=s)
                 key, remainder = CBORcodec_Object.decode_cbor_item(
-                    remainder, safe=False, depth=_depth + 1)
+                    remainder, depth=_depth + 1)
                 if not remainder:
                     raise CBOR_Codec_Decoding_Error(
                         "Map key without value", remaining=s)
                 value, remainder = CBORcodec_Object.decode_cbor_item(
-                    remainder, safe=False, depth=_depth + 1)
+                    remainder, depth=_depth + 1)
                 _add_pair(key, value)
         else:
             for _ in range(length):
@@ -1039,12 +1244,12 @@ class CBORcodec_MAP(CBORcodec_Object[Any]):
                     raise CBOR_Codec_Decoding_Error(
                         "Not enough key-value pairs in map", remaining=s)
                 key, remainder = CBORcodec_Object.decode_cbor_item(
-                    remainder, safe=False, depth=_depth + 1)
+                    remainder, depth=_depth + 1)
                 if not remainder:
                     raise CBOR_Codec_Decoding_Error(
                         "Map key without value", remaining=s)
                 value, remainder = CBORcodec_Object.decode_cbor_item(
-                    remainder, safe=False, depth=_depth + 1)
+                    remainder, depth=_depth + 1)
                 _add_pair(key, value)
 
         return cls.cbor_object(CBORMapData(pairs)), remainder
@@ -1088,7 +1293,7 @@ class CBORcodec_SEMANTIC_TAG(CBORcodec_Object[Tuple[int, Any]]):
                 "Tag without following item", remaining=s)
 
         item, remainder = CBORcodec_Object.decode_cbor_item(
-            remainder, safe=False, depth=_depth + 1)
+            remainder, depth=_depth + 1)
         return cls.cbor_object((tag_num, item)), remainder
 
 
@@ -1254,195 +1459,3 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
                 raise CBOR_Codec_Decoding_Error(
                     "Invalid additional info for major type 7: %d" % additional_info,
                     remaining=s)
-
-
-# Helper methods for encoding/decoding arbitrary CBOR items
-
-
-def _encode_cbor_item(item):
-    # type: (Any) -> bytes
-    """Encode a Python value to CBOR bytes"""
-    from scapy.cbor.cbor import (
-        CBOR_Object,
-        CBORMapData,
-    )
-
-    if isinstance(item, CBOR_Object):
-        return item.enc()
-    elif isinstance(item, CBORMapData):
-        return CBORcodec_MAP.enc(item)
-    elif isinstance(item, bool):
-        # Must check bool before int (bool is subclass of int)
-        return CBORcodec_SIMPLE_AND_FLOAT.enc(item)
-    elif isinstance(item, int):
-        if item >= 0:
-            return CBORcodec_UNSIGNED_INTEGER.enc(item)
-        else:
-            return CBORcodec_NEGATIVE_INTEGER.enc(item)
-    elif isinstance(item, bytes):
-        return CBORcodec_BYTE_STRING.enc(item)
-    elif isinstance(item, str):
-        return CBORcodec_TEXT_STRING.enc(item)
-    elif isinstance(item, list):
-        return CBORcodec_ARRAY.enc(item)
-    elif isinstance(item, dict):
-        return CBORcodec_MAP.enc(item)
-    elif isinstance(item, float):
-        return CBORcodec_SIMPLE_AND_FLOAT.enc(item)
-    elif item is None:
-        return CBORcodec_SIMPLE_AND_FLOAT.enc(None)
-    else:
-        raise CBOR_Codec_Encoding_Error(
-            "Cannot encode type: %s" % type(item))
-
-
-def _encode_cbor_map_deterministic(pairs):
-    # type: (Any) -> bytes
-    """Encode map pairs in RFC 8949 core-deterministic key order."""
-    encoded_pairs = []  # type: List[Tuple[bytes, bytes]]
-    for key, value in pairs:
-        key_bytes = _encode_cbor_item_deterministic(key)
-        value_bytes = _encode_cbor_item_deterministic(value)
-        encoded_pairs.append((key_bytes, value_bytes))
-    encoded_pairs.sort(key=lambda item: item[0])
-    parts = [CBOR_encode_head(5, len(encoded_pairs))]
-    for key_bytes, value_bytes in encoded_pairs:
-        parts.append(key_bytes)
-        parts.append(value_bytes)
-    return b"".join(parts)
-
-
-def _encode_cbor_item_deterministic(item):
-    # type: (Any) -> bytes
-    """Encode a Python value using RFC 8949 core-deterministic rules.
-
-    Unlike :func:`_encode_cbor_item`, map keys at every nesting level are
-    sorted by their deterministic encoded bytes. Intended for schema-driven
-    rebuild paths such as preserved unknown ``CBORF_MAP`` members.
-
-    :class:`~scapy.cbor.cbor.CBOR_Object` instances are accepted and reduced to
-    native values (preferred float encoding, deterministic nested maps).
-    """
-    import math
-    from scapy.cbor.cbor import (
-        CBOR_Object,
-        CBOR_ARRAY,
-        CBOR_FLOAT,
-        CBOR_MAP,
-        CBOR_SEMANTIC_TAG,
-        CBOR_SIMPLE_VALUE,
-        CBOR_UNDEFINED,
-        CBORMapData,
-    )
-
-    if isinstance(item, CBOR_Object):
-        if isinstance(item, CBOR_UNDEFINED):
-            return CBOR_UNDEFINED().enc()
-        if isinstance(item, CBOR_FLOAT):
-            encoded = getattr(item, "_encoded", None)
-            if encoded is not None and math.isnan(float(item.val)):
-                return _cbor_preferred_nan_encoding(encoded)
-            # Finite floats ignore original width; rebuild preferred form.
-            return CBORcodec_SIMPLE_AND_FLOAT.enc(float(item.val))
-        if isinstance(item, CBOR_ARRAY):
-            return _encode_cbor_item_deterministic(list(item.val))
-        if isinstance(item, CBOR_MAP):
-            if isinstance(item.val, CBORMapData):
-                return _encode_cbor_map_deterministic(item.val.cbor_pairs())
-            if isinstance(item.val, list):
-                return _encode_cbor_map_deterministic(item.val)
-            return _encode_cbor_map_deterministic(list(item.val.items()))
-        if isinstance(item, CBOR_SEMANTIC_TAG):
-            tag_num, inner = item.val
-            return (
-                CBOR_encode_head(6, tag_num)
-                + _encode_cbor_item_deterministic(inner)
-            )
-        if isinstance(item, CBOR_SIMPLE_VALUE):
-            return CBORcodec_SIMPLE_AND_FLOAT.enc(item)
-        return _encode_cbor_item_deterministic(item.val)
-    if isinstance(item, CBORMapData):
-        return _encode_cbor_map_deterministic(item.cbor_pairs())
-    if isinstance(item, dict):
-        return _encode_cbor_map_deterministic(list(item.items()))
-    if isinstance(item, list):
-        encoded_items = [
-            _encode_cbor_item_deterministic(element) for element in item
-        ]
-        return CBOR_encode_head(4, len(encoded_items)) + b"".join(encoded_items)
-    if isinstance(item, bool):
-        return CBORcodec_SIMPLE_AND_FLOAT.enc(item)
-    if isinstance(item, int):
-        if item >= 0:
-            return CBORcodec_UNSIGNED_INTEGER.enc(item)
-        return CBORcodec_NEGATIVE_INTEGER.enc(item)
-    if isinstance(item, bytes):
-        return CBORcodec_BYTE_STRING.enc(item)
-    if isinstance(item, str):
-        return CBORcodec_TEXT_STRING.enc(item)
-    if isinstance(item, float):
-        # Deterministic encoding always rebuilds from the semantic float
-        # value (shortest exact representation). Never reuse source wire.
-        # Plain NaNs without retained CBOR bytes use quiet binary16.
-        return CBORcodec_SIMPLE_AND_FLOAT.enc(float(item))
-    if item is None:
-        return CBORcodec_SIMPLE_AND_FLOAT.enc(None)
-    raise CBOR_Codec_Encoding_Error(
-        "Cannot deterministically encode type: %s" % type(item)
-    )
-
-
-def _decode_cbor_item(s, safe=False, depth=0):
-    # type: (Any, bool, int) -> Tuple[CBOR_Object[Any], Any]
-    """Decode CBOR bytes to a CBOR_Object.
-
-    Top-level callers may pass ``bytes`` (or a subclass). Decoding then works
-    on a ``memoryview`` so unread suffixes are not recopied per item.
-    """
-    if depth > MAX_CBOR_NESTING:
-        raise CBOR_Codec_Decoding_Error(
-            "Maximum CBOR nesting depth exceeded",
-            remaining=_cbor_buf_bytes(s))
-    if not isinstance(s, memoryview):
-        obj, rem = _decode_cbor_item(memoryview(s), safe=False, depth=depth)
-        return obj, _cbor_buf_bytes(rem) if isinstance(rem, memoryview) else rem
-    if not s:
-        raise CBOR_Codec_Decoding_Error(
-            "Empty CBOR data", remaining=_cbor_buf_bytes(s))
-
-    if cbor_is_break(s):
-        raise CBOR_Codec_Decoding_Error(
-            "Standalone break byte (0xff)", remaining=_cbor_buf_bytes(s))
-
-    initial_byte = s[0]
-    major_type = initial_byte >> 5
-
-    # Dispatch to appropriate codec based on major type
-    if major_type == 0:
-        return CBORcodec_UNSIGNED_INTEGER.dec(s, safe=False, _depth=depth)
-    elif major_type == 1:
-        return CBORcodec_NEGATIVE_INTEGER.dec(s, safe=False, _depth=depth)
-    elif major_type == 2:
-        return CBORcodec_BYTE_STRING.dec(s, safe=False, _depth=depth)
-    elif major_type == 3:
-        return CBORcodec_TEXT_STRING.dec(s, safe=False, _depth=depth)
-    elif major_type == 4:
-        return CBORcodec_ARRAY.dec(s, safe=False, _depth=depth)
-    elif major_type == 5:
-        return CBORcodec_MAP.dec(s, safe=False, _depth=depth)
-    elif major_type == 6:
-        return CBORcodec_SEMANTIC_TAG.dec(s, safe=False, _depth=depth)
-    elif major_type == 7:
-        return CBORcodec_SIMPLE_AND_FLOAT.dec(s, safe=False, _depth=depth)
-    else:
-        raise CBOR_Codec_Decoding_Error(
-            "Invalid major type: %d" % major_type,
-            remaining=_cbor_buf_bytes(s))
-
-
-# Add helper methods to CBORcodec_Object
-CBORcodec_Object.encode_cbor_item = staticmethod(_encode_cbor_item)
-CBORcodec_Object.encode_cbor_item_deterministic = staticmethod(
-    _encode_cbor_item_deterministic
-)
-CBORcodec_Object.decode_cbor_item = staticmethod(_decode_cbor_item)
