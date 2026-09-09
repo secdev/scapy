@@ -364,12 +364,8 @@ class CBOR_Object(Generic[_K], metaclass=CBOR_Object_metaclass):
             return NotImplemented
         return not equal
 
-    def __hash__(self):
-        # type: () -> int
-        try:
-            return hash((type(self), self.val))
-        except TypeError:
-            return hash((type(self), id(self)))
+    # No __hash__: defining __eq__ without __hash__ makes instances unhashable.
+    # Immutable scalar subclasses may add semantic hashing later if needed.
 
 
 #######################
@@ -543,10 +539,9 @@ class CBORMapData(object):
 
     def __getitem__(self, key):
         # type: (Any) -> Any
-        want = self._key_identity(key)
         matches = []  # type: List[Any]
         for map_key, value in self._pairs:
-            if self._key_identity(map_key) == want:
+            if _cbor_key_equivalent(map_key, key):
                 matches.append(value)
         if not matches:
             raise KeyError(key)
@@ -571,12 +566,11 @@ class CBORMapData(object):
             other_items = list(other.items())
             used = [False] * len(other_items)
             for map_key, value in self._pairs:
-                want = self._key_identity(map_key)
                 matched = False
                 for idx, (other_key, other_value) in enumerate(other_items):
                     if used[idx]:
                         continue
-                    if self._key_identity(other_key) != want:
+                    if not _cbor_key_equivalent(map_key, other_key):
                         continue
                     if value != other_value:
                         return False
@@ -808,6 +802,90 @@ class CBORFloatValue(float):
     def __deepcopy__(self, memo):
         # type: (dict) -> CBORFloatValue
         return self.__copy__()
+
+
+def _cbor_key_norm(value):
+    # type: (Any) -> Any
+    """Return a hashable RFC 8949 map-key equivalence form for *value*.
+
+    Integers and floats remain distinct groups.  Floating ``+0.0`` and
+    ``-0.0`` collapse.  All NaN payloads are equivalent.  Arrays compare
+    order-sensitively; maps compare as unordered pairs of norms.  Semantic
+    tags require the same tag number and an equivalent tagged value.
+    """
+    if isinstance(value, CBORTagValue):
+        return ("tag", int(value.tag), _cbor_key_norm(value.value))
+    if isinstance(value, CBORSimpleValue):
+        return ("simple", int(value.value))
+    if value is CBOR_UNDEFINED_VALUE:
+        return ("undef", None)
+    if isinstance(value, CBOR_Object):
+        if isinstance(value, (CBOR_TRUE, CBOR_FALSE)):
+            return ("bool", bool(value.val))
+        if isinstance(value, CBOR_NULL):
+            return ("null", None)
+        if isinstance(value, CBOR_UNDEFINED):
+            return ("undef", None)
+        if isinstance(value, (CBOR_UNSIGNED_INTEGER, CBOR_NEGATIVE_INTEGER)):
+            return ("int", int(value.val))
+        if isinstance(value, CBOR_BYTE_STRING):
+            return ("bstr", bytes(value.val))
+        if isinstance(value, CBOR_TEXT_STRING):
+            return ("tstr", str(value.val))
+        if isinstance(value, CBOR_FLOAT):
+            return _cbor_key_norm(float(value.val))
+        if isinstance(value, CBOR_ARRAY):
+            return ("array", tuple(_cbor_key_norm(v) for v in value.val))
+        if isinstance(value, CBOR_MAP):
+            return _cbor_key_norm(value.val)
+        if isinstance(value, CBOR_SEMANTIC_TAG):
+            tag_num, inner = value.val
+            return ("tag", int(tag_num), _cbor_key_norm(inner))
+        if isinstance(value, CBOR_SIMPLE_VALUE):
+            return ("simple", int(value.val))
+        return ("obj", type(value).__name__, _cbor_key_norm(value.val))
+    if isinstance(value, CBORMapData):
+        return (
+            "map",
+            frozenset(
+                (_cbor_key_norm(k), _cbor_key_norm(v))
+                for k, v in value.cbor_pairs()
+            ),
+        )
+    if isinstance(value, dict):
+        return (
+            "map",
+            frozenset(
+                (_cbor_key_norm(k), _cbor_key_norm(v))
+                for k, v in value.items()
+            ),
+        )
+    if isinstance(value, bool):
+        return ("bool", value)
+    if isinstance(value, int):
+        return ("int", value)
+    if isinstance(value, float):
+        if math.isnan(value):
+            return ("float", "nan")
+        if value == 0.0:
+            return ("float", 0.0)
+        return ("float", float(value))
+    if isinstance(value, bytes):
+        return ("bstr", value)
+    if isinstance(value, str):
+        return ("tstr", value)
+    if isinstance(value, list):
+        return ("array", tuple(_cbor_key_norm(v) for v in value))
+    if isinstance(value, tuple) and len(value) == 2 and isinstance(value[0], int):
+        # Bare semantic-tag tuple (tag_num, inner), as stored on CBOR_SEMANTIC_TAG.
+        return ("tag", int(value[0]), _cbor_key_norm(value[1]))
+    return ("other", type(value).__name__, repr(value))
+
+
+def _cbor_key_equivalent(a, b):
+    # type: (Any, Any) -> bool
+    """Return True when *a* and *b* are equivalent CBOR map keys (RFC 8949)."""
+    return _cbor_key_norm(a) == _cbor_key_norm(b)
 
 
 class _CBOR_ERROR(CBOR_Object[Union[bytes, CBOR_Object[Any]]]):
