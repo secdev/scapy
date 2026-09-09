@@ -375,7 +375,7 @@ class OptionalTaggedUnsigned(CBOR_Packet):
 
 pkt = OptionalTaggedUnsigned()
 try:
-    OptionalTaggedUnsigned.CBOR_root.dissect_result(
+    OptionalTaggedUnsigned.CBOR_root._dissect_counted(
         pkt,
         b"\xc1\x61x",
     )
@@ -402,7 +402,7 @@ class OptionalTruncatedTaggedUnsigned(CBOR_Packet):
 
 pkt = OptionalTruncatedTaggedUnsigned()
 try:
-    OptionalTruncatedTaggedUnsigned.CBOR_root.dissect_result(pkt, b"\xc1")
+    OptionalTruncatedTaggedUnsigned.CBOR_root._dissect_counted(pkt, b"\xc1")
     assert False, "A truncated present tag was treated as an absent field"
 except CBOR_Decoding_Error:
     pass
@@ -1551,9 +1551,9 @@ assert map_data[CBOR_FLOAT(1.0)].val == "f"
 = CBORF_PACKET builds a child root exactly once
 class RRCountingArray(CBORF_ARRAY):
     calls = 0
-    def build_result(self, pkt):
+    def _build_counted(self, pkt):
         type(self).calls += 1
-        return super().build_result(pkt)
+        return super()._build_counted(pkt)
 
 class RRCountedChild(CBOR_Packet):
     CBOR_root = RRCountingArray(CBORF_UNSIGNED_INTEGER("value", 1))
@@ -1979,7 +1979,7 @@ except ValueError:
 else:
     raise AssertionError("ambiguous separated unbounded sequences were accepted")
 
-+ Finding 8 - Nested cbor_build_result must preserve a valid child raw cache
++ Finding 8 - Nested _cbor_build_counted must preserve a valid child raw cache
 
 = Parent rebuild preserves untouched child wire representation
 from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_PACKET, CBORF_UNSIGNED_INTEGER
@@ -2003,7 +2003,7 @@ assert bytes(pkt.child) == b"\x18\x01"
 # untouched nested child from 0x18 0x01 to 0x01.
 pkt.sibling = 1
 assert bytes(pkt) == b"\x82\x01\x18\x01"
-assert pkt.child.cbor_build_result().data == bytes(pkt.child)
+assert pkt.child._cbor_build_counted().data == bytes(pkt.child)
 
 = Parent rebuild preserves an untouched child encoded as an indefinite array
 from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_PACKET, CBORF_UNSIGNED_INTEGER
@@ -2464,7 +2464,7 @@ overlong = b"\x18\x01\x02"
 child = SeqChild(overlong)
 assert child.raw_packet_cache == overlong
 assert child._cbor_raw_cache_items == 2
-result = child.cbor_build_result()
+result = child._cbor_build_counted()
 assert result.data == overlong
 assert result.items == 2
 assert result.data == bytes(child)
@@ -2474,12 +2474,12 @@ assert result.data == bytes(child)
 # and expect serialization to succeed).
 fld = CBORF_PACKET("x", None, pkt_cls=SeqChild)
 try:
-    fld.build_value(None, child)
+    fld._build_value(None, child)
     assert False, "multi-item child must be rejected by CBORF_PACKET"
 except CBOR_Encoding_Error:
     pass
 
-= CBORF_PACKET build_value enforces one-item cardinality like build_result
+= CBORF_PACKET _build_value enforces one-item cardinality like _build_counted
 from scapy.cbor.cborfields import (
     CBORF_PACKET,
     CBORF_SEQUENCE,
@@ -2498,13 +2498,13 @@ class OneItemChild(CBOR_Packet):
     CBOR_root = CBORF_UNSIGNED_INTEGER("a", 1)
 
 fld = CBORF_PACKET("x", None, pkt_cls=OneItemChild)
-ok = fld.build_value(None, OneItemChild(a=7))
+ok = fld._build_value(None, OneItemChild(a=7))
 assert ok.items == 1
 
 fld2 = CBORF_PACKET("x", None, pkt_cls=TwoItemChild)
 try:
-    fld2.build_value(None, TwoItemChild())
-    assert False, "multi-item child must be rejected by build_value"
+    fld2._build_value(None, TwoItemChild())
+    assert False, "multi-item child must be rejected by _build_value"
 except CBOR_Encoding_Error:
     pass
 
@@ -2518,27 +2518,27 @@ fld = CBORF_PACKET("x", None, pkt_cls=CBOR_Packet)
 
 # Two valid CBOR integers must not be reported as one item
 try:
-    fld.build_value(None, Raw(b"\x01\x02"))
+    fld._build_value(None, Raw(b"\x01\x02"))
     assert False, "two CBOR items must be rejected"
 except CBOR_Encoding_Error:
     pass
 
 # Illegal standalone break
 try:
-    fld.build_value(None, Raw(b"\xff"))
+    fld._build_value(None, Raw(b"\xff"))
     assert False, "bare break must be rejected"
 except CBOR_Encoding_Error:
     pass
 
 # Truncated CBOR
 try:
-    fld.build_value(None, Raw(b"\x18"))
+    fld._build_value(None, Raw(b"\x18"))
     assert False, "truncated CBOR must be rejected"
 except CBOR_Encoding_Error:
     pass
 
 # Exactly one valid item is accepted via the Raw fallback
-ok = fld.build_value(None, Raw(b"\x01"))
+ok = fld._build_value(None, Raw(b"\x01"))
 assert ok.items == 1
 assert ok.data == b"\x01"
 
@@ -3259,7 +3259,7 @@ pkt = TwoInts(b"\x01\x02\x03")
 assert pkt.a == 1 and pkt.b == 2
 assert isinstance(pkt.payload, Raw) or pkt.original.endswith(b"\x03")
 # Remaining third item is not consumed by the schema
-remain = TwoInts.CBOR_root.dissect_result(TwoInts(), b"\x01\x02\x03").remaining
+remain = TwoInts.CBOR_root._dissect_counted(TwoInts(), b"\x01\x02\x03").remaining
 assert remain == b"\x03"
 
 = CBORF_SEMANTIC_TAG rejects the wrong tag number
