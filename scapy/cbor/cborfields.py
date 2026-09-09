@@ -202,13 +202,8 @@ def cbor_object_to_python(obj):
     if isinstance(obj, CBOR_ARRAY):
         return [cbor_object_to_python(item) for item in obj.val]
     if isinstance(obj, CBOR_MAP):
-        from scapy.cbor.cbor import CBORMapData
-        if isinstance(obj.val, CBORMapData):
-            pairs = obj.val.cbor_pairs()
-        elif isinstance(obj.val, list):
-            pairs = obj.val
-        else:
-            pairs = list(obj.val.items())
+        from scapy.cbor.cbor import _cbor_map_pairs
+        pairs = _cbor_map_pairs(obj)
         return CBORMapData([
             (cbor_object_to_python(k), cbor_object_to_python(v))
             for k, v in pairs
@@ -562,12 +557,8 @@ class CBORF_ANY(CBORF_field[Any]):
                 tuple(fingerprint(item) for item in obj.val),
             )
         if isinstance(obj, CBOR_MAP):
-            if isinstance(obj.val, CBORMapData):
-                pairs = obj.val.cbor_pairs()
-            elif isinstance(obj.val, dict):
-                pairs = list(obj.val.items())
-            else:
-                pairs = list(obj.val)
+            from scapy.cbor.cbor import _cbor_map_pairs
+            pairs = _cbor_map_pairs(obj)
             return (
                 "map",
                 tuple(

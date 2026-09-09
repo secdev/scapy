@@ -897,6 +897,7 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
             CBOR_SIMPLE_VALUE,
             CBOR_UNDEFINED,
             CBORMapData,
+            _cbor_map_pairs,
         )
 
         if isinstance(item, CBOR_Object):
@@ -913,16 +914,8 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
                     list(item.val)
                 )
             if isinstance(item, CBOR_MAP):
-                if isinstance(item.val, CBORMapData):
-                    return CBORcodec_Object._encode_cbor_map_deterministic(
-                        item.val.cbor_pairs()
-                    )
-                if isinstance(item.val, list):
-                    return CBORcodec_Object._encode_cbor_map_deterministic(
-                        item.val
-                    )
                 return CBORcodec_Object._encode_cbor_map_deterministic(
-                    list(item.val.items())
+                    _cbor_map_pairs(item)
                 )
             if isinstance(item, CBOR_SEMANTIC_TAG):
                 tag_num, inner = item.val
@@ -1305,14 +1298,9 @@ class CBORcodec_MAP(CBORcodec_Object[Any]):
     @classmethod
     def enc(cls, obj):
         # type: (Any) -> bytes
-        from scapy.cbor.cbor import CBOR_Object, CBORMapData
+        from scapy.cbor.cbor import CBOR_Object, _cbor_map_pairs
         mapping = obj.val if isinstance(obj, CBOR_Object) else obj
-        if isinstance(mapping, CBORMapData):
-            pairs = mapping.cbor_pairs()
-        elif isinstance(mapping, dict):
-            pairs = list(mapping.items())
-        else:
-            pairs = list(mapping)
+        pairs = _cbor_map_pairs(mapping)
         CBORcodec_Object._reject_duplicate_map_keys(pairs)
         parts = [CBOR_encode_head(int(CBOR_MajorTypes.MAP), len(pairs))]
         for key, value in pairs:
