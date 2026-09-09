@@ -42,8 +42,9 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
     """CBOR packet with root-schema build/dissect and cache integration.
 
     Field flags (``islist`` / ``ismutable`` / ``holds_packets``) drive
-    Scapy's mutation detection. This class additionally deepens ``ismutable``
-    defaults and stores parsed root item counts for exact-wire rebuilds.
+    Scapy's mutation detection and per-instance default copying. This class
+    re-parents nested packet defaults and stores parsed root item counts for
+    exact-wire rebuilds.
     """
 
     CBOR_root = None  # type: Optional[Any]
@@ -88,46 +89,21 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
         )
         if for_dissect_only:
             return
-        # Packet only deep-copies list/dict/set defaults; deepen ismutable.
+        # Packet copies ismutable defaults into fields; promote leftovers and
+        # re-parent nested packet defaults onto this instance.
         for f in self.fields_desc:
-            if getattr(f, "ismutable", False) and f.name in self.fields:
-                self.fields[f.name] = f.do_copy(self.fields[f.name])
-            # Packet-valued defaults are copied in Packet.__init__ with
-            # parent=None; re-run any2i so this instance becomes the parent.
-            if f.holds_packets and f.name in self.fields:
-                self.fields[f.name] = f.any2i(self, self.fields[f.name])
-
-    def _materialize_cbor_default(self, attr):
-        # type: (str) -> Optional[Tuple[Any, Any]]
-        """Copy mutable/packet defaults into ``fields`` on first access."""
-        if attr in self.fields or attr not in self.default_fields:
-            return None
-        fld = self.get_field(attr)
-        if fld is None or not (
-            getattr(fld, "ismutable", False) or fld.holds_packets
-        ):
-            return None
-        val = fld.do_copy(self.default_fields[attr])
-        # Re-run any2i so packet-valued defaults attach this instance
-        # as parent (defaults were normalized with pkt=None).
-        if fld.holds_packets:
-            val = fld.any2i(self, val)
-        self.fields[attr] = val
-        return fld, self.fields[attr]
-
-    def getfield_and_val(self, attr):
-        # type: (str) -> Tuple[Any, Any]
-        materialized = self._materialize_cbor_default(attr)
-        if materialized is not None:
-            return materialized
-        return super(CBOR_Packet, self).getfield_and_val(attr)
-
-    def getfieldval(self, attr):
-        # type: (str) -> Any
-        materialized = self._materialize_cbor_default(attr)
-        if materialized is not None:
-            return materialized[1]
-        return super(CBOR_Packet, self).getfieldval(attr)
+            if f.name in self.fields:
+                if f.holds_packets:
+                    self.fields[f.name] = f.any2i(self, self.fields[f.name])
+                continue
+            if not (
+                getattr(f, "ismutable", False) or f.holds_packets
+            ) or f.name not in self.default_fields:
+                continue
+            val = f.do_copy(self.default_fields[f.name])
+            if f.holds_packets:
+                val = f.any2i(self, val)
+            self.fields[f.name] = val
 
     def _raw_packet_cache_field_value(self, fld, val, copy=False):
         # type: (Any, Any, bool) -> Optional[Any]
