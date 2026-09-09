@@ -38,50 +38,6 @@ class CBORPacket_metaclass(Packet_metaclass):
         )
 
 
-def _finalize_cbor_raw_cache(pkt, raw, remain, items):
-    # type: (Packet, bytes, bytes, int) -> None
-    """Record raw cache, item count, and mutable-field snapshot after dissect.
-
-    CBOR-specific Packet cache integration: mirrors ``Packet.do_dissect``
-    bookkeeping and also stores ``_cbor_raw_cache_items`` so unframed sequence
-    roots can return the exact received bytes without rebuilding.
-    """
-    from scapy.cbor.cborfields import CBOR_ABSENT
-    pkt.raw_packet_cache = raw[:-len(remain)] if remain else raw
-    pkt._cbor_raw_cache_items = items  # type: ignore[attr-defined]
-    pkt.raw_packet_cache_fields = {}
-    for f in pkt.fields_desc:
-        if f.name not in pkt.fields:
-            continue
-        fval = pkt.fields[f.name]
-        if fval is CBOR_ABSENT:
-            pkt.raw_packet_cache_fields[f.name] = CBOR_ABSENT
-            continue
-        if getattr(f, "isconditional", False) and fval is None:
-            continue
-        if (f.islist or f.holds_packets or getattr(f, "ismutable", False)) \
-                and fval is not None:
-            pkt.raw_packet_cache_fields[f.name] = \
-                pkt._raw_packet_cache_field_value(f, fval, copy=True)
-    pkt.explicit = 1
-
-
-def _cbor_raw_cache_is_valid(pkt):
-    # type: (Packet) -> bool
-    """Return True if ``raw_packet_cache`` still matches nested field state."""
-    if pkt.raw_packet_cache is None or pkt.raw_packet_cache_fields is None:
-        return False
-    for fname, fval in pkt.raw_packet_cache_fields.items():
-        fld, val = pkt.getfield_and_val(fname)
-        if pkt._raw_packet_cache_field_value(fld, val) != fval:
-            pkt.raw_packet_cache = None
-            pkt.raw_packet_cache_fields = None
-            pkt._cbor_raw_cache_items = None  # type: ignore[attr-defined]
-            pkt.wirelen = None
-            return False
-    return True
-
-
 class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
     """CBOR packet with root-schema build/dissect and cache integration.
 
@@ -92,6 +48,21 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
 
     CBOR_root = None  # type: Optional[Any]
 
+    def _raw_cache_is_valid(self):
+        # type: () -> bool
+        """Return True if ``raw_packet_cache`` still matches nested field state."""
+        if self.raw_packet_cache is None or self.raw_packet_cache_fields is None:
+            return False
+        for fname, fval in self.raw_packet_cache_fields.items():
+            fld, val = self.getfield_and_val(fname)
+            if self._raw_packet_cache_field_value(fld, val) != fval:
+                self.raw_packet_cache = None
+                self.raw_packet_cache_fields = None
+                self._cbor_raw_cache_items = None  # type: ignore[attr-defined]
+                self.wirelen = None
+                return False
+        return True
+
     def cbor_build_result(self):
         # type: () -> Any
         """Return ``CBORBuildResult`` for this packet's root schema.
@@ -101,7 +72,7 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
         packet merely to recover cardinality.
         """
         from scapy.cbor.cborfields import CBORBuildResult
-        if _cbor_raw_cache_is_valid(self):
+        if self._raw_cache_is_valid():
             items = getattr(self, "_cbor_raw_cache_items", None)
             if items is None:
                 items = 1
@@ -126,34 +97,36 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
             if f.holds_packets and f.name in self.fields:
                 self.fields[f.name] = f.any2i(self, self.fields[f.name])
 
+    def _materialize_cbor_default(self, attr):
+        # type: (str) -> Optional[Tuple[Any, Any]]
+        """Copy mutable/packet defaults into ``fields`` on first access."""
+        if attr in self.fields or attr not in self.default_fields:
+            return None
+        fld = self.get_field(attr)
+        if fld is None or not (
+            getattr(fld, "ismutable", False) or fld.holds_packets
+        ):
+            return None
+        val = fld.do_copy(self.default_fields[attr])
+        # Re-run any2i so packet-valued defaults attach this instance
+        # as parent (defaults were normalized with pkt=None).
+        if fld.holds_packets:
+            val = fld.any2i(self, val)
+        self.fields[attr] = val
+        return fld, self.fields[attr]
+
     def getfield_and_val(self, attr):
         # type: (str) -> Tuple[Any, Any]
-        if attr not in self.fields and attr in self.default_fields:
-            fld = self.get_field(attr)
-            if fld is not None and (
-                getattr(fld, "ismutable", False) or fld.holds_packets
-            ):
-                val = fld.do_copy(self.default_fields[attr])
-                # Re-run any2i so packet-valued defaults attach this instance
-                # as parent (defaults were normalized with pkt=None).
-                if fld.holds_packets:
-                    val = fld.any2i(self, val)
-                self.fields[attr] = val
-                return fld, self.fields[attr]
+        materialized = self._materialize_cbor_default(attr)
+        if materialized is not None:
+            return materialized
         return super(CBOR_Packet, self).getfield_and_val(attr)
 
     def getfieldval(self, attr):
         # type: (str) -> Any
-        if attr not in self.fields and attr in self.default_fields:
-            fld = self.get_field(attr)
-            if fld is not None and (
-                getattr(fld, "ismutable", False) or fld.holds_packets
-            ):
-                val = fld.do_copy(self.default_fields[attr])
-                if fld.holds_packets:
-                    val = fld.any2i(self, val)
-                self.fields[attr] = val
-                return self.fields[attr]
+        materialized = self._materialize_cbor_default(attr)
+        if materialized is not None:
+            return materialized[1]
         return super(CBOR_Packet, self).getfieldval(attr)
 
     def _raw_packet_cache_field_value(self, fld, val, copy=False):
@@ -169,15 +142,33 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
 
     def self_build(self):
         # type: () -> bytes
-        if _cbor_raw_cache_is_valid(self):
+        if self._raw_cache_is_valid():
             return self.raw_packet_cache
         return self.CBOR_root.build(self)
 
-    def do_dissect(self, x):
+    def do_dissect(self, s):
         # type: (bytes) -> bytes
-        result = self.CBOR_root.dissect_result(self, x)
-        _finalize_cbor_raw_cache(self, x, result.remaining, result.items)
-        return result.remaining
+        from scapy.cbor.cborfields import CBOR_ABSENT
+        result = self.CBOR_root.dissect_result(self, s)
+        remain = result.remaining
+        self.raw_packet_cache = s[:-len(remain)] if remain else s
+        self._cbor_raw_cache_items = result.items  # type: ignore[attr-defined]
+        self.raw_packet_cache_fields = {}
+        for f in self.fields_desc:
+            if f.name not in self.fields:
+                continue
+            fval = self.fields[f.name]
+            if fval is CBOR_ABSENT:
+                self.raw_packet_cache_fields[f.name] = CBOR_ABSENT
+                continue
+            if getattr(f, "isconditional", False) and fval is None:
+                continue
+            if (f.islist or f.holds_packets or getattr(f, "ismutable", False)) \
+                    and fval is not None:
+                self.raw_packet_cache_fields[f.name] = \
+                    self._raw_packet_cache_field_value(f, fval, copy=True)
+        self.explicit = 1
+        return remain
 
     def copy(self):
         # type: () -> Packet
