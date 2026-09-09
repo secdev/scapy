@@ -618,24 +618,43 @@ class CBORMapData(object):
         return "CBORMapData(%r)" % (self.items(),)
 
 
+def _cbor_map_pairs(mapping):
+    # type: (Any) -> List[Tuple[Any, Any]]
+    """Return ordered ``(key, value)`` pairs from a CBOR map representation.
+
+    Accepts :class:`CBOR_MAP`, :class:`CBORMapData`, ``dict``, or a sequence
+    of pairs. Used by encode, display, and key-normalization paths.
+    """
+    if isinstance(mapping, CBOR_MAP):
+        mapping = mapping.val
+    if isinstance(mapping, CBORMapData):
+        return mapping.cbor_pairs()
+    if isinstance(mapping, dict):
+        return list(mapping.items())
+    return list(mapping)
+
+
 class CBOR_MAP(CBOR_Object[Any]):
     """CBOR map (major type 5).
 
-    Decoded maps use :class:`CBORMapData` (ordered pairs). Manually
-    constructed maps may still use a plain ``dict``.
+    Always stores :class:`CBORMapData`. Constructors accept ``CBORMapData``,
+    ``dict``, or a sequence of ``(key, value)`` pairs.
     """
     tag = CBOR_MajorTypes.MAP
+
+    def __init__(self, val):
+        # type: (Any) -> None
+        if isinstance(val, CBORMapData):
+            super(CBOR_MAP, self).__init__(val)
+        elif isinstance(val, dict):
+            super(CBOR_MAP, self).__init__(CBORMapData(list(val.items())))
+        else:
+            super(CBOR_MAP, self).__init__(CBORMapData(list(val)))
 
     def strshow(self, lvl=0):
         # type: (int) -> str
         s = ("  " * lvl) + ("# CBOR_MAP:") + "\n"
-        if isinstance(self.val, CBORMapData):
-            items = self.val.cbor_pairs()
-        elif isinstance(self.val, dict):
-            items = list(self.val.items())
-        else:
-            items = list(self.val)
-        for k, v in items:
+        for k, v in _cbor_map_pairs(self.val):
             s += ("  " * (lvl + 1)) + "Key: "
             if hasattr(k, 'strshow'):
                 s += k.strshow(0).strip() + "\n"
@@ -867,7 +886,13 @@ def _cbor_key_norm(value):
         if isinstance(value, CBOR_ARRAY):
             return ("array", tuple(_cbor_key_norm(v) for v in value.val))
         if isinstance(value, CBOR_MAP):
-            return _cbor_key_norm(value.val)
+            return (
+                "map",
+                frozenset(
+                    (_cbor_key_norm(k), _cbor_key_norm(v))
+                    for k, v in _cbor_map_pairs(value)
+                ),
+            )
         if isinstance(value, CBOR_SEMANTIC_TAG):
             tag_num, inner = value.val
             return ("tag", int(tag_num), _cbor_key_norm(inner))
