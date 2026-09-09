@@ -2100,21 +2100,9 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
         # type: (CBOR_Packet) -> None
         self.inner_field.mark_absent(pkt)
 
-    def is_absent(self, pkt):
-        # type: (CBOR_Packet) -> bool
-        return self.inner_field.is_absent(pkt)
-
     def is_empty(self, pkt):
         # type: (CBOR_Packet) -> bool
-        return self.is_absent(pkt)
-
-    def set_val(self, pkt, val):
-        # type: (CBOR_Packet, Any) -> None
-        # Presence bookkeeping for optional wrappers targets the inner value.
-        if val is CBOR_ABSENT:
-            self.mark_absent(pkt)
-            return
-        self.inner_field.set_val(pkt, val)
+        return self.inner_field.is_empty(pkt)
 
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
