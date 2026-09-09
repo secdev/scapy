@@ -247,6 +247,20 @@ def cbor_count_items(s, max_count=None, until_break=False):
     return count
 
 
+def cbor_item_span(s):
+    # type: (Any) -> Tuple[bytes, bytes]
+    """Split *s* into the first structural CBOR item and the remainder.
+
+    Uses :func:`_cbor_skip_item` for boundary finding only. Callers that must
+    reject semantically invalid CBOR (invalid UTF-8, duplicate map keys, …)
+    should decode with :meth:`CBORcodec_Object.decode_cbor_item` instead.
+    """
+    rem = s if isinstance(s, memoryview) else memoryview(s)
+    after = _cbor_skip_item(rem)
+    n = len(s) - len(after)
+    return bytes(s[:n]), bytes(s[n:])
+
+
 def CBOR_decode_head(s):
     # type: (Any) -> Tuple[int, Union[int, CBOR_INDEFINITE], Any]
     """
@@ -485,6 +499,22 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
     issues = []  # type: List[Tuple[int, str]]
     index = [0]
 
+    def _argument_is_shortest(ai, value):
+        # type: (int, Union[int, CBOR_INDEFINITE]) -> bool
+        if value is CBOR_INDEFINITE:
+            return ai == int(CBOR_AdditionalInfo.INDEFINITE)
+        if ai < int(CBOR_AdditionalInfo.ONE_BYTE):
+            return True
+        if ai == int(CBOR_AdditionalInfo.ONE_BYTE):
+            return int(value) >= int(CBOR_AdditionalInfo.ONE_BYTE)
+        if ai == int(CBOR_AdditionalInfo.TWO_BYTES):
+            return int(value) >= 256
+        if ai == int(CBOR_AdditionalInfo.FOUR_BYTES):
+            return int(value) >= 65536
+        if ai == int(CBOR_AdditionalInfo.EIGHT_BYTES):
+            return int(value) >= (1 << 32)
+        return ai == int(CBOR_AdditionalInfo.INDEFINITE)
+
     def _walk(depth=0):
         # type: (int) -> None
         if depth > MAX_CBOR_NESTING:
@@ -602,35 +632,12 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                             "Nested indefinite string",
                             remaining=s[chunk_start:])
                     chunk_ai = s[chunk_start] & 0x1f
-                    # Shortest-argument check for the chunk head.
-                    if chunk_ai == int(CBOR_AdditionalInfo.ONE_BYTE):
-                        if int(chunk_len) < int(CBOR_AdditionalInfo.ONE_BYTE):
-                            issues.append((
-                                base_offset + chunk_start,
-                                "Non-shortest CBOR argument encoding "
-                                "(AI=%d, value=%r)" % (chunk_ai, chunk_len),
-                            ))
-                    elif chunk_ai == int(CBOR_AdditionalInfo.TWO_BYTES):
-                        if int(chunk_len) < 256:
-                            issues.append((
-                                base_offset + chunk_start,
-                                "Non-shortest CBOR argument encoding "
-                                "(AI=%d, value=%r)" % (chunk_ai, chunk_len),
-                            ))
-                    elif chunk_ai == int(CBOR_AdditionalInfo.FOUR_BYTES):
-                        if int(chunk_len) < 65536:
-                            issues.append((
-                                base_offset + chunk_start,
-                                "Non-shortest CBOR argument encoding "
-                                "(AI=%d, value=%r)" % (chunk_ai, chunk_len),
-                            ))
-                    elif chunk_ai == int(CBOR_AdditionalInfo.EIGHT_BYTES):
-                        if int(chunk_len) < (1 << 32):
-                            issues.append((
-                                base_offset + chunk_start,
-                                "Non-shortest CBOR argument encoding "
-                                "(AI=%d, value=%r)" % (chunk_ai, chunk_len),
-                            ))
+                    if not _argument_is_shortest(chunk_ai, chunk_len):
+                        issues.append((
+                            base_offset + chunk_start,
+                            "Non-shortest CBOR argument encoding "
+                            "(AI=%d, value=%r)" % (chunk_ai, chunk_len),
+                        ))
                     if len(rem) < int(chunk_len):
                         raise CBOR_Codec_Decoding_Error(
                             "Truncated byte/text string chunk",
@@ -671,19 +678,7 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                 remaining=s[start:],
             )
 
-        # Shortest-argument check (was cbor_argument_is_shortest).
-        shortest = True
-        if ai == int(CBOR_AdditionalInfo.ONE_BYTE):
-            shortest = int(value) >= int(CBOR_AdditionalInfo.ONE_BYTE)
-        elif ai == int(CBOR_AdditionalInfo.TWO_BYTES):
-            shortest = int(value) >= 256
-        elif ai == int(CBOR_AdditionalInfo.FOUR_BYTES):
-            shortest = int(value) >= 65536
-        elif ai == int(CBOR_AdditionalInfo.EIGHT_BYTES):
-            shortest = int(value) >= (1 << 32)
-        elif ai >= int(CBOR_AdditionalInfo.ONE_BYTE):
-            shortest = ai == int(CBOR_AdditionalInfo.INDEFINITE)
-        if not shortest:
+        if not _argument_is_shortest(ai, value):
             issues.append((
                 base_offset + start,
                 "Non-shortest CBOR argument encoding (AI=%d, value=%r)"
