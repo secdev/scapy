@@ -544,35 +544,9 @@ def _fuzz_packets():
     # type: () -> Iterable[Type[ASN1_Packet]]
     return (UPERFuzzRecord, UPERFuzzNested, UPERFuzzEnumerated)
 
-def _record_kwargs():
-    # type: () -> dict
-    return dict(
-        id=42,
-        flag=True,
-        label=b"hi",
-        extra=7,
-        values=[1, 2, 3],
-    )
-
 def _asn1_int(val):
     # type: (Any) -> int
     return val.val if hasattr(val, "val") else val
-
-def _assert_record(decoded):
-    # type: (ASN1_Packet) -> None
-    assert decoded.id.val == 42
-    assert decoded.flag.val == 1
-    assert decoded.label.val == b"hi"
-    assert decoded.extra.val == 7
-    assert [x.val for x in decoded.values] == [1, 2, 3]
-
-def _assert_record_empty(decoded):
-    # type: (ASN1_Packet) -> None
-    assert decoded.id.val == 1
-    assert decoded.flag.val == 0
-    assert decoded.label.val == b""
-    assert decoded.extra is None
-    assert [x.val for x in decoded.values] == []
 
 def _dissect(cls, data_hex):
     # type: (Type[ASN1_Packet], str) -> ASN1_Packet
@@ -717,6 +691,8 @@ UPERcodec_INTEGER.enc(-1, minimum=-128, maximum=127) == b"\x7f"
 UPERcodec_STRING.enc(b"AB") == b"\x02AB"
 = UPER fixed octet string
 UPERcodec_STRING.enc(b"\x12\x34\x56", size_len=3) == b"\x12\x34\x56"
+= UPER fixed SIZE matches size_len alias
+UPERcodec_STRING.enc(b"\x12\x34\x56", minimum=3, maximum=3) == UPERcodec_STRING.enc(b"\x12\x34\x56", size_len=3)
 = UPER null
 UPERcodec_NULL.enc(None) == b""
 = UPER enumerated index
@@ -1544,7 +1520,13 @@ True
 
 + ASN.1 UPER build and dissect
 = per record build roundtrip
-pkt = UPERRecord(**_record_kwargs())
+pkt = UPERRecord(
+    id=42,
+    flag=True,
+    label=b"hi",
+    extra=7,
+    values=[1, 2, 3],
+)
 
 assert len(raw(pkt)) > 0
 
@@ -1718,7 +1700,11 @@ decoded = _dissect(
     "8095409a1a4041c0c04040408040c0",
 )
 
-_assert_record(decoded)
+assert decoded.id.val == 42
+assert decoded.flag.val == 1
+assert decoded.label.val == b"hi"
+assert decoded.extra.val == 7
+assert [x.val for x in decoded.values] == [1, 2, 3]
 
 partial = _dissect(UPERRecord, "0095409050808040404080")
 
@@ -1734,7 +1720,11 @@ assert [x.val for x in partial.values] == [1, 2]
 
 empty = _dissect(UPERRecord, "0080800000")
 
-_assert_record_empty(empty)
+assert empty.id.val == 1
+assert empty.flag.val == 0
+assert empty.label.val == b""
+assert empty.extra is None
+assert [x.val for x in empty.values] == []
 
 True
 

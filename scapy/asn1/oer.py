@@ -9,8 +9,9 @@ Basic-OER as specified in ITU-T X.696 | ISO/IEC 8825-7.
 
 ``ASN1F_SEQUENCE`` emits the preamble required by 16.2.2: a presence bit per
 ``ASN1F_optional``/``ASN1F_DEFAULT`` component, preceded by an extension bit
-for sequences declared with ``extensible=True``. Fixed size constraints
-are expressed with ``size_len=`` (octets for strings, bits for BIT STRING).
+for sequences declared with ``extensible=True``. Fixed SIZE constraints
+are expressed with equal ``minimum=``/``maximum=`` (octets for strings, bits
+for BIT STRING). ``size_len=`` is a compatibility alias for ``SIZE(n)``.
 
 Tags declared on a field are not encoded: OER only puts a tag on the wire for
 the chosen alternative of an ``ASN1F_CHOICE`` (20.2), so the ``implicit_tag=``
@@ -205,6 +206,11 @@ def OER_tag_dec(s):
             break
     else:
         raise OER_Decoding_Error("OER_tag_dec: unfinished tag", remaining=s)
+    if tag_number < 63:
+        raise OER_Decoding_Error(
+            "OER_tag_dec: long-form tag number must be >= 63",
+            remaining=s,
+        )
     return tag_class, tag_number, s[i:]
 
 
@@ -218,18 +224,24 @@ def OER_tag_parts(identifier):
 
 def resolve_oer_size_bounds(field=None, size_len=None):
     # type: (Any, Optional[int]) -> Tuple[Optional[int], Optional[int]]
-    """Resolve OER SIZE bounds from ``size_len`` or field constraints."""
+    """Resolve OER SIZE bounds from field constraints.
+
+    ``size_len`` is a compatibility alias for equal bounds when ``minimum``
+    and ``maximum`` are unset. ``size_len=0`` means unset.
+    """
     if size_len is None and field is not None:
         size_len = field.size_len
     if field is not None and field.constraints.extensible:
         # Extensible SIZE is not OER-visible (X.696).
         return None, None
-    # ``size_len=0`` means unset (same as the historical ``if size_len:`` check).
+    minimum = field.constraints.minimum if field is not None else None
+    maximum = field.constraints.maximum if field is not None else None
     if size_len:
-        return size_len, size_len
-    if field is not None:
-        return field.constraints.minimum, field.constraints.maximum
-    return None, None
+        if minimum is None:
+            minimum = size_len
+        if maximum is None:
+            maximum = size_len
+    return minimum, maximum
 
 
 _K = TypeVar('_K')
@@ -537,6 +549,12 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
                     (cls.__name__, len(s), number_of_bytes),
                     remaining=s
                 )
+            unused = number_of_bytes * 8 - minimum
+            if unused and s[number_of_bytes - 1] & ((1 << unused) - 1):
+                raise OER_Decoding_Error(
+                    "OERcodec_BIT_STRING: unused bits must be zero",
+                    remaining=s,
+                )
             return (
                 cls.tag.asn1_object(
                     cls._bytes_to_bitstr(s[:number_of_bytes])[:minimum]
@@ -545,24 +563,36 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
             )
         length, s = OER_len_dec(s)
         if length == 0:
-            fs = ""
-        else:
-            if len(s) < length:
-                raise OER_Decoding_Error(
-                    "%s: Got %i bytes while expecting %i" %
-                    (cls.__name__, len(s), length),
-                    remaining=s
-                )
-            unused_bits = s[0]
-            if safe and unused_bits > 7:
-                raise OER_Decoding_Error(
-                    "OERcodec_BIT_STRING: too many unused_bits advertised",
-                    remaining=s
-                )
-            fs = cls._bytes_to_bitstr(s[1:length])
-            if unused_bits > 0:
-                fs = fs[:-unused_bits]
-            s = s[length:]
+            raise OER_Decoding_Error(
+                "OERcodec_BIT_STRING: length must include the unused-bit count",
+                remaining=s,
+            )
+        if len(s) < length:
+            raise OER_Decoding_Error(
+                "%s: Got %i bytes while expecting %i" %
+                (cls.__name__, len(s), length),
+                remaining=s
+            )
+        unused_bits = s[0]
+        if unused_bits > 7:
+            raise OER_Decoding_Error(
+                "OERcodec_BIT_STRING: unused-bit count must be 0-7",
+                remaining=s,
+            )
+        if length == 1 and unused_bits:
+            raise OER_Decoding_Error(
+                "OERcodec_BIT_STRING: empty value must have unused-bit count 0",
+                remaining=s,
+            )
+        if unused_bits and s[length - 1] & ((1 << unused_bits) - 1):
+            raise OER_Decoding_Error(
+                "OERcodec_BIT_STRING: unused bits must be zero",
+                remaining=s,
+            )
+        fs = cls._bytes_to_bitstr(s[1:length])
+        if unused_bits > 0:
+            fs = fs[:-unused_bits]
+        s = s[length:]
         nbits = len(fs)
         if minimum is not None and nbits < minimum:
             raise OER_Decoding_Error(
@@ -585,7 +615,7 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
         s = bytes_encode(_s)
         nbits = len(s)
         if minimum is not None and maximum is not None and minimum == maximum:
-            # X.696 13.3: a fixed size means the bits are written padded to a
+            # X.696 13.2: a fixed size means the bits are written padded to a
             # whole number of octets, without length or unused-bit count.
             if nbits != minimum:
                 raise OER_Encoding_Error(

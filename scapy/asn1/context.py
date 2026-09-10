@@ -311,7 +311,7 @@ class OER_Encoder(ASN1Encoder):
         if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
             self.write(field.i2m(pkt, val))
             return
-        items = val or []
+        items = [] if val is None else val
         parts = [OER_unsigned_integer_enc(len(items))]
         parts.extend(
             bytes(item) if field.holds_packets else field.fld.i2m(pkt, item)
@@ -333,9 +333,13 @@ class OER_Encoder(ASN1Encoder):
             else:
                 s = bytes(value)
             tag = field.alternative_tag(value)
-            if tag is not None:
-                tag_class, tag_number = OER_tag_parts(tag)
-                s = OER_tag_enc(tag_number, tag_class) + s
+            if tag is None:
+                raise ASN1_Error(
+                    "ASN1F_CHOICE: cannot encode unknown alternative in '%s'" %
+                    field.name
+                )
+            tag_class, tag_number = OER_tag_parts(tag)
+            s = OER_tag_enc(tag_number, tag_class) + s
         self.write(field._tagging_enc(pkt, s, explicit_tag=field.explicit_tag))
 
 

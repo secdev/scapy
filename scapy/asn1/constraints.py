@@ -6,8 +6,9 @@
 
 ``minimum`` / ``maximum`` mean a value range for INTEGER and ENUMERATED
 fields, and a SIZE constraint for string and BIT STRING fields. A coinciding
-SIZE is expressed as equal bounds; the legacy ``size_len`` argument lives on
-the field, not on this dataclass.
+SIZE is expressed as equal bounds. The field argument ``size_len`` is a
+compatibility alias for that coinciding SIZE on OER/PER; BER still uses it
+as a length-determinant width.
 ``extensible`` marks an extension marker on the constraint.
 ``unsigned`` selects unsigned INTEGER encoding where the codec supports it.
 
