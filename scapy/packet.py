@@ -116,6 +116,9 @@ class Packet(
     class_packetfields = {}  # type: Dict[Type[Packet], Any]
     class_default_fields = {}  # type: Dict[Type[Packet], Dict[str, Any]]
     class_default_fields_ref = {}  # type: Dict[Type[Packet], List[str]]
+    # ismutable defaults (e.g. FlagsField) stay in default_fields so bind
+    # overloads still apply; only list/dict/Packet/RandField go into fields.
+    class_default_fields_ismutable = {}  # type: Dict[Type[Packet], List[str]]
     class_fieldtype = {}  # type: Dict[Type[Packet], Dict[str, AnyField]]  # noqa: E501
 
     @classmethod
@@ -367,11 +370,24 @@ class Packet(
             if for_dissect_only:
                 return
 
-            # Deepcopy default references
+            # Deepcopy default references into fields (list/dict/Packet/…)
             for fname in Packet.class_default_fields_ref[cls_name]:
                 value = self.default_fields[fname]
                 fld = self.fieldtype[fname]
                 self.fields[fname] = fld.do_copy(value)
+
+            # Isolate ismutable defaults in a private default_fields dict so
+            # overloaded_fields from bindings still win on build.
+            ismutable_names = Packet.class_default_fields_ismutable.get(
+                cls_name
+            )
+            if ismutable_names:
+                self.default_fields = dict(default_fields)
+                for fname in ismutable_names:
+                    fld = self.fieldtype[fname]
+                    self.default_fields[fname] = fld.do_copy(
+                        default_fields[fname]
+                    )
 
     def prepare_cached_fields(self, flist):
         # type: (Sequence[AnyField]) -> None
@@ -387,6 +403,7 @@ class Packet(
 
         class_default_fields = dict()
         class_default_fields_ref = list()
+        class_default_fields_ismutable = list()
         class_fieldtype = dict()
         class_packetfields = list()
 
@@ -403,14 +420,18 @@ class Packet(
             if f.holds_packets:
                 class_packetfields.append(f)
 
-            # Remember references that need a per-instance copy
-            if getattr(f, "ismutable", False) or isinstance(
-                f.default, (list, dict, set, RandField, Packet)
-            ):
+            # list/dict/set/Packet/RandField: promote copies into fields
+            if isinstance(f.default, (list, dict, set, RandField, Packet)):
                 class_default_fields_ref.append(f.name)
+            # Other ismutable defaults (FlagsField): isolate in default_fields
+            elif getattr(f, "ismutable", False):
+                class_default_fields_ismutable.append(f.name)
 
         # Apply
         Packet.class_default_fields_ref[cls_name] = class_default_fields_ref
+        Packet.class_default_fields_ismutable[cls_name] = (
+            class_default_fields_ismutable
+        )
         Packet.class_fieldtype[cls_name] = class_fieldtype
         Packet.class_packetfields[cls_name] = class_packetfields
         # Last to avoid racing issues
