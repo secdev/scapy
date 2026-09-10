@@ -3612,7 +3612,6 @@ classes = (
 watched = (
     "encode_into",
     "m2i_from_decoder",
-    "dissect_from_decoder",
 )
 before = {
     cls.__name__: tuple(name for name in watched if name in cls.__dict__)
@@ -3720,6 +3719,45 @@ class UPERExtSizeBits(ASN1_Packet):
 root = raw(UPERExtSizeBits(b="1"))
 assert _roundtrip(UPERExtSizeBits, UPERExtSizeBits(b="1")).b.val == "1"
 assert _roundtrip(UPERExtSizeBits, UPERExtSizeBits(b="1010")).b.val == "1010"
+True
+
+= UPER SIZE upper bound 65536 uses the general length determinant
+class UPERWideOctets(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_STRING("s", b"", minimum=0, maximum=65536)
+
+class UPERNarrowOctets(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_STRING("s", b"", minimum=0, maximum=65535)
+
+class UPERWideBits(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_BIT_STRING("b", "", minimum=0, maximum=65536)
+
+class UPERWideSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values", [], ASN1F_BOOLEAN, minimum=0, maximum=65536,
+    )
+
+assert raw(UPERWideOctets(s=b"A")) == bytes.fromhex("0141")
+assert raw(UPERNarrowOctets(s=b"A")) != bytes.fromhex("0141")
+assert _roundtrip(UPERWideOctets, UPERWideOctets(s=b"A")).s.val == b"A"
+assert raw(UPERWideBits(b="1")) == bytes.fromhex("0180")
+assert _roundtrip(UPERWideBits, UPERWideBits(b="1")).b.val == "1"
+assert raw(UPERWideSeqOf(values=[True])) == bytes.fromhex("0180")
+assert _roundtrip(UPERWideSeqOf, UPERWideSeqOf(values=[True])).values[0]
+True
+
+= UPER constrained string lengths reject unused code points
+_raises(
+    UPER_Decoding_Error,
+    lambda: UPERcodec_STRING.dec(b"\xc0\x00\x00\x00", minimum=0, maximum=2),
+)
+_raises(
+    UPER_Decoding_Error,
+    lambda: UPERcodec_BIT_STRING.dec(b"\xf8", minimum=0, maximum=2),
+)
 True
 
 = UPER ENUMERATED accepts named string assignment

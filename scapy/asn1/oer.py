@@ -202,72 +202,15 @@ def resolve_oer_size_bounds(field=None, size_len=None):
     """Resolve OER SIZE bounds from ``size_len`` or field constraints."""
     if size_len is None and field is not None:
         size_len = field.size_len
+    if field is not None and field.constraints.extensible:
+        # Extensible SIZE is not OER-visible (X.696).
+        return None, None
     # ``size_len=0`` means unset (same as the historical ``if size_len:`` check).
     if size_len:
         return size_len, size_len
     if field is not None:
         return field.constraints.minimum, field.constraints.maximum
     return None, None
-
-
-def oer_int_wire_params(field=None, size_len=None, unsigned=None):
-    # type: (Any, Optional[int], Optional[bool]) -> Tuple[Optional[int], bool, Optional[int], Optional[int]]  # noqa: E501
-    """Derive OER INTEGER width and signedness from field constraints.
-
-    Per X.696 sections 10.3-10.4, extensible integer constraints are encoded
-    as unbounded. A nonnegative lower bound without a fitting fixed upper
-    bound uses variable-width unsigned encoding. A fixed eight-octet width
-    is used only when ``maximum <= 2**64 - 1``.
-    """
-    if size_len is None and field is not None:
-        size_len = field.size_len
-    if unsigned is None:
-        unsigned = bool(field.constraints.unsigned) if field is not None else False
-    if field is not None:
-        minimum, maximum = field.constraints.minimum, field.constraints.maximum
-        extensible = bool(field.constraints.extensible)
-    else:
-        minimum, maximum = None, None
-        extensible = False
-
-    # Extension values may lie outside the root range.
-    val_min = None if extensible else minimum
-    val_max = None if extensible else maximum
-
-    if size_len is not None:
-        if (not unsigned and minimum is not None and minimum >= 0 and
-                not extensible):
-            unsigned = True
-        return size_len, unsigned, val_min, val_max
-
-    if extensible:
-        return None, unsigned, None, None
-
-    if minimum is not None and minimum >= 0:
-        unsigned = True
-        if maximum is not None:
-            if maximum <= 0xFF:
-                size_len = 1
-            elif maximum <= 0xFFFF:
-                size_len = 2
-            elif maximum <= 0xFFFFFFFF:
-                size_len = 4
-            elif maximum <= 0xFFFFFFFFFFFFFFFF:
-                size_len = 8
-            # else: range exceeds 2^64-1 → variable unsigned
-    elif minimum is not None and maximum is not None:
-        unsigned = False
-        for sl, lo, hi in (
-            (1, -128, 127),
-            (2, -32768, 32767),
-            (4, -2147483648, 2147483647),
-            (8, -9223372036854775808, 9223372036854775807),
-        ):
-            if minimum >= lo and maximum <= hi:
-                size_len = sl
-                break
-
-    return size_len, unsigned, val_min, val_max
 
 
 _K = TypeVar('_K')
@@ -378,10 +321,70 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
         False: {1: ">B", 2: ">H", 4: ">I", 8: ">Q"},
     }
 
+    @staticmethod
+    def wire_params(field=None, size_len=None, unsigned=None):
+        # type: (Any, Optional[int], Optional[bool]) -> Tuple[Optional[int], bool, Optional[int], Optional[int]]  # noqa: E501
+        """Derive OER INTEGER width and signedness from field constraints.
+
+        Per X.696 sections 10.3-10.4, extensible integer constraints are encoded
+        as unbounded. A nonnegative lower bound without a fitting fixed upper
+        bound uses variable-width unsigned encoding. A fixed eight-octet width
+        is used only when ``maximum <= 2**64 - 1``.
+        """
+        if size_len is None and field is not None:
+            size_len = field.size_len
+        if unsigned is None:
+            unsigned = bool(field.constraints.unsigned) if field is not None else False
+        if field is not None:
+            minimum, maximum = field.constraints.minimum, field.constraints.maximum
+            extensible = bool(field.constraints.extensible)
+        else:
+            minimum, maximum = None, None
+            extensible = False
+
+        # Extension values may lie outside the root range.
+        val_min = None if extensible else minimum
+        val_max = None if extensible else maximum
+
+        if size_len is not None:
+            if (not unsigned and minimum is not None and minimum >= 0 and
+                    not extensible):
+                unsigned = True
+            return size_len, unsigned, val_min, val_max
+
+        if extensible:
+            return None, unsigned, None, None
+
+        if minimum is not None and minimum >= 0:
+            unsigned = True
+            if maximum is not None:
+                if maximum <= 0xFF:
+                    size_len = 1
+                elif maximum <= 0xFFFF:
+                    size_len = 2
+                elif maximum <= 0xFFFFFFFF:
+                    size_len = 4
+                elif maximum <= 0xFFFFFFFFFFFFFFFF:
+                    size_len = 8
+                # else: range exceeds 2^64-1 → variable unsigned
+        elif minimum is not None and maximum is not None:
+            unsigned = False
+            for sl, lo, hi in (
+                (1, -128, 127),
+                (2, -32768, 32767),
+                (4, -2147483648, 2147483647),
+                (8, -9223372036854775808, 9223372036854775807),
+            ):
+                if minimum >= lo and maximum <= hi:
+                    size_len = sl
+                    break
+
+        return size_len, unsigned, val_min, val_max
+
     @classmethod
     def enc(cls, i, field=None, size_len=None, oer_unsigned=None, **_kwargs):
         # type: (int, Any, Optional[int], Optional[bool], **Any) -> bytes
-        size_len, oer_unsigned, minimum, maximum = oer_int_wire_params(
+        size_len, oer_unsigned, minimum, maximum = cls.wire_params(
             field, size_len, oer_unsigned,
         )
         if minimum is not None and i < minimum:
@@ -426,7 +429,7 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[int], bytes]
-        size_len, oer_unsigned, minimum, maximum = oer_int_wire_params(
+        size_len, oer_unsigned, minimum, maximum = cls.wire_params(
             field, size_len, oer_unsigned,
         )
         if size_len in (1, 2, 4, 8):
@@ -434,20 +437,8 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
             x = struct.unpack(
                 cls._FIXED_FORMATS[not oer_unsigned][size_len], s[:size_len]
             )[0]
-            if minimum is not None and x < minimum:
-                raise OER_Decoding_Error(
-                    "%s: %i is below minimum %i" %
-                    (cls.__name__, x, minimum),
-                    remaining=s,
-                )
-            if maximum is not None and x > maximum:
-                raise OER_Decoding_Error(
-                    "%s: %i is above maximum %i" %
-                    (cls.__name__, x, maximum),
-                    remaining=s,
-                )
-            return cls.asn1_object(x), s[size_len:]
-        if oer_unsigned:
+            t = s[size_len:]
+        elif oer_unsigned:
             x, t = OER_unsigned_integer_dec(s)
         else:
             x, t = OER_signed_integer_dec(s)

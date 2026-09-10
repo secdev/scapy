@@ -748,3 +748,85 @@ assert ap_rep.encPart.underlayer is ap_rep
 assert ap_rep.encPart.parent is ap_rep
 assert ap_rep.encPart.get_usage() == (12, EncAPRepPart)
 True
+
+= flexible implicit tag is preserved through ordinary rebuild
+class _FlexRebuild(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("n", 0, implicit_tag=0x80, flexible_tag=True)
+    )
+
+wire = bytes.fromhex("3003810107")
+p = _FlexRebuild(wire)
+assert bytes(p) == wire
+copied = p.copy()
+assert bytes(copied) == wire
+cloned = p.clone_with(**p.fields)
+assert bytes(cloned) == wire
+assert _FlexRebuild.ASN1_root.seq[0].implicit_tag == 0x80
+True
+
+= sibling flexible sequences keep distinct observed tags
+class _FlexSiblings(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("a", 0),
+            explicit_tag=0xA0,
+            flexible_tag=True,
+        ),
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("b", 0),
+            explicit_tag=0xA0,
+            flexible_tag=True,
+        ),
+    )
+
+canonical = raw(_FlexSiblings(a=1, b=2))
+wire = canonical.replace(b"\xa0", b"\xa1", 1).replace(b"\xa0", b"\xa2", 1)
+decoded = _FlexSiblings(wire)
+assert bytes(decoded) == wire
+assert decoded.self_build() == wire
+True
+
+= root INTEGER build and dissect overrides are honored
+class _HookInt(ASN1F_INTEGER):
+    def build(self, pkt):
+        return ASN1_INTEGER(42).enc(pkt.ASN1_codec)
+    def dissect(self, pkt, s):
+        remain = super(_HookInt, self).dissect(pkt, s)
+        pkt.n = ASN1_INTEGER(99)
+        return remain
+
+class _HookPacket(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = _HookInt("n", 0)
+
+assert raw(_HookPacket()) == ASN1_INTEGER(42).enc(ASN1_Codecs.BER)
+assert _HookPacket(ASN1_INTEGER(1).enc(ASN1_Codecs.BER)).n.val == 99
+True
+
+= BER sequence encoding uses child build overrides
+class _SeqHookInt(ASN1F_INTEGER):
+    def build(self, pkt):
+        return ASN1_INTEGER(42).enc(pkt.ASN1_codec)
+
+class _SeqHookPacket(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(_SeqHookInt("n", 0))
+
+assert raw(_SeqHookPacket()) == bytes.fromhex("300302012a")
+True
+
+= ASN1F_DEFAULT applies the declared default to fields_desc
+class _DefaultInit(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_DEFAULT(ASN1F_INTEGER("n", 0), 7),
+    )
+
+assert getattr(_DefaultInit().n, "val", _DefaultInit().n) == 7
+assert raw(_DefaultInit()) == raw(_DefaultInit(n=7))
+decoded = _DefaultInit(b"\x30\x00")
+assert getattr(decoded.n, "val", decoded.n) == 7
+True

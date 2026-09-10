@@ -15,7 +15,7 @@ Codec-specific bound resolution lives in ``scapy.asn1.oer`` and
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -24,20 +24,3 @@ class ASN1Constraints:
     maximum: Optional[int] = None
     extensible: bool = False
     unsigned: bool = False
-
-
-_SUPPORTED_CONSTRAINTS = {
-    "minimum",
-    "maximum",
-    "extensible",
-    "unsigned",
-}
-
-
-def normalize_constraints(codec_opts):
-    # type: (Dict[str, Any]) -> ASN1Constraints
-    """Build ASN1Constraints from field kwargs."""
-    for key in codec_opts:
-        if key not in _SUPPORTED_CONSTRAINTS:
-            raise TypeError("Unknown field constraint %r" % key)
-    return ASN1Constraints(**codec_opts)

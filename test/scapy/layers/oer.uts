@@ -468,7 +468,7 @@ pkt = OERTaggedInteger()
 
 assert fld._tagging_enc(pkt, b"\x05", explicit_tag=0xA0) == b"\x05"
 
-assert fld._tagging_dec(pkt, b"\x05", explicit_tag=0xA0) == (None, b"\x05")
+assert pkt.ASN1_codec.tagging_dec(b"\x05", explicit_tag=0xA0) == (None, b"\x05")
 
 True
 = OER tag long form
@@ -1563,4 +1563,30 @@ class OERRangedStr(ASN1_Packet):
 assert raw(OERRangedStr(s=b"ab")) == b"\x02ab"
 assert _roundtrip(OERRangedStr, OERRangedStr(s=b"ab")).s.val == b"ab"
 _raises(OER_Encoding_Error, lambda: raw(OERRangedStr(s=b"abcd")))
+True
+
+= OER extensible SIZE is unconstrained and keeps a length determinant
+class OERExtFixedStr(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_STRING("s", b"", minimum=1, maximum=1, extensible=True)
+
+class OERExtRangeStr(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_STRING("s", b"", minimum=1, maximum=3, extensible=True)
+
+class OERExtFixedBits(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_BIT_STRING("b", "", minimum=1, maximum=1, extensible=True)
+
+class OERExtRangeBits(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_BIT_STRING("b", "", minimum=1, maximum=3, extensible=True)
+
+assert raw(OERExtFixedStr(s=b"A")) == b"\x01A"
+assert _roundtrip(OERExtFixedStr, OERExtFixedStr(s=b"A")).s.val == b"A"
+assert raw(OERExtRangeStr(s=b"ABCD")) == b"\x04ABCD"
+assert _roundtrip(OERExtRangeStr, OERExtRangeStr(s=b"ABCD")).s.val == b"ABCD"
+assert raw(OERExtFixedBits(b="1")) == OERcodec_BIT_STRING.enc("1")
+assert raw(OERExtRangeBits(b="1010")) == OERcodec_BIT_STRING.enc("1010")
+assert _roundtrip(OERExtRangeBits, OERExtRangeBits(b="1010")).b.val == "1010"
 True
