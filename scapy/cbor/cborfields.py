@@ -135,20 +135,9 @@ def _encode_exactly_one_cbor_item(val, context="value"):
     # type: (Any, str) -> bytes
     """Serialize *val* and require it to be exactly one well-formed CBOR item.
 
-    Trusted :class:`CBOR_Packet` values use their counted build contract.
-    Raw/bytes/generic Packet fallbacks are fully decoded to prove well-formed
-    single-item cardinality.
+    Always goes through ``bytes(val)`` so Packet ``post_build`` / payload are
+    included, then fully decodes to prove single-item cardinality.
     """
-    from scapy.cborpacket import CBOR_Packet
-    if isinstance(val, CBOR_Packet):
-        result = val._cbor_build_counted()
-        if result.items != 1:
-            raise CBOR_Encoding_Error(
-                "%s must encode exactly one top-level CBOR item, "
-                "but encoded %d"
-                % (getattr(type(val), "__name__", context), result.items)
-            )
-        return result.data
     data = bytes(val)
     try:
         _obj, remaining = CBORcodec_Object.decode_cbor_item(data)
@@ -597,12 +586,19 @@ class CBORF_ANY(CBORF_field[Any]):
             return x
         return self.python_to_cbor_object(x)
 
-    def _build_counted(self, pkt):
-        # type: (CBOR_Packet) -> _CBORBuildResult
+    def build(self, pkt):
+        # type: (CBOR_Packet) -> bytes
         val = pkt.getfieldval(self.name)
         if val is CBOR_ABSENT:
+            return b""
+        return self.i2m(pkt, val)
+
+    def _build_counted(self, pkt):
+        # type: (CBOR_Packet) -> _CBORBuildResult
+        data = self.build(pkt)
+        if not data:
             return _CBORBuildResult(b"", 0)
-        return _CBORBuildResult(self.i2m(pkt, val), 1)
+        return _CBORBuildResult(data, 1)
 
     def m2i(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> Tuple[Any, bytes]
