@@ -2969,6 +2969,15 @@ class DceRpcSession(DefaultSession):
                 if not body:
                     # It's the last one
                     pkt_frag.pfc_flags += "PFC_LAST_FRAG"
+                else:
+                    # [MS-RPCE] sect 2.2.2.13 - Verification Trailer
+                    # "only the last PDU of the request MUST have a verification
+                    # trailer"
+                    pkt_frag.vt_trailer = None
+
+                # Update payload for frag_len calculation
+                pkt_frag.payload.payload = conf.raw_layer(b"\x00" * len(cur))
+
                 yield pkt_frag, cur
         else:
             yield pkt, body
