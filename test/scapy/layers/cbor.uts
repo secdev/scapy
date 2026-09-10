@@ -685,6 +685,47 @@ assert pkt.raw_packet_cache == b"\x82\x01\x02"
 pkt.value.val.append(CBOR_UNSIGNED_INTEGER(3))
 assert bytes(pkt) == b"\x83\x01\x02\x03"
 
+= Nested packet in-place ANY mutation invalidates the parent raw cache
+from scapy.cbor.cborfields import CBORF_ANY, CBORF_PACKET
+from scapy.cbor.cbor import CBOR_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class NestedAnyChild(CBOR_Packet):
+    CBOR_root = CBORF_ANY("value", None)
+
+class NestedAnyParent(CBOR_Packet):
+    CBOR_root = CBORF_PACKET("child", None, NestedAnyChild)
+
+pkt = NestedAnyParent(bytes.fromhex("8101"))
+pkt.child.value.val.append(CBOR_UNSIGNED_INTEGER(2))
+assert bytes(pkt.child) == bytes.fromhex("820102")
+assert bytes(pkt) == bytes.fromhex("820102")
+
+= ARRAY_OF(CBORF_ANY) same-value float mutation invalidates raw cache
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_ANY
+from scapy.cborpacket import CBOR_Packet
+
+class AnyArrayFloatPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF("values", [], CBORF_ANY)
+
+pkt = AnyArrayFloatPkt(bytes.fromhex("81f90000"))
+pkt.values[0].val = -0.0
+assert bytes(pkt) == bytes.fromhex("81f98000")
+
+= Unknown map float mutation invalidates raw cache
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_UNSIGNED_INTEGER, CBORF_optional
+from scapy.cborpacket import CBOR_Packet
+
+class UnknownFloatMap(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_optional(CBORF_UNSIGNED_INTEGER("a", None)),
+    )
+
+pkt = UnknownFloatMap(bytes.fromhex("a16178f90000"))
+assert pkt._cbor_unknown[0][0] == "x"
+pkt._cbor_unknown[0][1].val = -0.0
+assert bytes(pkt) == bytes.fromhex("a16178f98000")
+
 = Typed map lookup distinguishes integer 1 from boolean True
 from scapy.cbor import CBOR_Codecs
 from scapy.cbor.cbor import CBORMapData

@@ -93,7 +93,46 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
         # that semantic CBOR_Object equality ignores.
         cache_fingerprint = getattr(fld, "cache_fingerprint", None)
         if cache_fingerprint is not None:
-            return cache_fingerprint(val)
+            fingerprint = cache_fingerprint(val)
+            if fingerprint is not None:
+                return fingerprint
+        if fld.holds_packets:
+            # Compose nested CBOR field fingerprints instead of shallow-copying
+            # child.fields (which aliases mutable CBOR_Object trees).
+            def _child_fp(child):
+                # type: (Packet) -> Tuple[Any, Any]
+                child_fields = {}  # type: Dict[str, Any]
+                if isinstance(child, CBOR_Packet):
+                    from scapy.cbor.cborfields import CBOR_ABSENT
+                    for cf in child.fields_desc:
+                        if cf.name not in child.fields:
+                            continue
+                        cval = child.fields[cf.name]
+                        if cval is CBOR_ABSENT:
+                            child_fields[cf.name] = CBOR_ABSENT
+                            continue
+                        if cval is None and getattr(cf, "isconditional", False):
+                            continue
+                        if (
+                            cf.islist
+                            or cf.holds_packets
+                            or getattr(cf, "ismutable", False)
+                        ) and cval is not None:
+                            child_fields[cf.name] = \
+                                child._raw_packet_cache_field_value(
+                                    cf, cval, copy=copy
+                                )
+                        else:
+                            child_fields[cf.name] = cval
+                else:
+                    child_fields = (
+                        fld.do_copy(child.fields) if copy else child.fields
+                    )
+                return (child_fields, child.payload.raw_packet_cache)
+
+            if fld.islist:
+                return [_child_fp(item) for item in val]
+            return _child_fp(val)
         return super(CBOR_Packet, self)._raw_packet_cache_field_value(
             fld, val, copy
         )
