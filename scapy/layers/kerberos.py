@@ -2153,7 +2153,7 @@ class _KRBERROR_data_Field(ASN1F_STRING_PacketField):
             try:
                 return KERB_ERROR_DATA(val[0].val, _underlayer=pkt), val[1]
             except BER_Decoding_Error:
-                if pkt.errorCode.val in [18, 12]:
+                if pkt.errorCode.val in [12, 18, 41]:
                     # Some types can also happen in FAST sessions
                     # 18: KDC_ERR_CLIENT_REVOKED
                     return MethodData(val[0].val, _underlayer=pkt), val[1]
@@ -4033,13 +4033,13 @@ class KerberosClient(Automaton):
                 # "if the key's encryption type is RC4_HMAC_NT (23) the checksum type
                 # is rsa-md4 (2) as defined in section 6.2.6 of [RFC3961]."
                 pasfux509.checksum.make(
-                    self.key,
+                    self.subkey or self.key,
                     bytes(pasfux509.userId),
                     cksumtype=ChecksumType.RSA_MD4,
                 )
             else:
                 pasfux509.checksum.make(
-                    self.key,
+                    self.subkey or self.key,
                     bytes(pasfux509.userId),
                 )
             padata.append(
@@ -4066,7 +4066,7 @@ class KerberosClient(Automaton):
                     ).encode()
                 )
                 paforuser.cksum.make(
-                    self.key,
+                    self.subkey or self.key,
                     S4UByteArray,
                     cksumtype=ChecksumType.HMAC_MD5,
                 )
