@@ -2615,6 +2615,36 @@ try:
 except CBOR_Encoding_Error:
     pass
 
+= Nested CBORF_PACKET honors child post_build
+from scapy.cbor.cborfields import CBORF_PACKET, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class PostBuildChild(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("value", 0)
+    def post_build(self, pkt, pay):
+        # Force a distinct single CBOR unsigned integer on the wire.
+        return b"\x18\x2a" + pay
+
+class PostBuildParent(CBOR_Packet):
+    CBOR_root = CBORF_PACKET("child", None, PostBuildChild)
+
+child = PostBuildChild(value=1)
+assert bytes(child) == b"\x18\x2a"
+bytes(PostBuildParent(child=child)) == bytes(child)
+
+= CBORF_ANY subclass build() is used by ARRAY counted path
+from scapy.cbor.cborfields import CBORF_ANY, CBORF_ARRAY
+from scapy.cborpacket import CBOR_Packet
+
+class ForcedAny(CBORF_ANY):
+    def build(self, pkt):
+        return b"\x18\x63"
+
+class ForcedAnyPkt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(ForcedAny("value", None))
+
+bytes(ForcedAnyPkt(value=0)) == b"\x81\x18\x63"
+
 = CBORF_PACKET rejects non-CBOR Packet/bytes that are not exactly one item
 from scapy.cbor.cborfields import CBORF_PACKET
 from scapy.cbor.cbor import CBOR_Encoding_Error
