@@ -394,11 +394,6 @@ class CBORF_field(CBORF_element, Generic[_I]):
         """Record that this field was not present on the wire."""
         self.set_val(pkt, CBOR_ABSENT)
 
-    def is_absent(self, pkt):
-        # type: (CBOR_Packet) -> bool
-        """Return True when this field is marked :data:`CBOR_ABSENT`."""
-        return pkt.getfieldval(self.name) is CBOR_ABSENT
-
     def is_empty(self, pkt):
         # type: (CBOR_Packet) -> bool
         val = pkt.getfieldval(self.name)
@@ -589,13 +584,6 @@ class CBORF_ANY(CBORF_field[Any]):
         if isinstance(x, CBOR_UNDEFINED):
             return x
         return self.python_to_cbor_object(x)
-
-    def build(self, pkt):
-        # type: (CBOR_Packet) -> bytes
-        val = pkt.getfieldval(self.name)
-        if val is CBOR_ABSENT:
-            return b""
-        return self.i2m(pkt, val)
 
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
@@ -824,7 +812,11 @@ class CBORF_BYTE_STRING_PACKET(CBORF_field[Packet]):
             return packet.Raw(data)
         try:
             return pkt_cls(data, _parent=pkt)  # type: ignore
+        except CBOR_Decoding_Error:
+            raise
         except Exception as exc:
+            if config.conf.debug_dissector:
+                raise
             raise CBOR_Decoding_Error(
                 "Failed to decode byte-string packet content: %s" % exc
             ) from exc
@@ -2029,7 +2021,7 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
         return self.inner_field.name
 
     def _parse_tag_head(self, s):
-        # type: (bytes) -> Tuple[int, bytes]
+        # type: (bytes) -> bytes
         try:
             major_type, tag_num, remaining = CBOR_decode_head(s)
         except CBOR_Codec_Decoding_Error as e:
@@ -2040,7 +2032,7 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
         if tag_num != self.tag_num:
             raise CBOR_Type_Mismatch(
                 "Expected tag %d, got %d" % (self.tag_num, tag_num))
-        return tag_num, remaining
+        return remaining
 
     def _encode_tagged(self, inner_data):
         # type: (bytes) -> bytes
@@ -2061,7 +2053,7 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
 
     def _dissect_counted(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> _CBORParseResult
-        _tag_num, remaining = self._parse_tag_head(s)
+        remaining = self._parse_tag_head(s)
         inner = self.inner_field._dissect_counted(pkt, remaining)
         if inner.items != 1:
             raise CBOR_Decoding_Error(
@@ -2078,7 +2070,7 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
 
     def _parse_value(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> _CBORParseResult
-        _tag_num, remaining = self._parse_tag_head(s)
+        remaining = self._parse_tag_head(s)
         inner = self.inner_field._parse_value(pkt, remaining)
         if inner.items != 1:
             raise CBOR_Decoding_Error(
