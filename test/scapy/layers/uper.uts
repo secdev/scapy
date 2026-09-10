@@ -1991,6 +1991,7 @@ _raises(UPER_Decoding_Error, lambda: UPERSetRecord(b"\x01"))
 pkt = UPERSetOfRecord(items=[1])
 decoded = UPERSetOfRecord(raw(pkt))
 assert [x.val for x in decoded.items] == [1]
+assert raw(pkt) == raw(UPERSequenceOfIntegers(values=[1]))
 True
 
 = uper ipaddress

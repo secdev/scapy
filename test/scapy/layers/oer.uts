@@ -406,6 +406,9 @@ OER_unsigned_integer_enc(0) == b"\x01\x00"
 = OER unsigned integer roundtrip
 v, r = OER_unsigned_integer_dec(OER_unsigned_integer_enc(65535))
 v == 65535 and r == b""
+= OER unsigned integer empty encoding is rejected
+_raises(OER_Decoding_Error, lambda: OER_unsigned_integer_dec(b"\x00"))
+True
 = OER fixed unsigned 1 byte
 OERcodec_INTEGER.enc(255, size_len=1, oer_unsigned=True) == b"\xff"
 = OER fixed signed 2 bytes negative
@@ -497,6 +500,10 @@ assert OER_tag_dec(OER_tag_enc(16384, OER_CLASS_PRIVATE)) == (OER_CLASS_PRIVATE,
 _raises(OER_Decoding_Error, lambda: OER_tag_dec(b"\xbf\x81"))
 
 _raises(OER_Decoding_Error, lambda: OER_tag_dec(b""))
+
+_raises(OER_Decoding_Error, lambda: OER_tag_dec(b"\xbf\x00"))
+
+_raises(OER_Decoding_Error, lambda: OER_tag_dec(b"\xbf\x80\x01"))
 
 True
 
@@ -1305,6 +1312,7 @@ assert OERcodec_SET.enc(b"raw") == b"raw"
 pkt = OERSetOfRecord(items=[1, 2])
 decoded = OERSetOfRecord(raw(pkt))
 assert [x.val for x in decoded.items] == [1, 2]
+assert raw(pkt) == raw(OERSequenceOfIntegers(values=[1, 2]))
 True
 
 = oer sequence of a pre-encoded value

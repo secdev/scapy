@@ -5,8 +5,9 @@
 """Codec-neutral ASN.1 schema constraints.
 
 ``minimum`` / ``maximum`` mean a value range for INTEGER and ENUMERATED
-fields, and a SIZE constraint for string and BIT STRING fields.
-``size_len`` is a fixed SIZE (octets or bits) used when both bounds coincide.
+fields, and a SIZE constraint for string and BIT STRING fields. A coinciding
+SIZE is expressed as equal bounds; the legacy ``size_len`` argument lives on
+the field, not on this dataclass.
 ``extensible`` marks an extension marker on the constraint.
 ``unsigned`` selects unsigned INTEGER encoding where the codec supports it.
 

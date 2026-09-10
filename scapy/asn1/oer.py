@@ -155,6 +155,11 @@ def OER_unsigned_integer_dec(s):
             (len(s), number_of_bytes),
             remaining=s
         )
+    if number_of_bytes == 0:
+        raise OER_Decoding_Error(
+            "OER_unsigned_integer_dec: got an empty length determinant",
+            remaining=s
+        )
     value = int.from_bytes(s[:number_of_bytes], "big")
     return value, s[number_of_bytes:]
 
@@ -188,6 +193,11 @@ def OER_tag_dec(s):
     i = 1
     while i < len(s):
         c = s[i]
+        if i == 1 and (c & 0x7f) == 0:
+            raise OER_Decoding_Error(
+                "OER_tag_dec: first subsequent octet has leading zeros",
+                remaining=s,
+            )
         tag_number <<= 7
         tag_number |= c & 0x7f
         i += 1
