@@ -82,21 +82,10 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
         )
         if for_dissect_only:
             return
-        # Packet copies ismutable defaults into fields; promote leftovers and
-        # re-parent nested packet defaults onto this instance.
-        for f in self.fields_desc:
+        # Packet copies ismutable defaults; only re-parent nested packets here.
+        for f in self.packetfields:
             if f.name in self.fields:
-                if f.holds_packets:
-                    self.fields[f.name] = f.any2i(self, self.fields[f.name])
-                continue
-            if not (
-                getattr(f, "ismutable", False) or f.holds_packets
-            ) or f.name not in self.default_fields:
-                continue
-            val = f.do_copy(self.default_fields[f.name])
-            if f.holds_packets:
-                val = f.any2i(self, val)
-            self.fields[f.name] = val
+                self.fields[f.name] = f.any2i(self, self.fields[f.name])
 
     def _raw_packet_cache_field_value(self, fld, val, copy=False):
         # type: (Any, Any, bool) -> Optional[Any]
