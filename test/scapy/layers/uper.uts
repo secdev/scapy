@@ -1977,6 +1977,21 @@ assert UPERcodec_SET.enc(b"raw") == b"raw"
 
 True
 
+= uper SET and SET OF are rejected
+class UPERSetRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SET(ASN1F_INTEGER("n", 0))
+
+class UPERSetOfRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SET_OF("items", [], ASN1F_INTEGER)
+
+_raises(UPER_Encoding_Error, lambda: raw(UPERSetRecord(n=1)))
+_raises(UPER_Decoding_Error, lambda: UPERSetRecord(b"\x01"))
+_raises(UPER_Encoding_Error, lambda: raw(UPERSetOfRecord(items=[1])))
+_raises(UPER_Decoding_Error, lambda: UPERSetOfRecord(b"\x01"))
+True
+
 = uper ipaddress
 encoded = UPERcodec_IPADDRESS.enc("10.0.0.1")
 
@@ -2825,7 +2840,7 @@ enum_fld = ASN1F_ENUMERATED("e", 0, {1: "a", 2: "b"})
 # ENUMERATED values are resolved per-codec from the field schema.
 assert enum_fld.constraints.extensible is False
 
-assert enum_fld.uper_enum_values() == [1, 2]
+assert sorted(enum_fld.i2s) == [1, 2]
 
 True
 
@@ -3780,7 +3795,7 @@ class UPERStrKeyEnum(ASN1_Packet):
         {"off": 0, "on": 1},
     )
 
-assert UPERStrKeyEnum.ASN1_root.uper_enum_values() == [0, 1]
+assert sorted(UPERStrKeyEnum.ASN1_root.i2s) == [0, 1]
 assert raw(UPERStrKeyEnum(state="on")) == raw(UPERStrKeyEnum(state=1))
 assert _roundtrip(UPERStrKeyEnum, UPERStrKeyEnum(state="on")).state.val == 1
 True

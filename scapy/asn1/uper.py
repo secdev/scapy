@@ -939,15 +939,6 @@ class UPERcodec_OID(UPERcodec_Object[bytes]):
 class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.ENUMERATED
 
-    @staticmethod
-    def _enum_values(field=None, values=None):
-        # type: (Any, Optional[List[int]]) -> Optional[List[int]]
-        if values is not None:
-            return values
-        if field is not None and hasattr(field, "uper_enum_values"):
-            return field.uper_enum_values()
-        return None
-
     @classmethod
     def encode_into(cls,
                     enc,  # type: UPER_Encoder
@@ -967,9 +958,12 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
         if minimum is None and maximum is None and field is not None:
             minimum = field.constraints.minimum
             maximum = field.constraints.maximum
-        uper_enum_values = cls._enum_values(
-            field, values=uper_enum_values,
-        )
+        if uper_enum_values is None and field is not None:
+            i2s = getattr(field, "i2s", None)
+            if i2s is not None:
+                uper_enum_values = sorted(i2s)
+        if isinstance(i, str) and field is not None:
+            i = field.s2i[i]
         if extensible is None:
             extensible = (
                 bool(field.constraints.extensible) if field is not None else False
@@ -1019,9 +1013,10 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
         if minimum is None and maximum is None and field is not None:
             minimum = field.constraints.minimum
             maximum = field.constraints.maximum
-        uper_enum_values = cls._enum_values(
-            field, values=uper_enum_values,
-        )
+        if uper_enum_values is None and field is not None:
+            i2s = getattr(field, "i2s", None)
+            if i2s is not None:
+                uper_enum_values = sorted(i2s)
         if extensible is None:
             extensible = (
                 bool(field.constraints.extensible) if field is not None else False

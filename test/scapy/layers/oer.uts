@@ -1274,6 +1274,21 @@ _raises(OER_Decoding_Error, lambda: OEROnlyOptional().do_dissect(b""))
 
 True
 
+= oer SET and SET OF are rejected
+class OERSetRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SET(ASN1F_INTEGER("n", 0))
+
+class OERSetOfRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SET_OF("items", [], ASN1F_INTEGER)
+
+_raises(OER_Encoding_Error, lambda: raw(OERSetRecord(n=1)))
+_raises(OER_Decoding_Error, lambda: OERSetRecord(b"\x01\x01"))
+_raises(OER_Encoding_Error, lambda: raw(OERSetOfRecord(items=[1])))
+_raises(OER_Decoding_Error, lambda: OERSetOfRecord(b"\x01\x01"))
+True
+
 = oer sequence of a pre-encoded value
 # A RAW object is written as-is, without the quantity determinant
 raw_items = ASN1_Class_UNIVERSAL.RAW.asn1_object(b"\x01\x01\x07")
