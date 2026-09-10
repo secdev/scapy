@@ -49,7 +49,7 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
 
     CBOR_root = None  # type: Optional[Any]
 
-    def _raw_cache_is_valid(self):
+    def _raw_packet_cache_is_valid(self):
         # type: () -> bool
         """Return True if ``raw_packet_cache`` still matches nested field state."""
         if not super(CBOR_Packet, self)._raw_packet_cache_is_valid():
@@ -66,7 +66,7 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
         packet merely to recover cardinality.
         """
         from scapy.cbor.cborfields import _CBORBuildResult
-        if self._raw_cache_is_valid():
+        if self._raw_packet_cache_is_valid():
             items = getattr(self, "_cbor_raw_cache_items", None)
             if items is None:
                 items = 1
@@ -118,10 +118,11 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
                             or cf.holds_packets
                             or getattr(cf, "ismutable", False)
                         ) and cval is not None:
-                            child_fields[cf.name] = \
+                            child_fields[cf.name] = (
                                 child._raw_packet_cache_field_value(
                                     cf, cval, copy=copy
                                 )
+                            )
                         else:
                             child_fields[cf.name] = cval
                 else:
@@ -139,7 +140,7 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
 
     def self_build(self):
         # type: () -> bytes
-        if self._raw_cache_is_valid():
+        if self._raw_packet_cache_is_valid():
             return self.raw_packet_cache
         return self.CBOR_root.build(self)
 

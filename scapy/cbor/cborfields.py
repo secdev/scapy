@@ -784,12 +784,13 @@ class CBORF_BYTE_STRING(CBORF_field[bytes]):
         return RandString(RandNum(0, 1000))
 
 
-class CBORF_BYTE_STRING_PACKET(CBORF_field[Packet]):
+class CBORF_BYTE_STRING_PACKET(CBORF_BYTE_STRING):
     """CBOR byte string which wraps another packet field.
 
     The inner packet may or may not itself be CBOR or CBOR sequence data.
+    Inherits definite-length checks and byte-string encode/decode from
+    :class:`CBORF_BYTE_STRING`.
     """
-    CBOR_tag = CBOR_MajorTypes.BYTE_STRING
     holds_packets = 1
 
     def __init__(self,
@@ -805,8 +806,9 @@ class CBORF_BYTE_STRING_PACKET(CBORF_field[Packet]):
         # any2i() needs these during default normalization in super().__init__.
         self.pkt_cls = pkt_cls
         self.cls_cb = cls_cb
-        self.definite_only = definite_only
-        super(CBORF_BYTE_STRING_PACKET, self).__init__(name, default)
+        super(CBORF_BYTE_STRING_PACKET, self).__init__(
+            name, default, definite_only=definite_only
+        )
 
     def _decode_packet_value(self, pkt, data):
         # type: (CBOR_Packet, bytes) -> Packet
@@ -839,26 +841,8 @@ class CBORF_BYTE_STRING_PACKET(CBORF_field[Packet]):
 
     def m2i(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> Tuple[Packet, bytes]
-        if self.definite_only:
-            try:
-                major_type, length, _rem = CBOR_decode_head(s)
-            except CBOR_Codec_Decoding_Error as e:
-                raise CBOR_Decoding_Error(str(e))
-            if major_type != int(CBOR_MajorTypes.BYTE_STRING):
-                raise CBOR_Type_Mismatch(
-                    "Expected byte string, got major type %d" % major_type)
-            if length is CBOR_INDEFINITE:
-                raise CBOR_Decoding_Error(
-                    "Indefinite-length byte string not allowed here")
-        obj, remain = CBORcodec_BYTE_STRING.dec(s)
-        if not isinstance(obj, CBOR_BYTE_STRING):
-            raise CBOR_Type_Mismatch(
-                "Expected byte string, got %r" % obj)
-        return self._decode_packet_value(pkt, obj.val), remain
-
-    def encode_value(self, x):
-        # type: (Any) -> bytes
-        return CBORcodec_BYTE_STRING.enc(bytes(x))
+        data, remain = super(CBORF_BYTE_STRING_PACKET, self).m2i(pkt, s)
+        return self._decode_packet_value(pkt, data), remain
 
 
 class CBORF_TEXT_STRING(CBORF_field[str]):
@@ -1169,12 +1153,9 @@ class _CBORF_compound(CBORF_element):
 
     def _mark_absent(self, pkt, field):
         # type: (CBOR_Packet, Any) -> None
-        """Record that an optional/conditional field was not present."""
+        """Record that an optional field was not present on the wire."""
         if isinstance(field, CBORF_optional):
             field._field.mark_absent(pkt)
-        elif isinstance(field, CBORF_CONDITIONAL):
-            # Condition false or skipped: leave value untouched.
-            pass
 
     def _reject_ambiguous_unbounded_sequences(self):
         # type: () -> None
@@ -1216,8 +1197,6 @@ class _CBORF_compound(CBORF_element):
             if available < needed:
                 raise CBOR_Decoding_Error("CBOR item count mismatch")
             if available == 0:
-                if needed > 0:
-                    raise CBOR_Decoding_Error("CBOR item count mismatch")
                 # Zero budget: later required fields reserved every remaining
                 # item. Optionals stay absent for reservation, but a matching
                 # optional must still be well-formed — otherwise a malformed
