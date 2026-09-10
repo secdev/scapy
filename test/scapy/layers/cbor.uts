@@ -712,6 +712,77 @@ pkt = AnyArrayFloatPkt(bytes.fromhex("81f90000"))
 pkt.values[0].val = -0.0
 assert bytes(pkt) == bytes.fromhex("81f98000")
 
+= Packet-valued ARRAY_OF and SEQUENCE_OF fingerprint copy and wire cache
+from scapy.cbor.cborfields import (
+    CBORF_ANY,
+    CBORF_ARRAY_OF,
+    CBORF_PACKET,
+    CBORF_SEQUENCE,
+    CBORF_SEQUENCE_OF,
+)
+from scapy.cbor.cbor import CBOR_FLOAT, CBOR_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class NestedAnyChild(CBOR_Packet):
+    CBOR_root = CBORF_ANY("value", None)
+
+# Packet-class constructor
+class ArrayOfChildCls(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF("items", [], NestedAnyChild)
+
+# Packet-field-instance constructor
+class ArrayOfChildFld(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF(
+        "items", [], CBORF_PACKET("item", None, NestedAnyChild)
+    )
+
+class SeqOfChildCls(CBOR_Packet):
+    CBOR_root = CBORF_SEQUENCE(
+        CBORF_SEQUENCE_OF("items", [], NestedAnyChild),
+    )
+
+class SeqOfChildFld(CBOR_Packet):
+    CBOR_root = CBORF_SEQUENCE(
+        CBORF_SEQUENCE_OF(
+            "items", [], CBORF_PACKET("item", None, NestedAnyChild)
+        ),
+    )
+
+wire = bytes.fromhex("81f90000")
+for cls in (ArrayOfChildCls, ArrayOfChildFld):
+    assert cls.CBOR_root.holds_packets == 1
+    pkt = cls(wire)
+    assert bytes(pkt) == wire
+    pkt.items[0].value.val = -0.0
+    assert bytes(pkt) == bytes.fromhex("81f98000")
+
+for cls in (ArrayOfChildCls, ArrayOfChildFld):
+    pkt = cls(wire)
+    pkt.items[0].value = CBOR_FLOAT(0.0)
+    assert getattr(pkt.items[0].value, "_encoded", None) is None
+    assert bytes(pkt) == bytes.fromhex("81f90000")
+
+for cls in (ArrayOfChildCls, ArrayOfChildFld):
+    pkt = cls(bytes.fromhex("81820102"))
+    pkt.items[0].value.val.append(CBOR_UNSIGNED_INTEGER(3))
+    assert bytes(pkt) == bytes.fromhex("8183010203")
+
+for cls in (ArrayOfChildCls, ArrayOfChildFld):
+    pkt = cls(wire)
+    clone = pkt.copy()
+    assert clone.items[0].parent is clone
+    clone.items[0].value.val = -0.0
+    assert bytes(pkt) == wire
+    assert bytes(clone) == bytes.fromhex("81f98000")
+
+seq_wire = bytes.fromhex("f90000")
+for cls in (SeqOfChildCls, SeqOfChildFld):
+    assert cls.CBOR_root.seq[0].holds_packets == 1
+    pkt = cls(seq_wire)
+    assert bytes(pkt) == seq_wire
+    pkt.items[0].value.val = -0.0
+    assert bytes(pkt) == bytes.fromhex("f98000")
+
 = Unknown map float mutation invalidates raw cache
 from scapy.cbor.cborfields import CBORF_MAP, CBORF_UNSIGNED_INTEGER, CBORF_optional
 from scapy.cborpacket import CBOR_Packet
@@ -1136,6 +1207,153 @@ class OptThenReq(CBOR_Packet):
 pkt = OptThenReq(b"\x81\x07")
 assert pkt.opt is CBOR_ABSENT
 assert pkt.req == 7
+
+= Count default 5 with wire count 1 decodes on ARRAY SEQUENCE and indefinite
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_ARRAY_INDEFINITE,
+    CBORF_INTEGER,
+    CBORF_SEQUENCE,
+    CBORF_SEQUENCE_OF,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class CountDef5Array(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("n", 5),
+        CBORF_SEQUENCE_OF("values", [], CBORF_INTEGER, count_from="n"),
+    )
+
+class CountDef5Seq(CBOR_Packet):
+    CBOR_root = CBORF_SEQUENCE(
+        CBORF_INTEGER("n", 5),
+        CBORF_SEQUENCE_OF("values", [], CBORF_INTEGER, count_from="n"),
+    )
+
+class CountDef5Indef(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_INDEFINITE(
+        CBORF_INTEGER("n", 5),
+        CBORF_SEQUENCE_OF("values", [], CBORF_INTEGER, count_from="n"),
+    )
+
+pkt = CountDef5Array(b"\x82\x01\x0a")
+assert pkt.n == 1 and pkt.values == [10]
+pkt = CountDef5Seq(b"\x01\x0a")
+assert pkt.n == 1 and pkt.values == [10]
+pkt = CountDef5Indef(b"\x9f\x01\x0a\xff")
+assert pkt.n == 1 and pkt.values == [10]
+
+= Count default None does not evaluate int(None) before the discriminator
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_ARRAY_INDEFINITE,
+    CBORF_INTEGER,
+    CBORF_SEQUENCE,
+    CBORF_SEQUENCE_OF,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class CountDefNoneArray(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("n", None),
+        CBORF_SEQUENCE_OF("values", [], CBORF_INTEGER, count_from="n"),
+    )
+
+class CountDefNoneSeq(CBOR_Packet):
+    CBOR_root = CBORF_SEQUENCE(
+        CBORF_INTEGER("n", None),
+        CBORF_SEQUENCE_OF("values", [], CBORF_INTEGER, count_from="n"),
+    )
+
+class CountDefNoneIndef(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_INDEFINITE(
+        CBORF_INTEGER("n", None),
+        CBORF_SEQUENCE_OF("values", [], CBORF_INTEGER, count_from="n"),
+    )
+
+pkt = CountDefNoneArray(b"\x83\x02\x0a\x0b")
+assert pkt.n == 2 and pkt.values == [10, 11]
+pkt = CountDefNoneSeq(b"\x02\x0a\x0b")
+assert pkt.n == 2 and pkt.values == [10, 11]
+pkt = CountDefNoneIndef(b"\x9f\x02\x0a\x0b\xff")
+assert pkt.n == 2 and pkt.values == [10, 11]
+
+= Conditional disabled by default enables on wire with present value
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_ARRAY_INDEFINITE,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_SEQUENCE,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class CondOffArray(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 0),
+        CBORF_CONDITIONAL(CBORF_INTEGER("last", 8), lambda p: p.flag == 1),
+    )
+
+class CondOffSeq(CBOR_Packet):
+    CBOR_root = CBORF_SEQUENCE(
+        CBORF_INTEGER("flag", 0),
+        CBORF_CONDITIONAL(CBORF_INTEGER("last", 8), lambda p: p.flag == 1),
+    )
+
+class CondOffIndef(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_INDEFINITE(
+        CBORF_INTEGER("flag", 0),
+        CBORF_CONDITIONAL(CBORF_INTEGER("last", 8), lambda p: p.flag == 1),
+    )
+
+pkt = CondOffArray(b"\x82\x01\x08")
+assert pkt.flag == 1 and pkt.last == 8
+pkt = CondOffSeq(b"\x01\x08")
+assert pkt.flag == 1 and pkt.last == 8
+pkt = CondOffIndef(b"\x9f\x01\x08\xff")
+assert pkt.flag == 1 and pkt.last == 8
+
+= Optional before count_from collection reserves the collection items
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_INTEGER,
+    CBORF_SEQUENCE_OF,
+    CBORF_optional,
+    CBOR_ABSENT,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptBeforeCounted(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("n", 0),
+        CBORF_optional(CBORF_INTEGER("opt", None)),
+        CBORF_SEQUENCE_OF("values", [], CBORF_INTEGER, count_from="n"),
+    )
+
+pkt = OptBeforeCounted(b"\x83\x02\x0a\x0b")
+assert pkt.n == 2
+assert pkt.opt is CBOR_ABSENT
+assert pkt.values == [10, 11]
+
+= Definite ARRAY rejects item count inconsistent with schema
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_INTEGER,
+    CBOR_Decoding_Error,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class TwoIntsArray(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("a", 0),
+        CBORF_INTEGER("b", 0),
+    )
+
+try:
+    TwoIntsArray(b"\x83\x01\x02\x03")
+    assert False, "inconsistent definite array count must raise"
+except CBOR_Decoding_Error:
+    pass
 
 = Indefinite array rejects nonterminal unbounded SEQUENCE_OF
 from scapy.cbor.cborfields import (
@@ -2086,7 +2304,7 @@ except ValueError:
 else:
     raise AssertionError("ambiguous separated unbounded sequences were accepted")
 
-+ Finding 8 - Nested _cbor_build_counted must preserve a valid child raw cache
++ Finding 8 - Nested rebuild must preserve a valid child raw cache
 
 = Parent rebuild preserves untouched child wire representation
 from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_PACKET, CBORF_UNSIGNED_INTEGER
@@ -2110,7 +2328,7 @@ assert bytes(pkt.child) == b"\x18\x01"
 # untouched nested child from 0x18 0x01 to 0x01.
 pkt.sibling = 1
 assert bytes(pkt) == b"\x82\x01\x18\x01"
-assert pkt.child._cbor_build_counted().data == bytes(pkt.child)
+assert bytes(pkt.child) == b"\x18\x01"
 
 = Parent rebuild preserves an untouched child encoded as an indefinite array
 from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_PACKET, CBORF_UNSIGNED_INTEGER
@@ -2547,9 +2765,7 @@ assert cbor_find_non_deterministic(
 ) == []
 
 
-+ Cache item counts and packet-field cardinality
-
-+ Cached unframed packets preserve exact bytes and item counts
++ Cached unframed packets preserve exact bytes
 
 = Unframed SEQUENCE cache returns exact bytes without rebuild
 from scapy.cbor.cborfields import (
@@ -2570,11 +2786,7 @@ class SeqChild(CBOR_Packet):
 overlong = b"\x18\x01\x02"
 child = SeqChild(overlong)
 assert child.raw_packet_cache == overlong
-assert child._cbor_raw_cache_items == 2
-result = child._cbor_build_counted()
-assert result.data == overlong
-assert result.items == 2
-assert result.data == bytes(child)
+assert bytes(child) == overlong
 
 # CBORF_PACKET represents exactly one CBOR item: embedding a multi-item
 # SEQUENCE child must fail (do not put this child in a CBORF_PACKET parent
@@ -3437,6 +3649,33 @@ assert isinstance(pkt.payload, Raw) or pkt.original.endswith(b"\x03")
 remain = TwoInts.CBOR_root._dissect_counted(TwoInts(), b"\x01\x02\x03").remaining
 assert remain == b"\x03"
 
+= Counted unframed SEQUENCE leaves valid invalid and truncated trailing bytes
+from scapy.cbor.cborfields import (
+    CBORF_INTEGER,
+    CBORF_SEQUENCE,
+    CBORF_SEQUENCE_OF,
+)
+from scapy.cborpacket import CBOR_Packet
+from scapy.packet import Raw
+
+class CountedSequence(CBOR_Packet):
+    CBOR_root = CBORF_SEQUENCE(
+        CBORF_INTEGER("n", 0),
+        CBORF_SEQUENCE_OF(
+            "values", [], CBORF_INTEGER, count_from="n"
+        ),
+    )
+
+for suffix in (b"\x04", b"\xff", b"\x18"):
+    wire = b"\x01\x03" + suffix
+    remain = CountedSequence.CBOR_root._dissect_counted(
+        CountedSequence(), wire
+    ).remaining
+    assert remain == suffix
+    pkt = CountedSequence(wire)
+    assert pkt.n == 1 and pkt.values == [3]
+    assert isinstance(pkt.payload, Raw) and pkt.payload.load == suffix
+
 = CBORF_SEMANTIC_TAG rejects the wrong tag number
 from scapy.cbor.cborfields import (
     CBORF_SEMANTIC_TAG, CBORF_INTEGER, CBOR_Type_Mismatch,
@@ -3728,7 +3967,10 @@ try:
     assert False, "SEQUENCE accepted over-nested input"
 except Exception as err:
     assert not isinstance(err, RecursionError)
-    assert "nesting" in str(err).lower()
+    # Streaming SEQUENCE does not pre-count the buffer; the first item is
+    # rejected as the wrong major type rather than a nesting pre-scan error.
+    msg = str(err).lower()
+    assert "nesting" in msg or "major type" in msg
 
 # Indefinite array pre-scan uses the same depth-limited skip path.
 indef_too_deep = b"\x9f" + too_deep + b"\xff"
