@@ -2976,7 +2976,7 @@ class DceRpcSession(DefaultSession):
                     pkt_frag.vt_trailer = None
 
                 # Update payload for frag_len calculation
-                pkt_frag.payload.payload = conf.raw_layer(b"\x00" * len(cur))
+                pkt_frag.payload.payload = conf.raw_layer(load=b"\x00" * len(cur))
 
                 yield pkt_frag, cur
         else:
