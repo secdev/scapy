@@ -82,7 +82,7 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
         )
         if for_dissect_only:
             return
-        # Packet copies ismutable defaults; only re-parent nested packets here.
+        # Packet isolates list/Packet defaults into fields; re-parent those.
         for f in self.packetfields:
             if f.name in self.fields:
                 self.fields[f.name] = f.any2i(self, self.fields[f.name])
