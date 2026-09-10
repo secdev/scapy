@@ -1077,94 +1077,38 @@ pkt = TerminalOptSeq(b"\x83\x01\x0a\x0b")
 assert pkt.n == 1
 assert pkt.vals == [10, 11]
 
-= Wrapped SEQUENCE_OF with count_from may precede a required field
+= Optional before trailing SEQUENCE_OF does not invent a reserved count
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
+    CBORF_BOOLEAN,
     CBORF_SEQUENCE_OF,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
-)
-
-# Schema construction must succeed; runtime presence of the optional
-# sequence is not part of this framing check.
-CBORF_ARRAY(
-    CBORF_UNSIGNED_INTEGER("n", 0),
-    CBORF_optional(
-        CBORF_SEQUENCE_OF(
-            "vals",
-            [],
-            CBORF_UNSIGNED_INTEGER,
-            count_from=lambda pkt: pkt.n,
-        )
-    ),
-    CBORF_UNSIGNED_INTEGER("tail", 0),
-)
-
-= SEQUENCE_OF with count_from consumes an explicit number of items
-from scapy.cbor.cborfields import (
-    CBORF_ARRAY,
-    CBORF_SEQUENCE_OF,
-    CBORF_UNSIGNED_INTEGER,
+    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
-class CountedSeq(CBOR_Packet):
+class OptThenSeqOf(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
-        CBORF_UNSIGNED_INTEGER("n", 0),
-        CBORF_SEQUENCE_OF(
-            "vals",
-            [],
-            CBORF_UNSIGNED_INTEGER,
-            count_from=lambda pkt: pkt.n,
-        ),
+        CBORF_optional(CBORF_UNSIGNED_INTEGER("opt", None)),
+        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
     )
 
-pkt = CountedSeq(b"\x83\x02\x0a\x0b")
-assert pkt.n == 2
-assert pkt.vals == [10, 11]
+# Terminal SEQUENCE_OF reserves nothing; same-type optional may take the item.
+pkt = OptThenSeqOf(b"\x81\x07")
+assert pkt.opt == 7
+assert pkt.vals == []
 
-= Unframed SEQUENCE with count_from uses the dissected discriminator
-from scapy.cbor.cborfields import (
-    CBORF_INTEGER,
-    CBORF_SEQUENCE,
-    CBORF_SEQUENCE_OF,
-)
-from scapy.cborpacket import CBOR_Packet
-
-class CountedUnframed(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
-        CBORF_INTEGER("n", 0),
-        CBORF_SEQUENCE_OF(
-            "values", [], CBORF_INTEGER, count_from="n"
-        ),
+class BoolThenSeqOf(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_optional(CBORF_BOOLEAN("opt", None)),
+        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
     )
 
-wire = bytes(CountedUnframed(n=2, values=[3, 4]))
-assert wire == b"\x02\x03\x04"
-pkt = CountedUnframed(wire)
-assert pkt.n == 2
-assert pkt.values == [3, 4]
-
-= Indefinite ARRAY with count_from uses the dissected discriminator
-from scapy.cbor.cborfields import (
-    CBORF_ARRAY_INDEFINITE,
-    CBORF_INTEGER,
-    CBORF_SEQUENCE_OF,
-)
-from scapy.cborpacket import CBOR_Packet
-
-class CountedIndef(CBOR_Packet):
-    CBOR_root = CBORF_ARRAY_INDEFINITE(
-        CBORF_INTEGER("n", 0),
-        CBORF_SEQUENCE_OF(
-            "values", [], CBORF_INTEGER, count_from="n"
-        ),
-    )
-
-wire = bytes(CountedIndef(n=2, values=[3, 4]))
-pkt = CountedIndef(wire)
-assert pkt.n == 2
-assert pkt.values == [3, 4]
+# Type mismatch leaves the item for the trailing SEQUENCE_OF.
+pkt = BoolThenSeqOf(b"\x81\x07")
+assert pkt.opt is CBOR_ABSENT
+assert pkt.vals == [7]
 
 = Conditional trailing field follows a false discriminator with optional present
 from scapy.cbor.cborfields import (
@@ -1208,76 +1152,6 @@ pkt = OptThenReq(b"\x81\x07")
 assert pkt.opt is CBOR_ABSENT
 assert pkt.req == 7
 
-= Count default 5 with wire count 1 decodes on ARRAY SEQUENCE and indefinite
-from scapy.cbor.cborfields import (
-    CBORF_ARRAY,
-    CBORF_ARRAY_INDEFINITE,
-    CBORF_INTEGER,
-    CBORF_SEQUENCE,
-    CBORF_SEQUENCE_OF,
-)
-from scapy.cborpacket import CBOR_Packet
-
-class CountDef5Array(CBOR_Packet):
-    CBOR_root = CBORF_ARRAY(
-        CBORF_INTEGER("n", 5),
-        CBORF_SEQUENCE_OF("values", [], CBORF_INTEGER, count_from="n"),
-    )
-
-class CountDef5Seq(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
-        CBORF_INTEGER("n", 5),
-        CBORF_SEQUENCE_OF("values", [], CBORF_INTEGER, count_from="n"),
-    )
-
-class CountDef5Indef(CBOR_Packet):
-    CBOR_root = CBORF_ARRAY_INDEFINITE(
-        CBORF_INTEGER("n", 5),
-        CBORF_SEQUENCE_OF("values", [], CBORF_INTEGER, count_from="n"),
-    )
-
-pkt = CountDef5Array(b"\x82\x01\x0a")
-assert pkt.n == 1 and pkt.values == [10]
-pkt = CountDef5Seq(b"\x01\x0a")
-assert pkt.n == 1 and pkt.values == [10]
-pkt = CountDef5Indef(b"\x9f\x01\x0a\xff")
-assert pkt.n == 1 and pkt.values == [10]
-
-= Count default None does not evaluate int(None) before the discriminator
-from scapy.cbor.cborfields import (
-    CBORF_ARRAY,
-    CBORF_ARRAY_INDEFINITE,
-    CBORF_INTEGER,
-    CBORF_SEQUENCE,
-    CBORF_SEQUENCE_OF,
-)
-from scapy.cborpacket import CBOR_Packet
-
-class CountDefNoneArray(CBOR_Packet):
-    CBOR_root = CBORF_ARRAY(
-        CBORF_INTEGER("n", None),
-        CBORF_SEQUENCE_OF("values", [], CBORF_INTEGER, count_from="n"),
-    )
-
-class CountDefNoneSeq(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
-        CBORF_INTEGER("n", None),
-        CBORF_SEQUENCE_OF("values", [], CBORF_INTEGER, count_from="n"),
-    )
-
-class CountDefNoneIndef(CBOR_Packet):
-    CBOR_root = CBORF_ARRAY_INDEFINITE(
-        CBORF_INTEGER("n", None),
-        CBORF_SEQUENCE_OF("values", [], CBORF_INTEGER, count_from="n"),
-    )
-
-pkt = CountDefNoneArray(b"\x83\x02\x0a\x0b")
-assert pkt.n == 2 and pkt.values == [10, 11]
-pkt = CountDefNoneSeq(b"\x02\x0a\x0b")
-assert pkt.n == 2 and pkt.values == [10, 11]
-pkt = CountDefNoneIndef(b"\x9f\x02\x0a\x0b\xff")
-assert pkt.n == 2 and pkt.values == [10, 11]
-
 = Conditional disabled by default enables on wire with present value
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
@@ -1312,28 +1186,6 @@ pkt = CondOffSeq(b"\x01\x08")
 assert pkt.flag == 1 and pkt.last == 8
 pkt = CondOffIndef(b"\x9f\x01\x08\xff")
 assert pkt.flag == 1 and pkt.last == 8
-
-= Optional before count_from collection reserves the collection items
-from scapy.cbor.cborfields import (
-    CBORF_ARRAY,
-    CBORF_INTEGER,
-    CBORF_SEQUENCE_OF,
-    CBORF_optional,
-    CBOR_ABSENT,
-)
-from scapy.cborpacket import CBOR_Packet
-
-class OptBeforeCounted(CBOR_Packet):
-    CBOR_root = CBORF_ARRAY(
-        CBORF_INTEGER("n", 0),
-        CBORF_optional(CBORF_INTEGER("opt", None)),
-        CBORF_SEQUENCE_OF("values", [], CBORF_INTEGER, count_from="n"),
-    )
-
-pkt = OptBeforeCounted(b"\x83\x02\x0a\x0b")
-assert pkt.n == 2
-assert pkt.opt is CBOR_ABSENT
-assert pkt.values == [10, 11]
 
 = Definite ARRAY rejects item count inconsistent with schema
 from scapy.cbor.cborfields import (
@@ -1772,26 +1624,23 @@ class RROptionalThenRequiredPacket(CBOR_Packet):
 pkt = RROptionalThenRequiredPacket(b"\x81\x07")
 assert pkt.required_child.value == 7
 
-= A SEQUENCE_OF before a required conditional field must use count_from
-class RRSequenceThenConditionalTail(CBOR_Packet):
-    CBOR_root = CBORF_ARRAY(
+= SEQUENCE_OF before a required conditional field is rejected
+try:
+    CBORF_ARRAY(
         CBORF_UNSIGNED_INTEGER("flag", 0),
         CBORF_SEQUENCE_OF(
             "values",
             [],
             CBORF_UNSIGNED_INTEGER("item", None),
-            count_from=lambda pkt: 1,
         ),
         CBORF_CONDITIONAL(
             CBORF_UNSIGNED_INTEGER("tail", None),
             lambda pkt: pkt.getfieldval("flag") == 1,
         ),
     )
-
-pkt = RRSequenceThenConditionalTail(b"\x83\x01\x02\x03")
-assert pkt.flag == 1
-assert pkt.values == [2]
-assert pkt.tail == 3
+    assert False, "nonterminal SEQUENCE_OF was accepted"
+except ValueError:
+    pass
 
 
 + Finding 5: recursive CBORF_ANY mutations must invalidate the raw cache
@@ -3663,33 +3512,6 @@ assert isinstance(pkt.payload, Raw) or pkt.original.endswith(b"\x03")
 # Remaining third item is not consumed by the schema
 remain = TwoInts.CBOR_root._dissect_counted(TwoInts(), b"\x01\x02\x03").remaining
 assert remain == b"\x03"
-
-= Counted unframed SEQUENCE leaves valid invalid and truncated trailing bytes
-from scapy.cbor.cborfields import (
-    CBORF_INTEGER,
-    CBORF_SEQUENCE,
-    CBORF_SEQUENCE_OF,
-)
-from scapy.cborpacket import CBOR_Packet
-from scapy.packet import Raw
-
-class CountedSequence(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
-        CBORF_INTEGER("n", 0),
-        CBORF_SEQUENCE_OF(
-            "values", [], CBORF_INTEGER, count_from="n"
-        ),
-    )
-
-for suffix in (b"\x04", b"\xff", b"\x18"):
-    wire = b"\x01\x03" + suffix
-    remain = CountedSequence.CBOR_root._dissect_counted(
-        CountedSequence(), wire
-    ).remaining
-    assert remain == suffix
-    pkt = CountedSequence(wire)
-    assert pkt.n == 1 and pkt.values == [3]
-    assert isinstance(pkt.payload, Raw) and pkt.payload.load == suffix
 
 = CBORF_SEMANTIC_TAG rejects the wrong tag number
 from scapy.cbor.cborfields import (
