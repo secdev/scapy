@@ -451,11 +451,6 @@ except TypeError:
 = BER object enc string
 BERcodec_Object.enc("42") == BERcodec_STRING.enc("42")
 
-= BER enc ignores extra codec kwargs
-assert BERcodec_INTEGER.enc(5, oer_unsigned=True, uper_min=0) == BERcodec_INTEGER.enc(5)
-assert BERcodec_STRING.enc(b"x", uper_max=10) == BERcodec_STRING.enc(b"x")
-BERcodec_SEQUENCE.enc(BERcodec_INTEGER.enc(1), uper_min=0) == BERcodec_SEQUENCE.enc(BERcodec_INTEGER.enc(1))
-
 + ASN.1 codec tagging contract
 = BER applies tagging on encode and decode
 from scapy.asn1.ber import BER_tagging_enc, BER_tagging_dec
@@ -688,11 +683,6 @@ fld = P.ASN1_root
 assert fld.size_len is None
 assert raw(P(n=ASN1_INTEGER(5))) == b"\x02\x01\x05"
 assert raw(P(n=5)) == b"\x02\x01\x05"
-
-= BER ignores unknown codec kwargs from shared call sites
-# Codecs accept **kwargs so field=/pkt=/constraint keys do not TypeError on BER.
-assert BERcodec_INTEGER.enc(7, field=None, pkt=None, oer_unsigned=True) == b"\x02\x01\x07"
-assert BERcodec_INTEGER.enc(7, size_len=None) == b"\x02\x01\x07"
 
 = BER OID first arc decode for 2.999.3
 obj, remain = BERcodec_OID.do_dec(BERcodec_OID.enc("2.999.3"))

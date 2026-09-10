@@ -247,13 +247,48 @@ class BER_Decoder(ASN1Decoder):
         self.set_remainder(remain)
 
 
-class OER_Encoder(BER_Encoder):
+class OER_Encoder(ASN1Encoder):
     codec = ASN1_Codecs.OER
+
+    def __init__(self, codec=None):
+        # type: (Any) -> None
+        self.codec = codec or self.codec
+        self._parts = []  # type: list[bytes]
+
+    def write(self, data):
+        # type: (bytes) -> None
+        self._parts.append(data)
+
+    def finish(self):
+        # type: () -> bytes
+        return b"".join(self._parts)
+
+    def encode_packet(self, field, pkt, value=None):
+        # type: (Any, Any, Any) -> None
+        if value is None:
+            value = getattr(pkt, field.name)
+        if value is None:
+            s = b""
+        elif isinstance(value, bytes):
+            s = value
+        elif isinstance(value, ASN1_Object):
+            s = bytes(value.val) if value.val else b""
+        else:
+            s = bytes(value)
+            from scapy.asn1packet import ASN1_Packet as _ASN1_Packet
+            if not isinstance(value, _ASN1_Packet):
+                self.write(s)
+                return
+        imp, exp = field._tagging_tags(pkt)
+        self.write(field._tagging_enc(pkt, s, implicit_tag=imp, explicit_tag=exp))
 
     def encode_sequence(self, field, pkt):
         # type: (Any, Any) -> None
-        from scapy.asn1fields import ASN1F_optional
+        from scapy.asn1.oer import OER_Encoding_Error
+        from scapy.asn1fields import ASN1F_SET, ASN1F_optional
 
+        if isinstance(field, ASN1F_SET):
+            raise OER_Encoding_Error("ASN1F_SET is not supported")
         bits = [0] if field.constraints.extensible else []  # type: List[int]
         bits += [1 if opt.is_present(pkt) else 0 for opt in field.optionals]
         if bits:
@@ -266,12 +301,15 @@ class OER_Encoder(BER_Encoder):
         for obj in field.seq:
             if isinstance(obj, ASN1F_optional) and not obj.is_present(pkt):
                 continue
-            self.write(obj.build(pkt))
+            obj.encode_to(pkt, self)
 
     def encode_sequence_of(self, field, pkt):
         # type: (Any, Any) -> None
-        from scapy.asn1.oer import OER_unsigned_integer_enc
+        from scapy.asn1.oer import OER_Encoding_Error, OER_unsigned_integer_enc
+        from scapy.asn1fields import ASN1F_SET_OF
 
+        if isinstance(field, ASN1F_SET_OF):
+            raise OER_Encoding_Error("ASN1F_SET_OF is not supported")
         val = getattr(pkt, field.name)
         if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
             self.write(field.i2m(pkt, val))
@@ -304,13 +342,54 @@ class OER_Encoder(BER_Encoder):
         self.write(field._tagging_enc(pkt, s, explicit_tag=field.explicit_tag))
 
 
-class OER_Decoder(BER_Decoder):
+class OER_Decoder(ASN1Decoder):
     codec = ASN1_Codecs.OER
+
+    def __init__(self, data, codec=None):
+        # type: (bytes, Any) -> None
+        self.codec = codec or self.codec
+        self._data = data
+
+    def remaining(self):
+        # type: () -> bytes
+        return self._data
+
+    def set_remainder(self, remainder):
+        # type: (bytes) -> None
+        self._data = remainder
+
+    def decode_packet(self, field, pkt):
+        # type: (Any, Any) -> None
+        cls = (field.next_cls_cb(pkt) or field.cls) if field.next_cls_cb else field.cls
+        from scapy.asn1packet import ASN1_Packet as _ASN1_Packet
+        s = self.remaining()
+        if not issubclass(cls, _ASN1_Packet):
+            val, remain = field.extract_packet(
+                cls, s, _underlayer=pkt, _parent=pkt,
+            )
+            field.set_val(pkt, val)
+            self.set_remainder(remain)
+            return
+        s = field._apply_tagging_dec(
+            s, pkt,
+            hidden_tag=cls.ASN1_root.ASN1_tag,
+            _fname=field.name,
+        )
+        if not s:
+            field.set_val(pkt, None)
+            self.set_remainder(s)
+            return
+        val, remain = field.extract_packet(cls, s, _underlayer=pkt, _parent=pkt)
+        field.set_val(pkt, val)
+        self.set_remainder(remain)
 
     def decode_sequence(self, field, pkt):
         # type: (Any, Any) -> None
         from scapy.asn1.oer import OER_Decoding_Error, _OER_check_len
+        from scapy.asn1fields import ASN1F_SET
 
+        if isinstance(field, ASN1F_SET):
+            raise OER_Decoding_Error("ASN1F_SET is not supported")
         s = self.remaining()
         s = field._apply_tagging_dec(s, pkt, _fname=pkt.name)
         number_of_optionals = len(field.optionals)
@@ -345,8 +424,11 @@ class OER_Decoder(BER_Decoder):
 
     def decode_sequence_of(self, field, pkt):
         # type: (Any, Any) -> None
-        from scapy.asn1.oer import OER_unsigned_integer_dec
+        from scapy.asn1.oer import OER_Decoding_Error, OER_unsigned_integer_dec
+        from scapy.asn1fields import ASN1F_SET_OF
 
+        if isinstance(field, ASN1F_SET_OF):
+            raise OER_Decoding_Error("ASN1F_SET_OF is not supported")
         s = field._apply_tagging_dec(self.remaining(), pkt)
         count, s = OER_unsigned_integer_dec(s)
         lst = []
@@ -412,8 +494,11 @@ class UPER_EncoderContext(ASN1Encoder):
 
     def encode_sequence(self, field, pkt):
         # type: (Any, Any) -> None
-        from scapy.asn1fields import ASN1F_optional
+        from scapy.asn1.uper import UPER_Encoding_Error
+        from scapy.asn1fields import ASN1F_SET, ASN1F_optional
 
+        if isinstance(field, ASN1F_SET):
+            raise UPER_Encoding_Error("ASN1F_SET is not supported")
         bit_enc = self.bit_encoder
         if field.constraints.extensible:
             bit_enc.append_bit(0)
@@ -436,7 +521,11 @@ class UPER_EncoderContext(ASN1Encoder):
             ASN1F_PACKET,
             ASN1F_SEQUENCE,
             ASN1F_SEQUENCE_OF,
+            ASN1F_SET_OF,
         )
+
+        if isinstance(field, ASN1F_SET_OF):
+            raise UPER_Encoding_Error("ASN1F_SET_OF is not supported")
 
         if (
                 not field.holds_packets and
@@ -548,7 +637,10 @@ class UPER_DecoderContext(ASN1Decoder):
     def decode_sequence(self, field, pkt):
         # type: (Any, Any) -> None
         from scapy.asn1.uper import UPER_Decoding_Error
+        from scapy.asn1fields import ASN1F_SET
 
+        if isinstance(field, ASN1F_SET):
+            raise UPER_Decoding_Error("ASN1F_SET is not supported")
         bit_dec = self.bit_decoder
         if field.constraints.extensible:
             if bit_dec.read_bit():
@@ -573,8 +665,11 @@ class UPER_DecoderContext(ASN1Decoder):
             ASN1F_PACKET,
             ASN1F_SEQUENCE,
             ASN1F_SEQUENCE_OF,
+            ASN1F_SET_OF,
         )
 
+        if isinstance(field, ASN1F_SET_OF):
+            raise UPER_Decoding_Error("ASN1F_SET_OF is not supported")
         if (
                 not field.holds_packets and
                 isinstance(field.fld, (ASN1F_SEQUENCE, ASN1F_CHOICE, ASN1F_SEQUENCE_OF))

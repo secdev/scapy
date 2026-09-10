@@ -8,10 +8,9 @@
 Classes that implement ASN.1 data structures.
 
 ASN.1 schema fields form a tree (``ASN1F_SEQUENCE``, ``ASN1F_CHOICE``, …),
-not a flat ``fields_desc`` list like Scapy ``Field`` instances. The
-``encode_to`` / ``decode_from`` methods are the tree analogue of
-``Field.addfield`` / ``Field.getfield``; ``build`` / ``dissect`` delegate to
-those entry points for backward compatibility.
+not a flat ``fields_desc`` list like Scapy ``Field`` instances. Leaf
+``build`` / ``dissect`` go through ``i2m`` / ``m2i``. Compound fields use
+``encode_to`` / ``decode_from`` so OER and PER can share one codec context.
 """
 
 import copy
@@ -170,11 +169,6 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             tags[id(self)] = diff_tag
         return s
 
-    def normalize_encode_value(self, pkt, value):
-        # type: (ASN1_Packet, Any) -> Any
-        """Convert a human-facing value before codec encode (e.g. enum names)."""
-        return value
-
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, _I) -> str
         return repr(x)
@@ -200,15 +194,20 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         s = self._apply_tagging_dec(s, pkt, _fname=self.name)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         decode = codec.safedec if self.flexible_tag else codec.dec
+        if pkt.ASN1_codec is ASN1_Codecs.OER or pkt.ASN1_codec is ASN1_Codecs.PER:
+            return cast(
+                Tuple[_A, bytes],
+                decode(
+                    s,
+                    context=self.context,
+                    field=self,
+                    pkt=pkt,
+                    size_len=self.size_len,
+                ),
+            )
         return cast(
             Tuple[_A, bytes],
-            decode(
-                s,
-                context=self.context,
-                field=self,
-                pkt=pkt,
-                size_len=self.size_len,
-            ),
+            decode(s, context=self.context),
         )
 
     def i2m(self, pkt, x):
@@ -217,6 +216,10 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             return b""
         # Encode the field value with codec kwargs, without field tagging.
         item = x
+        kw = {"size_len": self.size_len}  # type: Dict[str, Any]
+        if pkt.ASN1_codec is ASN1_Codecs.OER or pkt.ASN1_codec is ASN1_Codecs.PER:
+            kw["field"] = self
+            kw["pkt"] = pkt
         if isinstance(item, ASN1_Object):
             if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY or
                     item.tag == ASN1_Class_UNIVERSAL.RAW or
@@ -230,12 +233,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             else:
                 item = item.val
                 codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-                s = cast(
-                    bytes,
-                    codec.enc(
-                        item, field=self, pkt=pkt, size_len=self.size_len,
-                    ),
-                )
+                s = cast(bytes, codec.enc(item, **kw))
         else:
             if hasattr(item, "self_build"):
                 # Packet values (e.g. ASN1F_STRING_PacketField) must still go
@@ -243,12 +241,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
                 # applied.
                 item = item.self_build()
             codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-            s = cast(
-                bytes,
-                codec.enc(
-                    item, field=self, pkt=pkt, size_len=self.size_len,
-                ),
-            )
+            s = cast(bytes, codec.enc(item, **kw))
         imp, exp = self._tagging_tags(pkt)
         return self._tagging_enc(
             pkt, s,
@@ -293,7 +286,6 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             value = getattr(pkt, self.name)
         if value is None:
             return
-        value = self.normalize_encode_value(pkt, value)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         if isinstance(value, ASN1_Object):
             if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY or
@@ -330,15 +322,13 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
 
     def build(self, pkt):
         # type: (ASN1_Packet) -> bytes
-        enc = new_encoder(pkt.ASN1_codec)
-        self.encode_to(pkt, enc)
-        return cast(bytes, enc.finish())
+        return self.i2m(pkt, getattr(pkt, self.name))
 
     def dissect(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> bytes
-        dec = new_decoder(pkt.ASN1_codec, s)
-        self.decode_from(pkt, dec)
-        return cast(bytes, dec.remaining())
+        v, s = self.m2i(pkt, s)
+        self.set_val(pkt, v)
+        return s
 
     def do_copy(self, x):
         # type: (Any) -> Any
@@ -425,18 +415,6 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
         for k in keys:
             i2s[k] = enum[k]
             s2i[enum[k]] = k
-
-    def uper_enum_values(self):
-        # type: () -> List[int]
-        # Sort on each call: i2s remains a normal mutable Scapy mapping, and
-        # ENUMERATED sets are normally tiny.
-        return sorted(self.i2s)
-
-    def normalize_encode_value(self, pkt, value):
-        # type: (ASN1_Packet, Any) -> Any
-        if isinstance(value, str):
-            return self.s2i[value]
-        return value
 
     def i2m(self,
             pkt,  # type: ASN1_Packet
@@ -641,6 +619,12 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
         # type: (ASN1_Packet, Any) -> None
         dec.decode_sequence(self, pkt)
 
+    def build(self, pkt):
+        # type: (ASN1_Packet) -> bytes
+        enc = new_encoder(pkt.ASN1_codec)
+        self.encode_to(pkt, enc)
+        return cast(bytes, enc.finish())
+
 
 class ASN1F_SET(ASN1F_SEQUENCE):
     ASN1_tag = ASN1_Class_UNIVERSAL.SET
@@ -717,6 +701,12 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
         dec.decode_sequence_of(self, pkt)
+
+    def build(self, pkt):
+        # type: (ASN1_Packet) -> bytes
+        enc = new_encoder(pkt.ASN1_codec)
+        self.encode_to(pkt, enc)
+        return cast(bytes, enc.finish())
 
     def i2repr(self, pkt, x):
         # type: (ASN1_Packet, _I) -> str
@@ -992,6 +982,12 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         # type: (ASN1_Packet, Any) -> None
         dec.decode_choice(self, pkt)
 
+    def build(self, pkt):
+        # type: (ASN1_Packet) -> bytes
+        enc = new_encoder(pkt.ASN1_codec)
+        self.encode_to(pkt, enc)
+        return cast(bytes, enc.finish())
+
     def randval(self):
         # type: () -> RandChoice
         randchoices = []
@@ -1046,6 +1042,12 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
         dec.decode_packet(self, pkt)
+
+    def build(self, pkt):
+        # type: (ASN1_Packet) -> bytes
+        enc = new_encoder(pkt.ASN1_codec)
+        self.encode_to(pkt, enc)
+        return cast(bytes, enc.finish())
 
     def any2i(self,
               pkt,  # type: ASN1_Packet

@@ -327,7 +327,6 @@ class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
             context=None,  # type: Optional[Type[ASN1_Class]]
             safe=False,  # type: bool
             _depth=0,  # type: int
-            **_kwargs  # type: Any
             ):
         # type: (...) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]
         if _depth > MAX_BER_DEPTH:
@@ -354,16 +353,13 @@ class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
                 s,  # type: bytes
                 context=None,  # type: Optional[Type[ASN1_Class]]
                 _depth=0,  # type: int
-                **_kwargs  # type: Any
                 ):
         # type: (...) -> Tuple[Union[_ASN1_ERROR, ASN1_Object[_K]], bytes]
         return cls.dec(s, context, safe=True, _depth=_depth)
 
     @classmethod
-    def enc(cls, s, size_len=0, **_kwargs):
-        # type: (_K, Optional[int], **Any) -> bytes
-        # Ignore unknown kwargs (field=/pkt=/constraint keys) so BER packets
-        # do not TypeError when shared field call sites pass them through.
+    def enc(cls, s, size_len=0):
+        # type: (_K, Optional[int]) -> bytes
         size_len = 0 if size_len is None else int(size_len)
         if isinstance(s, (str, bytes)):
             return BERcodec_STRING.enc(s, size_len=size_len)
@@ -386,8 +382,8 @@ class BERcodec_INTEGER(BERcodec_Object[int]):
     tag = ASN1_Class_UNIVERSAL.INTEGER
 
     @classmethod
-    def enc(cls, i, size_len=0, **_kwargs):  # type: ignore[override]
-        # type: (int, Optional[int], **Any) -> bytes
+    def enc(cls, i, size_len=0):
+        # type: (int, Optional[int]) -> bytes
         size_len = 0 if size_len is None else int(size_len)
         ls = []
         while True:
@@ -454,8 +450,8 @@ class BERcodec_BIT_STRING(BERcodec_Object[str]):
             )
 
     @classmethod
-    def enc(cls, _s, size_len=0, **_kwargs):  # type: ignore[override]
-        # type: (AnyStr, Optional[int], **Any) -> bytes
+    def enc(cls, _s, size_len=0):
+        # type: (AnyStr, Optional[int]) -> bytes
         size_len = 0 if size_len is None else int(size_len)
         # /!\ this is DER encoding (bit strings are only zero-bit padded)
         s = bytes_encode(_s)
@@ -474,8 +470,8 @@ class BERcodec_STRING(BERcodec_Object[str]):
     tag = ASN1_Class_UNIVERSAL.STRING
 
     @classmethod
-    def enc(cls, _s, size_len=0, **_kwargs):  # type: ignore[override]
-        # type: (Union[str, bytes], Optional[int], **Any) -> bytes
+    def enc(cls, _s, size_len=0):
+        # type: (Union[str, bytes], Optional[int]) -> bytes
         size_len = 0 if size_len is None else int(size_len)
         s = bytes_encode(_s)
         # Be sure we are encoding bytes
@@ -497,8 +493,8 @@ class BERcodec_NULL(BERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.NULL
 
     @classmethod
-    def enc(cls, i, size_len=0, **_kwargs):  # type: ignore[override]
-        # type: (int, Optional[int], **Any) -> bytes
+    def enc(cls, i, size_len=0):
+        # type: (int, Optional[int]) -> bytes
         if i == 0:
             return chb(int(cls.tag)) + b"\0"
         else:
@@ -509,8 +505,8 @@ class BERcodec_OID(BERcodec_Object[bytes]):
     tag = ASN1_Class_UNIVERSAL.OID
 
     @classmethod
-    def enc(cls, _oid, size_len=0, **_kwargs):  # type: ignore[override]
-        # type: (AnyStr, Optional[int], **Any) -> bytes
+    def enc(cls, _oid, size_len=0):
+        # type: (AnyStr, Optional[int]) -> bytes
         size_len = 0 if size_len is None else int(size_len)
         oid = bytes_encode(_oid)
         if oid:
@@ -603,8 +599,8 @@ class BERcodec_SEQUENCE(BERcodec_Object[Union[bytes, List[BERcodec_Object[Any]]]
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
 
     @classmethod
-    def enc(cls, _ll, size_len=None, **_kwargs):  # type: ignore[override]
-        # type: (Union[bytes, List[BERcodec_Object[Any]]], Optional[int], **Any) -> bytes  # noqa: E501
+    def enc(cls, _ll, size_len=None):
+        # type: (Union[bytes, List[BERcodec_Object[Any]]], Optional[int]) -> bytes  # noqa: E501
         if isinstance(_ll, bytes):
             ll = _ll
         else:
@@ -659,8 +655,8 @@ class BERcodec_IPADDRESS(BERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.IPADDRESS
 
     @classmethod
-    def enc(cls, ipaddr_ascii, size_len=0, **_kwargs):  # type: ignore[override]
-        # type: (str, Optional[int], **Any) -> bytes
+    def enc(cls, ipaddr_ascii, size_len=0):  # type: ignore[override]
+        # type: (str, Optional[int]) -> bytes
         size_len = 0 if size_len is None else int(size_len)
         try:
             s = inet_aton(ipaddr_ascii)
