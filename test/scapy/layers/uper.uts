@@ -1977,7 +1977,7 @@ assert UPERcodec_SET.enc(b"raw") == b"raw"
 
 True
 
-= uper SET and SET OF are rejected
+= uper SET is rejected; SET OF is SEQUENCE OF
 class UPERSetRecord(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.PER
     ASN1_root = ASN1F_SET(ASN1F_INTEGER("n", 0))
@@ -1988,8 +1988,9 @@ class UPERSetOfRecord(ASN1_Packet):
 
 _raises(UPER_Encoding_Error, lambda: raw(UPERSetRecord(n=1)))
 _raises(UPER_Decoding_Error, lambda: UPERSetRecord(b"\x01"))
-_raises(UPER_Encoding_Error, lambda: raw(UPERSetOfRecord(items=[1])))
-_raises(UPER_Decoding_Error, lambda: UPERSetOfRecord(b"\x01"))
+pkt = UPERSetOfRecord(items=[1])
+decoded = UPERSetOfRecord(raw(pkt))
+assert [x.val for x in decoded.items] == [1]
 True
 
 = uper ipaddress

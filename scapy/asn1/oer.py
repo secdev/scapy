@@ -18,6 +18,7 @@ and ``explicit_tag=`` of the alternatives are what selects it.
 
 Not supported yet: extension additions (an encoding that carries them is
 refused rather than misparsed), SET, REAL, and the canonical variant (C-OER).
+``ASN1F_SET_OF`` is encoded as ``ASN1F_SEQUENCE_OF``.
 """
 
 import struct
@@ -72,18 +73,6 @@ OER_CLASS_CONTEXT = 0x80
 OER_CLASS_PRIVATE = 0xc0
 
 
-def _OER_check_len(name, s, number_of_bytes, offset=0):
-    # type: (str, bytes, int, int) -> None
-    """Raise unless s carries number_of_bytes octets past its first offset."""
-    available = len(s) - offset
-    if available < number_of_bytes:
-        raise OER_Decoding_Error(
-            "%s: Got %i bytes while expecting %i" %
-            (name, available, number_of_bytes),
-            remaining=s
-        )
-
-
 def OER_len_enc(ll):
     # type: (int) -> bytes
     if ll < 128:
@@ -105,7 +94,17 @@ def OER_len_dec(s):
     if not tmp_len & 0x80:
         return tmp_len, s[1:]
     tmp_len &= 0x7f
-    _OER_check_len("OER_len_dec", s, tmp_len, offset=1)
+    if tmp_len == 0:
+        raise OER_Decoding_Error(
+            "OER_len_dec: long-form length must have 1-127 subsequent octets",
+            remaining=s,
+        )
+    if len(s) - 1 < tmp_len:
+        raise OER_Decoding_Error(
+            "OER_len_dec: Got %i bytes while expecting %i" %
+            (len(s) - 1, tmp_len),
+            remaining=s
+        )
     ll = int.from_bytes(s[1:tmp_len + 1], "big")
     return ll, s[tmp_len + 1:]
 
@@ -121,7 +120,12 @@ def OER_signed_integer_dec(s):
     # type: (bytes) -> Tuple[int, bytes]
     from scapy.asn1.intutil import from_twos_complement
     number_of_bytes, s = OER_len_dec(s)
-    _OER_check_len("OER_signed_integer_dec", s, number_of_bytes)
+    if len(s) < number_of_bytes:
+        raise OER_Decoding_Error(
+            "OER_signed_integer_dec: Got %i bytes while expecting %i" %
+            (len(s), number_of_bytes),
+            remaining=s
+        )
     if number_of_bytes == 0:
         raise OER_Decoding_Error(
             "OER_signed_integer_dec: got an empty length determinant",
@@ -145,7 +149,12 @@ def OER_unsigned_integer_enc(i):
 def OER_unsigned_integer_dec(s):
     # type: (bytes) -> Tuple[int, bytes]
     number_of_bytes, s = OER_len_dec(s)
-    _OER_check_len("OER_unsigned_integer_dec", s, number_of_bytes)
+    if len(s) < number_of_bytes:
+        raise OER_Decoding_Error(
+            "OER_unsigned_integer_dec: Got %i bytes while expecting %i" %
+            (len(s), number_of_bytes),
+            remaining=s
+        )
     value = int.from_bytes(s[:number_of_bytes], "big")
     return value, s[number_of_bytes:]
 
@@ -433,7 +442,12 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
             field, size_len, oer_unsigned,
         )
         if size_len in (1, 2, 4, 8):
-            _OER_check_len(cls.__name__, s, size_len)
+            if len(s) < size_len:
+                raise OER_Decoding_Error(
+                    "%s: Got %i bytes while expecting %i" %
+                    (cls.__name__, len(s), size_len),
+                    remaining=s
+                )
             x = struct.unpack(
                 cls._FIXED_FORMATS[not oer_unsigned][size_len], s[:size_len]
             )[0]
@@ -507,7 +521,12 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
         minimum, maximum = resolve_oer_size_bounds(field, size_len)
         if minimum is not None and maximum is not None and minimum == maximum:
             number_of_bytes = (minimum + 7) // 8
-            _OER_check_len(cls.__name__, s, number_of_bytes)
+            if len(s) < number_of_bytes:
+                raise OER_Decoding_Error(
+                    "%s: Got %i bytes while expecting %i" %
+                    (cls.__name__, len(s), number_of_bytes),
+                    remaining=s
+                )
             return (
                 cls.tag.asn1_object(
                     cls._bytes_to_bitstr(s[:number_of_bytes])[:minimum]
@@ -518,7 +537,12 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
         if length == 0:
             fs = ""
         else:
-            _OER_check_len(cls.__name__, s, length)
+            if len(s) < length:
+                raise OER_Decoding_Error(
+                    "%s: Got %i bytes while expecting %i" %
+                    (cls.__name__, len(s), length),
+                    remaining=s
+                )
             unused_bits = s[0]
             if safe and unused_bits > 7:
                 raise OER_Decoding_Error(
@@ -621,10 +645,20 @@ class OERcodec_STRING(OERcodec_Object[str]):
         # type: (...) -> Tuple[ASN1_Object[Any], bytes]
         minimum, maximum = resolve_oer_size_bounds(field, size_len)
         if minimum is not None and maximum is not None and minimum == maximum:
-            _OER_check_len(cls.__name__, s, minimum)
+            if len(s) < minimum:
+                raise OER_Decoding_Error(
+                    "%s: Got %i bytes while expecting %i" %
+                    (cls.__name__, len(s), minimum),
+                    remaining=s
+                )
             return cls.tag.asn1_object(s[:minimum]), s[minimum:]
         length, s = OER_len_dec(s)
-        _OER_check_len(cls.__name__, s, length)
+        if len(s) < length:
+            raise OER_Decoding_Error(
+                "%s: Got %i bytes while expecting %i" %
+                (cls.__name__, len(s), length),
+                remaining=s
+            )
         if minimum is not None and length < minimum:
             raise OER_Decoding_Error(
                 "%s: got %i bytes while expecting >= %i" %
@@ -680,7 +714,12 @@ class OERcodec_OID(OERcodec_Object[bytes]):
                ):
         # type: (...) -> Tuple[ASN1_Object[bytes], bytes]
         length, s = OER_len_dec(s)
-        _OER_check_len(cls.__name__, s, length)
+        if len(s) < length:
+            raise OER_Decoding_Error(
+                "%s: Got %i bytes while expecting %i" %
+                (cls.__name__, len(s), length),
+                remaining=s
+            )
         content, t = s[:length], s[length:]
         lst = []
         while content:
@@ -701,8 +740,15 @@ class OERcodec_ENUMERATED(OERcodec_INTEGER):
         # type: (int, **Any) -> bytes
         if 0 <= i <= 127:
             return chb(i)
-        body = OER_signed_integer_enc(i)[1:]
-        return chb(0x80 | len(body)) + body
+        from scapy.asn1.intutil import twos_complement_octets
+        number_of_bytes, value = twos_complement_octets(i)
+        if number_of_bytes > 127:
+            raise OER_Encoding_Error(
+                "OERcodec_ENUMERATED: %i is outside -2**1015 .. 2**1015-1" % i
+            )
+        return chb(0x80 | number_of_bytes) + value.to_bytes(
+            number_of_bytes, "big"
+        )
 
     @classmethod
     def do_dec(cls,
@@ -720,7 +766,18 @@ class OERcodec_ENUMERATED(OERcodec_INTEGER):
         if not (first & 0x80):
             return cls.asn1_object(first), s[1:]
         length = first & 0x7f
-        _OER_check_len(cls.__name__, s, length, offset=1)
+        if length == 0:
+            raise OER_Decoding_Error(
+                "OERcodec_ENUMERATED: long-form encoding must have "
+                "1-127 subsequent octets",
+                remaining=s,
+            )
+        if len(s) - 1 < length:
+            raise OER_Decoding_Error(
+                "%s: Got %i bytes while expecting %i" %
+                (cls.__name__, len(s) - 1, length),
+                remaining=s
+            )
         value = int.from_bytes(s[1:length + 1], "big", signed=True)
         return cls.asn1_object(value), s[length + 1:]
 
@@ -799,6 +856,15 @@ class OERcodec_SEQUENCE(OERcodec_Object[Union[bytes, List['OERcodec_Object[Any]'
 
 class OERcodec_SET(OERcodec_SEQUENCE):
     tag = ASN1_Class_UNIVERSAL.SET
+
+    @classmethod
+    def enc(cls, value, **kwargs):
+        # type: (Any, **Any) -> bytes
+        if isinstance(value, bytes):
+            return value
+        raise OER_Encoding_Error(
+            "OERcodec_SET: SET encoding is not supported"
+        )
 
 
 class OERcodec_IPADDRESS(OERcodec_STRING):

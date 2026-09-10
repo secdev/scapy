@@ -17,6 +17,7 @@ more is fragmented as required by 11.9.3.8.
 Not supported yet: extension additions (an encoding that carries them is
 refused rather than misparsed), SET, REAL, and the known-multiplier character
 string encodings (rejected rather than emitted as plain octets).
+``ASN1F_SET_OF`` is encoded as ``ASN1F_SEQUENCE_OF``.
 
 ``ASN1F_CHOICE`` alternatives are indexed in X.691 10.2 canonical tag order
 (via ``ASN1F_CHOICE.canonical_order``). Declaration order is kept for
