@@ -143,8 +143,9 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
             if f.name not in self.fields:
                 continue
             fval = self.fields[f.name]
+            # Absent scalars are not mutable fingerprints; storing CBOR_ABSENT
+            # here would fail validation against the generic None fingerprint.
             if fval is CBOR_ABSENT:
-                self.raw_packet_cache_fields[f.name] = CBOR_ABSENT
                 continue
             if getattr(f, "isconditional", False) and fval is None:
                 continue
