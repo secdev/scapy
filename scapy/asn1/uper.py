@@ -9,10 +9,11 @@ As specified in ITU-T X.691 | ISO/IEC 8825-2.
 
 UPER is registered on ``ASN1_Codecs.PER``. Schema-driven encoding and decoding
 (``ASN1F_SEQUENCE``, ``ASN1F_CHOICE``, ``ASN1F_SEQUENCE_OF``,
-``ASN1F_ENUMERATED``) is supported for common field types. Value ranges are
-declared with ``minimum=``/``maximum=``, fixed sizes with ``size_len=``, and
-an extension marker with ``extensible=True``. Content of 16K units or
-more is fragmented as required by 11.9.3.8.
+``ASN1F_ENUMERATED``) is supported for common field types. Value ranges and
+fixed SIZE constraints are declared with ``minimum=``/``maximum=``.
+``size_len=`` is a compatibility alias for ``SIZE(n)``. An extension marker
+uses ``extensible=True``. Content of 16K units or more is fragmented as
+required by 11.9.3.8.
 
 Not supported yet: extension additions (an encoding that carries them is
 refused rather than misparsed), SET, REAL, and the known-multiplier character
@@ -87,15 +88,24 @@ def resolve_uper_size_bounds(field=None,  # type: Any
                              extensible=None  # type: Optional[bool]
                              ):
     # type: (...) -> Tuple[Optional[int], Optional[int], bool]
-    """Resolve UPER SIZE bounds; ``size_len`` is a fixed SIZE."""
+    """Resolve UPER SIZE bounds.
+
+    ``size_len`` is a compatibility alias for equal bounds when ``minimum``
+    and ``maximum`` are unset.
+    """
     if size_len is None and field is not None:
         size_len = field.size_len
-    if minimum is None and maximum is None and field is not None:
-        minimum, maximum = field.constraints.minimum, field.constraints.maximum
+    if minimum is None and field is not None:
+        minimum = field.constraints.minimum
+    if maximum is None and field is not None:
+        maximum = field.constraints.maximum
     if extensible is None:
         extensible = bool(field.constraints.extensible) if field is not None else False
     if size_len:
-        return size_len, size_len, extensible
+        if minimum is None:
+            minimum = size_len
+        if maximum is None:
+            maximum = size_len
     return minimum, maximum, extensible
 
 

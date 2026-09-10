@@ -505,6 +505,8 @@ _raises(OER_Decoding_Error, lambda: OER_tag_dec(b"\xbf\x00"))
 
 _raises(OER_Decoding_Error, lambda: OER_tag_dec(b"\xbf\x80\x01"))
 
+_raises(OER_Decoding_Error, lambda: OER_tag_dec(b"\xbf\x3e"))
+
 True
 
 + ASN.1 OER packets, interop and fuzz
@@ -1141,7 +1143,7 @@ _raises(OER_Decoding_Error, lambda: _dissect(OERExtSeq, "8001"))
 True
 
 = oer fixed size bit string
-# X.696 13.3: a fixed size drops both the length determinant and the
+# X.696 13.2: a fixed size drops both the length determinant and the
 # unused-bit count.
 class OERBits(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
@@ -1168,10 +1170,17 @@ assert OERcodec_BIT_STRING.enc("101") == bytes.fromhex("0205a0")
 # A value that does not match the declared size is refused.
 _raises(OER_Encoding_Error, lambda: OERcodec_BIT_STRING.enc("101", size_len=4))
 
+# X.696 13.2-13.3: unused bits and empty encodings must be well-formed.
+_raises(OER_Decoding_Error, lambda: OERcodec_BIT_STRING.do_dec(b"\x00"))
+_raises(OER_Decoding_Error, lambda: OERcodec_BIT_STRING.do_dec(b"\x01\x05"))
+_raises(OER_Decoding_Error, lambda: OERcodec_BIT_STRING.do_dec(b"\x02\x08\x00"))
+_raises(OER_Decoding_Error, lambda: OERcodec_BIT_STRING.do_dec(b"\x02\x05\xaf"))
+_raises(OER_Decoding_Error, lambda: OERcodec_BIT_STRING.do_dec(b"\xaf", size_len=4))
+
 True
 
 = oer fixed size octet string
-# X.696 16.1: a fixed size means no length determinant. Sizes 1, 2, 4 and 8
+# X.696 14.1: a fixed size means no length determinant. Sizes 1, 2, 4 and 8
 # used to encode without one but decode expecting one.
 for size in (1, 2, 3, 4, 8):
     value = b"x" * size
@@ -1195,6 +1204,10 @@ assert _roundtrip(OERFixedOctets, pkt).s.val == b"abcd"
 assert OERcodec_STRING.enc(b"abc") == bytes.fromhex("03616263")
 
 _raises(OER_Encoding_Error, lambda: OERcodec_STRING.enc(b"abc", size_len=4))
+
+assert OERcodec_STRING.enc(
+    b"abc", field=ASN1F_STRING("s", "", minimum=3, maximum=3)
+) == OERcodec_STRING.enc(b"abc", size_len=3)
 
 True
 
@@ -1256,6 +1269,7 @@ True
 
 = oer choice rejects an unknown alternative tag
 _raises(ASN1_Error, lambda: OERPacketChoice(b"\x40\x00"))
+_raises(ASN1_Error, lambda: raw(OERChoiceField(c=ASN1_NULL(None))))
 
 # An unset CHOICE encodes to nothing, as the field is then absent
 assert raw(OERPacketChoice(c=None)) == b""
