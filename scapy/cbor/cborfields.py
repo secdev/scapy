@@ -204,11 +204,6 @@ class CBORF_element(object):
         """Upper bound independent of not-yet-dissected discriminators."""
         return self.max_items(pkt)
 
-    def reserve_min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        """Items to reserve for this field while parsing earlier siblings."""
-        return self.structural_min_items(pkt)
-
 
 ##########################
 #    Basic CBOR Field    #
@@ -259,16 +254,6 @@ class CBORF_field(CBORF_element, Generic[_I]):
         raise NotImplementedError(
             "Subclasses must implement m2i for %s" % type(self))
 
-    def encode_value(self, x):
-        # type: (Any) -> bytes
-        """Encode a native Python value to CBOR bytes.
-
-        Prefer overriding :meth:`i2m` in new code; ``encode_value`` remains
-        the shared leaf encoder used by the default :meth:`i2m`.
-        """
-        raise NotImplementedError(
-            "Subclasses must implement encode_value for %s" % type(self))
-
     def i2m(self, pkt, x):
         # type: (CBOR_Packet, Any) -> bytes
         """Convert internal value to CBOR wire bytes (Scapy build hook)."""
@@ -289,7 +274,13 @@ class CBORF_field(CBORF_element, Generic[_I]):
             return data
         # Do not special-case None here: for CBORF_ANY, None is CBOR null.
         # Absent/optional skipping is handled in _build_counted().
-        return self.encode_value(x)
+        return self._encode_leaf(x)
+
+    def _encode_leaf(self, x):
+        # type: (Any) -> bytes
+        """Encode a native Python value to CBOR bytes (leaf fields only)."""
+        raise NotImplementedError(
+            "Subclasses must implement _encode_leaf for %s" % type(self))
 
     @staticmethod
     def _object_to_python(obj):
@@ -340,7 +331,7 @@ class CBORF_field(CBORF_element, Generic[_I]):
         # type: (CBOR_Packet, bytes) -> bytes
         """Decode one item from *s* into *pkt* (ASN.1-style leaf dissect)."""
         val, remain = self.m2i(pkt, s)
-        self.set_val(pkt, val)
+        pkt.setfieldval(self.name, val)
         return remain
 
     def _build_counted(self, pkt):
@@ -383,22 +374,18 @@ class CBORF_field(CBORF_element, Generic[_I]):
                 pass
         return copy.deepcopy(x)
 
-    def set_val(self, pkt, val):
-        # type: (CBOR_Packet, Any) -> None
-        if val is CBOR_ABSENT:
-            # Bypass any2i so presence sentinel is stored verbatim.
-            pkt.fields[self.name] = CBOR_ABSENT
-            pkt.explicit = 0
-            pkt.raw_packet_cache = None
-            pkt.raw_packet_cache_fields = None
-            pkt.wirelen = None
-            return
-        pkt.setfieldval(self.name, val)
-
     def mark_absent(self, pkt):
         # type: (CBOR_Packet) -> None
-        """Record that this field was not present on the wire."""
-        self.set_val(pkt, CBOR_ABSENT)
+        """Record that this field was not present on the wire.
+
+        Assign ``CBOR_ABSENT`` without ``any2i`` so integer leaves that
+        reject non-int values still accept the presence sentinel.
+        """
+        pkt.fields[self.name] = CBOR_ABSENT
+        pkt.explicit = 0
+        pkt.raw_packet_cache = None
+        pkt.raw_packet_cache_fields = None
+        pkt.wirelen = None
 
     def is_empty(self, pkt):
         # type: (CBOR_Packet) -> bool
@@ -609,7 +596,7 @@ class CBORF_ANY(CBORF_field[Any]):
         # type: (CBOR_Packet, bytes) -> Tuple[Any, bytes]
         return CBORcodec_Object.decode_cbor_item(s)
 
-    def encode_value(self, x):
+    def _encode_leaf(self, x):
         # type: (Any) -> bytes
         if x is CBOR_ABSENT:
             return b""
@@ -644,7 +631,7 @@ class CBORF_UNSIGNED_INTEGER(CBORF_field[int]):
                 "Expected unsigned integer, got %r" % obj)
         return obj.val, remain
 
-    def encode_value(self, x):
+    def _encode_leaf(self, x):
         # type: (Any) -> bytes
         return CBORcodec_UNSIGNED_INTEGER.enc(int(x))
 
@@ -677,7 +664,7 @@ class CBORF_NEGATIVE_INTEGER(CBORF_field[int]):
                 "Expected negative integer, got %r" % obj)
         return obj.val, remain
 
-    def encode_value(self, x):
+    def _encode_leaf(self, x):
         # type: (Any) -> bytes
         return CBORcodec_NEGATIVE_INTEGER.enc(int(x))
 
@@ -728,7 +715,7 @@ class CBORF_INTEGER(CBORF_field[int]):
         raise CBOR_Type_Mismatch(
             "Expected integer (major type 0 or 1), got %d" % major_type)
 
-    def encode_value(self, x):
+    def _encode_leaf(self, x):
         # type: (Any) -> bytes
         i = int(x)
         if i >= 0:
@@ -792,7 +779,7 @@ class CBORF_BYTE_STRING(CBORF_field[bytes]):
         # type: (CBOR_Packet, bytes) -> Tuple[bytes, bytes]
         return _cbor_decode_byte_string(s, definite_only=self.definite_only)
 
-    def encode_value(self, x):
+    def _encode_leaf(self, x):
         # type: (Any) -> bytes
         return _cbor_encode_byte_string(x)
 
@@ -862,7 +849,7 @@ class CBORF_BYTE_STRING_PACKET(CBORF_field[Packet]):
         )
         return self._decode_packet_value(pkt, data), remain
 
-    def encode_value(self, x):
+    def _encode_leaf(self, x):
         # type: (Any) -> bytes
         return _cbor_encode_byte_string(x)
 
@@ -893,7 +880,7 @@ class CBORF_TEXT_STRING(CBORF_field[str]):
                 "Expected text string, got %r" % obj)
         return obj.val, remain
 
-    def encode_value(self, x):
+    def _encode_leaf(self, x):
         # type: (Any) -> bytes
         return CBORcodec_TEXT_STRING.enc(str(x))
 
@@ -939,7 +926,7 @@ class CBORF_BOOLEAN(CBORF_field[bool]):
                 "Expected boolean (CBOR_FALSE or CBOR_TRUE), got %r" % obj)
         return obj.val, remain
 
-    def encode_value(self, x):
+    def _encode_leaf(self, x):
         # type: (Any) -> bytes
         return CBORcodec_SIMPLE_AND_FLOAT.enc(bool(x))
 
@@ -981,7 +968,7 @@ class CBORF_NULL(CBORF_field[None]):
                 "Expected null, got %r" % obj)
         return None, remain
 
-    def encode_value(self, x):
+    def _encode_leaf(self, x):
         # type: (Any) -> bytes
         return CBOR_NULL().enc()
 
@@ -989,7 +976,7 @@ class CBORF_NULL(CBORF_field[None]):
         # type: (CBOR_Packet) -> bytes
         if pkt.getfieldval(self.name) is CBOR_ABSENT:
             return b""
-        return self.encode_value(None)
+        return self._encode_leaf(None)
 
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
@@ -1036,7 +1023,7 @@ class CBORF_UNDEFINED(CBORF_field[None]):
                 "Expected undefined, got %r" % obj)
         return None, remain
 
-    def encode_value(self, x):
+    def _encode_leaf(self, x):
         # type: (Any) -> bytes
         return CBOR_UNDEFINED().enc()
 
@@ -1044,7 +1031,7 @@ class CBORF_UNDEFINED(CBORF_field[None]):
         # type: (CBOR_Packet) -> bytes
         if pkt.getfieldval(self.name) is CBOR_ABSENT:
             return b""
-        return self.encode_value(None)
+        return self._encode_leaf(None)
 
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
@@ -1101,7 +1088,7 @@ class CBORF_FLOAT(CBORF_field[float]):
                 "Expected float, got %r" % obj)
         return float(obj.val), remain
 
-    def encode_value(self, x):
+    def _encode_leaf(self, x):
         # type: (Any) -> bytes
         if isinstance(x, CBOR_FLOAT):
             return CBORcodec_SIMPLE_AND_FLOAT.enc(float(x.val))
@@ -1176,7 +1163,7 @@ class _CBORF_compound(CBORF_element):
     def _suffix_reserved(self, pkt, index):
         # type: (CBOR_Packet, int) -> int
         return sum(
-            f.reserve_min_items(pkt) for f in self.seq[index + 1:]
+            f.structural_min_items(pkt) for f in self.seq[index + 1:]
         )
 
     def _mark_absent(self, pkt, field):
@@ -1225,16 +1212,13 @@ class _CBORF_compound(CBORF_element):
                     inner = inner.fld
                 else:
                     break
-            if not (
-                isinstance(inner, CBORF_SEQUENCE_OF)
-                and getattr(inner, "is_unbounded", False)
-            ):
+            if not isinstance(inner, CBORF_SEQUENCE_OF):
                 continue
-            # Unbounded SEQUENCE_OF must be the final schema field.
+            # SEQUENCE_OF is always terminal (consumes the remainder).
             if index != len(self.seq) - 1:
                 raise ValueError(
-                    "Unbounded CBORF_SEQUENCE_OF must be the last field "
-                    "in the sequence (or provide count_from=)"
+                    "CBORF_SEQUENCE_OF must be the last field "
+                    "in the sequence"
                 )
 
     def _dissect_children_budgeted(self, pkt, s, count):
@@ -1295,12 +1279,6 @@ class _CBORF_compound(CBORF_element):
                         self._mark_absent(pkt, field)
                         continue
             result = self._dissect_field(pkt, field, remaining)
-            if (
-                isinstance(field, CBORF_SEQUENCE_OF)
-                and field.count_from is not None
-                and result.items != field.min_items(pkt)
-            ):
-                raise CBOR_Decoding_Error("CBOR item count mismatch")
             remaining = result.remaining
             total_items += result.items
         return remaining, total_items
@@ -1633,9 +1611,10 @@ class CBORF_SEQUENCE_OF(_CBORF_HOMOGENEOUS):
     :class:`~typing.Generic` reserves that name on Python 3.7.
     Pass only one of ``pkt_cls`` / ``next_cls_cb``.
 
-    An unbounded ``SEQUENCE_OF`` (no ``count_from``) must be the last field in
-    its surrounding sequence/array. Use ``count_from`` for an explicit length
-    and ``max_count`` to cap decoding (defaults to ``conf.max_list_count``).
+    ``SEQUENCE_OF`` must be the last field in its enclosing positional
+    schema (``CBORF_SEQUENCE`` / ``CBORF_ARRAY``). It consumes the
+    remainder until break or exhaustion. Use ``max_count`` to cap
+    decoding (defaults to ``conf.max_list_count``).
     """
     CBOR_tag = None
     _empty_repr = "()"
@@ -1647,11 +1626,9 @@ class CBORF_SEQUENCE_OF(_CBORF_HOMOGENEOUS):
                  default,  # type: Any
                  pkt_cls=None,  # type: _ARRAY_T
                  next_cls_cb=None,  # type: Optional[Callable[..., Optional[Type[Packet]]]]  # noqa: E501
-                 count_from=None,  # type: Optional[Any]
                  max_count=None,  # type: Optional[int]
                  ):
         # type: (...) -> None
-        self.count_from = count_from
         super(CBORF_SEQUENCE_OF, self).__init__(
             name,
             default,
@@ -1660,22 +1637,12 @@ class CBORF_SEQUENCE_OF(_CBORF_HOMOGENEOUS):
             max_count=max_count,
         )
 
-    @property
-    def is_unbounded(self):
-        # type: () -> bool
-        return self.count_from is None
-
     def _decode_items(self, pkt, data, max_items=None):
         # type: (CBOR_Packet, bytes, Optional[int]) -> Tuple[List[Any], bytes, int]
         """Decode zero or more immediate CBOR items; do not consume break."""
         values = []  # type: List[Any]
         remaining = data
         consumed = 0
-        if self.count_from is not None:
-            if callable(self.count_from):
-                max_items = int(self.count_from(pkt))
-            else:
-                max_items = self.min_items(pkt)
         while remaining and not cbor_is_break(remaining):
             if max_items is not None and consumed >= max_items:
                 break
@@ -1704,7 +1671,7 @@ class CBORF_SEQUENCE_OF(_CBORF_HOMOGENEOUS):
         values, remaining, consumed = self._decode_items(
             pkt, s, max_items=max_items
         )
-        self.set_val(pkt, values)
+        pkt.setfieldval(self.name, values)
         return _CBORParseResult(remaining=remaining, items=consumed)
 
     def _build_counted(self, pkt):
@@ -1718,38 +1685,11 @@ class CBORF_SEQUENCE_OF(_CBORF_HOMOGENEOUS):
 
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
-        if self.count_from is None or pkt is None:
-            return 0
-        if callable(self.count_from):
-            return int(self.count_from(pkt))
-        # Only dissected values — never fall back to field defaults.
-        if self.count_from not in pkt.fields:
-            return 0
-        val = pkt.fields[self.count_from]
-        if val is None or val is CBOR_ABSENT:
-            return 0
-        return int(val)
+        return 0
 
     def max_items(self, pkt):
         # type: (CBOR_Packet) -> int
-        if self.count_from is not None and pkt is not None:
-            return self.min_items(pkt)
         return self._list_limit()
-
-    def structural_min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return 0
-
-    def structural_max_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return self._list_limit()
-
-    def reserve_min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        # Callables have no dependency tracking; reserve nothing until current.
-        if callable(self.count_from):
-            return 0
-        return self.min_items(pkt)
 
 
 class CBORF_ARRAY_OF(_CBORF_HOMOGENEOUS):
@@ -1857,7 +1797,7 @@ class _CBORF_MAP_UNKNOWN(CBORF_field[List[Tuple[str, Any]]]):
         # type: (CBOR_Packet) -> bool
         return not pkt.getfieldval(self.name)
 
-    def encode_value(self, x):
+    def _encode_leaf(self, x):
         # type: (Any) -> bytes
         raise CBOR_Encoding_Error(
             "_CBORF_MAP_UNKNOWN is not encoded as a standalone CBOR item"
@@ -2093,7 +2033,7 @@ class CBORF_MAP(CBORF_element):
                 raise CBOR_Decoding_Error(
                     "Required map field %r is missing" % fld.name
                 )
-        self._unknown_field.set_val(pkt, unknown_pairs)
+        pkt.setfieldval(self._unknown_field.name, unknown_pairs)
         return _CBORParseResult(remaining=remaining, items=1)
 
 
@@ -2260,10 +2200,6 @@ class CBORF_optional(CBORF_element):
     def max_items(self, pkt):
         # type: (CBOR_Packet) -> int
         return self._field.max_items(pkt)
-
-    def structural_min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return 0
 
     def structural_max_items(self, pkt):
         # type: (CBOR_Packet) -> int
