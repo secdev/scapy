@@ -7,7 +7,7 @@ CBOR Packet
 
 Packet holding data encoded in Concise Binary Object Representation (CBOR).
 Modelled after scapy/asn1packet.py, with CBOR-specific raw-cache integration
-for sentinels (``CBOR_ABSENT``), mutable ANY values, and nested item counts.
+for sentinels (``CBOR_ABSENT``) and mutable ANY values.
 """
 
 from scapy.base_classes import Packet_metaclass
@@ -43,37 +43,10 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
 
     Field flags (``islist`` / ``ismutable`` / ``holds_packets``) drive
     Scapy's mutation detection and per-instance default copying. This class
-    re-parents nested packet defaults and stores parsed root item counts for
-    exact-wire rebuilds.
+    re-parents nested packet defaults for exact-wire rebuilds.
     """
 
     CBOR_root = None  # type: Optional[Any]
-
-    def _raw_packet_cache_is_valid(self):
-        # type: () -> bool
-        """Return True if ``raw_packet_cache`` still matches nested field state."""
-        if not super(CBOR_Packet, self)._raw_packet_cache_is_valid():
-            self._cbor_raw_cache_items = None  # type: ignore[attr-defined]
-            return False
-        return True
-
-    def _cbor_build_counted(self):
-        # type: () -> Any
-        """Return ``_CBORBuildResult`` for this packet's root schema.
-
-        When the raw cache is valid, return the exact received bytes together
-        with the dissected top-level item count. Never rebuild an unchanged
-        packet merely to recover cardinality.
-        """
-        from scapy.cbor.cborfields import _CBORBuildResult
-        if self._raw_packet_cache_is_valid():
-            items = getattr(self, "_cbor_raw_cache_items", None)
-            if items is None:
-                items = 1
-            return _CBORBuildResult(self.raw_packet_cache, items)
-        result = self.CBOR_root._build_counted(self)
-        self._cbor_raw_cache_items = result.items  # type: ignore[attr-defined]
-        return result
 
     def do_init_cached_fields(self, for_dissect_only=False):
         # type: (bool) -> None
@@ -150,7 +123,6 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
         result = self.CBOR_root._dissect_counted(self, s)
         remain = result.remaining
         self.raw_packet_cache = s[:-len(remain)] if remain else s
-        self._cbor_raw_cache_items = result.items  # type: ignore[attr-defined]
         self.raw_packet_cache_fields = {}
         for f in self.fields_desc:
             if f.name not in self.fields:
@@ -177,10 +149,6 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
         ``parent`` for ownership, so reattach after the clone is built.
         """
         clone = super(CBOR_Packet, self).copy()
-        if hasattr(self, "_cbor_raw_cache_items"):
-            clone._cbor_raw_cache_items = (  # type: ignore[attr-defined]
-                self._cbor_raw_cache_items
-            )
         for f in clone.fields_desc:
             if f.holds_packets and f.name in clone.fields:
                 clone.fields[f.name] = f.any2i(clone, clone.fields[f.name])
