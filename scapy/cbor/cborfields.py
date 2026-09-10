@@ -1149,30 +1149,13 @@ class _CBORF_compound(CBORF_element):
             total_items += result.items
         return b"".join(parts), total_items
 
-    def _mark_absent(self, pkt, field):
-        # type: (CBOR_Packet, Any) -> None
-        """Record that an optional field was not present on the wire."""
-        if isinstance(field, CBORF_optional):
-            field._field.mark_absent(pkt)
-
     def _dissect_field(self, pkt, field, remaining, max_items=None):
         # type: (CBOR_Packet, Any, bytes, Optional[int]) -> _CBORParseResult
-        if isinstance(field, CBORF_optional):
-            if not remaining or not field._field.matches_next_item(
-                pkt, remaining
-            ):
-                self._mark_absent(pkt, field)
-                return _CBORParseResult(remaining=remaining, items=0)
-            result = field._dissect_counted(pkt, remaining)
-        elif isinstance(field, CBORF_SEQUENCE_OF):
-            result = field._dissect_counted(
+        if isinstance(field, CBORF_SEQUENCE_OF):
+            return field._dissect_counted(
                 pkt, remaining, max_items=max_items
             )
-        else:
-            result = field._dissect_counted(pkt, remaining)
-        if result.items == 0:
-            self._mark_absent(pkt, field)
-        return result
+        return field._dissect_counted(pkt, remaining)
 
     def _reject_nonterminal_sequence_of(self):
         # type: () -> None
@@ -1196,7 +1179,8 @@ class _CBORF_compound(CBORF_element):
             if available < 0 or available < needed:
                 raise CBOR_Decoding_Error("CBOR item count mismatch")
             if available == 0:
-                self._mark_absent(pkt, field)
+                if isinstance(field, CBORF_optional):
+                    field._field.mark_absent(pkt)
                 continue
             result = self._dissect_field(
                 pkt, field, remaining, max_items=available
@@ -1551,10 +1535,13 @@ class CBORF_SEQUENCE_OF(_CBORF_HOMOGENEOUS):
     :class:`~typing.Generic` reserves that name on Python 3.7.
     Pass only one of ``pkt_cls`` / ``next_cls_cb``.
 
-    ``SEQUENCE_OF`` is an unframed remainder consumer: place it directly
-    as the final child of ``CBORF_SEQUENCE`` / ``CBORF_ARRAY`` (not inside
-    ``CBORF_optional`` or ``CBORF_CONDITIONAL``). It consumes until break
-    or exhaustion. Use ``max_count`` to cap decoding (defaults to
+    ``SEQUENCE_OF`` represents an unframed sequence of zero or more CBOR
+    items. Because it consumes the remaining item budget/input, it must be
+    a direct final child of a positional ``CBORF_SEQUENCE`` or
+    ``CBORF_ARRAY``.
+
+    It must not be wrapped in ``CBORF_optional``, ``CBORF_CONDITIONAL``, or
+    ``CBORF_SEMANTIC_TAG``. Use ``max_count`` to cap decoding (defaults to
     ``conf.max_list_count``).
     """
     CBOR_tag = None
@@ -2004,6 +1991,11 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
         if tag_num < 0 or tag_num > CBOR_UINT64_MAX:
             raise CBOR_Encoding_Error(
                 "Semantic tag number out of uint64 range")
+        if isinstance(inner_field, CBORF_SEQUENCE_OF):
+            raise ValueError(
+                "CBORF_SEQUENCE_OF cannot be wrapped; "
+                "place it directly as the final positional field"
+            )
         self.tag_num = tag_num
         self.inner_field = inner_field
 
