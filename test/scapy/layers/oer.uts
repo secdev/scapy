@@ -386,6 +386,9 @@ OER_len_enc(0) == b"\x00"
 OER_len_enc(127) == b"\x7f"
 = OER length boundary long form
 OER_len_enc(128) == b"\x81\x80"
+= OER long-form length with zero subsequent octets is rejected
+_raises(OER_Decoding_Error, lambda: OER_len_dec(b"\x80"))
+True
 = OER length roundtrip
 l, r = OER_len_dec(OER_len_enc(999))
 l == 999 and r == b""
@@ -416,6 +419,18 @@ OERcodec_ENUMERATED.enc(-1) == b"\x81\xff"
 = OER enumerated roundtrip
 x, r = OERcodec_ENUMERATED.do_dec(OERcodec_ENUMERATED.enc(128))
 x.val == 128 and r == b""
+= OER enumerated long-form with zero subsequent octets is rejected
+_raises(OER_Decoding_Error, lambda: OERcodec_ENUMERATED.do_dec(b"\x80"))
+True
+= OER enumerated numeric range
+lo, hi = -2 ** 1015, 2 ** 1015 - 1
+x, r = OERcodec_ENUMERATED.do_dec(OERcodec_ENUMERATED.enc(lo))
+assert x.val == lo and r == b""
+x, r = OERcodec_ENUMERATED.do_dec(OERcodec_ENUMERATED.enc(hi))
+assert x.val == hi and r == b""
+_raises(OER_Encoding_Error, lambda: OERcodec_ENUMERATED.enc(lo - 1))
+_raises(OER_Encoding_Error, lambda: OERcodec_ENUMERATED.enc(hi + 1))
+True
 = OER null roundtrip
 x, r = OERcodec_NULL.do_dec(OERcodec_NULL.enc(None))
 x.val is None and r == b""
@@ -1274,7 +1289,7 @@ _raises(OER_Decoding_Error, lambda: OEROnlyOptional().do_dissect(b""))
 
 True
 
-= oer SET and SET OF are rejected
+= oer SET is rejected; SET OF is SEQUENCE OF
 class OERSetRecord(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SET(ASN1F_INTEGER("n", 0))
@@ -1285,8 +1300,11 @@ class OERSetOfRecord(ASN1_Packet):
 
 _raises(OER_Encoding_Error, lambda: raw(OERSetRecord(n=1)))
 _raises(OER_Decoding_Error, lambda: OERSetRecord(b"\x01\x01"))
-_raises(OER_Encoding_Error, lambda: raw(OERSetOfRecord(items=[1])))
-_raises(OER_Decoding_Error, lambda: OERSetOfRecord(b"\x01\x01"))
+_raises(OER_Encoding_Error, lambda: ASN1_SET([ASN1_INTEGER(1)]).enc(ASN1_Codecs.OER))
+assert OERcodec_SET.enc(b"raw") == b"raw"
+pkt = OERSetOfRecord(items=[1, 2])
+decoded = OERSetOfRecord(raw(pkt))
+assert [x.val for x in decoded.items] == [1, 2]
 True
 
 = oer sequence of a pre-encoded value

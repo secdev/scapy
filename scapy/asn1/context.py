@@ -305,11 +305,8 @@ class OER_Encoder(ASN1Encoder):
 
     def encode_sequence_of(self, field, pkt):
         # type: (Any, Any) -> None
-        from scapy.asn1.oer import OER_Encoding_Error, OER_unsigned_integer_enc
-        from scapy.asn1fields import ASN1F_SET_OF
+        from scapy.asn1.oer import OER_unsigned_integer_enc
 
-        if isinstance(field, ASN1F_SET_OF):
-            raise OER_Encoding_Error("ASN1F_SET_OF is not supported")
         val = getattr(pkt, field.name)
         if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
             self.write(field.i2m(pkt, val))
@@ -385,7 +382,7 @@ class OER_Decoder(ASN1Decoder):
 
     def decode_sequence(self, field, pkt):
         # type: (Any, Any) -> None
-        from scapy.asn1.oer import OER_Decoding_Error, _OER_check_len
+        from scapy.asn1.oer import OER_Decoding_Error
         from scapy.asn1fields import ASN1F_SET
 
         if isinstance(field, ASN1F_SET):
@@ -400,7 +397,12 @@ class OER_Decoder(ASN1Decoder):
             presence = []  # type: List[bool]
         else:
             number_of_bytes = (number_of_bits + 7) // 8
-            _OER_check_len("ASN1F_SEQUENCE", s, number_of_bytes)
+            if len(s) < number_of_bytes:
+                raise OER_Decoding_Error(
+                    "ASN1F_SEQUENCE: Got %i bytes while expecting %i" %
+                    (len(s), number_of_bytes),
+                    remaining=s
+                )
             value = int.from_bytes(s[:number_of_bytes], "big")
             bits = [
                 bool((value >> (8 * number_of_bytes - 1 - i)) & 1)
@@ -424,11 +426,8 @@ class OER_Decoder(ASN1Decoder):
 
     def decode_sequence_of(self, field, pkt):
         # type: (Any, Any) -> None
-        from scapy.asn1.oer import OER_Decoding_Error, OER_unsigned_integer_dec
-        from scapy.asn1fields import ASN1F_SET_OF
+        from scapy.asn1.oer import OER_unsigned_integer_dec
 
-        if isinstance(field, ASN1F_SET_OF):
-            raise OER_Decoding_Error("ASN1F_SET_OF is not supported")
         s = field._apply_tagging_dec(self.remaining(), pkt)
         count, s = OER_unsigned_integer_dec(s)
         lst = []
@@ -521,11 +520,7 @@ class UPER_EncoderContext(ASN1Encoder):
             ASN1F_PACKET,
             ASN1F_SEQUENCE,
             ASN1F_SEQUENCE_OF,
-            ASN1F_SET_OF,
         )
-
-        if isinstance(field, ASN1F_SET_OF):
-            raise UPER_Encoding_Error("ASN1F_SET_OF is not supported")
 
         if (
                 not field.holds_packets and
@@ -665,11 +660,8 @@ class UPER_DecoderContext(ASN1Decoder):
             ASN1F_PACKET,
             ASN1F_SEQUENCE,
             ASN1F_SEQUENCE_OF,
-            ASN1F_SET_OF,
         )
 
-        if isinstance(field, ASN1F_SET_OF):
-            raise UPER_Decoding_Error("ASN1F_SET_OF is not supported")
         if (
                 not field.holds_packets and
                 isinstance(field.fld, (ASN1F_SEQUENCE, ASN1F_CHOICE, ASN1F_SEQUENCE_OF))
