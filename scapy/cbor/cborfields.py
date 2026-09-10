@@ -194,11 +194,6 @@ class CBORF_element(object):
         # type: (CBOR_Packet) -> int
         return 1
 
-    def structural_min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        """Lower bound independent of not-yet-dissected discriminators."""
-        return self.min_items(pkt)
-
     def structural_max_items(self, pkt):
         # type: (CBOR_Packet) -> int
         """Upper bound independent of not-yet-dissected discriminators."""
@@ -1163,7 +1158,7 @@ class _CBORF_compound(CBORF_element):
     def _suffix_reserved(self, pkt, index):
         # type: (CBOR_Packet, int) -> int
         return sum(
-            f.structural_min_items(pkt) for f in self.seq[index + 1:]
+            f.min_items(pkt) for f in self.seq[index + 1:]
         )
 
     def _mark_absent(self, pkt, field):
@@ -1171,16 +1166,6 @@ class _CBORF_compound(CBORF_element):
         """Record that an optional field was not present on the wire."""
         if isinstance(field, CBORF_optional):
             field._field.mark_absent(pkt)
-
-    def _validate_skipped_optional(self, pkt, field, remaining):
-        # type: (CBOR_Packet, Any, bytes) -> None
-        """Reject a present-but-skipped optional that is malformed on the wire."""
-        if (
-            isinstance(field, CBORF_optional)
-            and remaining
-            and field._field.matches_next_item(pkt, remaining)
-        ):
-            field._field._parse_value(pkt, remaining)
 
     def _dissect_field(self, pkt, field, remaining, max_items=None):
         # type: (CBOR_Packet, Any, bytes, Optional[int]) -> _CBORParseResult
@@ -1201,7 +1186,7 @@ class _CBORF_compound(CBORF_element):
             self._mark_absent(pkt, field)
         return result
 
-    def _reject_ambiguous_unbounded_sequences(self):
+    def _reject_nonterminal_sequence_of(self):
         # type: () -> None
         for index, field in enumerate(self.seq):
             inner = field
@@ -1232,7 +1217,6 @@ class _CBORF_compound(CBORF_element):
             if available < 0 or available < needed:
                 raise CBOR_Decoding_Error("CBOR item count mismatch")
             if available == 0:
-                self._validate_skipped_optional(pkt, field, remaining)
                 self._mark_absent(pkt, field)
                 continue
             result = self._dissect_field(
@@ -1272,10 +1256,6 @@ class _CBORF_compound(CBORF_element):
                     except CBOR_Codec_Decoding_Error as e:
                         raise CBOR_Decoding_Error(str(e))
                     if ahead <= suffix_need:
-                        if ahead == suffix_need:
-                            self._validate_skipped_optional(
-                                pkt, field, remaining
-                            )
                         self._mark_absent(pkt, field)
                         continue
             result = self._dissect_field(pkt, field, remaining)
@@ -1304,7 +1284,7 @@ class CBORF_SEQUENCE(_CBORF_compound):
     def __init__(self, *seq, **kwargs):
         # type: (*Any, **Any) -> None
         super(CBORF_SEQUENCE, self).__init__(*seq, **kwargs)
-        self._reject_ambiguous_unbounded_sequences()
+        self._reject_nonterminal_sequence_of()
 
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
@@ -1325,10 +1305,6 @@ class CBORF_SEQUENCE(_CBORF_compound):
     def max_items(self, pkt):
         # type: (CBOR_Packet) -> int
         return sum(f.max_items(pkt) for f in self.seq)
-
-    def structural_min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return sum(f.structural_min_items(pkt) for f in self.seq)
 
     def structural_max_items(self, pkt):
         # type: (CBOR_Packet) -> int
@@ -1360,7 +1336,7 @@ class CBORF_ARRAY(_CBORF_compound):
     def __init__(self, *seq, **kwargs):
         # type: (*Any, **Any) -> None
         super(CBORF_ARRAY, self).__init__(*seq, **kwargs)
-        self._reject_ambiguous_unbounded_sequences()
+        self._reject_nonterminal_sequence_of()
 
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
@@ -2249,10 +2225,6 @@ class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
         # type: (CBOR_Packet) -> int
         if self._evalcond(pkt):
             return self.fld.max_items(pkt)
-        return 0
-
-    def structural_min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
         return 0
 
     def structural_max_items(self, pkt):
