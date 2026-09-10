@@ -993,88 +993,100 @@ try:
 except ValueError:
     pass
 
-= Optional wrapper cannot hide a nonterminal SEQUENCE_OF
+= Optional cannot wrap SEQUENCE_OF
 from scapy.cbor.cborfields import (
-    CBORF_ARRAY,
     CBORF_SEQUENCE_OF,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
 )
 
 try:
-    CBORF_ARRAY(
-        CBORF_optional(
-            CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER)
-        ),
-        CBORF_UNSIGNED_INTEGER("tail", 0),
+    CBORF_optional(
+        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER)
     )
-    assert False, "optional SEQUENCE_OF before tail was accepted"
+    assert False, "optional SEQUENCE_OF was accepted"
 except ValueError:
     pass
 
-= Conditional wrapper cannot hide a nonterminal SEQUENCE_OF
+= Conditional cannot wrap SEQUENCE_OF
 from scapy.cbor.cborfields import (
-    CBORF_ARRAY,
     CBORF_CONDITIONAL,
     CBORF_SEQUENCE_OF,
     CBORF_UNSIGNED_INTEGER,
 )
 
 try:
-    CBORF_ARRAY(
-        CBORF_CONDITIONAL(
-            CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
-            lambda pkt: True,
-        ),
-        CBORF_UNSIGNED_INTEGER("tail", 0),
+    CBORF_CONDITIONAL(
+        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
+        lambda pkt: True,
     )
-    assert False, "conditional SEQUENCE_OF before tail was accepted"
+    assert False, "conditional SEQUENCE_OF was accepted"
 except ValueError:
     pass
 
-= Nested transparent wrappers cannot hide a nonterminal SEQUENCE_OF
+= Direct terminal SEQUENCE_OF respects definite array item budget
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
-    CBORF_CONDITIONAL,
     CBORF_SEQUENCE_OF,
     CBORF_UNSIGNED_INTEGER,
-    CBORF_optional,
 )
+from scapy.cborpacket import CBOR_Packet
+from scapy.packet import Raw
 
-try:
-    CBORF_ARRAY(
-        CBORF_CONDITIONAL(
-            CBORF_optional(
-                CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER)
-            ),
-            lambda pkt: True,
-        ),
-        CBORF_UNSIGNED_INTEGER("tail", 0),
+class DirectTerminal(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_UNSIGNED_INTEGER("n", 0),
+        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
     )
-    assert False, "nested wrapped SEQUENCE_OF before tail was accepted"
-except ValueError:
-    pass
 
-= Terminal optional SEQUENCE_OF remains a valid schema
+pkt = DirectTerminal()
+result = DirectTerminal.CBOR_root._dissect_counted(
+    pkt, b"\x82\x01\x0a\x0b"
+)
+assert pkt.n == 1
+assert pkt.vals == [10]
+assert result.remaining == b"\x0b"
+
+pkt = DirectTerminal(b"\x82\x01\x0a\x0b")
+assert pkt.n == 1
+assert pkt.vals == [10]
+assert isinstance(pkt.payload, Raw) and pkt.payload.load == b"\x0b"
+
+= Direct terminal SEQUENCE_OF in indefinite ARRAY stops at break
 from scapy.cbor.cborfields import (
-    CBORF_ARRAY,
+    CBORF_ARRAY_INDEFINITE,
     CBORF_SEQUENCE_OF,
     CBORF_UNSIGNED_INTEGER,
-    CBORF_optional,
 )
 from scapy.cborpacket import CBOR_Packet
 
-class TerminalOptSeq(CBOR_Packet):
-    CBOR_root = CBORF_ARRAY(
+class DirectTerminalIndef(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_INDEFINITE(
         CBORF_UNSIGNED_INTEGER("n", 0),
-        CBORF_optional(
-            CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER)
-        ),
+        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
     )
 
-pkt = TerminalOptSeq(b"\x83\x01\x0a\x0b")
+pkt = DirectTerminalIndef(b"\x9f\x01\x0a\x0b\xff")
 assert pkt.n == 1
 assert pkt.vals == [10, 11]
+
+= Empty terminal SEQUENCE_OF leaves an empty list
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_SEQUENCE_OF,
+    CBORF_UNSIGNED_INTEGER,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class EmptyTerminal(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_UNSIGNED_INTEGER("n", 0),
+        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
+    )
+
+pkt = EmptyTerminal(b"\x81\x05")
+assert pkt.n == 5
+assert pkt.vals == []
 
 = Optional before trailing SEQUENCE_OF does not invent a reserved count
 from scapy.cbor.cborfields import (
@@ -2055,7 +2067,6 @@ from scapy.cbor.cborfields import (
     CBORF_ANY,
     CBORF_ARRAY,
     CBORF_BOOLEAN,
-    CBORF_SEQUENCE,
     CBORF_optional,
     CBOR_ABSENT,
 )
@@ -2067,23 +2078,12 @@ class OptionalBoolThenAnyArray(CBOR_Packet):
         CBORF_ANY("required", CBOR_ABSENT),
     )
 
-class OptionalBoolThenAnySequence(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
-        CBORF_optional(CBORF_BOOLEAN("maybe", None)),
-        CBORF_ANY("required", CBOR_ABSENT),
-    )
-
-# One item is available and the required trailing field needs exactly one item.
-# Therefore the optional Boolean must be absent even though the item is Boolean.
+# One array item is reserved for the required trailing field, so the
+# optional Boolean stays absent even though the item is Boolean.
 arr = OptionalBoolThenAnyArray(b"\x81\xf5")
 assert arr.getfieldval("maybe") is CBOR_ABSENT
 assert arr.required.val is True
 assert bytes(arr) == b"\x81\xf5"
-
-seq = OptionalBoolThenAnySequence(b"\xf5")
-assert seq.getfieldval("maybe") is CBOR_ABSENT
-assert seq.required.val is True
-assert bytes(seq) == b"\xf5"
 
 = Indefinite arrays reserve the final item for a required ANY field
 from scapy.cbor.cborfields import (
@@ -2111,7 +2111,6 @@ from scapy.cbor.cborfields import (
     CBORF_ANY,
     CBORF_ARRAY,
     CBORF_BOOLEAN,
-    CBORF_SEQUENCE,
     CBORF_optional,
     CBOR_ABSENT,
 )
@@ -2123,19 +2122,9 @@ class OptionalAnyThenBoolArray(CBOR_Packet):
         CBORF_BOOLEAN("required", None),
     )
 
-class OptionalAnyThenBoolSequence(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
-        CBORF_optional(CBORF_ANY("maybe", CBOR_ABSENT)),
-        CBORF_BOOLEAN("required", None),
-    )
-
 arr = OptionalAnyThenBoolArray(b"\x81\xf5")
 assert arr.getfieldval("maybe") is CBOR_ABSENT
 assert arr.required is True
-
-seq = OptionalAnyThenBoolSequence(b"\xf5")
-assert seq.getfieldval("maybe") is CBOR_ABSENT
-assert seq.required is True
 
 = Optional packet does not consume an item reserved for a trailing required ANY
 from scapy.cbor.cborfields import (
@@ -2681,6 +2670,176 @@ overlong = b"\x18\x01\x02"
 child = SeqChild(overlong)
 assert child.raw_packet_cache == overlong
 assert bytes(child) == overlong
+
+= Absent optional scalar preserves non-preferred following encoding
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_BOOLEAN,
+    CBORF_UNSIGNED_INTEGER,
+    CBORF_optional,
+    CBOR_ABSENT,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptionalThenInt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_optional(CBORF_BOOLEAN("maybe", None)),
+        CBORF_UNSIGNED_INTEGER("value", 0),
+    )
+
+raw = b"\x81\x18\x00"
+pkt = OptionalThenInt(raw)
+assert pkt.maybe is CBOR_ABSENT
+assert pkt.value == 0
+assert bytes(pkt) == raw
+assert pkt.raw_packet_cache == raw
+
+pkt = OptionalThenInt(raw)
+pkt.value = 1
+assert bytes(pkt) == b"\x81\x01"
+
+pkt = OptionalThenInt(raw)
+pkt.maybe = True
+rebuilt = bytes(pkt)
+assert rebuilt != raw
+assert OptionalThenInt(rebuilt).maybe is True
+
+= Absent optional integer preserves overlong follower
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_UNSIGNED_INTEGER,
+    CBORF_optional,
+    CBOR_ABSENT,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptIntThenInt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_optional(CBORF_UNSIGNED_INTEGER("opt", None)),
+        CBORF_UNSIGNED_INTEGER("value", 0),
+    )
+
+raw = b"\x81\x18\x00"
+pkt = OptIntThenInt(raw)
+assert pkt.opt is CBOR_ABSENT
+assert pkt.value == 0
+assert bytes(pkt) == raw
+
+= Multiple absent optionals preserve untouched raw cache
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_BOOLEAN,
+    CBORF_UNSIGNED_INTEGER,
+    CBORF_optional,
+    CBOR_ABSENT,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class MultiAbsent(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_optional(CBORF_BOOLEAN("a", None)),
+        CBORF_optional(CBORF_BOOLEAN("b", None)),
+        CBORF_UNSIGNED_INTEGER("value", 0),
+    )
+
+raw = b"\x81\x18\x00"
+pkt = MultiAbsent(raw)
+assert pkt.a is CBOR_ABSENT and pkt.b is CBOR_ABSENT
+assert pkt.value == 0
+assert bytes(pkt) == raw
+
+= Nested packet with absent optional preserves exact child bytes
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_BOOLEAN,
+    CBORF_PACKET,
+    CBORF_UNSIGNED_INTEGER,
+    CBORF_optional,
+    CBOR_ABSENT,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class NestedOptChild(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_optional(CBORF_BOOLEAN("maybe", None)),
+        CBORF_UNSIGNED_INTEGER("value", 0),
+    )
+
+class NestedOptParent(CBOR_Packet):
+    CBOR_root = CBORF_PACKET("child", None, NestedOptChild)
+
+raw = b"\x81\x18\x00"
+pkt = NestedOptParent(raw)
+assert pkt.child.maybe is CBOR_ABSENT
+assert pkt.child.value == 0
+assert bytes(pkt) == raw
+assert pkt.child.raw_packet_cache == raw
+
+= Absent optional map member preserves non-preferred known value
+from scapy.cbor.cborfields import (
+    CBORF_BOOLEAN,
+    CBORF_MAP,
+    CBORF_UNSIGNED_INTEGER,
+    CBORF_optional,
+    CBOR_ABSENT,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptMap(CBOR_Packet):
+    CBOR_root = CBORF_MAP(
+        CBORF_optional(CBORF_BOOLEAN("maybe", None)),
+        CBORF_UNSIGNED_INTEGER("value", 0),
+    )
+
+# map with only "value": overlong 0
+raw = b"\xa1\x65value\x18\x00"
+pkt = OptMap(raw)
+assert pkt.maybe is CBOR_ABSENT
+assert pkt.value == 0
+assert bytes(pkt) == raw
+
+= Unframed SEQUENCE optional parsing is greedy left-to-right
+from scapy.cbor.cbor import CBOR_Decoding_Error
+from scapy.cbor.cborfields import (
+    CBORF_BOOLEAN,
+    CBORF_SEQUENCE,
+    CBORF_UNSIGNED_INTEGER,
+    CBORF_optional,
+    CBOR_ABSENT,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class GreedySequence(CBOR_Packet):
+    CBOR_root = CBORF_SEQUENCE(
+        CBORF_optional(CBORF_UNSIGNED_INTEGER("optional", None)),
+        CBORF_UNSIGNED_INTEGER("required", 0),
+    )
+
+pkt = GreedySequence(b"\x01\x02")
+assert pkt.optional == 1
+assert pkt.required == 2
+
+try:
+    GreedySequence(b"\x01")
+    assert False, "ambiguous single unsigned item must fail under greedy SEQUENCE"
+except CBOR_Decoding_Error:
+    pass
+
+class TypedSequence(CBOR_Packet):
+    CBOR_root = CBORF_SEQUENCE(
+        CBORF_optional(CBORF_BOOLEAN("optional", None)),
+        CBORF_UNSIGNED_INTEGER("required", 0),
+    )
+
+pkt = TypedSequence(b"\x07")
+assert pkt.optional is CBOR_ABSENT
+assert pkt.required == 7
+
+pkt = TypedSequence()
+result = TypedSequence.CBOR_root._dissect_counted(pkt, b"\x07\x18")
+assert pkt.optional is CBOR_ABSENT
+assert pkt.required == 7
+assert result.remaining == b"\x18"
 
 # CBORF_PACKET represents exactly one CBOR item: embedding a multi-item
 # SEQUENCE child must fail (do not put this child in a CBORF_PACKET parent

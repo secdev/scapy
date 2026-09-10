@@ -1085,20 +1085,14 @@ class CBORF_FLOAT(CBORF_field[float]):
 
     def _encode_leaf(self, x):
         # type: (Any) -> bytes
-        if isinstance(x, CBOR_FLOAT):
-            return CBORcodec_SIMPLE_AND_FLOAT.enc(float(x.val))
         return CBORcodec_SIMPLE_AND_FLOAT.enc(float(x))
 
     def i2h(self, pkt, x):
         # type: (CBOR_Packet, Any) -> Any
-        if isinstance(x, CBOR_FLOAT):
-            return x.val
         return x
 
     def i2repr(self, pkt, x):
         # type: (CBOR_Packet, Any) -> str
-        if isinstance(x, CBOR_FLOAT):
-            return repr(x.val)
         return repr(x)
 
     def randval(self):
@@ -1155,12 +1149,6 @@ class _CBORF_compound(CBORF_element):
             total_items += result.items
         return b"".join(parts), total_items
 
-    def _suffix_reserved(self, pkt, index):
-        # type: (CBOR_Packet, int) -> int
-        return sum(
-            f.min_items(pkt) for f in self.seq[index + 1:]
-        )
-
     def _mark_absent(self, pkt, field):
         # type: (CBOR_Packet, Any) -> None
         """Record that an optional field was not present on the wire."""
@@ -1188,19 +1176,8 @@ class _CBORF_compound(CBORF_element):
 
     def _reject_nonterminal_sequence_of(self):
         # type: () -> None
-        for index, field in enumerate(self.seq):
-            inner = field
-            while True:
-                if isinstance(inner, CBORF_optional):
-                    inner = inner._field
-                elif isinstance(inner, CBORF_CONDITIONAL):
-                    inner = inner.fld
-                else:
-                    break
-            if not isinstance(inner, CBORF_SEQUENCE_OF):
-                continue
-            # SEQUENCE_OF is always terminal (consumes the remainder).
-            if index != len(self.seq) - 1:
+        for field in self.seq[:-1]:
+            if isinstance(field, CBORF_SEQUENCE_OF):
                 raise ValueError(
                     "CBORF_SEQUENCE_OF must be the last field "
                     "in the sequence"
@@ -1211,7 +1188,9 @@ class _CBORF_compound(CBORF_element):
         remaining = s
         items_left = count
         for index, field in enumerate(self.seq):
-            reserved = self._suffix_reserved(pkt, index)
+            reserved = sum(
+                f.min_items(pkt) for f in self.seq[index + 1:]
+            )
             available = items_left - reserved
             needed = field.min_items(pkt)
             if available < 0 or available < needed:
@@ -1234,30 +1213,10 @@ class _CBORF_compound(CBORF_element):
 
     def _dissect_children_streamed(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> Tuple[bytes, int]
-        """Consume schema fields from *s* without pre-counting trailing bytes."""
+        """Consume schema fields greedily left-to-right; leave trailing bytes."""
         remaining = s
         total_items = 0
-        for index, field in enumerate(self.seq):
-            if isinstance(field, CBORF_optional):
-                suffix_need = self._suffix_reserved(pkt, index)
-                if (
-                    not remaining
-                    or not field._field.matches_next_item(pkt, remaining)
-                ):
-                    self._mark_absent(pkt, field)
-                    continue
-                if suffix_need > 0:
-                    try:
-                        ahead = cbor_count_items(
-                            remaining,
-                            max_count=suffix_need + 1,
-                            until_break=False,
-                        )
-                    except CBOR_Codec_Decoding_Error as e:
-                        raise CBOR_Decoding_Error(str(e))
-                    if ahead <= suffix_need:
-                        self._mark_absent(pkt, field)
-                        continue
+        for field in self.seq:
             result = self._dissect_field(pkt, field, remaining)
             remaining = result.remaining
             total_items += result.items
@@ -1269,8 +1228,13 @@ class CBORF_SEQUENCE(_CBORF_compound):
     Unframed fixed sequence of named, typed fields (no CBOR array head).
 
     Unlike :class:`CBORF_ARRAY`, this emits/consumes a stream of top-level
-    CBOR items. Use it when a schema is a field list without a major-type-4
-    envelope (ASN.1 SEQUENCE analogy belongs on :class:`CBORF_ARRAY`).
+    CBOR items with greedy left-to-right parsing and no suffix lookahead.
+    Use it when a schema is a field list without a major-type-4 envelope
+    (ASN.1 SEQUENCE analogy belongs on :class:`CBORF_ARRAY`).
+
+    Same-type optional-then-required schemas are ambiguous on the wire;
+    prefer :class:`CBORF_ARRAY` (item budget) or :class:`CBORF_CONDITIONAL`
+    with a previously decoded discriminator.
 
     Example::
 
@@ -1587,10 +1551,11 @@ class CBORF_SEQUENCE_OF(_CBORF_HOMOGENEOUS):
     :class:`~typing.Generic` reserves that name on Python 3.7.
     Pass only one of ``pkt_cls`` / ``next_cls_cb``.
 
-    ``SEQUENCE_OF`` must be the last field in its enclosing positional
-    schema (``CBORF_SEQUENCE`` / ``CBORF_ARRAY``). It consumes the
-    remainder until break or exhaustion. Use ``max_count`` to cap
-    decoding (defaults to ``conf.max_list_count``).
+    ``SEQUENCE_OF`` is an unframed remainder consumer: place it directly
+    as the final child of ``CBORF_SEQUENCE`` / ``CBORF_ARRAY`` (not inside
+    ``CBORF_optional`` or ``CBORF_CONDITIONAL``). It consumes until break
+    or exhaustion. Use ``max_count`` to cap decoding (defaults to
+    ``conf.max_list_count``).
     """
     CBOR_tag = None
     _empty_repr = "()"
@@ -2150,6 +2115,11 @@ class CBORF_optional(CBORF_element):
                 "CBORF_optional requires CBORF_field or CBORF_SEMANTIC_TAG; "
                 "got %r" % (type(field).__name__,)
             )
+        if isinstance(field, CBORF_SEQUENCE_OF):
+            raise ValueError(
+                "CBORF_SEQUENCE_OF cannot be wrapped; "
+                "place it directly as the final positional field"
+            )
         self._field = field
 
     def __getattr__(self, attr):
@@ -2193,6 +2163,11 @@ class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
                  cond,  # type: Callable[[Packet], bool]
                  ):
         # type: (...) -> None
+        if isinstance(fld, CBORF_SEQUENCE_OF):
+            raise ValueError(
+                "CBORF_SEQUENCE_OF cannot be wrapped; "
+                "place it directly as the final positional field"
+            )
         fields.ConditionalField.__init__(self, fld, cond)
 
     def __repr__(self):
