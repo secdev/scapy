@@ -3337,6 +3337,7 @@ assert BrokenNextClsCalls == [4], BrokenNextClsCalls
 
 
 = Nested packet construction is not retried when the child constructor raises TypeError
+from scapy.config import conf
 from scapy.cbor.cbor import CBOR_Decoding_Error
 from scapy.cbor.cborfields import CBORF_PACKET, CBORF_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
@@ -3351,15 +3352,29 @@ class TypeErrorChild(CBOR_Packet):
 class TypeErrorParent(CBOR_Packet):
     CBOR_root = CBORF_PACKET("child", None, TypeErrorChild)
 
-TypeErrorChild.init_calls[:] = []
+_old_dbg = conf.debug_dissector
 try:
-    TypeErrorParent(b"\x01")
-except CBOR_Decoding_Error as exc:
-    assert "intentional nested packet failure" in str(exc)
-else:
-    raise AssertionError("nested packet TypeError was unexpectedly swallowed")
+    conf.debug_dissector = False
+    TypeErrorChild.init_calls[:] = []
+    try:
+        TypeErrorParent(b"\x01")
+    except CBOR_Decoding_Error as exc:
+        assert "intentional nested packet failure" in str(exc)
+    else:
+        raise AssertionError("nested packet TypeError was unexpectedly swallowed")
+    assert TypeErrorChild.init_calls == [True], TypeErrorChild.init_calls
 
-assert TypeErrorChild.init_calls == [True], TypeErrorChild.init_calls
+    conf.debug_dissector = True
+    TypeErrorChild.init_calls[:] = []
+    try:
+        TypeErrorParent(b"\x01")
+    except TypeError as exc:
+        assert "intentional nested packet failure" in str(exc)
+    else:
+        raise AssertionError("TypeError was hidden despite debug_dissector")
+    assert TypeErrorChild.init_calls == [True], TypeErrorChild.init_calls
+finally:
+    conf.debug_dissector = _old_dbg
 
 
 + fixed-map unknown member preservation
