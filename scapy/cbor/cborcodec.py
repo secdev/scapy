@@ -387,13 +387,11 @@ def _cbor_float_to_half_bits(value):
             return None
         mant = ((mant64 | (1 << 52)) >> shift) if exp64 != -1023 else 0
         half = mant & 0x3FF
-        preferred = math.copysign(value, -1.0 if sign else 1.0)
-        if _cbor_float_from_bits(int(CBOR_FloatAI.HALF), sign | half) != preferred:
-            # Compare absolute then restore sign via copysign on left side
-            decoded = _cbor_float_from_bits(int(CBOR_FloatAI.HALF), sign | half)
-            if decoded != math.copysign(abs(value), -1.0 if sign else 1.0):
-                return None
-        return sign | half
+        bits = sign | half
+        decoded = _cbor_float_from_bits(int(CBOR_FloatAI.HALF), bits)
+        if decoded != math.copysign(abs(value), -1.0 if sign else 1.0):
+            return None
+        return bits
     half_exp = exp64 + 15
     half_mant = mant64 >> 42
     # Reject if discarded mantissa bits are nonzero (not exact).
