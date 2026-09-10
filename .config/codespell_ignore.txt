@@ -54,3 +54,5 @@ wan
 wanna
 webp
 widgits
+UPER
+uPER
