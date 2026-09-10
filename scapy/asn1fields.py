@@ -33,7 +33,7 @@ from scapy.asn1.asn1 import (
     ASN1_STRING,
 )
 from scapy.asn1.ber import BER_Decoding_Error
-from scapy.asn1.constraints import normalize_constraints
+from scapy.asn1.constraints import ASN1Constraints
 from scapy.asn1.context import new_decoder, new_encoder
 from scapy.asn1.tag import asn1_tag_parts
 from scapy.base_classes import BasePacket
@@ -112,7 +112,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         else:
             self.default = self.ASN1_tag.asn1_object(default)  # type: ignore
         self.size_len = size_len
-        self.constraints = normalize_constraints(codec_opts)
+        self.constraints = ASN1Constraints(**codec_opts)
         self.flexible_tag = flexible_tag
         if (implicit_tag is not None) and (explicit_tag is not None):
             err_msg = "field cannot be both implicitly and explicitly tagged"
@@ -133,18 +133,13 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         exp = self.explicit_tag
         if self.flexible_tag:
             observed = getattr(pkt, "_asn1_observed_tags", None) or {}
-            diff = observed.get(self.name)
+            diff = observed.get(id(self))
             if diff is not None:
                 if imp is not None:
                     imp = diff
                 elif exp is not None:
                     exp = diff
         return imp, exp
-
-    def _tagging_dec(self, pkt, s, **kwargs):
-        # type: (ASN1_Packet, bytes, **Any) -> Tuple[Optional[int], bytes]
-        # Codec provides tagging_*; OER/PER register identity helpers.
-        return pkt.ASN1_codec.tagging_dec(s, **kwargs)  # type: ignore
 
     def _tagging_enc(self, pkt, s, **kwargs):
         # type: (ASN1_Packet, bytes, **Any) -> bytes
@@ -156,8 +151,9 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         # or add decode metadata such as _fname.
         if hidden_tag is None:
             hidden_tag = self.ASN1_tag
-        diff_tag, s = self._tagging_dec(
-            pkt, s,
+        # Codec provides tagging_*; OER/PER register identity helpers.
+        diff_tag, s = pkt.ASN1_codec.tagging_dec(
+            s,
             hidden_tag=hidden_tag,
             implicit_tag=self.implicit_tag,
             explicit_tag=self.explicit_tag,
@@ -171,7 +167,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             if tags is None:
                 tags = {}
                 pkt._asn1_observed_tags = tags
-            tags[self.name] = diff_tag
+            tags[id(self)] = diff_tag
         return s
 
     def normalize_encode_value(self, pkt, value):
@@ -290,10 +286,6 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
             dec, field=self, pkt=pkt, size_len=self.size_len,
         )
 
-    def dissect_from_decoder(self, pkt, dec):
-        # type: (ASN1_Packet, Any) -> None
-        self.set_val(pkt, self.m2i_from_decoder(pkt, dec))
-
     def encode_into(self, bit_enc, pkt, value=None):
         # type: (Any, ASN1_Packet, Any) -> None
         """Encode into a raw UPER bit encoder (not a byte-oriented context)."""
@@ -330,7 +322,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
     def decode_from(self, pkt, dec):
         # type: (ASN1_Packet, Any) -> None
         if dec.codec is ASN1_Codecs.PER:
-            self.dissect_from_decoder(pkt, dec.bit_decoder)
+            self.set_val(pkt, self.m2i_from_decoder(pkt, dec.bit_decoder))
         else:
             val, remain = self.m2i(pkt, dec.remaining())
             self.set_val(pkt, val)
@@ -868,7 +860,12 @@ class ASN1F_DEFAULT(ASN1F_optional):
         # type: () -> List[ASN1F_field[Any, Any]]
         inner = self._field.get_fields_list()
         if inner == [self._field]:
-            return [self._field.copy()]
+            field = self._field.copy()
+            default = self._default
+            if default is not None and not isinstance(default, ASN1_Object):
+                default = field.ASN1_tag.asn1_object(default)
+            field.default = default
+            return [field]
         return inner
 
     def is_present(self, pkt):

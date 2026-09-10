@@ -65,11 +65,10 @@ class BER_Encoder(ASN1Encoder):
 
     def encode_sequence(self, field, pkt):
         # type: (Any, Any) -> None
-        # Encode children into a nested context, then wrap as one SEQUENCE TLV.
-        child_enc = type(self)(codec=self.codec)
-        for obj in field.seq:
-            obj.encode_to(pkt, child_enc)
-        self.write(field.i2m(pkt, child_enc.finish()))
+        # Byte-oriented codecs call the public child build() so subclasses
+        # that override it stay on the encoding path.
+        s = b"".join(obj.build(pkt) for obj in field.seq)
+        self.write(field.i2m(pkt, s))
 
     def encode_sequence_of(self, field, pkt):
         # type: (Any, Any) -> None
@@ -267,7 +266,7 @@ class OER_Encoder(BER_Encoder):
         for obj in field.seq:
             if isinstance(obj, ASN1F_optional) and not obj.is_present(pkt):
                 continue
-            obj.encode_to(pkt, self)
+            self.write(obj.build(pkt))
 
     def encode_sequence_of(self, field, pkt):
         # type: (Any, Any) -> None
@@ -427,7 +426,11 @@ class UPER_EncoderContext(ASN1Encoder):
 
     def encode_sequence_of(self, field, pkt, value=None):
         # type: (Any, Any, Any) -> None
-        from scapy.asn1.uper import UPER_Encoding_Error, UPER_constrained_int_enc
+        from scapy.asn1.uper import (
+            UPER_Encoding_Error,
+            UPER_constrained_int_enc,
+            uper_uses_constrained_length,
+        )
         from scapy.asn1fields import (
             ASN1F_CHOICE,
             ASN1F_PACKET,
@@ -473,7 +476,7 @@ class UPER_EncoderContext(ASN1Encoder):
                 bit_enc.append_bit(1)
                 bit_enc.append_fragmented(count, append_items)
                 return
-        if uper_min is not None and uper_max is not None:
+        if uper_uses_constrained_length(uper_min, uper_max):
             UPER_constrained_int_enc(bit_enc, count, uper_min, uper_max)
             append_items(0, count)
         else:
@@ -560,7 +563,11 @@ class UPER_DecoderContext(ASN1Decoder):
 
     def decode_sequence_of(self, field, pkt):
         # type: (Any, Any) -> None
-        from scapy.asn1.uper import UPER_Decoding_Error, UPER_constrained_int_dec
+        from scapy.asn1.uper import (
+            UPER_Decoding_Error,
+            UPER_constrained_int_dec,
+            uper_uses_constrained_length,
+        )
         from scapy.asn1fields import (
             ASN1F_CHOICE,
             ASN1F_PACKET,
@@ -598,7 +605,7 @@ class UPER_DecoderContext(ASN1Decoder):
             bit_dec.read_fragmented(read_items)
         else:
             uper_min, uper_max = field.constraints.minimum, field.constraints.maximum
-            if uper_min is not None and uper_max is not None:
+            if uper_uses_constrained_length(uper_min, uper_max):
                 read_items(UPER_constrained_int_dec(bit_dec, uper_min, uper_max))
             else:
                 bit_dec.read_fragmented(read_items)

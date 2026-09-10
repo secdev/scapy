@@ -474,7 +474,7 @@ fld = ASN1F_INTEGER("n", 0, explicit_tag=0xA0)
 
 assert fld._tagging_enc(_NoTagging(), b"\x02\x01\x05", explicit_tag=0xA0) == b"\x02\x01\x05"
 
-fld._tagging_dec(_NoTagging(), b"\x02\x01\x05", explicit_tag=0xA0) == (None, b"\x02\x01\x05")
+ASN1_Codecs.CER.tagging_dec(b"\x02\x01\x05", explicit_tag=0xA0) == (None, b"\x02\x01\x05")
 
 = field constraints and ASN1_Object unwrap
 class P(ASN1_Packet):
