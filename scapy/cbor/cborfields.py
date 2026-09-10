@@ -369,7 +369,9 @@ class CBORF_field(CBORF_element, Generic[_I]):
         if isinstance(x, CBOR_UNDEFINED):
             return x
         if isinstance(x, list):
-            return copy.deepcopy(x)
+            return [self.do_copy(item) for item in x]
+        if isinstance(x, dict):
+            return {key: self.do_copy(value) for key, value in x.items()}
         if hasattr(x, "copy"):
             try:
                 return x.copy()
@@ -1436,6 +1438,16 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
             self.holds_packets = 1
         super(_CBORF_HOMOGENEOUS, self).__init__(name, default)
 
+    def cache_fingerprint(self, x):
+        # type: (Any) -> Any
+        """Compose item fingerprints when the element field provides them."""
+        if self.holds_packets or self.item_field is None or x is None:
+            return None
+        item_fp = getattr(self.item_field, "cache_fingerprint", None)
+        if item_fp is None:
+            return None
+        return tuple(item_fp(item) for item in x)
+
     @staticmethod
     def _require_packet_cls(pkt_cls):
         # type: (Any) -> Type[CBOR_Packet]
@@ -1740,6 +1752,17 @@ class _CBORF_MAP_UNKNOWN(CBORF_field[List[Tuple[str, Any]]]):
     def do_copy(self, x):  # type: ignore[override]
         # type: (Any) -> Any
         return copy.deepcopy(x)
+
+    def cache_fingerprint(self, x):
+        # type: (Any) -> Any
+        """Wire-sensitive fingerprint for unknown text-key extension pairs."""
+        if not x:
+            return ()
+        fingerprint = CBORF_ANY._cache_fingerprint
+        return tuple(
+            (fingerprint(key), fingerprint(value))
+            for key, value in x
+        )
 
     def is_empty(self, pkt):
         # type: (CBOR_Packet) -> bool
