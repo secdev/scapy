@@ -791,6 +791,7 @@ def _cbor_float_key_identity(value, encoded=None):
     and sign survive Python's NaN canonicalization.
     """
     if encoded is not None:
+        from scapy.cbor.cborcodec import _cbor_float_from_bits
         ai, bits = _cbor_float_wire_parts(encoded)
         if ai == int(CBOR_FloatAI.HALF):
             sign = (bits >> 15) & 0x1
@@ -798,38 +799,20 @@ def _cbor_float_key_identity(value, encoded=None):
             fraction = bits & 0x3ff
             if exponent == 31 and fraction:
                 return ("nan", sign, fraction << 42)
-            if exponent == 0:
-                if fraction == 0:
-                    float_val = -0.0 if sign else 0.0
-                else:
-                    float_val = (
-                        ((-1) ** sign) * (fraction / 1024.0) * (2 ** -14)
-                    )
-            elif exponent == 31:
-                float_val = float("-inf") if sign else float("inf")
-            else:
-                float_val = (
-                    ((-1) ** sign) *
-                    (1.0 + fraction / 1024.0) *
-                    (2 ** (exponent - 15))
-                )
-            return _cbor_float_key_identity(float_val)
-        if ai == int(CBOR_FloatAI.SINGLE):
+        elif ai == int(CBOR_FloatAI.SINGLE):
             sign = (bits >> 31) & 0x1
             exponent = (bits >> 23) & 0xff
             fraction = bits & 0x7fffff
             if exponent == 0xff and fraction:
                 return ("nan", sign, fraction << 29)
-            float_val = struct.unpack(">f", struct.pack(">I", bits))[0]
-            return _cbor_float_key_identity(float_val)
-        # DOUBLE
-        sign = (bits >> 63) & 0x1
-        exponent = (bits >> 52) & 0x7ff
-        fraction = bits & ((1 << 52) - 1)
-        if exponent == 0x7ff and fraction:
-            return ("nan", sign, fraction)
-        float_val = struct.unpack(">d", struct.pack(">Q", bits))[0]
-        return _cbor_float_key_identity(float_val)
+        else:
+            # DOUBLE
+            sign = (bits >> 63) & 0x1
+            exponent = (bits >> 52) & 0x7ff
+            fraction = bits & ((1 << 52) - 1)
+            if exponent == 0x7ff and fraction:
+                return ("nan", sign, fraction)
+        return _cbor_float_key_identity(_cbor_float_from_bits(ai, bits))
 
     fval = float(value)
     if math.isnan(fval):
