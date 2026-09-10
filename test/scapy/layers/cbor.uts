@@ -1052,6 +1052,72 @@ pkt = CountedSeq(b"\x83\x02\x0a\x0b")
 assert pkt.n == 2
 assert pkt.vals == [10, 11]
 
+= Unframed SEQUENCE with count_from uses the dissected discriminator
+from scapy.cbor.cborfields import (
+    CBORF_INTEGER,
+    CBORF_SEQUENCE,
+    CBORF_SEQUENCE_OF,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class CountedUnframed(CBOR_Packet):
+    CBOR_root = CBORF_SEQUENCE(
+        CBORF_INTEGER("n", 0),
+        CBORF_SEQUENCE_OF(
+            "values", [], CBORF_INTEGER, count_from="n"
+        ),
+    )
+
+wire = bytes(CountedUnframed(n=2, values=[3, 4]))
+assert wire == b"\x02\x03\x04"
+pkt = CountedUnframed(wire)
+assert pkt.n == 2
+assert pkt.values == [3, 4]
+
+= Indefinite ARRAY with count_from uses the dissected discriminator
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY_INDEFINITE,
+    CBORF_INTEGER,
+    CBORF_SEQUENCE_OF,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class CountedIndef(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_INDEFINITE(
+        CBORF_INTEGER("n", 0),
+        CBORF_SEQUENCE_OF(
+            "values", [], CBORF_INTEGER, count_from="n"
+        ),
+    )
+
+wire = bytes(CountedIndef(n=2, values=[3, 4]))
+pkt = CountedIndef(wire)
+assert pkt.n == 2
+assert pkt.values == [3, 4]
+
+= Conditional trailing field follows a false discriminator with optional present
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_optional,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class ConditionalOpt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 1),
+        CBORF_optional(CBORF_INTEGER("optional", None)),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("last", 8), lambda p: p.flag == 1
+        ),
+    )
+
+wire = bytes(ConditionalOpt(flag=0, optional=3))
+pkt = ConditionalOpt(wire)
+assert pkt.flag == 0
+assert pkt.optional == 3
+
 = Optional same-type scalar reserves the sole item for a required tail
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
