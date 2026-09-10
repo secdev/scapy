@@ -59,6 +59,21 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
         for f in self.packetfields:
             if f.name in self.fields:
                 self.fields[f.name] = f.any2i(self, self.fields[f.name])
+        # Isolate CBOR ismutable defaults (e.g. CBORF_ANY objects) without
+        # promoting into fields (bind overloads stay Packet-global).
+        need = [
+            f.name for f in self.fields_desc
+            if getattr(f, "ismutable", False)
+            and f.name in self.default_fields
+            and f.name not in self.fields
+        ]
+        if need:
+            self.default_fields = dict(self.default_fields)
+            for name in need:
+                fld = self.fieldtype[name]
+                self.default_fields[name] = fld.do_copy(
+                    self.default_fields[name]
+                )
 
     def _raw_packet_cache_field_value(self, fld, val, copy=False):
         # type: (Any, Any, bool) -> Optional[Any]

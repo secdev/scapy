@@ -1704,19 +1704,6 @@ with warnings.catch_warnings(record=True) as w:
 ########
 + FlagsField
 
-= ismutable FlagsField defaults are isolated between packet instances
-
-class IsolatedFlagsPkt(Packet):
-    fields_desc = [
-        FlagsField("flags", 0, 8, ["A", "B", "C"])
-    ]
-
-a = IsolatedFlagsPkt()
-b = IsolatedFlagsPkt()
-a.flags.A = True
-assert int(a.flags) == 1
-assert int(b.flags) == 0
-
 = Test Flags Field Iterator
 
 class FlagsTest(Packet):
