@@ -1024,6 +1024,82 @@ try:
 except ValueError:
     pass
 
+= CBORF_SEMANTIC_TAG cannot wrap CBORF_SEQUENCE_OF
+from scapy.cbor.cborfields import (
+    CBORF_SEMANTIC_TAG,
+    CBORF_SEQUENCE_OF,
+    CBORF_UNSIGNED_INTEGER,
+)
+
+try:
+    CBORF_SEMANTIC_TAG(
+        1,
+        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
+    )
+    assert False, "semantic-tagged SEQUENCE_OF should be rejected"
+except ValueError:
+    pass
+
+= Optional semantic tag cannot hide CBORF_SEQUENCE_OF
+from scapy.cbor.cborfields import (
+    CBORF_SEMANTIC_TAG,
+    CBORF_SEQUENCE_OF,
+    CBORF_UNSIGNED_INTEGER,
+    CBORF_optional,
+)
+
+try:
+    CBORF_optional(
+        CBORF_SEMANTIC_TAG(
+            1,
+            CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
+        )
+    )
+    assert False, "wrapped semantic-tagged SEQUENCE_OF should be rejected"
+except ValueError:
+    pass
+
+= Tagged scalar and ARRAY_OF remain valid semantic-tag content
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_ARRAY_OF,
+    CBORF_SEMANTIC_TAG,
+    CBORF_UNSIGNED_INTEGER,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class TaggedInt(CBOR_Packet):
+    CBOR_root = CBORF_SEMANTIC_TAG(
+        1, CBORF_UNSIGNED_INTEGER("value", 0)
+    )
+
+pkt = TaggedInt(b"\xc1\x0a")
+assert pkt.value == 10
+assert bytes(pkt) == b"\xc1\x0a"
+
+class TaggedArrayOf(CBOR_Packet):
+    CBOR_root = CBORF_SEMANTIC_TAG(
+        1,
+        CBORF_ARRAY_OF("vals", [], CBORF_UNSIGNED_INTEGER),
+    )
+
+pkt = TaggedArrayOf(b"\xc1\x82\x01\x02")
+assert pkt.vals == [1, 2]
+assert bytes(pkt) == b"\xc1\x82\x01\x02"
+
+class TaggedStruct(CBOR_Packet):
+    CBOR_root = CBORF_SEMANTIC_TAG(
+        1,
+        CBORF_ARRAY(
+            CBORF_UNSIGNED_INTEGER("a", 0),
+            CBORF_UNSIGNED_INTEGER("b", 0),
+        ),
+    )
+
+pkt = TaggedStruct(b"\xc1\x82\x01\x02")
+assert pkt.a == 1 and pkt.b == 2
+assert bytes(pkt) == b"\xc1\x82\x01\x02"
+
 = Direct terminal SEQUENCE_OF respects definite array item budget
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
@@ -2835,11 +2911,35 @@ pkt = TypedSequence(b"\x07")
 assert pkt.optional is CBOR_ABSENT
 assert pkt.required == 7
 
+pkt = TypedSequence(b"\xf5\x07")
+assert pkt.optional is True
+assert pkt.required == 7
+
 pkt = TypedSequence()
 result = TypedSequence.CBOR_root._dissect_counted(pkt, b"\x07\x18")
 assert pkt.optional is CBOR_ABSENT
 assert pkt.required == 7
 assert result.remaining == b"\x18"
+
+= Optional-only SEQUENCE marks absent on empty input
+from scapy.cbor.cborfields import (
+    CBORF_BOOLEAN,
+    CBORF_SEQUENCE,
+    CBORF_optional,
+    CBOR_ABSENT,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptionalOnly(CBOR_Packet):
+    CBOR_root = CBORF_SEQUENCE(
+        CBORF_optional(CBORF_BOOLEAN("maybe", None)),
+    )
+
+# Packet(b"") skips dissect (empty bytes are falsy); drive the schema directly.
+pkt = OptionalOnly()
+result = OptionalOnly.CBOR_root._dissect_counted(pkt, b"")
+assert pkt.maybe is CBOR_ABSENT
+assert result.remaining == b""
 
 # CBORF_PACKET represents exactly one CBOR item: embedding a multi-item
 # SEQUENCE child must fail (do not put this child in a CBORF_PACKET parent
