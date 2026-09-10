@@ -2598,6 +2598,44 @@ assert parsed.child.load == b"x"
 assert parsed.child.parent is parsed
 assert parsed.child.underlayer is None
 
+= CBORF_BYTE_STRING_PACKET honors conf.debug_dissector for child TypeError
+from scapy.config import conf
+from scapy.cbor.cbor import CBOR_Decoding_Error
+from scapy.cbor.cborfields import CBORF_BYTE_STRING_PACKET, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class BspTypeErrorChild(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("value", 0)
+    def __init__(self, *args, **kwargs):
+        raise TypeError("intentional byte-string packet failure")
+
+class BspTypeErrorParent(CBOR_Packet):
+    CBOR_root = CBORF_BYTE_STRING_PACKET(
+        "child", None, pkt_cls=BspTypeErrorChild
+    )
+
+# CBOR byte string wrapping one unsigned integer: 0x41 0x01
+wire = b"\x41\x01"
+_old_dbg = conf.debug_dissector
+try:
+    conf.debug_dissector = False
+    try:
+        BspTypeErrorParent(wire)
+    except CBOR_Decoding_Error as exc:
+        assert "intentional byte-string packet failure" in str(exc)
+    else:
+        raise AssertionError("TypeError was not wrapped as CBOR_Decoding_Error")
+
+    conf.debug_dissector = True
+    try:
+        BspTypeErrorParent(wire)
+    except TypeError as exc:
+        assert "intentional byte-string packet failure" in str(exc)
+    else:
+        raise AssertionError("TypeError was hidden despite debug_dissector")
+finally:
+    conf.debug_dissector = _old_dbg
+
 + packet-valued collection ownership
 
 = CBORF_ARRAY_OF construction attaches every packet child to parent
