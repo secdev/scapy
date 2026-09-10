@@ -205,6 +205,16 @@ class CBORF_element(object):
         # type: (CBOR_Packet) -> int
         return 1
 
+    def structural_min_items(self, pkt):
+        # type: (CBOR_Packet) -> int
+        """Lower bound independent of not-yet-dissected discriminators."""
+        return self.min_items(pkt)
+
+    def structural_max_items(self, pkt):
+        # type: (CBOR_Packet) -> int
+        """Upper bound independent of not-yet-dissected discriminators."""
+        return self.max_items(pkt)
+
 
 ##########################
 #    Basic CBOR Field    #
@@ -1197,13 +1207,12 @@ class _CBORF_compound(CBORF_element):
         # type: (CBOR_Packet, bytes, int) -> bytes
         remaining = s
         items_left = count
-        nfields = len(self.seq)
-        # suffix_mins[i] == sum(min_items of seq[i:])
-        suffix_mins = [0] * (nfields + 1)
-        for i in range(nfields - 1, -1, -1):
-            suffix_mins[i] = suffix_mins[i + 1] + self.seq[i].min_items(pkt)
         for index, field in enumerate(self.seq):
-            reserved = suffix_mins[index + 1]
+            # Live suffix reservation so count_from / conditionals see wire
+            # discriminators dissected earlier in this pass.
+            reserved = sum(
+                f.min_items(pkt) for f in self.seq[index + 1:]
+            )
             available = items_left - reserved
             needed = field.min_items(pkt)
             if available < 0:
@@ -1279,11 +1288,13 @@ class CBORF_SEQUENCE(_CBORF_compound):
 
     def _dissect_counted(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> _CBORParseResult
-        # Count only up to this schema's max so trailing CBOR items remain for
-        # a parent (e.g. Raw / Padding), matching definite ARRAY roots.
+        # Count only up to this schema's structural max so trailing CBOR items
+        # remain for a parent, without freezing count_from on defaults.
         try:
             item_count = cbor_count_items(
-                s, max_count=self.max_items(pkt), until_break=False
+                s,
+                max_count=self.structural_max_items(pkt),
+                until_break=False,
             )
         except CBOR_Codec_Decoding_Error as e:
             raise CBOR_Decoding_Error(str(e))
@@ -1297,6 +1308,14 @@ class CBORF_SEQUENCE(_CBORF_compound):
     def max_items(self, pkt):
         # type: (CBOR_Packet) -> int
         return sum(f.max_items(pkt) for f in self.seq)
+
+    def structural_min_items(self, pkt):
+        # type: (CBOR_Packet) -> int
+        return sum(f.structural_min_items(pkt) for f in self.seq)
+
+    def structural_max_items(self, pkt):
+        # type: (CBOR_Packet) -> int
+        return sum(f.structural_max_items(pkt) for f in self.seq)
 
 
 class CBORF_ARRAY(_CBORF_compound):
@@ -1354,7 +1373,9 @@ class CBORF_ARRAY(_CBORF_compound):
         if count is CBOR_INDEFINITE:
             # Lightweight head/span walk — avoid building CBOR_Object trees
             # just to learn the item budget before the schema pass.
-            child_max = sum(f.max_items(pkt) for f in self.seq)
+            child_max = sum(
+                f.structural_max_items(pkt) for f in self.seq
+            )
             try:
                 item_count = cbor_count_items(
                     remaining,
@@ -1660,6 +1681,14 @@ class CBORF_SEQUENCE_OF(_CBORF_HOMOGENEOUS):
         # type: (CBOR_Packet) -> int
         if self.count_from is not None and pkt is not None:
             return self.min_items(pkt)
+        return self._list_limit()
+
+    def structural_min_items(self, pkt):
+        # type: (CBOR_Packet) -> int
+        return 0
+
+    def structural_max_items(self, pkt):
+        # type: (CBOR_Packet) -> int
         return self._list_limit()
 
 
@@ -2172,6 +2201,14 @@ class CBORF_optional(CBORF_element):
         # type: (CBOR_Packet) -> int
         return self._field.max_items(pkt)
 
+    def structural_min_items(self, pkt):
+        # type: (CBOR_Packet) -> int
+        return 0
+
+    def structural_max_items(self, pkt):
+        # type: (CBOR_Packet) -> int
+        return self._field.structural_max_items(pkt)
+
 
 class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
     """
@@ -2217,6 +2254,14 @@ class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
         if self._evalcond(pkt):
             return self.fld.max_items(pkt)
         return 0
+
+    def structural_min_items(self, pkt):
+        # type: (CBOR_Packet) -> int
+        return 0
+
+    def structural_max_items(self, pkt):
+        # type: (CBOR_Packet) -> int
+        return self.fld.structural_max_items(pkt)
 
 
 class CBORF_PACKET(CBORF_field['CBOR_Packet']):
