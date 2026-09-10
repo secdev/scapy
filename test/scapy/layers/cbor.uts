@@ -408,10 +408,9 @@ except CBOR_Decoding_Error:
     pass
 
 = Zero-budget optional stays absent so a trailing CBORF_ANY can consume the item
-# Finding 2: when the optional has available==0 because a required trailing
-# field reserved the only item, mark the optional absent if the item does not
-# match the optional type. A *matching* but malformed optional must still
-# raise (see "Malformed optional semantic tag does not migrate...").
+# When the optional has available==0 because a required trailing field
+# reserved the only item, mark the optional absent and let the trailing
+# field consume the item (even if outer types match).
 from scapy.cbor.cborfields import (
     CBOR_ABSENT,
     CBORF_ANY,
@@ -978,7 +977,7 @@ assert bytes(pkt) == b"\xa1\x61n\x01"
 
 + array item reservation
 
-= Nonterminal unbounded SEQUENCE_OF is rejected at schema construction
+= Nonterminal SEQUENCE_OF is rejected at schema construction
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_SEQUENCE_OF,
@@ -990,11 +989,11 @@ try:
         CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
         CBORF_UNSIGNED_INTEGER("tail", 0),
     )
-    assert False, "nonterminal unbounded SEQUENCE_OF was accepted"
+    assert False, "nonterminal SEQUENCE_OF was accepted"
 except ValueError:
     pass
 
-= Optional wrapper cannot hide a nonterminal unbounded SEQUENCE_OF
+= Optional wrapper cannot hide a nonterminal SEQUENCE_OF
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_SEQUENCE_OF,
@@ -1009,11 +1008,11 @@ try:
         ),
         CBORF_UNSIGNED_INTEGER("tail", 0),
     )
-    assert False, "optional unbounded SEQUENCE_OF before tail was accepted"
+    assert False, "optional SEQUENCE_OF before tail was accepted"
 except ValueError:
     pass
 
-= Conditional wrapper cannot hide a nonterminal unbounded SEQUENCE_OF
+= Conditional wrapper cannot hide a nonterminal SEQUENCE_OF
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_CONDITIONAL,
@@ -1029,11 +1028,11 @@ try:
         ),
         CBORF_UNSIGNED_INTEGER("tail", 0),
     )
-    assert False, "conditional unbounded SEQUENCE_OF before tail was accepted"
+    assert False, "conditional SEQUENCE_OF before tail was accepted"
 except ValueError:
     pass
 
-= Nested transparent wrappers cannot hide a nonterminal unbounded SEQUENCE_OF
+= Nested transparent wrappers cannot hide a nonterminal SEQUENCE_OF
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_CONDITIONAL,
@@ -1052,11 +1051,11 @@ try:
         ),
         CBORF_UNSIGNED_INTEGER("tail", 0),
     )
-    assert False, "nested wrapped unbounded SEQUENCE_OF before tail was accepted"
+    assert False, "nested wrapped SEQUENCE_OF before tail was accepted"
 except ValueError:
     pass
 
-= Terminal optional unbounded SEQUENCE_OF remains a valid schema
+= Terminal optional SEQUENCE_OF remains a valid schema
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_SEQUENCE_OF,
@@ -1152,6 +1151,52 @@ pkt = OptThenReq(b"\x81\x07")
 assert pkt.opt is CBOR_ABSENT
 assert pkt.req == 7
 
+= Active conditional reserves against a same-type optional
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_UNSIGNED_INTEGER,
+    CBORF_optional,
+    CBOR_ABSENT,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class ConditionalTail(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_UNSIGNED_INTEGER("flag", 0),
+        CBORF_optional(CBORF_UNSIGNED_INTEGER("opt", None)),
+        CBORF_CONDITIONAL(
+            CBORF_UNSIGNED_INTEGER("req", 0),
+            lambda pkt: pkt.flag == 1,
+        ),
+    )
+
+pkt = ConditionalTail(b"\x82\x01\x07")
+assert pkt.flag == 1
+assert pkt.opt is CBOR_ABSENT
+assert pkt.req == 7
+
+= Skipped definite-only optional does not poison a required bytestring
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_BYTE_STRING,
+    CBORF_optional,
+    CBOR_ABSENT,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptionalDefinite(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_optional(
+            CBORF_BYTE_STRING("opt", None, definite_only=True)
+        ),
+        CBORF_BYTE_STRING("value", b""),
+    )
+
+pkt = OptionalDefinite(b"\x81\x5f\x41a\xff")
+assert pkt.opt is CBOR_ABSENT
+assert pkt.value == b"a"
+
 = Conditional disabled by default enables on wire with present value
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
@@ -1207,7 +1252,7 @@ try:
 except CBOR_Decoding_Error:
     pass
 
-= Indefinite array rejects nonterminal unbounded SEQUENCE_OF
+= Indefinite array rejects nonterminal SEQUENCE_OF
 from scapy.cbor.cborfields import (
     CBORF_ARRAY_INDEFINITE,
     CBORF_SEQUENCE_OF,
@@ -1219,7 +1264,7 @@ try:
         CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
         CBORF_UNSIGNED_INTEGER("tail", 0),
     )
-    assert False, "nonterminal unbounded SEQUENCE_OF was accepted"
+    assert False, "nonterminal SEQUENCE_OF was accepted"
 except ValueError:
     pass
 
@@ -1571,7 +1616,7 @@ assert bytes(pkt) == b"\x82\xf6\x01"
 
 + Finding 4: positional arrays must reserve items for later required fields
 
-= Definite arrays reject nonterminal unbounded SEQUENCE_OF
+= Definite arrays reject nonterminal SEQUENCE_OF
 try:
     CBORF_ARRAY(
         CBORF_SEQUENCE_OF(
@@ -1581,11 +1626,11 @@ try:
         ),
         CBORF_UNSIGNED_INTEGER("tail", None),
     )
-    assert False, "nonterminal unbounded SEQUENCE_OF accepted"
+    assert False, "nonterminal SEQUENCE_OF accepted"
 except ValueError:
     pass
 
-= Indefinite arrays reject nonterminal unbounded SEQUENCE_OF
+= Indefinite arrays reject nonterminal SEQUENCE_OF
 try:
     CBORF_ARRAY_INDEFINITE(
         CBORF_SEQUENCE_OF(
@@ -1595,7 +1640,7 @@ try:
         ),
         CBORF_UNSIGNED_INTEGER("tail", None),
     )
-    assert False, "nonterminal unbounded SEQUENCE_OF accepted"
+    assert False, "nonterminal SEQUENCE_OF accepted"
 except ValueError:
     pass
 
@@ -2116,7 +2161,7 @@ pkt = OptionalPacketThenAny(b"\x81\xf5")
 assert pkt.getfieldval("child") is CBOR_ABSENT
 assert pkt.required.val is True
 
-= Nonterminal unbounded SEQUENCE_OF is rejected in unframed sequences
+= Nonterminal SEQUENCE_OF is rejected in unframed sequences
 from scapy.cbor.cborfields import (
     CBORF_SEQUENCE,
     CBORF_SEQUENCE_OF,
@@ -2129,7 +2174,7 @@ try:
         CBORF_SEQUENCE_OF("items", [], CBORF_UNSIGNED_INTEGER),
         CBORF_TEXT_STRING("tail", ""),
     )
-    assert False, "nonterminal unbounded SEQUENCE_OF accepted"
+    assert False, "nonterminal SEQUENCE_OF accepted"
 except ValueError:
     pass
 
@@ -3561,8 +3606,7 @@ try:
 except CBOR_Codec_Decoding_Error:
     pass
 
-= Malformed optional semantic tag does not migrate into trailing CBORF_ANY
-from scapy.cbor.cbor import CBOR_Decoding_Error
+= Budget-skipped optional yields a matching item to trailing CBORF_ANY
 from scapy.cbor.cborfields import (
     CBORF_ANY,
     CBORF_ARRAY,
@@ -3581,14 +3625,11 @@ class OptionalTaggedBeforeAny(CBOR_Packet):
         CBORF_ANY("fallback", None),
     )
 
-try:
-    OptionalTaggedBeforeAny(b"\x81\xc1\x61x")
-except CBOR_Decoding_Error:
-    pass
-else:
-    raise AssertionError("Malformed tagged data migrated into the fallback field")
+# Outer type matches the optional, but the sole item is reserved for ANY.
+pkt = OptionalTaggedBeforeAny(b"\x81\xc1\x61x")
+assert pkt.getfieldval("tagged_value") is CBOR_ABSENT
+assert pkt.fallback is not None
 
-# Matching well-formed optional still yields to reserved trailing ANY.
 ok = OptionalTaggedBeforeAny(b"\x81\xc1\x01")
 assert ok.getfieldval("tagged_value") is CBOR_ABSENT
 assert ok.fallback is not None
