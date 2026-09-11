@@ -1068,6 +1068,33 @@ assert pkt.tail == "tail"
 # Rebuild uses indefinite encoding for the inner ARRAY_INDEFINITE schema.
 assert bytes(pkt) == wire_indef
 
+= Nested REMAINDER_OF inside ARRAY under ITEMS is allowed with an outer sibling
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_ITEMS,
+    CBORF_REMAINDER_OF,
+    CBORF_UNSIGNED_INTEGER,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class NestedUnderItems(CBOR_Packet):
+    CBOR_root = CBORF_ITEMS(
+        CBORF_ARRAY(
+            CBORF_REMAINDER_OF(
+                "values", [],
+                pkt_cls=CBORF_UNSIGNED_INTEGER,
+            )
+        ),
+        CBORF_UNSIGNED_INTEGER("tail", 0),
+    )
+
+# Framed array [1,2,3] then sibling unsigned 4
+wire = bytes.fromhex("8301020304")
+pkt = NestedUnderItems(wire)
+assert pkt.values == [1, 2, 3]
+assert pkt.tail == 4
+assert bytes(pkt) == wire
+
 = Empty CBOR_Packet without CBOR_root is rejected by ARRAY_OF and PACKET
 from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_PACKET
 from scapy.cborpacket import CBOR_Packet
@@ -3902,8 +3929,8 @@ class LimitedMap(CBOR_Packet):
         unknown_field="unknown_pairs",
     )
 
-# Definite map with 3 pairs: {"a":1,"b":2,"c":3}
-wire = b"\xa3\x61a\x01\x61b\x02\x61c\x03"
+# Definite map with 3 unknown pairs (extension path grows under the limit)
+wire = b"\xa3\x61x\x01\x61y\x02\x61z\x03"
 old = conf.max_list_count
 conf.max_list_count = 2
 try:
@@ -3927,8 +3954,8 @@ class LimitedMapIndef(CBOR_Packet):
         unknown_field="unknown_pairs",
     )
 
-# Indefinite map with 3 pairs then break
-wire = b"\xbf\x61a\x01\x61b\x02\x61c\x03\xff"
+# Indefinite map with 3 unknown pairs then break
+wire = b"\xbf\x61x\x01\x61y\x02\x61z\x03\xff"
 old = conf.max_list_count
 conf.max_list_count = 2
 try:

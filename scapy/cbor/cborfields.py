@@ -1194,9 +1194,9 @@ class _CBORF_compound(CBORF_element):
                         "CBORF_REMAINDER_OF must be the last field "
                         "in the sequence"
                     )
-            elif isinstance(field, _CBORF_compound) and field.CBOR_tag is None:
-                # Unframed ITEMS share this framing context; framed ARRAY
-                # establishes its own count boundary and validates itself.
+            elif isinstance(field, CBORF_ITEMS):
+                # Only unframed ITEMS share this framing context; framed
+                # ARRAY establishes its own count boundary.
                 field._reject_nonterminal_remainder_of(allow_terminal=False)
 
 
@@ -1930,24 +1930,21 @@ class CBORF_MAP(CBORF_element):
                     raise CBOR_Decoding_Error(str(e))
                 unknown_pairs.append((key, val_obj))
 
+        limit = config.conf.max_list_count
         if count is CBOR_INDEFINITE:
-            pair_count = 0
             while True:
                 if cbor_is_break(remaining):
                     remaining = cbor_consume_break(remaining)
                     break
-                if pair_count >= config.conf.max_list_count:
+                if len(seen_keys) >= limit:
                     raise CBOR_Decoding_Error(
-                        "CBOR CBORF_MAP exceeded max_count=%d"
-                        % config.conf.max_list_count
+                        "CBOR CBORF_MAP exceeded max_count=%d" % limit
                     )
                 _collect_pair()
-                pair_count += 1
         else:
-            if count > config.conf.max_list_count:
+            if count > limit:
                 raise CBOR_Decoding_Error(
-                    "CBOR CBORF_MAP exceeded max_count=%d"
-                    % config.conf.max_list_count
+                    "CBOR CBORF_MAP exceeded max_count=%d" % limit
                 )
             for _ in range(count):
                 _collect_pair()
