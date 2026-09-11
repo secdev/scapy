@@ -343,24 +343,6 @@ class CBOR_KeyKind(metaclass=Enum_metaclass):
     FINITE = 14
 
 
-class CBOR_FingerprintKind(CBOR_KeyKind):
-    """Discriminator for ``CBORF_ANY`` raw-cache fingerprints.
-
-    Extends :class:`CBOR_KeyKind` with rebuild-sensitive tags that map-key
-    norms do not need (sentinels, signed zero/inf, ``_encoded`` floats,
-    Python containers).
-    """
-    name = "CBOR_FINGERPRINT_KIND"
-    SENTINEL = 15
-    FLOAT = 16
-    INF = 17
-    ZERO = 18
-    MAPDATA = 19
-    LIST = 20
-    DICT = 21
-    PY = 22
-
-
 # Recursive hashable RFC 8949 map-key norm.
 # First element is a ``CBOR_KeyKind`` ``EnumElement`` (typed ``Any`` because
 # ``Enum_metaclass`` members are ``int`` in the class body).
@@ -378,10 +360,6 @@ _CBORKeyNorm = Union[
     Tuple[Any, str, "_CBORKeyNorm"],
     Tuple[Any, str, str],
 ]
-
-# Recursive rebuild-relevant fingerprint for ``CBORF_ANY`` raw-cache state.
-# Kind discriminator is ``CBOR_FingerprintKind`` (same EnumElement typing note).
-_CBORFingerprint = Tuple[Any, ...]
 
 
 CBOR_UINT64_MAX = (1 << 64) - 1
