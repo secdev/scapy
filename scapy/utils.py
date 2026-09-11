@@ -36,6 +36,7 @@ import threading
 import time
 import traceback
 import warnings
+import zlib
 
 from scapy.config import conf
 from scapy.consts import DARWIN, OPENBSD, WINDOWS
@@ -1387,7 +1388,7 @@ class PcapReader_metaclass(type):
             fdesc = open(filename, "rb")  # type: _ByteStream
             magic = fdesc.peek(2)[:2]  # type: ignore[union-attr]  # BufferedReader
             if magic != b"\x1f\x8b":
-                magic = fdesc.read(2)
+                magic = fdesc.read(4)
         else:
             fdesc = fname
             filename = getattr(fdesc, "name", "No name")
@@ -1396,9 +1397,19 @@ class PcapReader_metaclass(type):
             # GZIP header detected.
             if not isinstance(fname, str):
                 fdesc.seek(0)
-            fdesc = gzip.GzipFile(fileobj=fdesc)
-            magic = fdesc.read(2)
-        magic += fdesc.read(2)
+            raw_fdesc = fdesc
+            fdesc = gzip.GzipFile(fileobj=raw_fdesc)
+            try:
+                magic = fdesc.read(4)
+            except (EOFError, OSError, zlib.error) as err:
+                fdesc.close()
+                if isinstance(fname, str):
+                    raw_fdesc.close()
+                raise Scapy_Exception(
+                    "Not a supported capture file (invalid gzip file)"
+                ) from err
+        else:
+            magic += fdesc.read(4 - len(magic))
         return filename, fdesc, magic
 
 
