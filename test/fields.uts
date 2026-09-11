@@ -2375,15 +2375,17 @@ class _EnumCopyProbe(metaclass=Enum_metaclass):
 assert copy(_EnumCopyProbe.A) is _EnumCopyProbe.A
 assert deepcopy(_EnumCopyProbe.B) is _EnumCopyProbe.B
 
-= Mutable FieldListField defaults are isolated via Field.do_copy
+= Mutable PacketListField defaults isolate nested Packet members via Field.do_copy
 ~ core field
-class _MutDefaultPkt(Packet):
+from scapy.layers.inet import IP
+
+class _MutPktListDefault(Packet):
     fields_desc = [
-        FieldListField("lst", [1, 2], ByteField("elt", 0)),
+        PacketListField("lst", [IP(dst="1.2.3.4")], IP),
     ]
 
-a = _MutDefaultPkt()
-b = _MutDefaultPkt()
-a.lst.append(3)
-assert a.lst == [1, 2, 3]
-assert b.lst == [1, 2]
+a = _MutPktListDefault()
+b = _MutPktListDefault()
+assert a.lst[0] is not b.lst[0]
+a.lst[0].dst = "9.9.9.9"
+assert b.lst[0].dst == "1.2.3.4"
