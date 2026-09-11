@@ -1095,6 +1095,33 @@ assert pkt.values == [1, 2, 3]
 assert pkt.tail == 4
 assert bytes(pkt) == wire
 
+= Nested REMAINDER_OF inside indefinite ARRAY under ITEMS is allowed with an outer sibling
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY_INDEFINITE,
+    CBORF_ITEMS,
+    CBORF_REMAINDER_OF,
+    CBORF_UNSIGNED_INTEGER,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class NestedIndefUnderItems(CBOR_Packet):
+    CBOR_root = CBORF_ITEMS(
+        CBORF_ARRAY_INDEFINITE(
+            CBORF_REMAINDER_OF(
+                "values", [],
+                pkt_cls=CBORF_UNSIGNED_INTEGER,
+            )
+        ),
+        CBORF_UNSIGNED_INTEGER("tail", 0),
+    )
+
+# Indefinite inner array [_ 1 2 3 break] then sibling unsigned 4
+wire = b"\x9f\x01\x02\x03\xff\x04"
+pkt = NestedIndefUnderItems(wire)
+assert pkt.values == [1, 2, 3]
+assert pkt.tail == 4
+assert bytes(pkt) == wire
+
 = Empty CBOR_Packet without CBOR_root is rejected by ARRAY_OF and PACKET
 from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_PACKET
 from scapy.cborpacket import CBOR_Packet
@@ -3920,22 +3947,29 @@ except CBOR_Decoding_Error:
 = CBORF_MAP respects conf.max_list_count on definite maps
 from scapy.config import conf
 from scapy.cbor.cbor import CBOR_Decoding_Error
-from scapy.cbor.cborfields import CBORF_MAP, CBORF_UNSIGNED_INTEGER
+from scapy.cbor.cborfields import (
+    CBORF_MAP,
+    CBORF_UNSIGNED_INTEGER,
+    CBORF_optional,
+)
 from scapy.cborpacket import CBOR_Packet
 
 class LimitedMap(CBOR_Packet):
     CBOR_root = CBORF_MAP(
-        CBORF_UNSIGNED_INTEGER("a", 0),
+        CBORF_optional(CBORF_UNSIGNED_INTEGER("a", 0)),
         unknown_field="unknown_pairs",
     )
 
-# Definite map with 3 unknown pairs (extension path grows under the limit)
-wire = b"\xa3\x61x\x01\x61y\x02\x61z\x03"
 old = conf.max_list_count
 conf.max_list_count = 2
 try:
+    # Exactly at limit: two unknown extension pairs
+    at_limit = LimitedMap(b"\xa2\x61x\x01\x61y\x02")
+    assert [k for k, _ in at_limit.unknown_pairs] == ["x", "y"]
+    assert [v.val for _, v in at_limit.unknown_pairs] == [1, 2]
     try:
-        LimitedMap(wire)
+        # Three unknown pairs exceeds conf.max_list_count
+        LimitedMap(b"\xa3\x61x\x01\x61y\x02\x61z\x03")
         assert False, "definite MAP ignored conf.max_list_count"
     except CBOR_Decoding_Error:
         pass
@@ -3945,22 +3979,27 @@ finally:
 = CBORF_MAP respects conf.max_list_count on indefinite maps
 from scapy.config import conf
 from scapy.cbor.cbor import CBOR_Decoding_Error
-from scapy.cbor.cborfields import CBORF_MAP, CBORF_UNSIGNED_INTEGER
+from scapy.cbor.cborfields import (
+    CBORF_MAP,
+    CBORF_UNSIGNED_INTEGER,
+    CBORF_optional,
+)
 from scapy.cborpacket import CBOR_Packet
 
 class LimitedMapIndef(CBOR_Packet):
     CBOR_root = CBORF_MAP(
-        CBORF_UNSIGNED_INTEGER("a", 0),
+        CBORF_optional(CBORF_UNSIGNED_INTEGER("a", 0)),
         unknown_field="unknown_pairs",
     )
 
-# Indefinite map with 3 unknown pairs then break
-wire = b"\xbf\x61x\x01\x61y\x02\x61z\x03\xff"
 old = conf.max_list_count
 conf.max_list_count = 2
 try:
+    at_limit = LimitedMapIndef(b"\xbf\x61x\x01\x61y\x02\xff")
+    assert [k for k, _ in at_limit.unknown_pairs] == ["x", "y"]
+    assert [v.val for _, v in at_limit.unknown_pairs] == [1, 2]
     try:
-        LimitedMapIndef(wire)
+        LimitedMapIndef(b"\xbf\x61x\x01\x61y\x02\x61z\x03\xff")
         assert False, "indefinite MAP ignored conf.max_list_count"
     except CBOR_Decoding_Error:
         pass
