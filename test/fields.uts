@@ -2386,6 +2386,7 @@ class _MutPktListDefault(Packet):
 
 a = _MutPktListDefault()
 b = _MutPktListDefault()
+assert a.lst is not b.lst
 assert a.lst[0] is not b.lst[0]
 a.lst[0].dst = "9.9.9.9"
 assert b.lst[0].dst == "1.2.3.4"
