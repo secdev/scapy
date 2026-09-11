@@ -1182,9 +1182,9 @@ class _CBORF_compound(CBORF_element):
         # type: (bool) -> None
         """Reject ``CBORF_REMAINDER_OF`` that is not a direct final child of *self*.
 
-        Nested compounds never expose a ``CBORF_REMAINDER_OF`` as a direct
-        child of the outer framing context, so they always recurse with
-        ``allow_terminal=False``.
+        Nested unframed ``CBORF_ITEMS`` share this framing context, so they
+        recurse with ``allow_terminal=False``. Framed ``CBORF_ARRAY``
+        compounds establish their own item budget and are not walked.
         """
         for i, field in enumerate(self.seq):
             is_last = i == len(self.seq) - 1
@@ -1194,48 +1194,10 @@ class _CBORF_compound(CBORF_element):
                         "CBORF_REMAINDER_OF must be the last field "
                         "in the sequence"
                     )
-            elif isinstance(field, _CBORF_compound):
+            elif isinstance(field, _CBORF_compound) and field.CBOR_tag is None:
+                # Unframed ITEMS share this framing context; framed ARRAY
+                # establishes its own count boundary and validates itself.
                 field._reject_nonterminal_remainder_of(allow_terminal=False)
-
-    def _dissect_children_budgeted(self, pkt, s, count):
-        # type: (CBOR_Packet, bytes, int) -> bytes
-        remaining = s
-        items_left = count
-        for index, field in enumerate(self.seq):
-            reserved = sum(
-                f.min_items(pkt) for f in self.seq[index + 1:]
-            )
-            available = items_left - reserved
-            needed = field.min_items(pkt)
-            if available < 0 or available < needed:
-                raise CBOR_Decoding_Error("CBOR item count mismatch")
-            if available == 0:
-                if isinstance(field, CBORF_optional):
-                    field._field.mark_absent(pkt)
-                continue
-            result = self._dissect_field(
-                pkt, field, remaining, max_items=available
-            )
-            if result.items > items_left:
-                raise CBOR_Decoding_Error(
-                    "CBOR field consumed more items than remaining"
-                )
-            remaining = result.remaining
-            items_left -= result.items
-        if items_left != 0:
-            raise CBOR_Decoding_Error("CBOR item count mismatch")
-        return remaining
-
-    def _dissect_children_streamed(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> Tuple[bytes, int]
-        """Consume schema fields greedily left-to-right; leave trailing bytes."""
-        remaining = s
-        total_items = 0
-        for field in self.seq:
-            result = self._dissect_field(pkt, field, remaining)
-            remaining = result.remaining
-            total_items += result.items
-        return remaining, total_items
 
 
 class CBORF_ITEMS(_CBORF_compound):
@@ -1272,10 +1234,15 @@ class CBORF_ITEMS(_CBORF_compound):
 
     def _dissect_counted(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> _CBORParseResult
-        # Stream schema fields only; leave trailing bytes for the parent
-        # without requiring them to be well-formed CBOR.
-        remaining, items = self._dissect_children_streamed(pkt, s)
-        return _CBORParseResult(remaining=remaining, items=items)
+        # Stream schema fields greedily left-to-right; leave trailing bytes
+        # for the parent without requiring them to be well-formed CBOR.
+        remaining = s
+        total_items = 0
+        for field in self.seq:
+            result = self._dissect_field(pkt, field, remaining)
+            remaining = result.remaining
+            total_items += result.items
+        return _CBORParseResult(remaining=remaining, items=total_items)
 
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
@@ -1312,6 +1279,35 @@ class CBORF_ARRAY(_CBORF_compound):
         # type: (*Any, **Any) -> None
         super(CBORF_ARRAY, self).__init__(*seq, **kwargs)
         self._reject_nonterminal_remainder_of()
+
+    def _dissect_children_budgeted(self, pkt, s, count):
+        # type: (CBOR_Packet, bytes, int) -> bytes
+        remaining = s
+        items_left = count
+        for index, field in enumerate(self.seq):
+            reserved = sum(
+                f.min_items(pkt) for f in self.seq[index + 1:]
+            )
+            available = items_left - reserved
+            needed = field.min_items(pkt)
+            if available < 0 or available < needed:
+                raise CBOR_Decoding_Error("CBOR item count mismatch")
+            if available == 0:
+                if isinstance(field, CBORF_optional):
+                    field._field.mark_absent(pkt)
+                continue
+            result = self._dissect_field(
+                pkt, field, remaining, max_items=available
+            )
+            if result.items > items_left:
+                raise CBOR_Decoding_Error(
+                    "CBOR field consumed more items than remaining"
+                )
+            remaining = result.remaining
+            items_left -= result.items
+        if items_left != 0:
+            raise CBOR_Decoding_Error("CBOR item count mismatch")
+        return remaining
 
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
@@ -1935,12 +1931,24 @@ class CBORF_MAP(CBORF_element):
                 unknown_pairs.append((key, val_obj))
 
         if count is CBOR_INDEFINITE:
+            pair_count = 0
             while True:
                 if cbor_is_break(remaining):
                     remaining = cbor_consume_break(remaining)
                     break
+                if pair_count >= config.conf.max_list_count:
+                    raise CBOR_Decoding_Error(
+                        "CBOR CBORF_MAP exceeded max_count=%d"
+                        % config.conf.max_list_count
+                    )
                 _collect_pair()
+                pair_count += 1
         else:
+            if count > config.conf.max_list_count:
+                raise CBOR_Decoding_Error(
+                    "CBOR CBORF_MAP exceeded max_count=%d"
+                    % config.conf.max_list_count
+                )
             for _ in range(count):
                 _collect_pair()
 
