@@ -40,18 +40,18 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
     def _argument_is_shortest(ai, value):
         # type: (int, Union[int, CBOR_INDEFINITE]) -> bool
         if value is CBOR_INDEFINITE:
-            return ai == int(CBOR_AdditionalInfo.INDEFINITE)
-        if ai < int(CBOR_AdditionalInfo.ONE_BYTE):
+            return ai == CBOR_AdditionalInfo.INDEFINITE
+        if ai < 24:
             return True
-        if ai == int(CBOR_AdditionalInfo.ONE_BYTE):
-            return int(value) >= int(CBOR_AdditionalInfo.ONE_BYTE)
-        if ai == int(CBOR_AdditionalInfo.TWO_BYTES):
+        if ai == CBOR_AdditionalInfo.ONE_BYTE:
+            return int(value) >= 24
+        if ai == CBOR_AdditionalInfo.TWO_BYTES:
             return int(value) >= 256
-        if ai == int(CBOR_AdditionalInfo.FOUR_BYTES):
+        if ai == CBOR_AdditionalInfo.FOUR_BYTES:
             return int(value) >= 65536
-        if ai == int(CBOR_AdditionalInfo.EIGHT_BYTES):
+        if ai == CBOR_AdditionalInfo.EIGHT_BYTES:
             return int(value) >= (1 << 32)
-        return ai == int(CBOR_AdditionalInfo.INDEFINITE)
+        return ai == CBOR_AdditionalInfo.INDEFINITE
 
     def _walk(depth=0):
         # type: (int) -> None
@@ -74,38 +74,38 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
         major = initial >> 5
         ai = initial & 0x1f
         pos = start + 1
-        if ai < int(CBOR_AdditionalInfo.ONE_BYTE):
+        if ai < 24:
             value = ai  # type: Union[int, CBOR_INDEFINITE]
-        elif ai == int(CBOR_AdditionalInfo.ONE_BYTE):
+        elif ai == CBOR_AdditionalInfo.ONE_BYTE:
             if pos + 1 > len(s):
                 raise CBOR_Codec_Decoding_Error(
                     "Not enough bytes for 1-byte value", remaining=s[start:])
             value = s[pos]
             pos += 1
-        elif ai == int(CBOR_AdditionalInfo.TWO_BYTES):
+        elif ai == CBOR_AdditionalInfo.TWO_BYTES:
             if pos + 2 > len(s):
                 raise CBOR_Codec_Decoding_Error(
                     "Not enough bytes for 2-byte value", remaining=s[start:])
             value = struct.unpack(">H", s[pos:pos + 2])[0]
             pos += 2
-        elif ai == int(CBOR_AdditionalInfo.FOUR_BYTES):
+        elif ai == CBOR_AdditionalInfo.FOUR_BYTES:
             if pos + 4 > len(s):
                 raise CBOR_Codec_Decoding_Error(
                     "Not enough bytes for 4-byte value", remaining=s[start:])
             value = struct.unpack(">I", s[pos:pos + 4])[0]
             pos += 4
-        elif ai == int(CBOR_AdditionalInfo.EIGHT_BYTES):
+        elif ai == CBOR_AdditionalInfo.EIGHT_BYTES:
             if pos + 8 > len(s):
                 raise CBOR_Codec_Decoding_Error(
                     "Not enough bytes for 8-byte value", remaining=s[start:])
             value = struct.unpack(">Q", s[pos:pos + 8])[0]
             pos += 8
-        elif ai == int(CBOR_AdditionalInfo.INDEFINITE):
+        elif ai == CBOR_AdditionalInfo.INDEFINITE:
             value = CBOR_INDEFINITE
         elif ai in (
-            int(CBOR_AdditionalInfo.RESERVED_28),
-            int(CBOR_AdditionalInfo.RESERVED_29),
-            int(CBOR_AdditionalInfo.RESERVED_30),
+            CBOR_AdditionalInfo.RESERVED_28,
+            CBOR_AdditionalInfo.RESERVED_29,
+            CBOR_AdditionalInfo.RESERVED_30,
         ):
             raise CBOR_Codec_Decoding_Error(
                 "Reserved additional info: %d" % ai, remaining=s[start:])
@@ -115,9 +115,9 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
         index[0] = pos
 
         # Major type 7: simple values and floats. Check float preferred width.
-        if major == int(CBOR_MajorTypes.SIMPLE_AND_FLOAT):
+        if major == CBOR_MajorTypes.SIMPLE_AND_FLOAT:
             if (
-                ai == int(CBOR_AdditionalInfo.ONE_BYTE)
+                ai == CBOR_AdditionalInfo.ONE_BYTE
                 and isinstance(value, int)
                 and value < 32
             ):
@@ -127,9 +127,9 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                     "(AI=24, value=%d)" % value,
                 ))
             if ai in (
-                int(CBOR_FloatAI.HALF),
-                int(CBOR_FloatAI.SINGLE),
-                int(CBOR_FloatAI.DOUBLE),
+                CBOR_FloatAI.HALF,
+                CBOR_FloatAI.SINGLE,
+                CBOR_FloatAI.DOUBLE,
             ) and value is not CBOR_INDEFINITE:
                 comps = _cbor_nan_components(ai, int(value))
                 if comps is not None:
@@ -153,8 +153,8 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                     "Indefinite-length item is not allowed",
                 ))
             if major in (
-                int(CBOR_MajorTypes.BYTE_STRING),
-                int(CBOR_MajorTypes.TEXT_STRING),
+                CBOR_MajorTypes.BYTE_STRING,
+                CBOR_MajorTypes.TEXT_STRING,
             ):
                 while index[0] < len(s) and not cbor_is_break(s[index[0]:]):
                     chunk_start = index[0]
@@ -186,7 +186,7 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                         "Expected break byte (0xff)", remaining=s[index[0]:])
                 index[0] += 1
                 return
-            if major == int(CBOR_MajorTypes.ARRAY):
+            if major == CBOR_MajorTypes.ARRAY:
                 while index[0] < len(s) and not cbor_is_break(s[index[0]:]):
                     _walk(depth + 1)
                 if index[0] >= len(s) or not cbor_is_break(s[index[0]:]):
@@ -194,7 +194,7 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                         "Expected break byte (0xff)", remaining=s[index[0]:])
                 index[0] += 1
                 return
-            if major == int(CBOR_MajorTypes.MAP):
+            if major == CBOR_MajorTypes.MAP:
                 key_encodings = []  # type: List[bytes]
                 while index[0] < len(s) and not cbor_is_break(s[index[0]:]):
                     key_start = index[0]
@@ -224,8 +224,8 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
             ))
 
         if major in (
-            int(CBOR_MajorTypes.BYTE_STRING),
-            int(CBOR_MajorTypes.TEXT_STRING),
+            CBOR_MajorTypes.BYTE_STRING,
+            CBOR_MajorTypes.TEXT_STRING,
         ):
             length = int(value)
             if index[0] + length > len(s):
@@ -233,11 +233,11 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                     "Truncated byte/text string", remaining=s[start:])
             index[0] += length
             return
-        if major == int(CBOR_MajorTypes.ARRAY):
+        if major == CBOR_MajorTypes.ARRAY:
             for _ in range(int(value)):
                 _walk(depth + 1)
             return
-        if major == int(CBOR_MajorTypes.MAP):
+        if major == CBOR_MajorTypes.MAP:
             key_encodings = []  # type: List[bytes]
             for _ in range(int(value)):
                 key_start = index[0]
@@ -250,7 +250,7 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                     "CBOR map keys are not in bytewise lexicographic order",
                 ))
             return
-        if major == int(CBOR_MajorTypes.TAG):
+        if major == CBOR_MajorTypes.TAG:
             _walk(depth + 1)
             return
 

@@ -1186,6 +1186,14 @@ class EnumElement:
         # type: (Any) -> bool
         return not self.__eq__(other)
 
+    def __copy__(self):
+        # type: () -> EnumElement
+        return self
+
+    def __deepcopy__(self, memo):
+        # type: (Dict[Any, Any]) -> EnumElement
+        return self
+
 
 class Enum_metaclass(type):
     element_class = EnumElement
