@@ -14,6 +14,7 @@ import struct
 from typing import (
     Any,
     Dict,
+    FrozenSet,
     Generic,
     List,
     Optional,
@@ -319,6 +320,70 @@ class CBOR_FloatAI(metaclass=Enum_metaclass):
     DOUBLE = 27  # IEEE binary64
 
 
+class CBOR_KeyKind(metaclass=Enum_metaclass):
+    """Discriminator for hashable RFC 8949 map-key norms.
+
+    Norms are tuples ``(kind, ...)`` (not dicts) so they remain hashable for
+    ``frozenset`` map-key identity.  ``kind`` is always a ``CBOR_KeyKind``.
+    """
+    name = "CBOR_KEY_KIND"
+    BOOL = 1
+    NULL = 2
+    UNDEF = 3
+    INT = 4
+    BSTR = 5
+    TSTR = 6
+    ARRAY = 7
+    MAP = 8
+    TAG = 9
+    SIMPLE = 10
+    OBJ = 11
+    OTHER = 12
+    NAN = 13
+    FINITE = 14
+
+
+class CBOR_FingerprintKind(CBOR_KeyKind):
+    """Discriminator for ``CBORF_ANY`` raw-cache fingerprints.
+
+    Extends :class:`CBOR_KeyKind` with rebuild-sensitive tags that map-key
+    norms do not need (sentinels, signed zero/inf, ``_encoded`` floats,
+    Python containers).
+    """
+    name = "CBOR_FINGERPRINT_KIND"
+    SENTINEL = 15
+    FLOAT = 16
+    INF = 17
+    ZERO = 18
+    MAPDATA = 19
+    LIST = 20
+    DICT = 21
+    PY = 22
+
+
+# Recursive hashable RFC 8949 map-key norm.
+# First element is a ``CBOR_KeyKind`` ``EnumElement`` (typed ``Any`` because
+# ``Enum_metaclass`` members are ``int`` in the class body).
+_CBORKeyNorm = Union[
+    Tuple[Any, None],
+    Tuple[Any, bool],
+    Tuple[Any, int],
+    Tuple[Any, bytes],
+    Tuple[Any, str],
+    Tuple[Any, float],
+    Tuple[Any, int, int],
+    Tuple[Any, Tuple["_CBORKeyNorm", ...]],
+    Tuple[Any, FrozenSet[Tuple["_CBORKeyNorm", "_CBORKeyNorm"]]],
+    Tuple[Any, int, "_CBORKeyNorm"],
+    Tuple[Any, str, "_CBORKeyNorm"],
+    Tuple[Any, str, str],
+]
+
+# Recursive rebuild-relevant fingerprint for ``CBORF_ANY`` raw-cache state.
+# Kind discriminator is ``CBOR_FingerprintKind`` (same EnumElement typing note).
+_CBORFingerprint = Tuple[Any, ...]
+
+
 CBOR_UINT64_MAX = (1 << 64) - 1
 
 
@@ -475,7 +540,7 @@ class CBORMapData(object):
         # type: () -> Dict[Any, Any]
         """Convert to a Python dict, raising if CBOR key distinctions would be lost."""
         out = {}  # type: Dict[Any, Any]
-        used_norms = set()  # type: Set[Any]
+        used_norms = set()  # type: Set[_CBORKeyNorm]
         for key, value in self._pairs:
             norm = _cbor_key_norm(key)
             if norm in used_norms:
@@ -766,15 +831,15 @@ def _cbor_float_wire_parts(encoded):
     if not wire:
         raise ValueError("empty CBOR float encoding")
     ai = wire[0] & 0x1f
-    if ai == int(CBOR_FloatAI.HALF):
+    if ai == CBOR_FloatAI.HALF:
         if len(wire) < 3:
             raise ValueError("truncated half float")
         return ai, struct.unpack(">H", wire[1:3])[0]
-    if ai == int(CBOR_FloatAI.SINGLE):
+    if ai == CBOR_FloatAI.SINGLE:
         if len(wire) < 5:
             raise ValueError("truncated single float")
         return ai, struct.unpack(">I", wire[1:5])[0]
-    if ai == int(CBOR_FloatAI.DOUBLE):
+    if ai == CBOR_FloatAI.DOUBLE:
         if len(wire) < 9:
             raise ValueError("truncated double float")
         return ai, struct.unpack(">Q", wire[1:9])[0]
@@ -782,7 +847,7 @@ def _cbor_float_wire_parts(encoded):
 
 
 def _cbor_float_key_identity(value, encoded=None):
-    # type: (float, Optional[bytes]) -> Tuple[Any, ...]
+    # type: (float, Optional[bytes]) -> _CBORKeyNorm
     """Return RFC 8949 floating-point map-key identity for *value*.
 
     Finite ``+0.0`` / ``-0.0`` collapse.  NaNs compare by sign and
@@ -791,27 +856,15 @@ def _cbor_float_key_identity(value, encoded=None):
     and sign survive Python's NaN canonicalization.
     """
     if encoded is not None:
-        from scapy.cbor.cborcodec import _cbor_float_from_bits
+        from scapy.cbor.cborcodec import (
+            _cbor_float_from_bits,
+            _cbor_nan_components,
+        )
         ai, bits = _cbor_float_wire_parts(encoded)
-        if ai == int(CBOR_FloatAI.HALF):
-            sign = (bits >> 15) & 0x1
-            exponent = (bits >> 10) & 0x1f
-            fraction = bits & 0x3ff
-            if exponent == 31 and fraction:
-                return ("nan", sign, fraction << 42)
-        elif ai == int(CBOR_FloatAI.SINGLE):
-            sign = (bits >> 31) & 0x1
-            exponent = (bits >> 23) & 0xff
-            fraction = bits & 0x7fffff
-            if exponent == 0xff and fraction:
-                return ("nan", sign, fraction << 29)
-        else:
-            # DOUBLE
-            sign = (bits >> 63) & 0x1
-            exponent = (bits >> 52) & 0x7ff
-            fraction = bits & ((1 << 52) - 1)
-            if exponent == 0x7ff and fraction:
-                return ("nan", sign, fraction)
+        comps = _cbor_nan_components(ai, bits)
+        if comps is not None:
+            sign, significand52 = comps
+            return (CBOR_KeyKind.NAN, sign, significand52)
         return _cbor_float_key_identity(_cbor_float_from_bits(ai, bits))
 
     fval = float(value)
@@ -819,14 +872,14 @@ def _cbor_float_key_identity(value, encoded=None):
         bits = struct.unpack(">Q", struct.pack(">d", fval))[0]
         sign = (bits >> 63) & 0x1
         significand = bits & ((1 << 52) - 1)
-        return ("nan", sign, significand)
+        return (CBOR_KeyKind.NAN, sign, significand)
     if fval == 0.0:
-        return ("finite", 0.0)
-    return ("finite", fval)
+        return (CBOR_KeyKind.FINITE, 0.0)
+    return (CBOR_KeyKind.FINITE, fval)
 
 
 def _cbor_key_norm(value):
-    # type: (Any) -> Any
+    # type: (Any) -> _CBORKeyNorm
     """Return a hashable RFC 8949 map-key equivalence form for *value*.
 
     Integers and floats remain distinct groups.  Floating ``+0.0`` and
@@ -834,29 +887,35 @@ def _cbor_key_norm(value):
     significand match across widths.  Arrays compare order-sensitively;
     maps compare as unordered pairs of norms.  Semantic tags require the
     same tag number and an equivalent tagged value.
+
+    Each norm is a tuple starting with :class:`CBOR_KeyKind` (not a dict),
+    so norms stay hashable for map ``frozenset`` identity.
     """
     if isinstance(value, CBOR_Object):
         if isinstance(value, (CBOR_TRUE, CBOR_FALSE)):
-            return ("bool", bool(value.val))
+            return (CBOR_KeyKind.BOOL, bool(value.val))
         if isinstance(value, CBOR_NULL):
-            return ("null", None)
+            return (CBOR_KeyKind.NULL, None)
         if isinstance(value, CBOR_UNDEFINED):
-            return ("undef", None)
+            return (CBOR_KeyKind.UNDEF, None)
         if isinstance(value, (CBOR_UNSIGNED_INTEGER, CBOR_NEGATIVE_INTEGER)):
-            return ("int", int(value.val))
+            return (CBOR_KeyKind.INT, int(value.val))
         if isinstance(value, CBOR_BYTE_STRING):
-            return ("bstr", bytes(value.val))
+            return (CBOR_KeyKind.BSTR, bytes(value.val))
         if isinstance(value, CBOR_TEXT_STRING):
-            return ("tstr", str(value.val))
+            return (CBOR_KeyKind.TSTR, str(value.val))
         if isinstance(value, CBOR_FLOAT):
             return _cbor_float_key_identity(
                 value.val, getattr(value, "_encoded", None)
             )
         if isinstance(value, CBOR_ARRAY):
-            return ("array", tuple(_cbor_key_norm(v) for v in value.val))
+            return (
+                CBOR_KeyKind.ARRAY,
+                tuple(_cbor_key_norm(v) for v in value.val),
+            )
         if isinstance(value, CBOR_MAP):
             return (
-                "map",
+                CBOR_KeyKind.MAP,
                 frozenset(
                     (_cbor_key_norm(k), _cbor_key_norm(v))
                     for k, v in _cbor_map_pairs(value)
@@ -864,13 +923,17 @@ def _cbor_key_norm(value):
             )
         if isinstance(value, CBOR_SEMANTIC_TAG):
             tag_num, inner = value.val
-            return ("tag", int(tag_num), _cbor_key_norm(inner))
+            return (CBOR_KeyKind.TAG, int(tag_num), _cbor_key_norm(inner))
         if isinstance(value, CBOR_SIMPLE_VALUE):
-            return ("simple", int(value.val))
-        return ("obj", type(value).__name__, _cbor_key_norm(value.val))
+            return (CBOR_KeyKind.SIMPLE, int(value.val))
+        return (
+            CBOR_KeyKind.OBJ,
+            type(value).__name__,
+            _cbor_key_norm(value.val),
+        )
     if isinstance(value, CBORMapData):
         return (
-            "map",
+            CBOR_KeyKind.MAP,
             frozenset(
                 (_cbor_key_norm(k), _cbor_key_norm(v))
                 for k, v in value.cbor_pairs()
@@ -878,28 +941,28 @@ def _cbor_key_norm(value):
         )
     if isinstance(value, dict):
         return (
-            "map",
+            CBOR_KeyKind.MAP,
             frozenset(
                 (_cbor_key_norm(k), _cbor_key_norm(v))
                 for k, v in value.items()
             ),
         )
     if isinstance(value, bool):
-        return ("bool", value)
+        return (CBOR_KeyKind.BOOL, value)
     if isinstance(value, int):
-        return ("int", value)
+        return (CBOR_KeyKind.INT, value)
     if isinstance(value, float):
         return _cbor_float_key_identity(value)
     if isinstance(value, bytes):
-        return ("bstr", value)
+        return (CBOR_KeyKind.BSTR, value)
     if isinstance(value, str):
-        return ("tstr", value)
+        return (CBOR_KeyKind.TSTR, value)
     if isinstance(value, list):
-        return ("array", tuple(_cbor_key_norm(v) for v in value))
+        return (CBOR_KeyKind.ARRAY, tuple(_cbor_key_norm(v) for v in value))
     if isinstance(value, tuple) and len(value) == 2 and isinstance(value[0], int):
         # Bare semantic-tag tuple (tag_num, inner), as stored on CBOR_SEMANTIC_TAG.
-        return ("tag", int(value[0]), _cbor_key_norm(value[1]))
-    return ("other", type(value).__name__, repr(value))
+        return (CBOR_KeyKind.TAG, int(value[0]), _cbor_key_norm(value[1]))
+    return (CBOR_KeyKind.OTHER, type(value).__name__, repr(value))
 
 
 def _cbor_key_equivalent(a, b):
