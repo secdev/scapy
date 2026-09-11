@@ -143,6 +143,8 @@ class _SPNEGO_Token_Field(ASN1F_STRING):
 
     def m2i(self, pkt, s):
         dat, r = super(_SPNEGO_Token_Field, self).m2i(pkt, s)
+        if not dat.val:
+            return dat, r
         types = None
         if isinstance(pkt.underlayer, SPNEGO_negTokenInit):
             types = pkt.underlayer.mechTypes

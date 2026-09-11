@@ -437,3 +437,16 @@ try:
     assert False, "Should have failed !"
 except ValueError:
     pass
+
++ SPNEGO packets
+
+= SPNEGO_Token - build and dissect empty payloads
+
+pkt = SPNEGO_Token()
+assert raw(pkt) == b"\x04\x00"
+assert raw(SPNEGO_Token(raw(pkt))) == raw(pkt)
+assert not SPNEGO_Token(raw(pkt)).value
+
+pkt = SPNEGO_MechListMIC()
+assert raw(pkt) == b"\x04\x00"
+assert raw(SPNEGO_MechListMIC(raw(pkt))) == raw(pkt)

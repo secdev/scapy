@@ -1085,4 +1085,6 @@ class ASN1F_STRING_ENCAPS(ASN1F_STRING_PacketField):
     def m2i(self, pkt, s):  # type: ignore
         # type: (ASN1_Packet, bytes) -> Tuple[ASN1_Packet, bytes]
         val = super(ASN1F_STRING_ENCAPS, self).m2i(pkt, s)
+        if not val[0].val:
+            return val[0], val[1]  # type: ignore
         return self.cls(val[0].val, _underlayer=pkt), val[1]
