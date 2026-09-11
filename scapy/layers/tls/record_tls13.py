@@ -47,14 +47,18 @@ class TLSInnerPlaintext(_GenericTLSSessionInheritance):
         if len(s) < 1:
             raise Exception("Invalid InnerPlaintext (too short).")
 
-        tmp_len = len(s) - 1
-        if s[-1] != b"\x00":
-            msg_len = tmp_len
-        else:
-            n = 1
-            while s[-n] != b"\x00" and n < tmp_len:
-                n += 1
-            msg_len = tmp_len - n
+        # RFC 8446 sect. 5.2: an InnerPlaintext is
+        #     content || content_type || zeros(padding)
+        # so the content type is the last non-zero byte. Scan back over the
+        # padding to find it; with no padding the loop stops immediately and
+        # msg_len is len(s) - 1, as before.
+        n = len(s)
+        while n > 0 and s[n - 1] == 0:
+            n -= 1
+        # All-zero input carries no valid content type (0 is not a ContentType).
+        # Keep the previous behaviour there rather than raising, so that
+        # default-constructed packets still round-trip.
+        msg_len = n - 1 if n > 0 else len(s) - 1
         self.fields_desc[0].length_from = lambda pkt: msg_len
 
         self.type = struct.unpack("B", s[msg_len:msg_len + 1])[0]

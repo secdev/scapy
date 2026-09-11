@@ -1355,3 +1355,39 @@ def parses_share(value):
 
 assert not parses_share(1)
 assert parses_share(2)
+
++ TLS 1.3 InnerPlaintext padding
+
+= InnerPlaintext - the content type is the last non-zero byte
+
+% RFC 8446 sect. 5.2 lays an InnerPlaintext out as
+%     content || content_type || zeros(padding)
+% The type was previously read from the very last byte, so any padded record
+% reported content type 0 -- not a valid ContentType -- and the padding was
+% swallowed into the message list instead of landing in `pad`.
+
+from scapy.layers.tls.record_tls13 import TLSInnerPlaintext
+
+for pad_len in [1, 3, 16]:
+    for content_type in [0x15, 0x16, 0x17]:
+        pkt = TLSInnerPlaintext(b"HELLO" + bytes([content_type]) + b"\x00" * pad_len)
+        assert pkt.type == content_type, (pad_len, content_type, pkt.type)
+        assert bytes(pkt.pad) == b"\x00" * pad_len, (pad_len, bytes(pkt.pad))
+
+= InnerPlaintext - an unpadded record is unaffected
+
+from scapy.layers.tls.record_tls13 import TLSInnerPlaintext
+
+pkt = TLSInnerPlaintext(b"HELLO" + b"\x16")
+assert pkt.type == 0x16
+assert bytes(pkt.pad) == b""
+
+= InnerPlaintext - an all-zero payload still dissects without raising
+
+% Nothing in it is a valid content type, so there is nothing to find; this only
+% pins that the scan does not walk off the front of the buffer.
+
+from scapy.layers.tls.record_tls13 import TLSInnerPlaintext
+
+pkt = TLSInnerPlaintext(b"\x00\x00")
+assert pkt.type == 0
