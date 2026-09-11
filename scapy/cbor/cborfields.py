@@ -1938,13 +1938,15 @@ class CBORF_MAP(CBORF_element):
                     break
                 if len(seen_keys) >= limit:
                     raise CBOR_Decoding_Error(
-                        "CBOR CBORF_MAP exceeded max_count=%d" % limit
+                        "CBOR %s exceeded max_count=%d"
+                        % (self.__class__.__name__, limit)
                     )
                 _collect_pair()
         else:
             if count > limit:
                 raise CBOR_Decoding_Error(
-                    "CBOR CBORF_MAP exceeded max_count=%d" % limit
+                    "CBOR %s exceeded max_count=%d"
+                    % (self.__class__.__name__, limit)
                 )
             for _ in range(count):
                 _collect_pair()
