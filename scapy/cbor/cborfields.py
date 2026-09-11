@@ -22,7 +22,6 @@ from scapy.cbor.cbor import (
     CBOR_AdditionalInfo,
     CBOR_Decoding_Error,
     CBOR_Encoding_Error,
-    CBOR_FingerprintKind,
     CBOR_FloatAI,
     CBOR_MajorTypes,
     CBOR_Object,
@@ -42,7 +41,6 @@ from scapy.cbor.cbor import (
     CBOR_FLOAT,
     CBOR_MAP,
     CBOR_SIMPLE_VALUE,
-    _CBORFingerprint,
 )
 from scapy.cbor.cborcodec import (
     CBOR_BREAK_BYTE,
@@ -63,6 +61,7 @@ from scapy.cbor.cborcodec import (
     CBORcodec_SIMPLE_AND_FLOAT,
 )
 from scapy.packet import Packet
+from scapy.utils import Enum_metaclass
 from scapy.volatile import (
     RandChoice,
     RandFloat,
@@ -192,14 +191,10 @@ class CBORF_element(object):
         # type: (CBOR_Packet) -> int
         return 1
 
-    def max_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return 1
-
     def structural_max_items(self, pkt):
         # type: (CBOR_Packet) -> int
         """Upper bound independent of not-yet-dissected discriminators."""
-        return self.max_items(pkt)
+        return 1
 
 
 ##########################
@@ -420,6 +415,29 @@ class CBORF_field(CBORF_element, Generic[_I]):
         return copy.copy(self)
 
 
+class _CBORFingerprintKind(metaclass=Enum_metaclass):
+    """Private discriminator for ``CBORF_ANY`` raw-cache fingerprints."""
+    name = "CBOR_FINGERPRINT_KIND"
+    UNDEF = 3
+    ARRAY = 7
+    MAP = 8
+    TAG = 9
+    OBJ = 11
+    NAN = 13
+    FINITE = 14
+    SENTINEL = 15
+    FLOAT = 16
+    INF = 17
+    ZERO = 18
+    MAPDATA = 19
+    LIST = 20
+    DICT = 21
+    PY = 22
+
+
+_CBORFingerprint = Tuple[Any, ...]
+
+
 class CBORF_ANY(CBORF_field[Any]):
     """Represent any well-formed CBOR value as a lossless ``CBOR_Object``."""
     ismutable = True
@@ -501,7 +519,7 @@ class CBORF_ANY(CBORF_field[Any]):
         """Recursive rebuild-relevant fingerprint for ``CBORF_ANY`` values."""
         from scapy.cbor.cbor import CBORMapData
         fingerprint = CBORF_ANY._cache_fingerprint
-        Kind = CBOR_FingerprintKind
+        Kind = _CBORFingerprintKind
         if obj is CBOR_ABSENT or obj is CBOR_NO_ITEM:
             return (Kind.SENTINEL, obj)
         if isinstance(obj, CBOR_UNDEFINED):
@@ -545,7 +563,7 @@ class CBORF_ANY(CBORF_field[Any]):
             tag_num, inner = obj.val
             return (Kind.TAG, int(tag_num), fingerprint(inner))
         if isinstance(obj, CBOR_Object):
-            return (Kind.OBJ, type(obj).__name__, obj.val)
+            return (Kind.OBJ, type(obj).__name__, fingerprint(obj.val))
         if isinstance(obj, list):
             return (Kind.LIST, tuple(fingerprint(item) for item in obj))
         if isinstance(obj, dict):
@@ -1154,20 +1172,30 @@ class _CBORF_compound(CBORF_element):
 
     def _dissect_field(self, pkt, field, remaining, max_items=None):
         # type: (CBOR_Packet, Any, bytes, Optional[int]) -> _CBORParseResult
-        if isinstance(field, CBORF_SEQUENCE_OF):
+        if isinstance(field, CBORF_REMAINDER_OF):
             return field._dissect_counted(
                 pkt, remaining, max_items=max_items
             )
         return field._dissect_counted(pkt, remaining)
 
-    def _reject_nonterminal_sequence_of(self):
-        # type: () -> None
-        for field in self.seq[:-1]:
-            if isinstance(field, CBORF_SEQUENCE_OF):
-                raise ValueError(
-                    "CBORF_SEQUENCE_OF must be the last field "
-                    "in the sequence"
-                )
+    def _reject_nonterminal_remainder_of(self, allow_terminal=True):
+        # type: (bool) -> None
+        """Reject ``CBORF_REMAINDER_OF`` that is not a direct final child of *self*.
+
+        Nested compounds never expose a ``CBORF_REMAINDER_OF`` as a direct
+        child of the outer framing context, so they always recurse with
+        ``allow_terminal=False``.
+        """
+        for i, field in enumerate(self.seq):
+            is_last = i == len(self.seq) - 1
+            if isinstance(field, CBORF_REMAINDER_OF):
+                if not (allow_terminal and is_last):
+                    raise ValueError(
+                        "CBORF_REMAINDER_OF must be the last field "
+                        "in the sequence"
+                    )
+            elif isinstance(field, _CBORF_compound):
+                field._reject_nonterminal_remainder_of(allow_terminal=False)
 
     def _dissect_children_budgeted(self, pkt, s, count):
         # type: (CBOR_Packet, bytes, int) -> bytes
@@ -1210,7 +1238,7 @@ class _CBORF_compound(CBORF_element):
         return remaining, total_items
 
 
-class CBORF_SEQUENCE(_CBORF_compound):
+class CBORF_ITEMS(_CBORF_compound):
     """
     Unframed fixed sequence of named, typed fields (no CBOR array head).
 
@@ -1226,7 +1254,7 @@ class CBORF_SEQUENCE(_CBORF_compound):
     Example::
 
         class MyCBOR(CBOR_Packet):
-            CBOR_root = CBORF_SEQUENCE(
+            CBOR_root = CBORF_ITEMS(
                 CBORF_INTEGER("version", 1),
                 CBORF_TEXT_STRING("name", ""),
             )
@@ -1234,8 +1262,8 @@ class CBORF_SEQUENCE(_CBORF_compound):
 
     def __init__(self, *seq, **kwargs):
         # type: (*Any, **Any) -> None
-        super(CBORF_SEQUENCE, self).__init__(*seq, **kwargs)
-        self._reject_nonterminal_sequence_of()
+        super(CBORF_ITEMS, self).__init__(*seq, **kwargs)
+        self._reject_nonterminal_remainder_of()
 
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
@@ -1253,10 +1281,6 @@ class CBORF_SEQUENCE(_CBORF_compound):
         # type: (CBOR_Packet) -> int
         return sum(f.min_items(pkt) for f in self.seq)
 
-    def max_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return sum(f.max_items(pkt) for f in self.seq)
-
     def structural_max_items(self, pkt):
         # type: (CBOR_Packet) -> int
         return sum(f.structural_max_items(pkt) for f in self.seq)
@@ -1268,7 +1292,7 @@ class CBORF_ARRAY(_CBORF_compound):
 
     Analogous to ASN1F_SEQUENCE: each positional element is a
     :class:`CBORF_field`, wrapped in one definite (or indefinite) CBOR array.
-    Prefer this over :class:`CBORF_SEQUENCE` when the wire form is a single
+    Prefer this over :class:`CBORF_ITEMS` when the wire form is a single
     array item.
 
     Example::
@@ -1287,7 +1311,7 @@ class CBORF_ARRAY(_CBORF_compound):
     def __init__(self, *seq, **kwargs):
         # type: (*Any, **Any) -> None
         super(CBORF_ARRAY, self).__init__(*seq, **kwargs)
-        self._reject_nonterminal_sequence_of()
+        self._reject_nonterminal_remainder_of()
 
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
@@ -1424,11 +1448,12 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
     @staticmethod
     def _require_packet_cls(pkt_cls):
         # type: (Any) -> Type[CBOR_Packet]
-        """Validate a Packet subclass with CBOR_root for collection elements."""
+        """Validate a CBOR_Packet subclass with a non-None CBOR_root."""
+        from scapy.cborpacket import CBOR_Packet
         if (
             isinstance(pkt_cls, type)
-            and issubclass(pkt_cls, Packet)
-            and hasattr(pkt_cls, "CBOR_root")
+            and issubclass(pkt_cls, CBOR_Packet)
+            and getattr(pkt_cls, "CBOR_root", None) is not None
         ):
             return cast("Type[CBOR_Packet]", pkt_cls)
         raise ValueError(
@@ -1523,24 +1548,24 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
         return "<%s %s>" % (self.__class__.__name__, self.name)
 
 
-class CBORF_SEQUENCE_OF(_CBORF_HOMOGENEOUS):
+class CBORF_REMAINDER_OF(_CBORF_HOMOGENEOUS):
     """
     Unframed sequence of homogeneous elements (no CBOR array head).
 
     Preferred constructors (ASN1F_SEQUENCE_OF / PacketListField style)::
 
-        CBORF_SEQUENCE_OF("items", [], pkt_cls=MyPacket)
-        CBORF_SEQUENCE_OF("items", [], pkt_cls=CBORF_UNSIGNED_INTEGER)
-        CBORF_SEQUENCE_OF("items", [], next_cls_cb=choose_next)
+        CBORF_REMAINDER_OF("items", [], pkt_cls=MyPacket)
+        CBORF_REMAINDER_OF("items", [], pkt_cls=CBORF_UNSIGNED_INTEGER)
+        CBORF_REMAINDER_OF("items", [], next_cls_cb=choose_next)
 
     ``pkt_cls`` may be a :class:`CBOR_Packet` subclass or a
     :class:`CBORF_field` class/instance. Do not use a ``cls=`` keyword:
     :class:`~typing.Generic` reserves that name on Python 3.7.
     Pass only one of ``pkt_cls`` / ``next_cls_cb``.
 
-    ``SEQUENCE_OF`` represents an unframed sequence of zero or more CBOR
-    items. Because it consumes the remaining item budget/input, it must be
-    a direct final child of a positional ``CBORF_SEQUENCE`` or
+    ``CBORF_REMAINDER_OF`` represents an unframed greedy tail of zero or more
+    CBOR items. Because it consumes the remaining item budget/input, it must
+    be a direct final child of a positional ``CBORF_ITEMS`` or
     ``CBORF_ARRAY``.
 
     It must not be wrapped in ``CBORF_optional``, ``CBORF_CONDITIONAL``, or
@@ -1560,7 +1585,7 @@ class CBORF_SEQUENCE_OF(_CBORF_HOMOGENEOUS):
                  max_count=None,  # type: Optional[int]
                  ):
         # type: (...) -> None
-        super(CBORF_SEQUENCE_OF, self).__init__(
+        super(CBORF_REMAINDER_OF, self).__init__(
             name,
             default,
             pkt_cls=pkt_cls,
@@ -1618,7 +1643,7 @@ class CBORF_SEQUENCE_OF(_CBORF_HOMOGENEOUS):
         # type: (CBOR_Packet) -> int
         return 0
 
-    def max_items(self, pkt):
+    def structural_max_items(self, pkt):
         # type: (CBOR_Packet) -> int
         return self._list_limit()
 
@@ -1994,9 +2019,9 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
         if tag_num < 0 or tag_num > CBOR_UINT64_MAX:
             raise CBOR_Encoding_Error(
                 "Semantic tag number out of uint64 range")
-        if isinstance(inner_field, CBORF_SEQUENCE_OF):
+        if isinstance(inner_field, CBORF_REMAINDER_OF):
             raise ValueError(
-                "CBORF_SEQUENCE_OF cannot be wrapped; "
+                "CBORF_REMAINDER_OF cannot be wrapped; "
                 "place it directly as the final positional field"
             )
         self.tag_num = tag_num
@@ -2110,9 +2135,9 @@ class CBORF_optional(CBORF_element):
                 "CBORF_optional requires CBORF_field or CBORF_SEMANTIC_TAG; "
                 "got %r" % (type(field).__name__,)
             )
-        if isinstance(field, CBORF_SEQUENCE_OF):
+        if isinstance(field, CBORF_REMAINDER_OF):
             raise ValueError(
-                "CBORF_SEQUENCE_OF cannot be wrapped; "
+                "CBORF_REMAINDER_OF cannot be wrapped; "
                 "place it directly as the final positional field"
             )
         self._field = field
@@ -2138,10 +2163,6 @@ class CBORF_optional(CBORF_element):
         # type: (CBOR_Packet) -> int
         return 0
 
-    def max_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return self._field.max_items(pkt)
-
     def structural_max_items(self, pkt):
         # type: (CBOR_Packet) -> int
         return self._field.structural_max_items(pkt)
@@ -2158,9 +2179,9 @@ class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
                  cond,  # type: Callable[[Packet], bool]
                  ):
         # type: (...) -> None
-        if isinstance(fld, CBORF_SEQUENCE_OF):
+        if isinstance(fld, CBORF_REMAINDER_OF):
             raise ValueError(
-                "CBORF_SEQUENCE_OF cannot be wrapped; "
+                "CBORF_REMAINDER_OF cannot be wrapped; "
                 "place it directly as the final positional field"
             )
         fields.ConditionalField.__init__(self, fld, cond)
@@ -2191,12 +2212,6 @@ class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
             return self.fld.min_items(pkt)
         return 0
 
-    def max_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        if self._evalcond(pkt):
-            return self.fld.max_items(pkt)
-        return 0
-
     def structural_max_items(self, pkt):
         # type: (CBOR_Packet) -> int
         return self.fld.structural_max_items(pkt)
@@ -2220,7 +2235,7 @@ class CBORF_PACKET(CBORF_field['CBOR_Packet']):
                  pkt_cls,  # type: Type[CBOR_Packet]
                  ):
         # type: (...) -> None
-        self.cls = pkt_cls
+        self.cls = _CBORF_HOMOGENEOUS._require_packet_cls(pkt_cls)
         super(CBORF_PACKET, self).__init__(name, default)
 
     def m2i(self, pkt, s):
