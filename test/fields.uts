@@ -2357,3 +2357,33 @@ p
 assert p.indent == 0xf
 assert p.pcount == 4
 assert [p.x for p in p.plist] == [0x41, 0x42, 0x43, 0x44]
+
+############
+############
++ EnumElement and mutable Field default isolation
+
+= EnumElement copy and deepcopy return the same singleton
+~ core field
+from copy import copy, deepcopy
+from scapy.utils import Enum_metaclass
+
+class _EnumCopyProbe(metaclass=Enum_metaclass):
+    name = "ENUM_COPY_PROBE"
+    A = 1
+    B = 2
+
+assert copy(_EnumCopyProbe.A) is _EnumCopyProbe.A
+assert deepcopy(_EnumCopyProbe.B) is _EnumCopyProbe.B
+
+= Mutable FieldListField defaults are isolated via Field.do_copy
+~ core field
+class _MutDefaultPkt(Packet):
+    fields_desc = [
+        FieldListField("lst", [1, 2], ByteField("elt", 0)),
+    ]
+
+a = _MutDefaultPkt()
+b = _MutDefaultPkt()
+a.lst.append(3)
+assert a.lst == [1, 2, 3]
+assert b.lst == [1, 2]

@@ -301,25 +301,25 @@ try:
 except:
     True
 
-+ CBORF_SEQUENCE_OF packet item cardinality
++ CBORF_REMAINDER_OF packet item cardinality
 
-= CBORF_SEQUENCE_OF rejects a packet element that consumes two top-level items
+= CBORF_REMAINDER_OF rejects a packet element that consumes two top-level items
 from scapy.cbor.cbor import CBOR_Decoding_Error
 from scapy.cbor.cborfields import (
-    CBORF_SEQUENCE,
-    CBORF_SEQUENCE_OF,
+    CBORF_ITEMS,
+    CBORF_REMAINDER_OF,
     CBORF_UNSIGNED_INTEGER,
 )
 from scapy.cborpacket import CBOR_Packet
 
 class TwoItemSequenceDecodeElement(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_UNSIGNED_INTEGER("first", 0),
         CBORF_UNSIGNED_INTEGER("second", 0),
     )
 
 class PacketSequenceDecode(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE_OF(
+    CBOR_root = CBORF_REMAINDER_OF(
         "elements",
         [],
         TwoItemSequenceDecodeElement,
@@ -327,7 +327,7 @@ class PacketSequenceDecode(CBOR_Packet):
 
 try:
     PacketSequenceDecode(b"\x01\x02")
-    assert False, "SEQUENCE_OF accepted two CBOR items as one packet element"
+    assert False, "REMAINDER_OF accepted two CBOR items as one packet element"
 except CBOR_Decoding_Error:
     pass
 
@@ -359,7 +359,7 @@ assert pkt.fallback.val == 7
 = A matching optional semantic tag with the wrong inner type is malformed
 from scapy.cbor.cbor import CBOR_Decoding_Error
 from scapy.cbor.cborfields import (
-    CBORF_SEQUENCE,
+    CBORF_ITEMS,
     CBORF_SEMANTIC_TAG,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
@@ -367,7 +367,7 @@ from scapy.cbor.cborfields import (
 from scapy.cborpacket import CBOR_Packet
 
 class OptionalTaggedUnsigned(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_optional(
             CBORF_SEMANTIC_TAG(1, CBORF_UNSIGNED_INTEGER("tagged_value", None))
         )
@@ -386,7 +386,7 @@ except CBOR_Decoding_Error:
 = A matching optional semantic tag with truncated content is malformed
 from scapy.cbor.cbor import CBOR_Decoding_Error
 from scapy.cbor.cborfields import (
-    CBORF_SEQUENCE,
+    CBORF_ITEMS,
     CBORF_SEMANTIC_TAG,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
@@ -394,7 +394,7 @@ from scapy.cbor.cborfields import (
 from scapy.cborpacket import CBOR_Packet
 
 class OptionalTruncatedTaggedUnsigned(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_optional(
             CBORF_SEMANTIC_TAG(1, CBORF_UNSIGNED_INTEGER("tagged_value", None))
         )
@@ -526,10 +526,10 @@ assert LifecycleArrayChild.events == ["pre", "do", "post"]
 assert child.original == b"\x81\x01"
 assert child.raw_packet_cache == b"\x81\x01"
 
-= Packet-valued CBORF_SEQUENCE_OF runs child hooks and retains each item span
+= Packet-valued CBORF_REMAINDER_OF runs child hooks and retains each item span
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
-    CBORF_SEQUENCE_OF,
+    CBORF_REMAINDER_OF,
     CBORF_UNSIGNED_INTEGER,
 )
 from scapy.cborpacket import CBOR_Packet
@@ -548,7 +548,7 @@ class LifecycleSequenceChild(CBOR_Packet):
         return data
 
 class LifecycleSequenceParent(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE_OF("items", [], LifecycleSequenceChild)
+    CBOR_root = CBORF_REMAINDER_OF("items", [], LifecycleSequenceChild)
 
 LifecycleSequenceChild.events[:] = []
 pkt = LifecycleSequenceParent(b"\x81\x01")
@@ -711,13 +711,13 @@ pkt = AnyArrayFloatPkt(bytes.fromhex("81f90000"))
 pkt.values[0].val = -0.0
 assert bytes(pkt) == bytes.fromhex("81f98000")
 
-= Packet-valued ARRAY_OF and SEQUENCE_OF fingerprint copy and wire cache
+= Packet-valued ARRAY_OF and REMAINDER_OF fingerprint copy and wire cache
 from scapy.cbor.cborfields import (
     CBORF_ANY,
     CBORF_ARRAY_OF,
     CBORF_PACKET,
-    CBORF_SEQUENCE,
-    CBORF_SEQUENCE_OF,
+    CBORF_ITEMS,
+    CBORF_REMAINDER_OF,
 )
 from scapy.cbor.cbor import CBOR_FLOAT, CBOR_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
@@ -736,13 +736,13 @@ class ArrayOfChildFld(CBOR_Packet):
     )
 
 class SeqOfChildCls(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
-        CBORF_SEQUENCE_OF("items", [], NestedAnyChild),
+    CBOR_root = CBORF_ITEMS(
+        CBORF_REMAINDER_OF("items", [], NestedAnyChild),
     )
 
 class SeqOfChildFld(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
-        CBORF_SEQUENCE_OF(
+    CBOR_root = CBORF_ITEMS(
+        CBORF_REMAINDER_OF(
             "items", [], CBORF_PACKET("item", None, NestedAnyChild)
         ),
     )
@@ -977,73 +977,129 @@ assert bytes(pkt) == b"\xa1\x61n\x01"
 
 + array item reservation
 
-= Nonterminal SEQUENCE_OF is rejected at schema construction
+= Nonterminal REMAINDER_OF is rejected at schema construction
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
-    CBORF_SEQUENCE_OF,
+    CBORF_REMAINDER_OF,
     CBORF_UNSIGNED_INTEGER,
 )
 
 try:
     CBORF_ARRAY(
-        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
+        CBORF_REMAINDER_OF("vals", [], CBORF_UNSIGNED_INTEGER),
         CBORF_UNSIGNED_INTEGER("tail", 0),
     )
-    assert False, "nonterminal SEQUENCE_OF was accepted"
+    assert False, "nonterminal REMAINDER_OF was accepted"
 except ValueError:
     pass
 
-= Optional cannot wrap SEQUENCE_OF
+= Nested REMAINDER_OF inside ITEMS is rejected by outer ARRAY
 from scapy.cbor.cborfields import (
-    CBORF_SEQUENCE_OF,
+    CBORF_ARRAY,
+    CBORF_ITEMS,
+    CBORF_REMAINDER_OF,
+    CBORF_TEXT_STRING,
+    CBORF_UNSIGNED_INTEGER,
+)
+
+try:
+    CBORF_ARRAY(
+        CBORF_ITEMS(
+            CBORF_UNSIGNED_INTEGER("head", 0),
+            CBORF_REMAINDER_OF(
+                "items", [],
+                pkt_cls=CBORF_UNSIGNED_INTEGER,
+            ),
+        ),
+        CBORF_TEXT_STRING("tail", ""),
+    )
+    assert False, "nested non-direct REMAINDER_OF was accepted"
+except ValueError:
+    pass
+
+= Empty CBOR_Packet without CBOR_root is rejected by ARRAY_OF and PACKET
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_PACKET
+from scapy.cborpacket import CBOR_Packet
+
+class EmptyCBOR(CBOR_Packet):
+    pass
+
+try:
+    CBORF_ARRAY_OF("items", [], pkt_cls=EmptyCBOR)
+    assert False, "EmptyCBOR accepted by ARRAY_OF"
+except ValueError:
+    pass
+
+try:
+    CBORF_PACKET("child", None, EmptyCBOR)
+    assert False, "EmptyCBOR accepted by PACKET"
+except ValueError:
+    pass
+
+= Generic CBOR_Object fingerprint recurses into mutable .val
+from scapy.cbor.cbor import CBOR_Object, CBOR_UNSIGNED_INTEGER
+from scapy.cbor.cborfields import CBORF_ANY
+
+class MutableListObj(CBOR_Object):
+    tag = None  # type: ignore
+
+obj = MutableListObj([CBOR_UNSIGNED_INTEGER(1)])
+snap = CBORF_ANY._cache_fingerprint(obj)
+obj.val.append(CBOR_UNSIGNED_INTEGER(2))
+# Snapshot must not alias .val; otherwise in-place mutation keeps equality.
+assert CBORF_ANY._cache_fingerprint(obj) != snap
+
+= Optional cannot wrap REMAINDER_OF
+from scapy.cbor.cborfields import (
+    CBORF_REMAINDER_OF,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
 )
 
 try:
     CBORF_optional(
-        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER)
+        CBORF_REMAINDER_OF("vals", [], CBORF_UNSIGNED_INTEGER)
     )
-    assert False, "optional SEQUENCE_OF was accepted"
+    assert False, "optional REMAINDER_OF was accepted"
 except ValueError:
     pass
 
-= Conditional cannot wrap SEQUENCE_OF
+= Conditional cannot wrap REMAINDER_OF
 from scapy.cbor.cborfields import (
     CBORF_CONDITIONAL,
-    CBORF_SEQUENCE_OF,
+    CBORF_REMAINDER_OF,
     CBORF_UNSIGNED_INTEGER,
 )
 
 try:
     CBORF_CONDITIONAL(
-        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
+        CBORF_REMAINDER_OF("vals", [], CBORF_UNSIGNED_INTEGER),
         lambda pkt: True,
     )
-    assert False, "conditional SEQUENCE_OF was accepted"
+    assert False, "conditional REMAINDER_OF was accepted"
 except ValueError:
     pass
 
-= CBORF_SEMANTIC_TAG cannot wrap CBORF_SEQUENCE_OF
+= CBORF_SEMANTIC_TAG cannot wrap CBORF_REMAINDER_OF
 from scapy.cbor.cborfields import (
     CBORF_SEMANTIC_TAG,
-    CBORF_SEQUENCE_OF,
+    CBORF_REMAINDER_OF,
     CBORF_UNSIGNED_INTEGER,
 )
 
 try:
     CBORF_SEMANTIC_TAG(
         1,
-        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
+        CBORF_REMAINDER_OF("vals", [], CBORF_UNSIGNED_INTEGER),
     )
-    assert False, "semantic-tagged SEQUENCE_OF should be rejected"
+    assert False, "semantic-tagged REMAINDER_OF should be rejected"
 except ValueError:
     pass
 
-= Optional semantic tag cannot hide CBORF_SEQUENCE_OF
+= Optional semantic tag cannot hide CBORF_REMAINDER_OF
 from scapy.cbor.cborfields import (
     CBORF_SEMANTIC_TAG,
-    CBORF_SEQUENCE_OF,
+    CBORF_REMAINDER_OF,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
 )
@@ -1052,10 +1108,10 @@ try:
     CBORF_optional(
         CBORF_SEMANTIC_TAG(
             1,
-            CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
+            CBORF_REMAINDER_OF("vals", [], CBORF_UNSIGNED_INTEGER),
         )
     )
-    assert False, "wrapped semantic-tagged SEQUENCE_OF should be rejected"
+    assert False, "wrapped semantic-tagged REMAINDER_OF should be rejected"
 except ValueError:
     pass
 
@@ -1100,10 +1156,10 @@ pkt = TaggedStruct(b"\xc1\x82\x01\x02")
 assert pkt.a == 1 and pkt.b == 2
 assert bytes(pkt) == b"\xc1\x82\x01\x02"
 
-= Direct terminal SEQUENCE_OF respects definite array item budget
+= Direct terminal REMAINDER_OF respects definite array item budget
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
-    CBORF_SEQUENCE_OF,
+    CBORF_REMAINDER_OF,
     CBORF_UNSIGNED_INTEGER,
 )
 from scapy.cborpacket import CBOR_Packet
@@ -1112,7 +1168,7 @@ from scapy.packet import Raw
 class DirectTerminal(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_UNSIGNED_INTEGER("n", 0),
-        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
+        CBORF_REMAINDER_OF("vals", [], CBORF_UNSIGNED_INTEGER),
     )
 
 pkt = DirectTerminal()
@@ -1128,10 +1184,10 @@ assert pkt.n == 1
 assert pkt.vals == [10]
 assert isinstance(pkt.payload, Raw) and pkt.payload.load == b"\x0b"
 
-= Direct terminal SEQUENCE_OF in indefinite ARRAY stops at break
+= Direct terminal REMAINDER_OF in indefinite ARRAY stops at break
 from scapy.cbor.cborfields import (
     CBORF_ARRAY_INDEFINITE,
-    CBORF_SEQUENCE_OF,
+    CBORF_REMAINDER_OF,
     CBORF_UNSIGNED_INTEGER,
 )
 from scapy.cborpacket import CBOR_Packet
@@ -1139,17 +1195,17 @@ from scapy.cborpacket import CBOR_Packet
 class DirectTerminalIndef(CBOR_Packet):
     CBOR_root = CBORF_ARRAY_INDEFINITE(
         CBORF_UNSIGNED_INTEGER("n", 0),
-        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
+        CBORF_REMAINDER_OF("vals", [], CBORF_UNSIGNED_INTEGER),
     )
 
 pkt = DirectTerminalIndef(b"\x9f\x01\x0a\x0b\xff")
 assert pkt.n == 1
 assert pkt.vals == [10, 11]
 
-= Empty terminal SEQUENCE_OF leaves an empty list
+= Empty terminal REMAINDER_OF leaves an empty list
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
-    CBORF_SEQUENCE_OF,
+    CBORF_REMAINDER_OF,
     CBORF_UNSIGNED_INTEGER,
 )
 from scapy.cborpacket import CBOR_Packet
@@ -1157,18 +1213,18 @@ from scapy.cborpacket import CBOR_Packet
 class EmptyTerminal(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_UNSIGNED_INTEGER("n", 0),
-        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
+        CBORF_REMAINDER_OF("vals", [], CBORF_UNSIGNED_INTEGER),
     )
 
 pkt = EmptyTerminal(b"\x81\x05")
 assert pkt.n == 5
 assert pkt.vals == []
 
-= Optional before trailing SEQUENCE_OF does not invent a reserved count
+= Optional before trailing REMAINDER_OF does not invent a reserved count
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_BOOLEAN,
-    CBORF_SEQUENCE_OF,
+    CBORF_REMAINDER_OF,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
     CBOR_ABSENT,
@@ -1178,10 +1234,10 @@ from scapy.cborpacket import CBOR_Packet
 class OptThenSeqOf(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_optional(CBORF_UNSIGNED_INTEGER("opt", None)),
-        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
+        CBORF_REMAINDER_OF("vals", [], CBORF_UNSIGNED_INTEGER),
     )
 
-# Terminal SEQUENCE_OF reserves nothing; same-type optional may take the item.
+# Terminal REMAINDER_OF reserves nothing; same-type optional may take the item.
 pkt = OptThenSeqOf(b"\x81\x07")
 assert pkt.opt == 7
 assert pkt.vals == []
@@ -1189,10 +1245,10 @@ assert pkt.vals == []
 class BoolThenSeqOf(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_optional(CBORF_BOOLEAN("opt", None)),
-        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
+        CBORF_REMAINDER_OF("vals", [], CBORF_UNSIGNED_INTEGER),
     )
 
-# Type mismatch leaves the item for the trailing SEQUENCE_OF.
+# Type mismatch leaves the item for the trailing REMAINDER_OF.
 pkt = BoolThenSeqOf(b"\x81\x07")
 assert pkt.opt is CBOR_ABSENT
 assert pkt.vals == [7]
@@ -1291,7 +1347,7 @@ from scapy.cbor.cborfields import (
     CBORF_ARRAY_INDEFINITE,
     CBORF_CONDITIONAL,
     CBORF_INTEGER,
-    CBORF_SEQUENCE,
+    CBORF_ITEMS,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -1302,7 +1358,7 @@ class CondOffArray(CBOR_Packet):
     )
 
 class CondOffSeq(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_INTEGER("flag", 0),
         CBORF_CONDITIONAL(CBORF_INTEGER("last", 8), lambda p: p.flag == 1),
     )
@@ -1340,19 +1396,19 @@ try:
 except CBOR_Decoding_Error:
     pass
 
-= Indefinite array rejects nonterminal SEQUENCE_OF
+= Indefinite array rejects nonterminal REMAINDER_OF
 from scapy.cbor.cborfields import (
     CBORF_ARRAY_INDEFINITE,
-    CBORF_SEQUENCE_OF,
+    CBORF_REMAINDER_OF,
     CBORF_UNSIGNED_INTEGER,
 )
 
 try:
     CBORF_ARRAY_INDEFINITE(
-        CBORF_SEQUENCE_OF("vals", [], CBORF_UNSIGNED_INTEGER),
+        CBORF_REMAINDER_OF("vals", [], CBORF_UNSIGNED_INTEGER),
         CBORF_UNSIGNED_INTEGER("tail", 0),
     )
-    assert False, "nonterminal SEQUENCE_OF was accepted"
+    assert False, "nonterminal REMAINDER_OF was accepted"
 except ValueError:
     pass
 
@@ -1386,8 +1442,8 @@ from scapy.cbor.cborfields import (
     CBORF_NULL,
     CBORF_PACKET,
     CBORF_SEMANTIC_TAG,
-    CBORF_SEQUENCE,
-    CBORF_SEQUENCE_OF,
+    CBORF_ITEMS,
+    CBORF_REMAINDER_OF,
     CBORF_TEXT_STRING,
     CBORF_UNDEFINED,
     CBORF_UNSIGNED_INTEGER,
@@ -1476,7 +1532,7 @@ assert bytes(pkt) == b"\x82\xa2\x01\x61i\xf5\x61b\x01"
 
 = Optional Boolean does not consume a following floating-point value
 class RROptionalBooleanThenFloat(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_optional(CBORF_BOOLEAN("maybe", None)),
         CBORF_FLOAT("value", None),
     )
@@ -1486,7 +1542,7 @@ assert pkt.value == 1.5
 
 = Optional Boolean does not consume a following null
 class RROptionalBooleanThenNull(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_optional(CBORF_BOOLEAN("maybe", None)),
         CBORF_NULL("value"),
     )
@@ -1496,7 +1552,7 @@ assert bytes(pkt) == b"\xf6"
 
 = Optional null does not consume a following Boolean
 class RROptionalNullThenBoolean(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_optional(CBORF_NULL("maybe")),
         CBORF_BOOLEAN("value", None),
     )
@@ -1506,7 +1562,7 @@ assert pkt.value is True
 
 = Optional undefined does not consume a following float
 class RROptionalUndefinedThenFloat(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_optional(CBORF_UNDEFINED("maybe")),
         CBORF_FLOAT("value", None),
     )
@@ -1516,7 +1572,7 @@ assert pkt.value == 1.5
 
 = Optional float does not consume a following Boolean
 class RROptionalFloatThenBoolean(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_optional(CBORF_FLOAT("maybe", None)),
         CBORF_BOOLEAN("value", None),
     )
@@ -1526,13 +1582,13 @@ assert pkt.value is False
 
 = Exact major-type-7 matches are still consumed by optional fields
 class RROptionalBooleanPresent(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_optional(CBORF_BOOLEAN("maybe", None)),
         CBORF_UNSIGNED_INTEGER("tail", None),
     )
 
 class RROptionalFloatPresent(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_optional(CBORF_FLOAT("maybe", None)),
         CBORF_UNSIGNED_INTEGER("tail", None),
     )
@@ -1552,7 +1608,7 @@ for wire in (b"\xf9\x3e\x00", b"\xfa\x3f\xc0\x00\x00"):
 
 = Optional Boolean leaves direct and extended simple values for CBORF_ANY
 class RROptionalBooleanThenAny(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_optional(CBORF_BOOLEAN("maybe", None)),
         CBORF_ANY("value", None),
     )
@@ -1565,14 +1621,14 @@ for wire, expected in ((b"\xf0", 16), (b"\xf8\x20", 32)):
 
 = Optional null and undefined do not consume each other's wire values
 class RROptionalNullThenUndefined(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_optional(CBORF_NULL("maybe")),
         CBORF_UNDEFINED("value"),
         CBORF_UNSIGNED_INTEGER("tail", 0),
     )
 
 class RROptionalUndefinedThenNull(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_optional(CBORF_UNDEFINED("maybe")),
         CBORF_NULL("value"),
         CBORF_UNSIGNED_INTEGER("tail", 0),
@@ -1704,31 +1760,31 @@ assert bytes(pkt) == b"\x82\xf6\x01"
 
 + Finding 4: positional arrays must reserve items for later required fields
 
-= Definite arrays reject nonterminal SEQUENCE_OF
+= Definite arrays reject nonterminal REMAINDER_OF
 try:
     CBORF_ARRAY(
-        CBORF_SEQUENCE_OF(
+        CBORF_REMAINDER_OF(
             "values",
             [],
             CBORF_UNSIGNED_INTEGER("item", None),
         ),
         CBORF_UNSIGNED_INTEGER("tail", None),
     )
-    assert False, "nonterminal SEQUENCE_OF accepted"
+    assert False, "nonterminal REMAINDER_OF accepted"
 except ValueError:
     pass
 
-= Indefinite arrays reject nonterminal SEQUENCE_OF
+= Indefinite arrays reject nonterminal REMAINDER_OF
 try:
     CBORF_ARRAY_INDEFINITE(
-        CBORF_SEQUENCE_OF(
+        CBORF_REMAINDER_OF(
             "values",
             [],
             CBORF_UNSIGNED_INTEGER("item", None),
         ),
         CBORF_UNSIGNED_INTEGER("tail", None),
     )
-    assert False, "nonterminal SEQUENCE_OF accepted"
+    assert False, "nonterminal REMAINDER_OF accepted"
 except ValueError:
     pass
 
@@ -1757,11 +1813,11 @@ class RROptionalThenRequiredPacket(CBOR_Packet):
 pkt = RROptionalThenRequiredPacket(b"\x81\x07")
 assert pkt.required_child.value == 7
 
-= SEQUENCE_OF before a required conditional field is rejected
+= REMAINDER_OF before a required conditional field is rejected
 try:
     CBORF_ARRAY(
         CBORF_UNSIGNED_INTEGER("flag", 0),
-        CBORF_SEQUENCE_OF(
+        CBORF_REMAINDER_OF(
             "values",
             [],
             CBORF_UNSIGNED_INTEGER("item", None),
@@ -1771,7 +1827,7 @@ try:
             lambda pkt: pkt.getfieldval("flag") == 1,
         ),
     )
-    assert False, "nonterminal SEQUENCE_OF was accepted"
+    assert False, "nonterminal REMAINDER_OF was accepted"
 except ValueError:
     pass
 
@@ -1882,9 +1938,9 @@ RRCountingArray.calls = 0
 bytes(RRCountedArrayParent(children=[RRCountedChild(value=1)]))
 assert RRCountingArray.calls == 1
 
-= Packet-valued CBORF_SEQUENCE_OF builds each child root exactly once
+= Packet-valued CBORF_REMAINDER_OF builds each child root exactly once
 class RRCountedSequenceParent(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE_OF("children", [], RRCountedChild)
+    CBOR_root = CBORF_REMAINDER_OF("children", [], RRCountedChild)
 
 RRCountingArray.calls = 0
 bytes(RRCountedSequenceParent(children=[RRCountedChild(value=1)]))
@@ -2003,12 +2059,12 @@ except CBOR_Codec_Decoding_Error:
 = Two adjacent unbounded positional sequences are rejected as ambiguous
 try:
     CBORF_ARRAY(
-        CBORF_SEQUENCE_OF(
+        CBORF_REMAINDER_OF(
             "left",
             [],
             CBORF_UNSIGNED_INTEGER("left_item", None),
         ),
-        CBORF_SEQUENCE_OF(
+        CBORF_REMAINDER_OF(
             "right",
             [],
             CBORF_UNSIGNED_INTEGER("right_item", None),
@@ -2226,20 +2282,20 @@ pkt = OptionalPacketThenAny(b"\x81\xf5")
 assert pkt.getfieldval("child") is CBOR_ABSENT
 assert pkt.required.val is True
 
-= Nonterminal SEQUENCE_OF is rejected in unframed sequences
+= Nonterminal REMAINDER_OF is rejected in unframed sequences
 from scapy.cbor.cborfields import (
-    CBORF_SEQUENCE,
-    CBORF_SEQUENCE_OF,
+    CBORF_ITEMS,
+    CBORF_REMAINDER_OF,
     CBORF_TEXT_STRING,
     CBORF_UNSIGNED_INTEGER,
 )
 
 try:
-    CBORF_SEQUENCE(
-        CBORF_SEQUENCE_OF("items", [], CBORF_UNSIGNED_INTEGER),
+    CBORF_ITEMS(
+        CBORF_REMAINDER_OF("items", [], CBORF_UNSIGNED_INTEGER),
         CBORF_TEXT_STRING("tail", ""),
     )
-    assert False, "nonterminal SEQUENCE_OF accepted"
+    assert False, "nonterminal REMAINDER_OF accepted"
 except ValueError:
     pass
 
@@ -2247,16 +2303,16 @@ except ValueError:
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_BOOLEAN,
-    CBORF_SEQUENCE_OF,
+    CBORF_REMAINDER_OF,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
 )
 
 try:
     CBORF_ARRAY(
-        CBORF_SEQUENCE_OF("left", [], CBORF_UNSIGNED_INTEGER),
+        CBORF_REMAINDER_OF("left", [], CBORF_UNSIGNED_INTEGER),
         CBORF_optional(CBORF_BOOLEAN("middle", None)),
-        CBORF_SEQUENCE_OF("right", [], CBORF_UNSIGNED_INTEGER),
+        CBORF_REMAINDER_OF("right", [], CBORF_UNSIGNED_INTEGER),
     )
 except ValueError:
     pass
@@ -2310,10 +2366,10 @@ assert bytes(pkt.child) == b"\x9f\x01\xff"
 pkt.sibling = 1
 assert bytes(pkt) == b"\x82\x01\x9f\x01\xff"
 
-= SEQUENCE_OF preserves raw representations of untouched packet children
+= REMAINDER_OF preserves raw representations of untouched packet children
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
-    CBORF_SEQUENCE_OF,
+    CBORF_REMAINDER_OF,
     CBORF_UNSIGNED_INTEGER,
 )
 from scapy.cborpacket import CBOR_Packet
@@ -2326,7 +2382,7 @@ class SequenceArrayChild(CBOR_Packet):
 class ParentWithChildSequence(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_UNSIGNED_INTEGER("sibling", 0),
-        CBORF_SEQUENCE_OF("children", [], SequenceArrayChild),
+        CBORF_REMAINDER_OF("children", [], SequenceArrayChild),
     )
 
 wire = b"\x83\x00\x9f\x01\xff\x81\x02"
@@ -2729,14 +2785,14 @@ assert cbor_find_non_deterministic(
 = Unframed SEQUENCE cache returns exact bytes without rebuild
 from scapy.cbor.cborfields import (
     CBORF_PACKET,
-    CBORF_SEQUENCE,
+    CBORF_ITEMS,
     CBORF_UNSIGNED_INTEGER,
 )
 from scapy.cbor.cbor import CBOR_Encoding_Error
 from scapy.cborpacket import CBOR_Packet
 
 class SeqChild(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_UNSIGNED_INTEGER("a", 0),
         CBORF_UNSIGNED_INTEGER("b", 0),
     )
@@ -2878,7 +2934,7 @@ assert bytes(pkt) == raw
 from scapy.cbor.cbor import CBOR_Decoding_Error
 from scapy.cbor.cborfields import (
     CBORF_BOOLEAN,
-    CBORF_SEQUENCE,
+    CBORF_ITEMS,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
     CBOR_ABSENT,
@@ -2886,7 +2942,7 @@ from scapy.cbor.cborfields import (
 from scapy.cborpacket import CBOR_Packet
 
 class GreedySequence(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_optional(CBORF_UNSIGNED_INTEGER("optional", None)),
         CBORF_UNSIGNED_INTEGER("required", 0),
     )
@@ -2902,7 +2958,7 @@ except CBOR_Decoding_Error:
     pass
 
 class TypedSequence(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_optional(CBORF_BOOLEAN("optional", None)),
         CBORF_UNSIGNED_INTEGER("required", 0),
     )
@@ -2924,14 +2980,14 @@ assert result.remaining == b"\x18"
 = Optional-only SEQUENCE marks absent on empty input
 from scapy.cbor.cborfields import (
     CBORF_BOOLEAN,
-    CBORF_SEQUENCE,
+    CBORF_ITEMS,
     CBORF_optional,
     CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
 class OptionalOnly(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_optional(CBORF_BOOLEAN("maybe", None)),
     )
 
@@ -2954,14 +3010,14 @@ except CBOR_Encoding_Error:
 = CBORF_PACKET _build_value enforces one-item cardinality like _build_counted
 from scapy.cbor.cborfields import (
     CBORF_PACKET,
-    CBORF_SEQUENCE,
+    CBORF_ITEMS,
     CBORF_UNSIGNED_INTEGER,
 )
 from scapy.cbor.cbor import CBOR_Encoding_Error
 from scapy.cborpacket import CBOR_Packet
 
 class TwoItemChild(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_UNSIGNED_INTEGER("a", 1),
         CBORF_UNSIGNED_INTEGER("b", 2),
     )
@@ -3011,12 +3067,15 @@ class ForcedAnyPkt(CBOR_Packet):
 bytes(ForcedAnyPkt(value=0)) == b"\x81\x18\x63"
 
 = CBORF_PACKET rejects non-CBOR Packet/bytes that are not exactly one item
-from scapy.cbor.cborfields import CBORF_PACKET
+from scapy.cbor.cborfields import CBORF_PACKET, CBORF_UNSIGNED_INTEGER
 from scapy.cbor.cbor import CBOR_Encoding_Error
 from scapy.cborpacket import CBOR_Packet
 from scapy.packet import Raw
 
-fld = CBORF_PACKET("x", None, pkt_cls=CBOR_Packet)
+class OneItemPkt(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("n", 0)
+
+fld = CBORF_PACKET("x", None, pkt_cls=OneItemPkt)
 
 # Two valid CBOR integers must not be reported as one item
 try:
@@ -3164,11 +3223,11 @@ for child in parent.children:
 
 assert bytes(parent) == b"\x82\x01\x02"
 
-= CBORF_SEQUENCE_OF construction attaches every packet child to parent
-from scapy.cbor.cborfields import CBORF_SEQUENCE_OF
+= CBORF_REMAINDER_OF construction attaches every packet child to parent
+from scapy.cbor.cborfields import CBORF_REMAINDER_OF
 
 class SequenceParent(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE_OF("children", [], OwnedChild)
+    CBOR_root = CBORF_REMAINDER_OF("children", [], OwnedChild)
 
 children = [OwnedChild(value=1), OwnedChild(value=2)]
 parent = SequenceParent(children=children)
@@ -3179,7 +3238,7 @@ for child in parent.children:
 
 assert bytes(parent) == b"\x01\x02"
 
-= CBORF_SEQUENCE_OF dissection attaches every packet child to parent
+= CBORF_REMAINDER_OF dissection attaches every packet child to parent
 parent = SequenceParent(b"\x01\x02")
 assert [child.value for child in parent.children] == [1, 2]
 for child in parent.children:
@@ -3335,8 +3394,8 @@ assert bytes(pkt) == b"\x43abc"
 
 + PacketListField-style next_cls_cb semantics
 
-= CBORF_SEQUENCE_OF next_cls_cb selects packet classes dynamically
-from scapy.cbor.cborfields import CBORF_SEQUENCE_OF, CBORF_UNSIGNED_INTEGER
+= CBORF_REMAINDER_OF next_cls_cb selects packet classes dynamically
+from scapy.cbor.cborfields import CBORF_REMAINDER_OF, CBORF_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
 
 class DynamicSequenceChild(CBOR_Packet):
@@ -3348,7 +3407,7 @@ def choose_dynamic_child(pkt, lst, cur, remain):
     return DynamicSequenceChild
 
 class DynamicSequenceParent(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE_OF(
+    CBOR_root = CBORF_REMAINDER_OF(
         "children",
         [],
         next_cls_cb=choose_dynamic_child,
@@ -3360,15 +3419,15 @@ assert len(pkt.children) == 1
 assert isinstance(pkt.children[0], DynamicSequenceChild)
 assert pkt.children[0].parent is pkt
 
-= CBORF_SEQUENCE_OF rejects combining next_cls_cb with pkt_cls
-from scapy.cbor.cborfields import CBORF_SEQUENCE_OF, CBORF_UNSIGNED_INTEGER
+= CBORF_REMAINDER_OF rejects combining next_cls_cb with pkt_cls
+from scapy.cbor.cborfields import CBORF_REMAINDER_OF, CBORF_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
 
 class FixedSequenceChild(CBOR_Packet):
     CBOR_root = CBORF_UNSIGNED_INTEGER("value", 0)
 
 try:
-    CBORF_SEQUENCE_OF(
+    CBORF_REMAINDER_OF(
         "children",
         [],
         pkt_cls=FixedSequenceChild,
@@ -3377,22 +3436,22 @@ try:
 except ValueError:
     pass
 else:
-    raise AssertionError("conflicting SEQUENCE_OF selectors accepted")
+    raise AssertionError("conflicting REMAINDER_OF selectors accepted")
 
-= CBORF_SEQUENCE_OF rejects a packet instance as pkt_cls
-from scapy.cbor.cborfields import CBORF_SEQUENCE_OF, CBORF_UNSIGNED_INTEGER
+= CBORF_REMAINDER_OF rejects a packet instance as pkt_cls
+from scapy.cbor.cborfields import CBORF_REMAINDER_OF, CBORF_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
 
 class SeqOfChild(CBOR_Packet):
     CBOR_root = CBORF_UNSIGNED_INTEGER("value", 0)
 
-CBORF_SEQUENCE_OF("ok", [], pkt_cls=SeqOfChild)
+CBORF_REMAINDER_OF("ok", [], pkt_cls=SeqOfChild)
 try:
-    CBORF_SEQUENCE_OF("bad", [], pkt_cls=SeqOfChild())
+    CBORF_REMAINDER_OF("bad", [], pkt_cls=SeqOfChild())
 except ValueError:
     pass
 else:
-    raise AssertionError("SEQUENCE_OF accepted a packet instance as pkt_cls")
+    raise AssertionError("REMAINDER_OF accepted a packet instance as pkt_cls")
 
 = CBORF_ARRAY_OF rejects a packet instance as pkt_cls
 from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_UNSIGNED_INTEGER
@@ -3409,10 +3468,10 @@ except ValueError:
 else:
     raise AssertionError("ARRAY_OF accepted a packet instance as pkt_cls")
 
-= CBORF_SEQUENCE_OF and ARRAY_OF reject fake CBOR_root classes
+= CBORF_REMAINDER_OF and ARRAY_OF reject fake CBOR_root classes
 from scapy.cbor.cborfields import (
     CBORF_ARRAY_OF,
-    CBORF_SEQUENCE_OF,
+    CBORF_REMAINDER_OF,
     CBORF_UNSIGNED_INTEGER,
 )
 
@@ -3420,11 +3479,11 @@ class FakeRoot(object):
     CBOR_root = CBORF_UNSIGNED_INTEGER("x", 0)
 
 try:
-    CBORF_SEQUENCE_OF("items", [], pkt_cls=FakeRoot)
+    CBORF_REMAINDER_OF("items", [], pkt_cls=FakeRoot)
 except ValueError:
     pass
 else:
-    raise AssertionError("SEQUENCE_OF accepted a non-Packet CBOR_root class")
+    raise AssertionError("REMAINDER_OF accepted a non-Packet CBOR_root class")
 
 try:
     CBORF_ARRAY_OF("items", [], pkt_cls=FakeRoot)
@@ -3433,20 +3492,20 @@ except ValueError:
 else:
     raise AssertionError("ARRAY_OF accepted a non-Packet CBOR_root class")
 
-= CBORF_SEQUENCE_OF and ARRAY_OF reject plain Packet without CBOR_root
+= CBORF_REMAINDER_OF and ARRAY_OF reject plain Packet without CBOR_root
 from scapy.packet import Packet
 from scapy.fields import ByteField
-from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_SEQUENCE_OF
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_REMAINDER_OF
 
 class PlainPacket(Packet):
     fields_desc = [ByteField("x", 0)]
 
 try:
-    CBORF_SEQUENCE_OF("items", [], pkt_cls=PlainPacket)
+    CBORF_REMAINDER_OF("items", [], pkt_cls=PlainPacket)
 except ValueError:
     pass
 else:
-    raise AssertionError("SEQUENCE_OF accepted Packet without CBOR_root")
+    raise AssertionError("REMAINDER_OF accepted Packet without CBOR_root")
 
 try:
     CBORF_ARRAY_OF("items", [], pkt_cls=PlainPacket)
@@ -3458,9 +3517,9 @@ else:
 
 + TypeError must not be used for callback signature probing
 
-= CBORF_SEQUENCE_OF does not retry next_cls_cb when the callback itself raises TypeError
+= CBORF_REMAINDER_OF does not retry next_cls_cb when the callback itself raises TypeError
 from scapy.cbor.cbor import CBOR_Decoding_Error
-from scapy.cbor.cborfields import CBORF_SEQUENCE_OF
+from scapy.cbor.cborfields import CBORF_REMAINDER_OF
 from scapy.cborpacket import CBOR_Packet
 
 BrokenNextClsCalls = []
@@ -3469,7 +3528,7 @@ def broken_next_cls(*args):
     raise TypeError("intentional next_cls_cb failure")
 
 class BrokenCallbackParent(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE_OF(
+    CBOR_root = CBORF_REMAINDER_OF(
         "children",
         [],
         next_cls_cb=broken_next_cls,
@@ -3763,20 +3822,20 @@ finally:
     conf.max_list_count = old
 
 
-= CBORF_SEQUENCE_OF respects max_count
+= CBORF_REMAINDER_OF respects max_count
 from scapy.cbor.cbor import CBOR_Decoding_Error
-from scapy.cbor.cborfields import CBORF_SEQUENCE_OF, CBORF_UNSIGNED_INTEGER
+from scapy.cbor.cborfields import CBORF_REMAINDER_OF, CBORF_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
 
 class LimitedSeq(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE_OF(
+    CBOR_root = CBORF_REMAINDER_OF(
         "values", [], pkt_cls=CBORF_UNSIGNED_INTEGER, max_count=2
     )
 
 assert LimitedSeq(b"\x01\x02").values == [1, 2]
 try:
     LimitedSeq(b"\x01\x02\x03")
-    assert False, "SEQUENCE_OF ignored max_count"
+    assert False, "REMAINDER_OF ignored max_count"
 except CBOR_Decoding_Error:
     pass
 
@@ -3800,12 +3859,12 @@ assert bytes(pkt) == wire  # preferred encoding for 1.5 is half
 pkt.value = 1.5
 assert bytes(pkt) == wire
 
-= Unframed CBORF_SEQUENCE leaves trailing CBOR items
-from scapy.cbor.cborfields import CBORF_SEQUENCE, CBORF_UNSIGNED_INTEGER
+= Unframed CBORF_ITEMS leaves trailing CBOR items
+from scapy.cbor.cborfields import CBORF_ITEMS, CBORF_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
 
 class TwoInts(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(
+    CBOR_root = CBORF_ITEMS(
         CBORF_UNSIGNED_INTEGER("a", 0),
         CBORF_UNSIGNED_INTEGER("b", 0),
     )
@@ -4081,7 +4140,7 @@ from scapy.cbor.cborcodec import (
 )
 from scapy.cbor.cborfields import (
     CBORF_ARRAY_INDEFINITE,
-    CBORF_SEQUENCE,
+    CBORF_ITEMS,
     CBORF_UNSIGNED_INTEGER,
 )
 from scapy.cborpacket import CBOR_Packet
@@ -4097,7 +4156,7 @@ except RecursionError:
     assert False, "pre-scan leaked RecursionError"
 
 class DeepSeq(CBOR_Packet):
-    CBOR_root = CBORF_SEQUENCE(CBORF_UNSIGNED_INTEGER("n", 0))
+    CBOR_root = CBORF_ITEMS(CBORF_UNSIGNED_INTEGER("n", 0))
 
 try:
     DeepSeq(too_deep)
@@ -4724,11 +4783,19 @@ class LifeMap2(CBOR_Packet):
         unknown_field="unknown_pairs",
     )
 
-pkt = LifeMap2(b"\xa2\x61a\x01\x61x\x0a")
-fuzzed = fuzz(pkt)
+wire = b"\xa2\x61a\x01\x61x\x0a"
+fuzzed = fuzz(LifeMap2())
 assert isinstance(fuzzed, LifeMap2)
-pkt.show(dump=True)
-pkt.show2(dump=True)
+bytes(fuzzed)
+fuzzed.show(dump=True)
+fuzzed.show2(dump=True)
+
+parsed = LifeMap2(wire)
+fuzzed = fuzz(parsed)
+assert isinstance(fuzzed, LifeMap2)
+bytes(fuzzed)
+fuzzed.show(dump=True)
+fuzzed.show2(dump=True)
 
 = copy and deepcopy re-parent nested CBOR packets
 import copy
