@@ -22,6 +22,7 @@ from scapy.cbor.cbor import (
     CBOR_AdditionalInfo,
     CBOR_Decoding_Error,
     CBOR_Encoding_Error,
+    CBOR_FingerprintKind,
     CBOR_FloatAI,
     CBOR_MajorTypes,
     CBOR_Object,
@@ -41,6 +42,7 @@ from scapy.cbor.cbor import (
     CBOR_FLOAT,
     CBOR_MAP,
     CBOR_SIMPLE_VALUE,
+    _CBORFingerprint,
 )
 from scapy.cbor.cborcodec import (
     CBOR_BREAK_BYTE,
@@ -495,36 +497,37 @@ class CBORF_ANY(CBORF_field[Any]):
 
     @staticmethod
     def _cache_fingerprint(obj):
-        # type: (Any) -> Any
+        # type: (Any) -> _CBORFingerprint
         """Recursive rebuild-relevant fingerprint for ``CBORF_ANY`` values."""
         from scapy.cbor.cbor import CBORMapData
         fingerprint = CBORF_ANY._cache_fingerprint
+        Kind = CBOR_FingerprintKind
         if obj is CBOR_ABSENT or obj is CBOR_NO_ITEM:
-            return ("sentinel", obj)
+            return (Kind.SENTINEL, obj)
         if isinstance(obj, CBOR_UNDEFINED):
-            return ("undefined",)
+            return (Kind.UNDEF,)
         if isinstance(obj, CBOR_FLOAT):
             fval = float(obj.val)
             if math.isnan(fval):
-                token = ("nan",)  # type: Any
+                token = (Kind.NAN,)  # type: Tuple[Any, ...]
             elif math.isinf(fval):
-                token = ("inf", math.copysign(1.0, fval))
+                token = (Kind.INF, math.copysign(1.0, fval))
             elif fval == 0.0:
-                token = ("zero", math.copysign(1.0, fval))
+                token = (Kind.ZERO, math.copysign(1.0, fval))
             else:
-                token = ("num", fval)
+                token = (Kind.FINITE, fval)
             encoded = getattr(obj, "_encoded", None)
-            return ("float", token, encoded)
+            return (Kind.FLOAT, token, encoded)
         if isinstance(obj, CBOR_ARRAY):
             return (
-                "array",
+                Kind.ARRAY,
                 tuple(fingerprint(item) for item in obj.val),
             )
         if isinstance(obj, CBOR_MAP):
             from scapy.cbor.cbor import _cbor_map_pairs
             pairs = _cbor_map_pairs(obj)
             return (
-                "map",
+                Kind.MAP,
                 tuple(
                     (fingerprint(key), fingerprint(value))
                     for key, value in pairs
@@ -532,7 +535,7 @@ class CBORF_ANY(CBORF_field[Any]):
             )
         if isinstance(obj, CBORMapData):
             return (
-                "mapdata",
+                Kind.MAPDATA,
                 tuple(
                     (fingerprint(key), fingerprint(value))
                     for key, value in obj.cbor_pairs()
@@ -540,23 +543,23 @@ class CBORF_ANY(CBORF_field[Any]):
             )
         if isinstance(obj, CBOR_SEMANTIC_TAG):
             tag_num, inner = obj.val
-            return ("tag", int(tag_num), fingerprint(inner))
+            return (Kind.TAG, int(tag_num), fingerprint(inner))
         if isinstance(obj, CBOR_Object):
-            return (type(obj).__name__, obj.val)
+            return (Kind.OBJ, type(obj).__name__, obj.val)
         if isinstance(obj, list):
-            return ("list", tuple(fingerprint(item) for item in obj))
+            return (Kind.LIST, tuple(fingerprint(item) for item in obj))
         if isinstance(obj, dict):
             return (
-                "dict",
+                Kind.DICT,
                 tuple(
                     (fingerprint(key), fingerprint(value))
                     for key, value in obj.items()
                 ),
             )
-        return ("py", type(obj).__name__, obj)
+        return (Kind.PY, type(obj).__name__, obj)
 
     def cache_fingerprint(self, x):
-        # type: (Any) -> Any
+        # type: (Any) -> _CBORFingerprint
         """Snapshot for Scapy mutable raw-cache comparison.
 
         Includes ``CBOR_FLOAT._encoded`` so explicit ``.val`` assignment that
@@ -680,8 +683,8 @@ class CBORF_INTEGER(CBORF_field[int]):
         except CBOR_Codec_Decoding_Error:
             return False
         return major_type in (
-            int(CBOR_MajorTypes.UNSIGNED_INTEGER),
-            int(CBOR_MajorTypes.NEGATIVE_INTEGER),
+            CBOR_MajorTypes.UNSIGNED_INTEGER,
+            CBOR_MajorTypes.NEGATIVE_INTEGER,
         )
 
     def any2i(self, pkt, x):
@@ -701,10 +704,10 @@ class CBORF_INTEGER(CBORF_field[int]):
         if not s:
             raise CBOR_Decoding_Error("Empty CBOR data")
         major_type = (s[0] >> 5) & 0x7
-        if major_type == int(CBOR_MajorTypes.UNSIGNED_INTEGER):
+        if major_type == CBOR_MajorTypes.UNSIGNED_INTEGER:
             obj, remain = CBORcodec_UNSIGNED_INTEGER.dec(s)
             return obj.val, remain
-        elif major_type == int(CBOR_MajorTypes.NEGATIVE_INTEGER):
+        elif major_type == CBOR_MajorTypes.NEGATIVE_INTEGER:
             obj, remain = CBORcodec_NEGATIVE_INTEGER.dec(s)
             return obj.val, remain
         raise CBOR_Type_Mismatch(
@@ -730,7 +733,7 @@ def _cbor_decode_byte_string(s, definite_only=False):
             major_type, length, _rem = CBOR_decode_head(s)
         except CBOR_Codec_Decoding_Error as e:
             raise CBOR_Decoding_Error(str(e))
-        if major_type != int(CBOR_MajorTypes.BYTE_STRING):
+        if major_type != CBOR_MajorTypes.BYTE_STRING:
             raise CBOR_Type_Mismatch(
                 "Expected byte string, got major type %d" % major_type)
         if length is CBOR_INDEFINITE:
@@ -894,10 +897,10 @@ class CBORF_BOOLEAN(CBORF_field[bool]):
             return False
         ai = s[0] & 0x1f
         return (
-            ((s[0] >> 5) & 0x7) == int(CBOR_MajorTypes.SIMPLE_AND_FLOAT)
+            ((s[0] >> 5) & 0x7) == CBOR_MajorTypes.SIMPLE_AND_FLOAT
             and ai in (
-                int(CBOR_SimpleValue.FALSE),
-                int(CBOR_SimpleValue.TRUE),
+                CBOR_SimpleValue.FALSE,
+                CBOR_SimpleValue.TRUE,
             )
         )
 
@@ -1055,11 +1058,11 @@ class CBORF_FLOAT(CBORF_field[float]):
             return False
         ai = s[0] & 0x1f
         return (
-            ((s[0] >> 5) & 0x7) == int(CBOR_MajorTypes.SIMPLE_AND_FLOAT)
+            ((s[0] >> 5) & 0x7) == CBOR_MajorTypes.SIMPLE_AND_FLOAT
             and ai in (
-                int(CBOR_FloatAI.HALF),
-                int(CBOR_FloatAI.SINGLE),
-                int(CBOR_FloatAI.DOUBLE),
+                CBOR_FloatAI.HALF,
+                CBOR_FloatAI.SINGLE,
+                CBOR_FloatAI.DOUBLE,
             )
         )
 
@@ -1308,7 +1311,7 @@ class CBORF_ARRAY(_CBORF_compound):
             major_type, count, remaining = CBOR_decode_head(s)
         except CBOR_Codec_Decoding_Error as e:
             raise CBOR_Decoding_Error(str(e))
-        if major_type != int(CBOR_MajorTypes.ARRAY):
+        if major_type != CBOR_MajorTypes.ARRAY:
             raise CBOR_Type_Mismatch(
                 "Expected major type 4 (array), got %d" % major_type)
         if count is CBOR_INDEFINITE:
@@ -1656,7 +1659,7 @@ class CBORF_ARRAY_OF(_CBORF_HOMOGENEOUS):
             major_type, count, s = CBOR_decode_head(s)
         except CBOR_Codec_Decoding_Error as e:
             raise CBOR_Decoding_Error(str(e))
-        if major_type != int(CBOR_MajorTypes.ARRAY):
+        if major_type != CBOR_MajorTypes.ARRAY:
             raise CBOR_Type_Mismatch(
                 "Expected major type 4 (array), got %d" % major_type)
         lst = []  # type: List[Any]
@@ -1711,7 +1714,7 @@ class _CBORF_MAP_UNKNOWN(CBORF_field[List[Tuple[str, Any]]]):
         return copy.deepcopy(x)
 
     def cache_fingerprint(self, x):
-        # type: (Any) -> Any
+        # type: (Any) -> _CBORFingerprint
         """Wire-sensitive fingerprint for unknown text-key extension pairs."""
         if not x:
             return ()
@@ -1863,7 +1866,7 @@ class CBORF_MAP(CBORF_element):
             major_type, count, remaining = CBOR_decode_head(s)
         except CBOR_Codec_Decoding_Error as e:
             raise CBOR_Decoding_Error(str(e))
-        if major_type != int(CBOR_MajorTypes.MAP):
+        if major_type != CBOR_MajorTypes.MAP:
             raise CBOR_Type_Mismatch(
                 "Expected major type 5 (map), got %d" % major_type)
 
@@ -2011,7 +2014,7 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
             major_type, tag_num, remaining = CBOR_decode_head(s)
         except CBOR_Codec_Decoding_Error as e:
             raise CBOR_Decoding_Error(str(e))
-        if major_type != int(CBOR_MajorTypes.TAG):
+        if major_type != CBOR_MajorTypes.TAG:
             raise CBOR_Type_Mismatch(
                 "Expected major type 6 (semantic tag), got %d" % major_type)
         if tag_num != self.tag_num:
@@ -2032,7 +2035,7 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
         except CBOR_Codec_Decoding_Error:
             return False
         return (
-            major_type == int(CBOR_MajorTypes.TAG)
+            major_type == CBOR_MajorTypes.TAG
             and tag_num == self.tag_num
         )
 

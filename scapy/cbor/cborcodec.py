@@ -12,6 +12,7 @@ from typing import (
     Any,
     Dict,
     Generic,
+    Iterable,
     List,
     Optional,
     Set,
@@ -22,6 +23,7 @@ from typing import (
     cast,
 )
 
+from scapy.utils import EnumElement
 from scapy.cbor.cbor import (
     CBOR_AdditionalInfo,
     CBOR_Codecs,
@@ -35,12 +37,19 @@ from scapy.cbor.cbor import (
     CBOR_SimpleValue,
     CBOR_UINT64_MAX,
     _CBOR_ERROR,
+    _CBORKeyNorm,
 )
 from scapy.compat import chb
 from scapy.error import log_runtime
 
 
 MAX_CBOR_NESTING = 128
+
+# Wire buffers accepted by decode helpers (slicing preserves the concrete type).
+_CBORBuf = Union[bytes, bytearray, memoryview]
+_CBORBufT = TypeVar("_CBORBufT", bytes, bytearray, memoryview)
+# Major-type / AI arguments: plain ints or Scapy ``EnumElement`` members.
+_CBORHeadInt = Union[int, EnumElement]
 
 
 ##################
@@ -81,13 +90,13 @@ class CBOR_Codec_Decoding_Error(CBOR_Decoding_Error):
 
 
 def CBOR_encode_initial(major_type, additional_info):
-    # type: (Any, Any) -> bytes
+    # type: (_CBORHeadInt, _CBORHeadInt) -> bytes
     """Encode a CBOR initial byte (3-bit major type + 5-bit additional info)."""
     return chb((int(major_type) << 5) | int(additional_info))
 
 
 def CBOR_encode_head(major_type, value):
-    # type: (Any, int) -> bytes
+    # type: (_CBORHeadInt, int) -> bytes
     """
     Encode CBOR initial byte and additional info for a definite argument.
     Format: 3 bits major type + 5 bits additional info
@@ -103,7 +112,7 @@ def CBOR_encode_head(major_type, value):
     if value < 0 or value > CBOR_UINT64_MAX:
         raise CBOR_Codec_Encoding_Error(
             "CBOR head value out of uint64 range: %r" % (value,))
-    if value < int(CBOR_AdditionalInfo.ONE_BYTE):
+    if value < 24:
         # Value fits in 5 bits
         return CBOR_encode_initial(major_type, value)
     elif value < 256:
@@ -136,23 +145,21 @@ CBOR_BREAK_BYTE = 0xFF
 
 
 def _cbor_buf_bytes(buf):
-    # type: (Any) -> bytes
+    # type: (_CBORBuf) -> bytes
     """Materialize a bytes/memoryview slice as ``bytes``."""
-    if isinstance(buf, bytes):
-        return buf
     if isinstance(buf, memoryview):
         return buf.tobytes()
     return bytes(buf)
 
 
 def cbor_is_break(s):
-    # type: (Any) -> bool
+    # type: (_CBORBuf) -> bool
     """Return whether *s* begins with a CBOR break byte."""
     return bool(s) and s[0] == CBOR_BREAK_BYTE
 
 
 def cbor_consume_break(s):
-    # type: (Any) -> Any
+    # type: (_CBORBufT) -> _CBORBufT
     """Consume a leading CBOR break byte from *s*."""
     if not cbor_is_break(s):
         raise CBOR_Codec_Decoding_Error(
@@ -161,7 +168,7 @@ def cbor_consume_break(s):
 
 
 def _cbor_skip_item(s, depth=0):
-    # type: (Any, int) -> Any
+    # type: (_CBORBufT, int) -> _CBORBufT
     """Advance past one well-formed CBOR item without building objects."""
     if depth > MAX_CBOR_NESTING:
         raise CBOR_Codec_Decoding_Error(
@@ -169,14 +176,14 @@ def _cbor_skip_item(s, depth=0):
             remaining=_cbor_buf_bytes(s))
     major_type, value, rem = CBOR_decode_head(s)
     if major_type in (
-        int(CBOR_MajorTypes.UNSIGNED_INTEGER),
-        int(CBOR_MajorTypes.NEGATIVE_INTEGER),
-        int(CBOR_MajorTypes.SIMPLE_AND_FLOAT),
+        CBOR_MajorTypes.UNSIGNED_INTEGER,
+        CBOR_MajorTypes.NEGATIVE_INTEGER,
+        CBOR_MajorTypes.SIMPLE_AND_FLOAT,
     ):
         return rem
     if major_type in (
-        int(CBOR_MajorTypes.BYTE_STRING),
-        int(CBOR_MajorTypes.TEXT_STRING),
+        CBOR_MajorTypes.BYTE_STRING,
+        CBOR_MajorTypes.TEXT_STRING,
     ):
         if value is CBOR_INDEFINITE:
             expected_type = major_type
@@ -204,7 +211,7 @@ def _cbor_skip_item(s, depth=0):
                 "Truncated byte/text string",
                 remaining=_cbor_buf_bytes(rem))
         return rem[length:]
-    if major_type == int(CBOR_MajorTypes.ARRAY):
+    if major_type == CBOR_MajorTypes.ARRAY:
         if value is CBOR_INDEFINITE:
             while rem and not cbor_is_break(rem):
                 rem = _cbor_skip_item(rem, depth + 1)
@@ -212,7 +219,7 @@ def _cbor_skip_item(s, depth=0):
         for _ in range(int(value)):
             rem = _cbor_skip_item(rem, depth + 1)
         return rem
-    if major_type == int(CBOR_MajorTypes.MAP):
+    if major_type == CBOR_MajorTypes.MAP:
         if value is CBOR_INDEFINITE:
             while rem and not cbor_is_break(rem):
                 rem = _cbor_skip_item(rem, depth + 1)
@@ -222,7 +229,7 @@ def _cbor_skip_item(s, depth=0):
             rem = _cbor_skip_item(rem, depth + 1)
             rem = _cbor_skip_item(rem, depth + 1)
         return rem
-    if major_type == int(CBOR_MajorTypes.TAG):
+    if major_type == CBOR_MajorTypes.TAG:
         return _cbor_skip_item(rem, depth + 1)
     raise CBOR_Codec_Decoding_Error(
         "Invalid major type: %d" % major_type,
@@ -231,7 +238,7 @@ def _cbor_skip_item(s, depth=0):
 
 
 def cbor_count_items(s, max_count=None, until_break=False):
-    # type: (Any, Optional[int], bool) -> int
+    # type: (_CBORBuf, Optional[int], bool) -> int
     """Count top-level CBOR items without building object trees.
 
     When *until_break* is true, stop at a break byte without consuming it.
@@ -248,7 +255,7 @@ def cbor_count_items(s, max_count=None, until_break=False):
 
 
 def cbor_item_span(s):
-    # type: (Any) -> Tuple[bytes, bytes]
+    # type: (_CBORBuf) -> Tuple[bytes, bytes]
     """Split *s* into the first structural CBOR item and the remainder.
 
     Uses :func:`_cbor_skip_item` for boundary finding only. Callers that must
@@ -262,7 +269,7 @@ def cbor_item_span(s):
 
 
 def CBOR_decode_head(s):
-    # type: (Any) -> Tuple[int, Union[int, CBOR_INDEFINITE], Any]
+    # type: (_CBORBuf) -> Tuple[int, Union[int, CBOR_INDEFINITE], _CBORBuf]
     """
     Decode CBOR initial byte and additional info.
     Returns: (major_type, value, remaining_bytes)
@@ -275,17 +282,18 @@ def CBOR_decode_head(s):
     major_type = initial_byte >> 5
     additional_info = initial_byte & 0x1f
 
-    if additional_info < int(CBOR_AdditionalInfo.ONE_BYTE):
-        # Value is in the additional info
+    # 0-23: argument is the additional-info nibble itself
+    # (CBOR_AdditionalInfo.ONE_BYTE == 24).
+    if additional_info < 24:
         return major_type, additional_info, s[1:]
-    elif additional_info == int(CBOR_AdditionalInfo.ONE_BYTE):
+    elif additional_info == CBOR_AdditionalInfo.ONE_BYTE:
         # 1-byte value follows
         if len(s) < 2:
             raise CBOR_Codec_Decoding_Error(
                 "Not enough bytes for 1-byte value",
                 remaining=_cbor_buf_bytes(s))
         return major_type, s[1], s[2:]
-    elif additional_info == int(CBOR_AdditionalInfo.TWO_BYTES):
+    elif additional_info == CBOR_AdditionalInfo.TWO_BYTES:
         # 2-byte value follows
         if len(s) < 3:
             raise CBOR_Codec_Decoding_Error(
@@ -293,7 +301,7 @@ def CBOR_decode_head(s):
                 remaining=_cbor_buf_bytes(s))
         value = struct.unpack(">H", s[1:3])[0]
         return major_type, value, s[3:]
-    elif additional_info == int(CBOR_AdditionalInfo.FOUR_BYTES):
+    elif additional_info == CBOR_AdditionalInfo.FOUR_BYTES:
         # 4-byte value follows
         if len(s) < 5:
             raise CBOR_Codec_Decoding_Error(
@@ -301,7 +309,7 @@ def CBOR_decode_head(s):
                 remaining=_cbor_buf_bytes(s))
         value = struct.unpack(">I", s[1:5])[0]
         return major_type, value, s[5:]
-    elif additional_info == int(CBOR_AdditionalInfo.EIGHT_BYTES):
+    elif additional_info == CBOR_AdditionalInfo.EIGHT_BYTES:
         # 8-byte value follows
         if len(s) < 9:
             raise CBOR_Codec_Decoding_Error(
@@ -309,29 +317,29 @@ def CBOR_decode_head(s):
                 remaining=_cbor_buf_bytes(s))
         value = struct.unpack(">Q", s[1:9])[0]
         return major_type, value, s[9:]
-    elif additional_info == int(CBOR_AdditionalInfo.INDEFINITE):
+    elif additional_info == CBOR_AdditionalInfo.INDEFINITE:
         if major_type in (
-                int(CBOR_MajorTypes.UNSIGNED_INTEGER),
-                int(CBOR_MajorTypes.NEGATIVE_INTEGER),
-                int(CBOR_MajorTypes.TAG),
+                CBOR_MajorTypes.UNSIGNED_INTEGER,
+                CBOR_MajorTypes.NEGATIVE_INTEGER,
+                CBOR_MajorTypes.TAG,
         ):
             raise CBOR_Codec_Decoding_Error(
                 "Indefinite length not allowed for major type %d" %
                 major_type, remaining=_cbor_buf_bytes(s))
         if major_type in (
-                int(CBOR_MajorTypes.BYTE_STRING),
-                int(CBOR_MajorTypes.TEXT_STRING),
-                int(CBOR_MajorTypes.ARRAY),
-                int(CBOR_MajorTypes.MAP),
+                CBOR_MajorTypes.BYTE_STRING,
+                CBOR_MajorTypes.TEXT_STRING,
+                CBOR_MajorTypes.ARRAY,
+                CBOR_MajorTypes.MAP,
         ):
             return major_type, CBOR_INDEFINITE, s[1:]
         raise CBOR_Codec_Decoding_Error(
             "Indefinite length not allowed for major type %d" %
             major_type, remaining=_cbor_buf_bytes(s))
     elif additional_info in (
-        int(CBOR_AdditionalInfo.RESERVED_28),
-        int(CBOR_AdditionalInfo.RESERVED_29),
-        int(CBOR_AdditionalInfo.RESERVED_30),
+        CBOR_AdditionalInfo.RESERVED_28,
+        CBOR_AdditionalInfo.RESERVED_29,
+        CBOR_AdditionalInfo.RESERVED_30,
     ):
         raise CBOR_Codec_Decoding_Error(
             "Reserved additional info: %d" % additional_info,
@@ -344,20 +352,9 @@ def CBOR_decode_head(s):
 
 def _cbor_float_from_bits(ai, bits):
     # type: (int, int) -> float
-    if ai == int(CBOR_FloatAI.HALF):
-        sign = (bits >> 15) & 0x1
-        exponent = (bits >> 10) & 0x1f
-        fraction = bits & 0x3ff
-        if exponent == 0:
-            if fraction == 0:
-                return -0.0 if sign else 0.0
-            return ((-1) ** sign) * (fraction / 1024.0) * (2 ** -14)
-        if exponent == 31:
-            return float("nan") if fraction else (
-                float("-inf") if sign else float("inf")
-            )
-        return ((-1) ** sign) * (1.0 + fraction / 1024.0) * (2 ** (exponent - 15))
-    if ai == int(CBOR_FloatAI.SINGLE):
+    if ai == CBOR_FloatAI.HALF:
+        return struct.unpack(">e", struct.pack(">H", bits & 0xffff))[0]
+    if ai == CBOR_FloatAI.SINGLE:
         return struct.unpack(">f", struct.pack(">I", bits))[0]
     return struct.unpack(">d", struct.pack(">Q", bits))[0]
 
@@ -372,34 +369,17 @@ def _cbor_float_to_half_bits(value):
     sign = 0x8000 if math.copysign(1.0, value) < 0 else 0
     if math.isinf(value):
         return sign | 0x7C00
-    if value == 0.0:
-        return sign
-    value = abs(value)
-    bits64, = struct.unpack(">Q", struct.pack(">d", value))
-    exp64 = ((bits64 >> 52) & 0x7FF) - 1023
-    mant64 = bits64 & ((1 << 52) - 1)
-    if exp64 > 15:
+    try:
+        packed = struct.pack(">e", value)
+    except (OverflowError, ValueError):
         return None
-    if exp64 < -14:
-        # Subnormal half
-        shift = -14 - exp64 + 42  # 52 - 10
-        if shift > 52:
-            return None
-        mant = ((mant64 | (1 << 52)) >> shift) if exp64 != -1023 else 0
-        half = mant & 0x3FF
-        bits = sign | half
-        decoded = _cbor_float_from_bits(int(CBOR_FloatAI.HALF), bits)
-        if decoded != math.copysign(abs(value), -1.0 if sign else 1.0):
-            return None
-        return bits
-    half_exp = exp64 + 15
-    half_mant = mant64 >> 42
-    # Reject if discarded mantissa bits are nonzero (not exact).
-    if mant64 & ((1 << 42) - 1):
+    bits = struct.unpack(">H", packed)[0]
+    decoded = struct.unpack(">e", packed)[0]
+    if math.isinf(decoded) or decoded != value:
         return None
-    bits = sign | (half_exp << 10) | half_mant
-    decoded = _cbor_float_from_bits(int(CBOR_FloatAI.HALF), bits)
-    if decoded != math.copysign(abs(value), -1.0 if sign else 1.0):
+    if value == 0.0 and (
+        math.copysign(1.0, decoded) != math.copysign(1.0, value)
+    ):
         return None
     return bits
 
@@ -411,15 +391,16 @@ def _cbor_nan_preferred_ai(ai, bits):
     RFC 8949 prefers a shorter NaN only when zero-padding the shorter
     significand reconstructs the original NaN payload.
     """
-    if ai == int(CBOR_FloatAI.HALF):
+    # Return plain ints: callers order preferred AI with ``<``.
+    if ai == CBOR_FloatAI.HALF:
         return int(CBOR_FloatAI.HALF)
-    if ai == int(CBOR_FloatAI.SINGLE):
+    if ai == CBOR_FloatAI.SINGLE:
         # binary32 NaN: 1+8+23. Prefer half when low 13 significand bits are 0.
         mant = int(bits) & 0x7FFFFF
         if mant and (mant & ((1 << 13) - 1)) == 0:
             return int(CBOR_FloatAI.HALF)
         return int(CBOR_FloatAI.SINGLE)
-    if ai == int(CBOR_FloatAI.DOUBLE):
+    if ai == CBOR_FloatAI.DOUBLE:
         # binary64 NaN: 1+11+52.
         mant = int(bits) & ((1 << 52) - 1)
         if mant == 0:
@@ -441,22 +422,25 @@ def _cbor_nan_components(ai, bits):
 
     The significand is zero-extended to a binary64-width 52-bit field so
     half / single / double representations of the same NaN share identity.
+
+    Bit extraction is required here: ``struct`` float formats discard NaN
+    payloads, which RFC 8949 map-key identity must preserve.
     """
-    if ai == int(CBOR_FloatAI.HALF):
+    if ai == CBOR_FloatAI.HALF:
         sign = (int(bits) >> 15) & 0x1
         exponent = (int(bits) >> 10) & 0x1f
         fraction = int(bits) & 0x3ff
         if exponent != 31 or not fraction:
             return None
         return sign, fraction << 42
-    if ai == int(CBOR_FloatAI.SINGLE):
+    if ai == CBOR_FloatAI.SINGLE:
         sign = (int(bits) >> 31) & 0x1
         exponent = (int(bits) >> 23) & 0xff
         fraction = int(bits) & 0x7fffff
         if exponent != 0xff or not fraction:
             return None
         return sign, fraction << 29
-    if ai == int(CBOR_FloatAI.DOUBLE):
+    if ai == CBOR_FloatAI.DOUBLE:
         sign = (int(bits) >> 63) & 0x1
         exponent = (int(bits) >> 52) & 0x7ff
         fraction = int(bits) & ((1 << 52) - 1)
@@ -470,6 +454,7 @@ def _cbor_preferred_float_ai(value):
     # type: (float) -> int
     """Return the preferred float AI for a numeric *value*."""
     import math
+    # Return plain ints: callers order preferred AI with ``<``.
     if math.isnan(value):
         # Without the original payload bits, only the quiet binary16 NaN is a
         # safe generic preference. Encoded-width checks use bit patterns.
@@ -608,10 +593,10 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
 
     @staticmethod
     def _reject_duplicate_map_keys(pairs):
-        # type: (Any) -> None
+        # type: (Iterable[Tuple[Any, Any]]) -> None
         """Raise if *pairs* contain CBOR-equivalent duplicate keys."""
         from scapy.cbor.cbor import _cbor_key_norm
-        seen_norms = set()  # type: Set[Any]
+        seen_norms = set()  # type: Set[_CBORKeyNorm]
         for key, _value in pairs:
             norm = _cbor_key_norm(key)
             if norm in seen_norms:
@@ -622,7 +607,7 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
 
     @staticmethod
     def _encode_cbor_map_deterministic(pairs):
-        # type: (Any) -> bytes
+        # type: (Iterable[Tuple[Any, Any]]) -> bytes
         """Encode map pairs in RFC 8949 core-deterministic key order."""
         pairs = list(pairs)
         CBORcodec_Object._reject_duplicate_map_keys(pairs)
@@ -684,7 +669,7 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
                         )
                     sign, significand52 = comps
                     preferred = _cbor_nan_preferred_ai(ai, bits)
-                    if preferred == int(CBOR_FloatAI.HALF):
+                    if preferred == CBOR_FloatAI.HALF:
                         fraction = (significand52 >> 42) & 0x3ff
                         nan_bits = (sign << 15) | (0x1f << 10) | fraction
                         return (
@@ -693,7 +678,7 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
                                 CBOR_FloatAI.HALF)
                             + struct.pack(">H", nan_bits)
                         )
-                    if preferred == int(CBOR_FloatAI.SINGLE):
+                    if preferred == CBOR_FloatAI.SINGLE:
                         fraction = (significand52 >> 29) & 0x7fffff
                         nan_bits = (sign << 31) | (0xff << 23) | fraction
                         return (
@@ -702,7 +687,7 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
                                 CBOR_FloatAI.SINGLE)
                             + struct.pack(">I", nan_bits)
                         )
-                    if preferred == int(CBOR_FloatAI.DOUBLE):
+                    if preferred == CBOR_FloatAI.DOUBLE:
                         nan_bits = (
                             (sign << 63) |
                             (0x7ff << 52) |
@@ -756,7 +741,7 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
 
     @staticmethod
     def decode_cbor_item(s, depth=0):
-        # type: (Any, int) -> Tuple[CBOR_Object[Any], Any]
+        # type: (_CBORBuf, int) -> Tuple[CBOR_Object[Any], _CBORBuf]
         """Decode CBOR bytes to a CBOR_Object.
 
         Top-level callers may pass ``bytes`` (or a subclass). Decoding then
@@ -787,21 +772,21 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
         major_type = initial_byte >> 5
 
         # Dispatch to appropriate codec based on major type
-        if major_type == int(CBOR_MajorTypes.UNSIGNED_INTEGER):
+        if major_type == CBOR_MajorTypes.UNSIGNED_INTEGER:
             return CBORcodec_UNSIGNED_INTEGER.dec(s, safe=False, _depth=depth)
-        elif major_type == int(CBOR_MajorTypes.NEGATIVE_INTEGER):
+        elif major_type == CBOR_MajorTypes.NEGATIVE_INTEGER:
             return CBORcodec_NEGATIVE_INTEGER.dec(s, safe=False, _depth=depth)
-        elif major_type == int(CBOR_MajorTypes.BYTE_STRING):
+        elif major_type == CBOR_MajorTypes.BYTE_STRING:
             return CBORcodec_BYTE_STRING.dec(s, safe=False, _depth=depth)
-        elif major_type == int(CBOR_MajorTypes.TEXT_STRING):
+        elif major_type == CBOR_MajorTypes.TEXT_STRING:
             return CBORcodec_TEXT_STRING.dec(s, safe=False, _depth=depth)
-        elif major_type == int(CBOR_MajorTypes.ARRAY):
+        elif major_type == CBOR_MajorTypes.ARRAY:
             return CBORcodec_ARRAY.dec(s, safe=False, _depth=depth)
-        elif major_type == int(CBOR_MajorTypes.MAP):
+        elif major_type == CBOR_MajorTypes.MAP:
             return CBORcodec_MAP.dec(s, safe=False, _depth=depth)
-        elif major_type == int(CBOR_MajorTypes.TAG):
+        elif major_type == CBOR_MajorTypes.TAG:
             return CBORcodec_SEMANTIC_TAG.dec(s, safe=False, _depth=depth)
-        elif major_type == int(CBOR_MajorTypes.SIMPLE_AND_FLOAT):
+        elif major_type == CBOR_MajorTypes.SIMPLE_AND_FLOAT:
             return CBORcodec_SIMPLE_AND_FLOAT.dec(s, safe=False, _depth=depth)
         else:
             raise CBOR_Codec_Decoding_Error(
@@ -845,7 +830,7 @@ class CBORcodec_UNSIGNED_INTEGER(CBORcodec_Object[int]):
         # type: (...) -> Tuple[CBOR_Object[int], bytes]
         cls.check_string(s)
         major_type, value, remainder = CBOR_decode_head(s)
-        if major_type != int(CBOR_MajorTypes.UNSIGNED_INTEGER):
+        if major_type != CBOR_MajorTypes.UNSIGNED_INTEGER:
             raise CBOR_Codec_Decoding_Error(
                 "Expected major type 0 (unsigned integer), got %d" % major_type,
                 remaining=s)
@@ -881,7 +866,7 @@ class CBORcodec_NEGATIVE_INTEGER(CBORcodec_Object[int]):
         # type: (...) -> Tuple[CBOR_Object[int], bytes]
         cls.check_string(s)
         major_type, value, remainder = CBOR_decode_head(s)
-        if major_type != int(CBOR_MajorTypes.NEGATIVE_INTEGER):
+        if major_type != CBOR_MajorTypes.NEGATIVE_INTEGER:
             raise CBOR_Codec_Decoding_Error(
                 "Expected major type 1 (negative integer), got %d" % major_type,
                 remaining=s)
@@ -912,7 +897,7 @@ class CBORcodec_BYTE_STRING(CBORcodec_Object[bytes]):
         # type: (...) -> Tuple[CBOR_Object[bytes], bytes]
         cls.check_string(s)
         major_type, length, remainder = CBOR_decode_head(s)
-        if major_type != int(CBOR_MajorTypes.BYTE_STRING):
+        if major_type != CBOR_MajorTypes.BYTE_STRING:
             raise CBOR_Codec_Decoding_Error(
                 "Expected major type 2 (byte string), got %d" % major_type,
                 remaining=s)
@@ -923,7 +908,7 @@ class CBORcodec_BYTE_STRING(CBORcodec_Object[bytes]):
                     remainder = cbor_consume_break(remainder)
                     break
                 chunk_mt, chunk_len, remainder = CBOR_decode_head(remainder)
-                if chunk_mt != int(CBOR_MajorTypes.BYTE_STRING):
+                if chunk_mt != CBOR_MajorTypes.BYTE_STRING:
                     raise CBOR_Codec_Decoding_Error(
                         "Indefinite byte string chunk must be major type 2",
                         remaining=remainder)
@@ -976,7 +961,7 @@ class CBORcodec_TEXT_STRING(CBORcodec_Object[str]):
         # type: (...) -> Tuple[CBOR_Object[str], bytes]
         cls.check_string(s)
         major_type, length, remainder = CBOR_decode_head(s)
-        if major_type != int(CBOR_MajorTypes.TEXT_STRING):
+        if major_type != CBOR_MajorTypes.TEXT_STRING:
             raise CBOR_Codec_Decoding_Error(
                 "Expected major type 3 (text string), got %d" % major_type,
                 remaining=s)
@@ -987,7 +972,7 @@ class CBORcodec_TEXT_STRING(CBORcodec_Object[str]):
                     remainder = cbor_consume_break(remainder)
                     break
                 chunk_mt, chunk_len, remainder = CBOR_decode_head(remainder)
-                if chunk_mt != int(CBOR_MajorTypes.TEXT_STRING):
+                if chunk_mt != CBOR_MajorTypes.TEXT_STRING:
                     raise CBOR_Codec_Decoding_Error(
                         "Indefinite text string chunk must be major type 3",
                         remaining=remainder)
@@ -1047,7 +1032,7 @@ class CBORcodec_ARRAY(CBORcodec_Object[List[Any]]):
         # type: (...) -> Tuple[CBOR_Object[List[Any]], bytes]
         cls.check_string(s)
         major_type, length, remainder = CBOR_decode_head(s)
-        if major_type != int(CBOR_MajorTypes.ARRAY):
+        if major_type != CBOR_MajorTypes.ARRAY:
             raise CBOR_Codec_Decoding_Error(
                 "Expected major type 4 (array), got %d" % major_type,
                 remaining=s)
@@ -1109,13 +1094,13 @@ class CBORcodec_MAP(CBORcodec_Object[Any]):
         from scapy.cbor.cbor import CBORMapData
         cls.check_string(s)
         major_type, length, remainder = CBOR_decode_head(s)
-        if major_type != int(CBOR_MajorTypes.MAP):
+        if major_type != CBOR_MajorTypes.MAP:
             raise CBOR_Codec_Decoding_Error(
                 "Expected major type 5 (map), got %d" % major_type,
                 remaining=s)
 
         pairs = []  # type: List[Tuple[Any, Any]]
-        seen_norms = set()  # type: Set[Any]
+        seen_norms = set()  # type: Set[_CBORKeyNorm]
 
         def _add_pair(key, value):
             # type: (Any, Any) -> None
@@ -1189,7 +1174,7 @@ class CBORcodec_SEMANTIC_TAG(CBORcodec_Object[Tuple[int, Any]]):
         # type: (...) -> Tuple[CBOR_Object[Tuple[int, Any]], bytes]
         cls.check_string(s)
         major_type, tag_num, remainder = CBOR_decode_head(s)
-        if major_type != int(CBOR_MajorTypes.TAG):
+        if major_type != CBOR_MajorTypes.TAG:
             raise CBOR_Codec_Decoding_Error(
                 "Expected major type 6 (tag), got %d" % major_type,
                 remaining=s)
@@ -1247,7 +1232,7 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
             # preserves the numeric value. Received non-preferred widths are
             # preserved via packet raw caches, not by this encoder.
             ai = _cbor_preferred_float_ai(val)
-            if ai == int(CBOR_FloatAI.HALF):
+            if ai == CBOR_FloatAI.HALF:
                 half = _cbor_float_to_half_bits(val)
                 if half is not None:
                     return (
@@ -1255,8 +1240,8 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
                                             CBOR_FloatAI.HALF)
                         + struct.pack(">H", half)
                     )
-                ai = int(CBOR_FloatAI.SINGLE)
-            if ai == int(CBOR_FloatAI.SINGLE):
+                ai = CBOR_FloatAI.SINGLE
+            if ai == CBOR_FloatAI.SINGLE:
                 try:
                     return (
                         CBOR_encode_initial(CBOR_MajorTypes.SIMPLE_AND_FLOAT,
@@ -1298,35 +1283,34 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
 
         cls.check_string(s)
 
-        # For major type 7, we need special handling because additional_info
-        # encodes different things (simple values vs float sizes)
+        # For major type 7, additional_info encodes simple values vs float sizes.
         initial_byte = s[0]
         major_type = initial_byte >> 5
         additional_info = initial_byte & 0x1f
 
-        if major_type != int(CBOR_MajorTypes.SIMPLE_AND_FLOAT):
+        if major_type != CBOR_MajorTypes.SIMPLE_AND_FLOAT:
             raise CBOR_Codec_Decoding_Error(
                 "Expected major type 7 (simple/float), got %d" % major_type,
                 remaining=s)
 
         # Check for special simple values (encoded directly in additional_info)
-        if additional_info == int(CBOR_SimpleValue.FALSE):
+        if additional_info == CBOR_SimpleValue.FALSE:
             return CBOR_FALSE(), s[1:]
-        elif additional_info == int(CBOR_SimpleValue.TRUE):
+        elif additional_info == CBOR_SimpleValue.TRUE:
             return CBOR_TRUE(), s[1:]
-        elif additional_info == int(CBOR_SimpleValue.NULL):
+        elif additional_info == CBOR_SimpleValue.NULL:
             return CBOR_NULL(), s[1:]
-        elif additional_info == int(CBOR_SimpleValue.UNDEFINED):
+        elif additional_info == CBOR_SimpleValue.UNDEFINED:
             return CBOR_UNDEFINED(), s[1:]
         elif additional_info in (
-            int(CBOR_FloatAI.HALF),
-            int(CBOR_FloatAI.SINGLE),
-            int(CBOR_FloatAI.DOUBLE),
+            CBOR_FloatAI.HALF,
+            CBOR_FloatAI.SINGLE,
+            CBOR_FloatAI.DOUBLE,
         ):
             width = {
-                int(CBOR_FloatAI.HALF): 2,
-                int(CBOR_FloatAI.SINGLE): 4,
-                int(CBOR_FloatAI.DOUBLE): 8,
+                CBOR_FloatAI.HALF: 2,
+                CBOR_FloatAI.SINGLE: 4,
+                CBOR_FloatAI.DOUBLE: 8,
             }[additional_info]
             if len(s) < 1 + width:
                 raise CBOR_Codec_Decoding_Error(
@@ -1336,12 +1320,12 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
             float_val = _cbor_float_from_bits(additional_info, bits)
             encoded = _cbor_buf_bytes(s[:1 + width])
             return CBOR_FLOAT(float_val, encoded=encoded), s[1 + width:]
-        elif additional_info < int(CBOR_AdditionalInfo.ONE_BYTE):
-            # Simple value 0-23
+        elif additional_info < 24:
+            # Simple value 0-23 (below CBOR_AdditionalInfo.ONE_BYTE)
             return CBOR_SIMPLE_VALUE(additional_info), s[1:]
         else:
             # additional_info 24 means 1-byte simple value follows
-            if additional_info == int(CBOR_AdditionalInfo.ONE_BYTE):
+            if additional_info == CBOR_AdditionalInfo.ONE_BYTE:
                 if len(s) < 2:
                     raise CBOR_Codec_Decoding_Error(
                         "Not enough bytes for simple value", remaining=s)
