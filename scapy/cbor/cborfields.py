@@ -1131,8 +1131,8 @@ class _CBORF_compound(CBORF_element):
     CBOR_tag = None
     holds_packets = 1
 
-    def __init__(self, *seq, **kwargs):
-        # type: (*Any, **Any) -> None
+    def __init__(self, *seq):
+        # type: (*Any) -> None
         self.seq = seq
         self.islist = len(seq) > 1
 
@@ -1222,9 +1222,9 @@ class CBORF_ITEMS(_CBORF_compound):
             )
     """
 
-    def __init__(self, *seq, **kwargs):
-        # type: (*Any, **Any) -> None
-        super(CBORF_ITEMS, self).__init__(*seq, **kwargs)
+    def __init__(self, *seq):
+        # type: (*Any) -> None
+        super(CBORF_ITEMS, self).__init__(*seq)
         self._reject_nonterminal_remainder_of()
 
     def _build_counted(self, pkt):
@@ -1275,9 +1275,9 @@ class CBORF_ARRAY(_CBORF_compound):
     encode_indefinite = False
     """Set to true to encode using indefinite length."""
 
-    def __init__(self, *seq, **kwargs):
-        # type: (*Any, **Any) -> None
-        super(CBORF_ARRAY, self).__init__(*seq, **kwargs)
+    def __init__(self, *seq):
+        # type: (*Any) -> None
+        super(CBORF_ARRAY, self).__init__(*seq)
         self._reject_nonterminal_remainder_of()
 
     def _dissect_children_budgeted(self, pkt, s, count):
@@ -1409,6 +1409,15 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
             self.holds_packets = 1
         elif pkt_cls is None:
             raise ValueError("Provide pkt_cls or next_cls_cb")
+        elif (
+            (isinstance(pkt_cls, type) and
+             issubclass(pkt_cls, CBORF_REMAINDER_OF))
+            or isinstance(pkt_cls, CBORF_REMAINDER_OF)
+        ):
+            raise ValueError(
+                "CBORF_REMAINDER_OF is not one CBOR item and cannot be "
+                "used as pkt_cls"
+            )
         elif (
             (isinstance(pkt_cls, type) and issubclass(pkt_cls, CBORF_field))
             or isinstance(pkt_cls, CBORF_field)
@@ -1703,16 +1712,23 @@ class CBORF_ARRAY_OF(_CBORF_HOMOGENEOUS):
                 lst.append(item)
         return lst, s
 
+    def i2m(self, pkt, x):
+        # type: (CBOR_Packet, Any) -> bytes
+        if isinstance(x, fields.RawVal):
+            return super(CBORF_ARRAY_OF, self).i2m(pkt, x)
+        parts = [self._encode_element(pkt, item) for item in x]
+        return (
+            CBOR_encode_head(CBOR_MajorTypes.ARRAY, len(x))
+            + b"".join(parts)
+        )
+
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
         val = pkt.getfieldval(self.name)
         if val is None:
             raise CBOR_Encoding_Error(
                 "Required collection field %r is None" % self.name)
-        parts = [self._encode_element(pkt, item) for item in val]
-        data = CBOR_encode_head(CBOR_MajorTypes.ARRAY, len(val))
-        data += b"".join(parts)
-        return _CBORBuildResult(data, 1)
+        return _CBORBuildResult(self.i2m(pkt, val), 1)
 
 
 class _CBORF_MAP_UNKNOWN(CBORF_field[List[Tuple[str, Any]]]):
@@ -1810,6 +1826,11 @@ class CBORF_MAP(CBORF_element):
         field_by_name = {}  # type: Dict[str, Any]
         encoded_keys = {}  # type: Dict[str, bytes]
         for fld in seq:
+            if isinstance(fld, CBORF_REMAINDER_OF):
+                raise ValueError(
+                    "CBORF_REMAINDER_OF cannot be a map member; "
+                    "place it directly as the final positional field"
+                )
             name = fld.name
             if name in field_by_name:
                 raise ValueError(
@@ -1832,7 +1853,10 @@ class CBORF_MAP(CBORF_element):
 
     def is_empty(self, pkt):
         # type: (CBOR_Packet) -> bool
-        return all(f.is_empty(pkt) for f in self.seq)
+        return (
+            all(f.is_empty(pkt) for f in self.seq)
+            and self._unknown_field.is_empty(pkt)
+        )
 
     def get_fields_list(self):
         # type: () -> List[CBORF_field[Any]]
