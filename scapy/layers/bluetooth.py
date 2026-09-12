@@ -970,10 +970,11 @@ class SM_Identity_Information(Packet):
 class SM_Identity_Address_Information(Packet):
     name = "Identity Address Information"
     fields_desc = [ByteEnumField("addr_type", 0, {0: "public"}),
-                   LEMACField("addr", None), ]
+                   LEMACField("bd_addr", None), ]
     deprecated_fields = {
         "atype": ("addr_type", "2.7.0"),
-        "address": ("addr", "2.7.0"),
+        "address": ("bd_addr", "2.7.0"),
+        "addr": ("bd_addr", "2.8.0"),
     }
 
 
@@ -2526,7 +2527,7 @@ class HCI_Event_Inquiry_Result(Packet):
     name = "HCI_Inquiry_Result"
     fields_desc = [
         ByteField("num_response", 0x00),
-        FieldListField("addr", None, LEMACField("addr", None),
+        FieldListField("bd_addr", None, LEMACField("", None),
                        count_from=lambda p: p.num_response),
         FieldListField("page_scan_repetition_mode", None,
                        ByteField("page_scan_repetition_mode", 0),
@@ -2538,6 +2539,7 @@ class HCI_Event_Inquiry_Result(Packet):
         FieldListField("clock_offset", None, LEShortField("clock_offset", 0),
                        count_from=lambda p: p.num_response)
     ]
+    deprecated_fields = {"addr": ("bd_addr", "2.8.0")}
 
 
 class HCI_Event_Connection_Complete(Packet):
@@ -2906,7 +2908,8 @@ class HCI_Cmd_Complete_Read_BD_Addr(Packet):
     7.4.6 Read BD_ADDR command complete
     """
     name = "Read BD Addr"
-    fields_desc = [LEMACField("addr", None), ]
+    fields_desc = [LEMACField("bd_addr", None), ]
+    deprecated_fields = {"addr": ("bd_addr", "2.8.0")}
 
 
 class HCI_Cmd_Complete_LE_Read_White_List_Size(Packet):
