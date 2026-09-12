@@ -1201,6 +1201,21 @@ try:
 except ValueError:
     pass
 
+= CBORF_MAP rejects CBORF_REMAINDER_OF as a member
+from scapy.cbor.cborfields import (
+    CBORF_MAP,
+    CBORF_REMAINDER_OF,
+    CBORF_UNSIGNED_INTEGER,
+)
+
+try:
+    CBORF_MAP(
+        CBORF_REMAINDER_OF("vals", [], pkt_cls=CBORF_UNSIGNED_INTEGER),
+    )
+    assert False, "MAP accepted REMAINDER_OF as a member"
+except ValueError:
+    pass
+
 = Optional semantic tag cannot hide CBORF_REMAINDER_OF
 from scapy.cbor.cborfields import (
     CBORF_SEMANTIC_TAG,
@@ -3619,6 +3634,63 @@ except ValueError:
 else:
     raise AssertionError("ARRAY_OF accepted Packet without CBOR_root")
 
+= CBORF_ARRAY_OF rejects CBORF_REMAINDER_OF as pkt_cls
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_REMAINDER_OF, CBORF_UNSIGNED_INTEGER
+
+try:
+    CBORF_ARRAY_OF(
+        "outer",
+        [],
+        pkt_cls=CBORF_REMAINDER_OF(
+            "inner",
+            [],
+            pkt_cls=CBORF_UNSIGNED_INTEGER,
+        ),
+    )
+    assert False, "ARRAY_OF accepted REMAINDER_OF as pkt_cls"
+except ValueError:
+    pass
+
+try:
+    CBORF_ARRAY_OF("outer", [], pkt_cls=CBORF_REMAINDER_OF)
+    assert False, "ARRAY_OF accepted REMAINDER_OF class as pkt_cls"
+except ValueError:
+    pass
+
+= Nested field-valued CBORF_ARRAY_OF round-trips
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class NestedArrayOf(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF(
+        "outer",
+        [],
+        pkt_cls=CBORF_ARRAY_OF(
+            "inner",
+            [],
+            pkt_cls=CBORF_UNSIGNED_INTEGER,
+        ),
+    )
+
+pkt = NestedArrayOf(outer=[[1, 2], [3]])
+wire = bytes(pkt)
+assert wire == bytes.fromhex("828201028103")
+decoded = NestedArrayOf(wire)
+assert decoded.outer == [[1, 2], [3]]
+assert bytes(decoded) == wire
+
+= CBORF_ARRAY rejects unused encode_indefinite keyword
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_UNSIGNED_INTEGER
+
+try:
+    CBORF_ARRAY(
+        CBORF_UNSIGNED_INTEGER("x", 0),
+        encode_indefinite=True,
+    )
+    assert False, "ARRAY accepted encode_indefinite keyword"
+except TypeError:
+    pass
+
 
 + TypeError must not be used for callback signature probing
 
@@ -3749,6 +3821,44 @@ assert bytes(pkt) == (
     b"\x61a\x08"
     b"\x61x\x82\x01\xa1\x61k\x02"
 )
+
+
+= Optional tagged map with only unknown members survives a sibling mutation
+from scapy.cbor.cborfields import (
+    CBOR_ABSENT,
+    CBORF_ARRAY,
+    CBORF_MAP,
+    CBORF_SEMANTIC_TAG,
+    CBORF_UNSIGNED_INTEGER,
+    CBORF_optional,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptionalTaggedUnknownMap(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_optional(
+            CBORF_SEMANTIC_TAG(
+                42,
+                CBORF_MAP(
+                    CBORF_optional(
+                        CBORF_UNSIGNED_INTEGER("known", 0)
+                    )
+                ),
+            )
+        ),
+        CBORF_UNSIGNED_INTEGER("tail", 0),
+    )
+
+# [42({"x": 1}), 2]
+wire = bytes.fromhex("82d82aa161780102")
+pkt = OptionalTaggedUnknownMap(wire)
+assert pkt.known is CBOR_ABSENT
+assert pkt._cbor_unknown[0][0] == "x"
+assert pkt.tail == 2
+assert bytes(pkt) == wire
+pkt.tail = 3
+assert bytes(pkt) == bytes.fromhex("82d82aa161780103")
+assert pkt._cbor_unknown[0][0] == "x"
 
 + CBOR_Packet.copy re-parents embedded children
 
