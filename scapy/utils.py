@@ -1487,8 +1487,21 @@ class RawPcapReader(metaclass=PcapReader_metaclass):
             if len(hdr) < 16:
                 raise EOFError
             sec, usec, caplen, wirelen = struct.unpack(self.endian + "IIII", hdr)
-            data = self.f.read(caplen)[:size]
-        except (OSError, OverflowError) as e:
+            # A malicious caplen can be up to 4 GiB: bound each read,
+            # truncate the packet, then skip the rest of the record so the
+            # next pcap header can still be parsed.
+            read_size = min(caplen, MTU * 4)
+            read_data = self.f.read(read_size)
+            data = read_data[:size]
+            remaining = caplen - len(read_data)
+            if remaining > 0:
+                warning("Pcap: packet has been truncated")
+            while remaining > 0:
+                skipped = self.f.read(min(remaining, MTU * 4))
+                if not skipped:
+                    break
+                remaining -= len(skipped)
+        except (OSError, OverflowError, zlib.error) as e:
             warning(f"Pcap: {e}")
             raise EOFError
 

@@ -2494,6 +2494,33 @@ try:
 finally:
     os.unlink(filename)
 
+# Malformed gzip pcap with large captured length
+import gzip
+import struct
+from unittest import mock
+from scapy.data import MTU
+
+with mock.patch("scapy.utils.warning") as warning:
+    for snaplen in [0, 0xffff, 0xfacd0000]:
+        packet = b"A" * (MTU * 4 + 4)
+        # Pcap header with fuzzed snaplen.
+        capture = struct.pack(
+            "<IHHiIII", 0xA1B2C3D4, 2, 4, 0, 0, snaplen, 0xe3
+        )
+        # First packet with caplen larger than the bounded read size.
+        capture += struct.pack("<IIII", 0, 0, len(packet), len(packet))
+        capture += packet
+        capture += struct.pack("<IIII", 0, 0, 1, 1) + b"B"
+        capture = gzip.compress(capture, mtime=0)
+        packets = rdpcap(BytesIO(capture))
+        assert len(packets) == 2
+        assert len(packets[0]) == MTU
+        assert bytes(packets[1]) == b"B"
+    assert sum(
+        "packet has been truncated" in call.args[0]
+        for call in warning.call_args_list
+    ) == 3
+
 # Issue #69628
 file = BytesIO(b"\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00\x01\x00\x00\x00\x04{\xdcf\xc2\xa5\x07\x008\x00\x00\x008\x00\x00\x00A]+\xdb]\x04\x8e(6\n\x99\xcb\x08\x00E\x00\x00*\x00\x01\x00\x00@\x06\xe3V\x07\x87\xa5m\x17\x15\xd3m\x01\x85\x01\x85\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xc5_\x00\x000\x00")
 l = rdpcap(file)
