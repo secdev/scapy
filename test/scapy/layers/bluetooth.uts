@@ -378,10 +378,30 @@ assert evt_pkt[HCI_Event_Inquiry_Complete].status == 0
 evt_pkt = HCI_Event_Inquiry_Result(b'\x01\xcb\x7f\xdbn\x8c\x9c\x01\x00\x00<\x04\x08\x8di')
 assert HCI_Event_Inquiry_Result in evt_pkt
 assert evt_pkt[HCI_Event_Inquiry_Result].num_response == 1
-assert evt_pkt[HCI_Event_Inquiry_Result].addr[0] == '9c:8c:6e:db:7f:cb'
+assert evt_pkt[HCI_Event_Inquiry_Result].bd_addr[0] == '9c:8c:6e:db:7f:cb'
 assert evt_pkt[HCI_Event_Inquiry_Result].page_scan_repetition_mode[0] == 1
 assert evt_pkt[HCI_Event_Inquiry_Result].device_class[0] == 0x8043c
 assert evt_pkt[HCI_Event_Inquiry_Result].clock_offset[0] == 27021
+
+
+= Deprecated 'addr' alias still resolves to bd_addr (backward compat)
+try:
+    import warnings
+    inq = HCI_Event_Inquiry_Result(b'\x01\xcb\x7f\xdbn\x8c\x9c\x01\x00\x00<\x04\x08\x8di')
+    ref = raw(HCI_Cmd_Complete_Read_BD_Addr(bd_addr="11:22:33:44:55:66"))
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        rd = HCI_Cmd_Complete_Read_BD_Addr(addr="11:22:33:44:55:66")
+        assert rd.bd_addr == "11:22:33:44:55:66"
+        assert raw(rd) == ref
+        sm = SM_Identity_Address_Information(addr="a1:b2:c3:d4:e5:f6")
+        assert sm.bd_addr == "a1:b2:c3:d4:e5:f6"
+        assert SM_Identity_Address_Information(address="a1:b2:c3:d4:e5:f6").bd_addr == "a1:b2:c3:d4:e5:f6"
+        assert inq.addr[0] == '9c:8c:6e:db:7f:cb'
+        assert any(issubclass(x.category, DeprecationWarning) for x in w)
+except DeprecationWarning:
+    # -Werror is used
+    pass
 
 
 = Connection Complete
@@ -938,7 +958,7 @@ assert raw(p[EIR_ServiceData16BitUUID].payload) == hex_bytes("e6c2")
 
 = Basic L2CAP dissect
 a = L2CAP_Hdr(b'\x08\x00\x06\x00\t\x00\xf6\xe5\xd4\xc3\xb2\xa1')
-assert a[SM_Identity_Address_Information].addr == 'a1:b2:c3:d4:e5:f6'
+assert a[SM_Identity_Address_Information].bd_addr == 'a1:b2:c3:d4:e5:f6'
 assert a[SM_Identity_Address_Information].addr_type == 0
 a.show()
 
