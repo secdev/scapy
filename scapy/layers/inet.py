@@ -729,10 +729,12 @@ def calc_tcp_md5_hash(tcp, key):
 
     h = hashlib.md5()  # nosec
     tcp_bytes = bytes(tcp)
+    doff = int.from_bytes(tcp_bytes[12:13]) >> 4
     h.update(tcp_pseudoheader(tcp))
     h.update(tcp_bytes[:16])
     h.update(b"\x00\x00")
-    h.update(tcp_bytes[18:])
+    h.update(tcp_bytes[18:20])
+    h.update(tcp_bytes[doff << 2:])
     h.update(key)
 
     return h.digest()
@@ -741,8 +743,9 @@ def calc_tcp_md5_hash(tcp, key):
 def sign_tcp_md5(tcp, key):
     # type: (TCP, bytes) -> None
     """Append TCP-MD5 signature to tcp packet"""
+    tcp.options = tcp.options + [('MD5', b'')]
     sig = calc_tcp_md5_hash(tcp, key)
-    tcp.options = tcp.options + [('MD5', sig)]
+    tcp.options[-1] = ('MD5', sig)
 
 
 class TCP(Packet):

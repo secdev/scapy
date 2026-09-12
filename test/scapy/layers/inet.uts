@@ -381,8 +381,18 @@ raw(TCP(options=[(30, b"\x10\x03\xc1\x1c\x95\x9b\x81R_1")])) == b"\x00\x14\x00P\
 md5sig = b"0123456789abcdef"
 p = IP() / TCP(options=[('MD5', md5sig)])
 md5opt = IP(raw(p))[TCP].options[0]
-md5opt[0] == 'MD5'
-md5opt[1] == md5sig
+assert md5opt[0] == 'MD5'
+assert md5opt[1] == md5sig
+
+= TCP Options: MD5 depends on options length only
+p0 = IP() / TCP()
+p1 = IP() / TCP(options=[("MSS", 100)])
+p2 = IP() / TCP(options=[("MSS", 200)])
+mac0 = calc_tcp_md5_hash(p0[TCP], b"12345")
+mac1 = calc_tcp_md5_hash(p1[TCP], b"12345")
+mac2 = calc_tcp_md5_hash(p2[TCP], b"12345")
+assert mac0 != mac1
+assert mac1 == mac2
 
 = TCP options: MD5 IPv4 (depends on default values)
 p = IP() / TCP()
@@ -397,9 +407,9 @@ assert mac == bytearray.fromhex("3711309b0305a4269ec5dbc27183e9a0")
 = TCP options: MD5 sign (depends on default values)
 p = IP() / TCP()
 sign_tcp_md5(p[TCP], b"12345")
-raw(p[TCP]) == bytearray.fromhex("001400500000000000000000a0022000fec200001312797e69f8dbe44a8b84f687a2832595ed0000")
+raw(p[TCP]) == bytearray.fromhex("001400500000000000000000a00220002311000013128f95eb4e2946538becb6fe364731e16f0000")
 md5opt = IP(raw(p))[TCP].options[0]
-md5opt[1] == bytearray.fromhex("797e69f8dbe44a8b84f687a2832595ed")
+assert md5opt[1] == bytearray.fromhex("8f95eb4e2946538becb6fe364731e16f")
 
 = TCP Authentication Option: build
 opt = TCPAOValue(keyid=1, rnextkeyid=2, mac=b"FAKE")
