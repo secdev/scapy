@@ -178,7 +178,7 @@ assert cmd[HCI_Cmd_Create_Connection].allow_role_switch == 1
 
 cmd = HCI_Hdr(hex_bytes("011104020001"))
 assert HCI_Cmd_Authentication_Requested in cmd
-assert cmd[HCI_Cmd_Authentication_Requested].handle == 256
+assert cmd[HCI_Cmd_Authentication_Requested].connection_handle == 256
 
 = Link Key Request Reply
 
@@ -191,7 +191,7 @@ assert cmd[HCI_Cmd_Link_Key_Request_Reply].link_key == 0x6c9016a48a009180086a392
 
 cmd = HCI_Hdr(hex_bytes("01130403000101"))
 assert HCI_Cmd_Set_Connection_Encryption in cmd
-assert cmd[HCI_Cmd_Set_Connection_Encryption].handle == 256
+assert cmd[HCI_Cmd_Set_Connection_Encryption].connection_handle == 256
 assert cmd[HCI_Cmd_Set_Connection_Encryption].encryption_enable == 1
 
 = Remote Name Request
@@ -335,16 +335,35 @@ for p in (
 
 = Disconnect
 expected_cmd_raw_data = hex_bytes("01060403341213")
-cmd_raw_data = raw(HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_Disconnect(handle=0x1234))
+cmd_raw_data = raw(HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_Disconnect(connection_handle=0x1234))
 assert expected_cmd_raw_data == cmd_raw_data
 
 = LE Connection Update Command
 expected_cmd_raw_data = hex_bytes("0113200e47000a00140001003c000100ffff")
 cmd_raw_data = raw(
     HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_LE_Connection_Update(
-        handle=0x47, min_interval=10, max_interval=20, latency=1, timeout=60,
+        connection_handle=0x47, min_interval=10, max_interval=20, latency=1, timeout=60,
         min_ce=1, max_ce=0xffff))
 assert expected_cmd_raw_data == cmd_raw_data
+
+= Deprecated 'handle' alias still resolves to connection_handle (backward compat)
+# The Connection_Handle field was renamed handle -> connection_handle; the old
+# name stays usable via deprecated_fields (construct kwarg + attribute read),
+# emitting a DeprecationWarning.
+try:
+    import warnings
+    ref = raw(HCI_Command_Hdr() / HCI_Cmd_Disconnect(connection_handle=0x1234))
+    evt = HCI_Event_Disconnection_Complete(connection_handle=0x0040)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        cmd = HCI_Cmd_Disconnect(handle=0x1234)
+        assert cmd.connection_handle == 0x1234
+        assert raw(HCI_Command_Hdr() / cmd) == ref
+        assert evt.handle == 0x0040
+        assert any(issubclass(x.category, DeprecationWarning) for x in w)
+except DeprecationWarning:
+    # -Werror is used
+    pass
 
 
 + HCI Events
@@ -370,7 +389,7 @@ evt_raw_data = hex_bytes("04030b000b00093491e5b7540100")
 evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_Event_Connection_Complete in evt_pkt
 assert evt_pkt[HCI_Event_Connection_Complete].status == 0
-assert evt_pkt[HCI_Event_Connection_Complete].handle == 0x000b
+assert evt_pkt[HCI_Event_Connection_Complete].connection_handle == 0x000b
 assert evt_pkt[HCI_Event_Connection_Complete].bd_addr == "54:b7:e5:91:34:09"
 assert evt_pkt[HCI_Event_Connection_Complete].link_type == 1
 assert evt_pkt[HCI_Event_Connection_Complete].encryption_enabled == 0
@@ -403,7 +422,7 @@ evt_raw_data = hex_bytes("04050400400016")
 evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_Event_Disconnection_Complete in evt_pkt
 assert evt_pkt[HCI_Event_Disconnection_Complete].status == 0
-assert evt_pkt[HCI_Event_Disconnection_Complete].handle == 0x0040
+assert evt_pkt[HCI_Event_Disconnection_Complete].connection_handle == 0x0040
 assert evt_pkt[HCI_Event_Disconnection_Complete].reason == 0x16
 
 = Remote Name Request Complete
@@ -419,7 +438,7 @@ evt_raw_data = hex_bytes("040804000b0001")
 evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_Event_Encryption_Change in evt_pkt
 assert evt_pkt[HCI_Event_Encryption_Change].status == 0
-assert evt_pkt[HCI_Event_Encryption_Change].handle == 0x000b
+assert evt_pkt[HCI_Event_Encryption_Change].connection_handle == 0x000b
 assert evt_pkt[HCI_Event_Encryption_Change].enabled == 1
 
 = Read Remote Supported Features Complete
@@ -427,7 +446,7 @@ evt_raw_data = hex_bytes("040b0b000b00fffe8ffedbff5b87")
 evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_Event_Read_Remote_Supported_Features_Complete in evt_pkt
 assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].status == 0
-assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].handle == 0x000b
+assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].connection_handle == 0x000b
 assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].lmp_features == 0x875bffdbfe8ffeff
 
 = Remote Host Supported Features Notification
@@ -447,7 +466,7 @@ evt_raw_data = hex_bytes("040c080002000bb0022c04")
 evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_Event_Read_Remote_Version_Information_Complete in evt_pkt
 assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].status == 0
-assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].handle == 0x0002
+assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].connection_handle == 0x0002
 assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].version == 0x0b
 assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].manufacturer_name == 0x02b0
 assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].subversion == 1068
@@ -502,7 +521,7 @@ evt_raw_data = hex_bytes("04230d000b0001020300000000000000")
 evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_Event_Read_Remote_Extended_Features_Complete in evt_pkt
 assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].status == 0
-assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].handle == 0x000b
+assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].connection_handle == 0x000b
 assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].page == 1
 assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].max_page == 2
 assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].extended_features == 0x0000000000000003
@@ -574,7 +593,7 @@ assert evt_pkt[HCI_Event_Hdr].len == 31
 assert HCI_LE_Meta_Enhanced_Connection_Complete in evt_pkt
 evt = evt_pkt[HCI_LE_Meta_Enhanced_Connection_Complete]
 assert evt.status == 0
-assert evt.handle == 16
+assert evt.connection_handle == 16
 assert evt.role == 0
 assert evt.peer_addr_type == 1
 assert evt.peer_addr == "ff:ee:dd:cc:bb:aa"
@@ -588,7 +607,7 @@ assert evt.master_clock_accuracy == 0x0
 = LE Connection Update Event
 evt_raw_data = hex_bytes("043e0a03004800140001003c00")
 evt_pkt =  HCI_Hdr(evt_raw_data)
-assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].handle == 0x48
+assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].connection_handle == 0x48
 assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].interval == 20
 assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].latency == 1
 assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].timeout == 60
@@ -601,7 +620,7 @@ evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_LE_Meta_LE_Read_Remote_Features_Complete in evt_pkt
 evt = evt_pkt[HCI_LE_Meta_LE_Read_Remote_Features_Complete]
 assert evt.status == 0
-assert evt.handle == 0x0040
+assert evt.connection_handle == 0x0040
 assert evt.le_features == 0x000000000000001f
 assert raw(evt_pkt) == evt_raw_data
 
@@ -924,7 +943,7 @@ assert a[SM_Identity_Address_Information].addr_type == 0
 a.show()
 
 = Basic HCI_ACL_Hdr build & dissect
-a = HCI_Hdr()/HCI_ACL_Hdr(handle=0xf4c, PB=2, BC=2, len=20)/L2CAP_Hdr(len=16)/L2CAP_CmdHdr(code=8, len=12)/L2CAP_EchoReq(data="AAAAAAAAAAAA")
+a = HCI_Hdr()/HCI_ACL_Hdr(connection_handle=0xf4c, PB=2, BC=2, len=20)/L2CAP_Hdr(len=16)/L2CAP_CmdHdr(code=8, len=12)/L2CAP_EchoReq(data="AAAAAAAAAAAA")
 assert raw(a) == b'\x02L\xaf\x14\x00\x10\x00\x05\x00\x08\x01\x0c\x00AAAAAAAAAAAA'
 b = HCI_Hdr(raw(a))
 assert a == b
