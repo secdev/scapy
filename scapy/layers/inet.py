@@ -1493,13 +1493,21 @@ def _defrag_ip_pkt(pkt, frags):
                 raise BadFragments(frags=badfrags)
             # re-build initial packet without fragmentation
             p = curfrags[0][0].copy()
-            pay_class = p[IP].payload.__class__
+            pay_class = p[IP].guess_payload_class(data)
             p[IP].flags.MF = False
             p[IP].remove_payload()
             p[IP].len = None
             p[IP].chksum = None
-            # append defragmented payload
-            p /= pay_class(data)
+            # append defragmented payload. The reassembled bytes may still fail
+            # to dissect, and that has to fall back the way dissection itself
+            # does rather than escape into the caller's sniff loop.
+            try:
+                payload = pay_class(data)
+            except Exception:
+                if conf.debug_dissector:
+                    raise
+                payload = conf.raw_layer(load=data)
+            p[IP].add_payload(payload)
             # cleanup
             del frags[uid]
             return True, p
