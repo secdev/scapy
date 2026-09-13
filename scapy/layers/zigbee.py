@@ -14,9 +14,9 @@ import struct
 
 from scapy.packet import bind_layers, bind_bottom_up, Packet
 from scapy.fields import BitField, ByteField, XLEIntField, ConditionalField, \
-    ByteEnumField, EnumField, BitEnumField, FieldListField, FlagsField, \
-    IntField, PacketListField, ShortField, StrField, StrFixedLenField, \
-    StrLenField, XLEShortField, XStrField
+    ByteEnumField, EnumField, BitEnumField, FieldLenField, FieldListField, \
+    FlagsField, IntField, PacketListField, ShortField, StrField, \
+    StrFixedLenField, StrLenField, XLEShortField, XStrField
 
 from scapy.layers.dot15d4 import dot15d4AddressField, Dot15d4Beacon, Dot15d4, \
     Dot15d4FCS
@@ -1323,7 +1323,8 @@ class ZCLPricePublishPrice(Packet):
     fields_desc = [
         XLEIntField("provider_id", 0x00000000),  # Unsigned 32-bit Integer (4 octets)  # noqa: E501
         # Rate Label is a UTF-8 encoded Octet String (0-12 octets). The first Octet indicates the length.  # noqa: E501
-        StrLenField("rate_label", "", length_from=lambda pkt:int(pkt.rate_label[0])),  # TODO verify  # noqa: E501
+        FieldLenField("rate_label_len", None, length_of="rate_label", fmt="<B"),
+        StrLenField("rate_label", "", length_from=lambda pkt: pkt.rate_label_len),
         XLEIntField("issuer_event_id", 0x00000000),  # Unsigned 32-bit Integer (4 octets)  # noqa: E501
         XLEIntField("current_time", 0x00000000),  # UTCTime (4 octets)
         ByteField("unit_of_measure", 0),  # 8 bits enumeration (1 octet)

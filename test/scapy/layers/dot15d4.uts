@@ -948,3 +948,19 @@ assert ZCLIASZoneZoneEnrollResponse in pkt.layers()
 assert pkt[ZCLIASZoneZoneEnrollResponse].rsp_code == 0x00
 assert pkt[ZCLIASZoneZoneEnrollResponse].zone_id == 0x3a
 assert raw(pkt[ZCLIASZoneZoneEnrollResponse].payload) == b''
+
+= Zigbee - ZCL Price Publish Price rate label
+
+data = bytes.fromhex("1122334404616263645566778899aabbcc01ccdd0203445566778899aabbccdd112233445566778899aabbccddee")
+p = ZCLPricePublishPrice(data)
+assert p.provider_id == 0x44332211
+assert p.rate_label_len == 4
+assert p.rate_label == b"abcd"
+assert p.issuer_event_id == 0x88776655
+assert p.current_time == 0xCCBBAA99
+assert p.price == 0xDDCCBBAA
+assert p.price_ratio == 0x11
+assert p.generation_price == 0x55443322
+assert p.number_of_block_thresholds == 0xDD
+assert p.price_control == 0xEE
+assert raw(p) == data
