@@ -3691,6 +3691,18 @@ try:
 except TypeError:
     pass
 
+= CBORF_ITEMS rejects unused keyword arguments
+from scapy.cbor.cborfields import CBORF_ITEMS, CBORF_UNSIGNED_INTEGER
+
+try:
+    CBORF_ITEMS(
+        CBORF_UNSIGNED_INTEGER("x", 0),
+        encode_indefinite=True,
+    )
+    assert False, "ITEMS accepted unused keyword argument"
+except TypeError:
+    pass
+
 
 + TypeError must not be used for callback signature probing
 
