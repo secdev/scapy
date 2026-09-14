@@ -711,6 +711,43 @@ pkt = AnyArrayFloatPkt(bytes.fromhex("81f90000"))
 pkt.values[0].val = -0.0
 assert bytes(pkt) == bytes.fromhex("81f98000")
 
+= Nested CBORF_FLOAT signed-zero mutation invalidates parent raw cache
+from scapy.cbor.cborfields import CBORF_FLOAT, CBORF_PACKET
+from scapy.cborpacket import CBOR_Packet
+
+class FloatChild(CBOR_Packet):
+    CBOR_root = CBORF_FLOAT("value", 0.0)
+
+class FloatParent(CBOR_Packet):
+    CBOR_root = CBORF_PACKET("child", None, FloatChild)
+
+pkt = FloatParent(bytes.fromhex("f90000"))
+pkt.child.value = -0.0
+assert bytes(pkt.child) == bytes.fromhex("f98000")
+assert bytes(pkt) == bytes.fromhex("f98000")
+
+= ARRAY_OF(CBORF_FLOAT) signed-zero mutation invalidates raw cache
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_FLOAT
+from scapy.cborpacket import CBOR_Packet
+
+class FloatList(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF("values", [], CBORF_FLOAT)
+
+pkt = FloatList(bytes.fromhex("81f90000"))
+pkt.values[0] = -0.0
+assert bytes(pkt) == bytes.fromhex("81f98000")
+
+= REMAINDER_OF(CBORF_FLOAT) signed-zero mutation invalidates raw cache
+from scapy.cbor.cborfields import CBORF_FLOAT, CBORF_REMAINDER_OF
+from scapy.cborpacket import CBOR_Packet
+
+class FloatRemainder(CBOR_Packet):
+    CBOR_root = CBORF_REMAINDER_OF("values", [], CBORF_FLOAT)
+
+pkt = FloatRemainder(bytes.fromhex("f90000"))
+pkt.values[0] = -0.0
+assert bytes(pkt) == bytes.fromhex("f98000")
+
 = Packet-valued ARRAY_OF and REMAINDER_OF fingerprint copy and wire cache
 from scapy.cbor.cborfields import (
     CBORF_ANY,
@@ -1439,6 +1476,141 @@ pkt = ConditionalTail(b"\x82\x01\x07")
 assert pkt.flag == 1
 assert pkt.opt is CBOR_ABSENT
 assert pkt.req == 7
+
+= Default-on conditional omits when discriminator is off (definite)
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class ConditionalArray(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 1),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 3),
+            lambda p: p.flag == 1,
+        ),
+    )
+
+pkt = ConditionalArray(b"\x81\x00")
+assert pkt.flag == 0
+assert pkt.value is None or "value" not in pkt.fields
+assert bytes(pkt) == b"\x81\x00"
+
+= Default-on conditional omits when discriminator is off (indefinite)
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class ConditionalArrayIndef(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 1),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 3),
+            lambda p: p.flag == 1,
+        ),
+    )
+
+pkt = ConditionalArrayIndef(b"\x9f\x00\xff")
+assert pkt.flag == 0
+assert bytes(pkt) == b"\x9f\x00\xff"
+pkt.clear_cache()
+assert bytes(pkt) == b"\x81\x00"
+
+= Default-on conditional with intervening optional omits when off
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_optional,
+    CBOR_ABSENT,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class ConditionalWithOpt(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 1),
+        CBORF_optional(CBORF_INTEGER("opt", None)),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 3),
+            lambda p: p.flag == 1,
+        ),
+    )
+
+pkt = ConditionalWithOpt(b"\x81\x00")
+assert pkt.flag == 0
+assert pkt.opt is CBOR_ABSENT
+assert bytes(pkt) == b"\x81\x00"
+
+= Default-off conditional enables on wire (definite and indefinite)
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class ConditionalOffDefault(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 0),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 3),
+            lambda p: p.flag == 1,
+        ),
+    )
+
+pkt = ConditionalOffDefault(b"\x82\x01\x05")
+assert pkt.flag == 1 and pkt.value == 5
+pkt = ConditionalOffDefault(b"\x9f\x01\x05\xff")
+assert pkt.flag == 1 and pkt.value == 5
+
+= Zero-budget REMAINDER_OF clears a nonempty default
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_INTEGER,
+    CBORF_REMAINDER_OF,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class TailArray(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("n", 0),
+        CBORF_REMAINDER_OF("values", [7], CBORF_INTEGER),
+    )
+
+pkt = TailArray(b"\x81\x01")
+assert pkt.n == 1
+assert pkt.values == []
+assert "values" in pkt.fields
+pkt.n = 2
+assert bytes(pkt) == b"\x81\x02"
+
+= Zero-budget nested ITEMS optional clears default
+from scapy.cbor.cborfields import (
+    CBOR_ABSENT,
+    CBORF_ARRAY,
+    CBORF_INTEGER,
+    CBORF_ITEMS,
+    CBORF_optional,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class NestedOptional(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_ITEMS(
+            CBORF_optional(CBORF_INTEGER("value", 9)),
+        ),
+    )
+
+pkt = NestedOptional(b"\x80")
+assert pkt.value is CBOR_ABSENT
+pkt.clear_cache()
+assert bytes(pkt) == b"\x80"
 
 = Skipped definite-only optional does not poison a required bytestring
 from scapy.cbor.cborfields import (
@@ -3678,6 +3850,45 @@ assert wire == bytes.fromhex("828201028103")
 decoded = NestedArrayOf(wire)
 assert decoded.outer == [[1, 2], [3]]
 assert bytes(decoded) == wire
+
+= Nested packet-valued ARRAY_OF is rejected at construction
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class IntegerChild(CBOR_Packet):
+    CBOR_root = CBORF_INTEGER("value", 0)
+
+try:
+    CBORF_ARRAY_OF(
+        "rows", [],
+        CBORF_ARRAY_OF("_row", [], IntegerChild),
+    )
+    assert False, "nested packet-valued ARRAY_OF was accepted"
+except ValueError:
+    pass
+
+= Nested packet matrix via inner CBOR_Packet round-trips and clears cache
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class IntegerChild(CBOR_Packet):
+    CBOR_root = CBORF_INTEGER("value", 0)
+
+class Row(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF("cells", [], IntegerChild)
+
+class Matrix(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF("rows", [], Row)
+
+wire = bytes.fromhex("818101")
+pkt = Matrix(wire)
+assert pkt.rows[0].cells[0].value == 1
+assert bytes(pkt) == wire
+clone = pkt.copy()
+assert clone.rows[0] is not pkt.rows[0]
+assert clone.rows[0].parent is clone
+pkt.clear_cache()
+assert bytes(pkt) == wire
 
 = CBORF_ARRAY rejects unused encode_indefinite keyword
 from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_UNSIGNED_INTEGER

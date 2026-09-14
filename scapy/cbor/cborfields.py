@@ -15,6 +15,7 @@ prefer ``build`` / ``dissect``.
 
 import copy
 import math
+import struct
 
 from dataclasses import dataclass
 
@@ -764,12 +765,6 @@ def _cbor_decode_byte_string(s, definite_only=False):
     return obj.val, remain
 
 
-def _cbor_encode_byte_string(x):
-    # type: (Any) -> bytes
-    """Encode *x* as a definite CBOR byte string item."""
-    return CBORcodec_BYTE_STRING.enc(bytes(x))
-
-
 class CBORF_BYTE_STRING(CBORF_field[bytes]):
     """CBOR byte string field (major type 2)."""
     CBOR_tag = CBOR_MajorTypes.BYTE_STRING
@@ -797,7 +792,7 @@ class CBORF_BYTE_STRING(CBORF_field[bytes]):
 
     def _encode_leaf(self, x):
         # type: (Any) -> bytes
-        return _cbor_encode_byte_string(x)
+        return CBORcodec_BYTE_STRING.enc(bytes(x))
 
     def randval(self):
         # type: () -> RandString
@@ -867,7 +862,7 @@ class CBORF_BYTE_STRING_PACKET(CBORF_field[Packet]):
 
     def _encode_leaf(self, x):
         # type: (Any) -> bytes
-        return _cbor_encode_byte_string(x)
+        return CBORcodec_BYTE_STRING.enc(bytes(x))
 
 
 class CBORF_TEXT_STRING(CBORF_field[str]):
@@ -1108,13 +1103,12 @@ class CBORF_FLOAT(CBORF_field[float]):
         # type: (Any) -> bytes
         return CBORcodec_SIMPLE_AND_FLOAT.enc(float(x))
 
-    def i2h(self, pkt, x):
-        # type: (CBOR_Packet, Any) -> Any
-        return x
-
-    def i2repr(self, pkt, x):
-        # type: (CBOR_Packet, Any) -> str
-        return repr(x)
+    def cache_fingerprint(self, x):
+        # type: (Any) -> Any
+        """Wire-sensitive snapshot: distinguishes +0.0/-0.0 and NaN bits."""
+        if x is None or x is CBOR_ABSENT:
+            return x
+        return struct.unpack(">Q", struct.pack(">d", float(x)))[0]
 
     def randval(self):
         # type: () -> RandFloat
@@ -1285,16 +1279,25 @@ class CBORF_ARRAY(_CBORF_compound):
         remaining = s
         items_left = count
         for index, field in enumerate(self.seq):
-            reserved = sum(
-                f.min_items(pkt) for f in self.seq[index + 1:]
-            )
-            available = items_left - reserved
             needed = field.min_items(pkt)
+            # Required leading slots must not reserve suffix conditionals
+            # against packet defaults (discriminator not yet decoded).
+            # Optional / zero-min slots keep full min_items so an already
+            # true conditional still steals from a same-type optional.
+            reserve_conditionals = needed == 0
+            reserved = 0
+            for suffix in self.seq[index + 1:]:
+                if (
+                    isinstance(suffix, CBORF_CONDITIONAL)
+                    and not reserve_conditionals
+                ):
+                    continue
+                reserved += suffix.min_items(pkt)
+            available = items_left - reserved
             if available < 0 or available < needed:
                 raise CBOR_Decoding_Error("CBOR item count mismatch")
             if available == 0:
-                if isinstance(field, CBORF_optional):
-                    field._field.mark_absent(pkt)
+                self._init_zero_budget_field(pkt, field)
                 continue
             result = self._dissect_field(
                 pkt, field, remaining, max_items=available
@@ -1308,6 +1311,24 @@ class CBORF_ARRAY(_CBORF_compound):
         if items_left != 0:
             raise CBOR_Decoding_Error("CBOR item count mismatch")
         return remaining
+
+    def _init_zero_budget_field(self, pkt, field):
+        # type: (CBOR_Packet, Any) -> None
+        """Establish decoded state for a field that receives zero items.
+
+        Must not consume wire bytes from the outer array payload.
+        """
+        if isinstance(field, CBORF_optional):
+            field._field.mark_absent(pkt)
+        elif isinstance(field, CBORF_REMAINDER_OF):
+            field._dissect_counted(pkt, b"", max_items=0)
+        elif isinstance(field, CBORF_ITEMS):
+            for child in field.seq:
+                self._init_zero_budget_field(pkt, child)
+        elif isinstance(field, CBORF_CONDITIONAL):
+            # False conditionals emit nothing; true ones are required and
+            # already rejected by the available < needed check above.
+            field._dissect_counted(pkt, b"")
 
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
@@ -1426,6 +1447,16 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
                 self.item_field = pkt_cls("_item", None)  # type: ignore
             else:
                 self.item_field = pkt_cls
+            # Nested packet-valued collections would store list[list[Packet]]
+            # while Scapy cache/copy assume flat list[Packet].
+            if (
+                isinstance(self.item_field, _CBORF_HOMOGENEOUS)
+                and getattr(self.item_field, "holds_packets", False)
+            ):
+                raise ValueError(
+                    "Nested packet-valued CBOR collections are not "
+                    "supported; wrap the inner array in a CBOR_Packet"
+                )
             # Packet-valued element fields must register as packet storage
             # even though decode/encode still go through item_field.
             self.holds_packets = 1 if getattr(
@@ -1581,22 +1612,6 @@ class CBORF_REMAINDER_OF(_CBORF_HOMOGENEOUS):
     _empty_repr = "()"
     _open_repr = "("
     _close_repr = ")"
-
-    def __init__(self,
-                 name,  # type: str
-                 default,  # type: Any
-                 pkt_cls=None,  # type: _ARRAY_T
-                 next_cls_cb=None,  # type: Optional[Callable[..., Optional[Type[Packet]]]]  # noqa: E501
-                 max_count=None,  # type: Optional[int]
-                 ):
-        # type: (...) -> None
-        super(CBORF_REMAINDER_OF, self).__init__(
-            name,
-            default,
-            pkt_cls=pkt_cls,
-            next_cls_cb=next_cls_cb,
-            max_count=max_count,
-        )
 
     def _decode_items(self, pkt, data, max_items=None):
         # type: (CBOR_Packet, bytes, Optional[int]) -> Tuple[List[Any], bytes, int]
