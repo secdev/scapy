@@ -101,17 +101,12 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
                             continue
                         if cval is None and getattr(cf, "isconditional", False):
                             continue
-                        if (
-                            cf.islist
-                            or cf.holds_packets
-                            or getattr(cf, "ismutable", False)
-                        ) and cval is not None:
-                            child_fields[cf.name] = (
-                                child._raw_packet_cache_field_value(
-                                    cf, cval, copy=copy
-                                )
+                        child_fields[cf.name] = (
+                            child._raw_packet_cache_field_value(
+                                cf, cval, copy=copy
                             )
-                        else:
+                        )
+                        if child_fields[cf.name] is None:
                             child_fields[cf.name] = cval
                 else:
                     child_fields = (

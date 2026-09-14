@@ -450,24 +450,48 @@ def _cbor_nan_components(ai, bits):
     return None
 
 
+def _cbor_encode_preferred_float(value):
+    # type: (float) -> bytes
+    """Encode *value* with the shortest float that preserves its numeric value."""
+    import math
+    # NaN maps to quiet binary16 via _cbor_float_to_half_bits.
+    half = _cbor_float_to_half_bits(value)
+    if half is not None:
+        return (
+            CBOR_encode_initial(
+                CBOR_MajorTypes.SIMPLE_AND_FLOAT, CBOR_FloatAI.HALF
+            )
+            + struct.pack(">H", half)
+        )
+    try:
+        single_bytes = struct.pack(">f", value)
+        single = struct.unpack(">f", single_bytes)[0]
+    except (OverflowError, struct.error):
+        return (
+            CBOR_encode_initial(
+                CBOR_MajorTypes.SIMPLE_AND_FLOAT, CBOR_FloatAI.DOUBLE
+            )
+            + struct.pack(">d", value)
+        )
+    if single == value or (math.isinf(single) and math.isinf(value)):
+        return (
+            CBOR_encode_initial(
+                CBOR_MajorTypes.SIMPLE_AND_FLOAT, CBOR_FloatAI.SINGLE
+            )
+            + single_bytes
+        )
+    return (
+        CBOR_encode_initial(
+            CBOR_MajorTypes.SIMPLE_AND_FLOAT, CBOR_FloatAI.DOUBLE
+        )
+        + struct.pack(">d", value)
+    )
+
+
 def _cbor_preferred_float_ai(value):
     # type: (float) -> int
     """Return the preferred float AI for a numeric *value*."""
-    import math
-    # Return plain ints: callers order preferred AI with ``<``.
-    if math.isnan(value):
-        # Without the original payload bits, only the quiet binary16 NaN is a
-        # safe generic preference. Encoded-width checks use bit patterns.
-        return int(CBOR_FloatAI.HALF)
-    if _cbor_float_to_half_bits(value) is not None:
-        return int(CBOR_FloatAI.HALF)
-    try:
-        single = struct.unpack(">f", struct.pack(">f", value))[0]
-    except (OverflowError, struct.error):
-        return int(CBOR_FloatAI.DOUBLE)
-    if single == value or (math.isinf(single) and math.isinf(value)):
-        return int(CBOR_FloatAI.SINGLE)
-    return int(CBOR_FloatAI.DOUBLE)
+    return _cbor_encode_preferred_float(value)[0] & 0x1f
 
 
 #    [ CBOR codec classes ]    #
@@ -1231,30 +1255,7 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
             # Preferred serialization (RFC 8949): shortest float that
             # preserves the numeric value. Received non-preferred widths are
             # preserved via packet raw caches, not by this encoder.
-            ai = _cbor_preferred_float_ai(val)
-            if ai == CBOR_FloatAI.HALF:
-                half = _cbor_float_to_half_bits(val)
-                if half is not None:
-                    return (
-                        CBOR_encode_initial(CBOR_MajorTypes.SIMPLE_AND_FLOAT,
-                                            CBOR_FloatAI.HALF)
-                        + struct.pack(">H", half)
-                    )
-                ai = CBOR_FloatAI.SINGLE
-            if ai == CBOR_FloatAI.SINGLE:
-                try:
-                    return (
-                        CBOR_encode_initial(CBOR_MajorTypes.SIMPLE_AND_FLOAT,
-                                            CBOR_FloatAI.SINGLE)
-                        + struct.pack(">f", val)
-                    )
-                except (OverflowError, struct.error):
-                    pass
-            return (
-                CBOR_encode_initial(CBOR_MajorTypes.SIMPLE_AND_FLOAT,
-                                    CBOR_FloatAI.DOUBLE)
-                + struct.pack(">d", val)
-            )
+            return _cbor_encode_preferred_float(val)
         elif isinstance(val, int) and 0 <= val <= 23:
             # Simple value 0-23
             return CBOR_encode_head(CBOR_MajorTypes.SIMPLE_AND_FLOAT, val)
