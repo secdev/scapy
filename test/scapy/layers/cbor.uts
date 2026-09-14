@@ -1479,6 +1479,32 @@ assert pkt.flag == 1
 assert pkt.opt is CBOR_ABSENT
 assert pkt.req == 7
 
+= String depends_on reserves against a same-type optional
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_UNSIGNED_INTEGER,
+    CBORF_optional,
+    CBOR_ABSENT,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class ConditionalTailStrDepends(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_UNSIGNED_INTEGER("flag", 0),
+        CBORF_optional(CBORF_UNSIGNED_INTEGER("opt", None)),
+        CBORF_CONDITIONAL(
+            CBORF_UNSIGNED_INTEGER("req", 0),
+            lambda pkt: pkt.flag == 1,
+            depends_on="flag",
+        ),
+    )
+
+pkt = ConditionalTailStrDepends(b"\x82\x01\x07")
+assert pkt.flag == 1
+assert pkt.opt is CBOR_ABSENT
+assert pkt.req == 7
+
 = Optional text before discriminator omits default-off conditional
 from scapy.cbor.cborfields import (
     CBOR_ABSENT,
@@ -1582,6 +1608,37 @@ pkt = OptionalThenRequiredThenCond(b"\x9f\x00\x05\xff")
 assert pkt.flag == 0
 assert pkt.optional is CBOR_ABSENT
 assert pkt.required == 5
+
+= String depends_on reserves past an unrelated required field
+from scapy.cbor.cborfields import (
+    CBOR_ABSENT,
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_optional,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptionalThenRequiredThenCondStr(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 0),
+        CBORF_optional(CBORF_INTEGER("optional", None)),
+        CBORF_INTEGER("required", 0),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 0),
+            lambda p: p.flag == 1,
+            depends_on="flag",
+        ),
+    )
+
+wire = bytes(OptionalThenRequiredThenCondStr(flag=1, required=5, value=9))
+assert wire == bytes.fromhex("83010509")
+pkt = OptionalThenRequiredThenCondStr(wire)
+assert pkt.flag == 1
+assert pkt.optional is CBOR_ABSENT
+assert pkt.required == 5
+assert pkt.value == 9
+assert bytes(pkt) == wire
 
 = getfieldval predicate reserves conditional past an unrelated required field
 from scapy.cbor.cborfields import (
@@ -1938,6 +1995,34 @@ pkt = OptionalBeforeDefaultOn(label="a", flag=0)
 wire = bytes(pkt)
 assert wire == b"\x82\x61a\x00"
 decoded = OptionalBeforeDefaultOn(wire)
+assert decoded.label == "a"
+assert decoded.flag == 0
+assert bytes(decoded) == wire
+
+= Omitted depends_on does not starve a typed optional
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_TEXT_STRING,
+    CBORF_optional,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptionalBeforeDefaultOnNoDepends(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_optional(CBORF_TEXT_STRING("label", None)),
+        CBORF_INTEGER("flag", 1),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 3),
+            lambda p: p.flag == 1,
+        ),
+    )
+
+pkt = OptionalBeforeDefaultOnNoDepends(label="a", flag=0)
+wire = bytes(pkt)
+assert wire == b"\x82\x61a\x00"
+decoded = OptionalBeforeDefaultOnNoDepends(wire)
 assert decoded.label == "a"
 assert decoded.flag == 0
 assert bytes(decoded) == wire
