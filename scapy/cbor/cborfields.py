@@ -1292,48 +1292,66 @@ class CBORF_ARRAY(_CBORF_compound):
         return flat
 
     @staticmethod
-    def _blocks_conditional_reservation(field):
-        # type: (Any) -> bool
-        """True if *field* must be decoded before a later conditional is reserved."""
-        if isinstance(
-            field, (CBORF_optional, CBORF_CONDITIONAL, CBORF_REMAINDER_OF)
-        ):
-            return False
-        if isinstance(field, CBORF_ITEMS):
-            return any(
-                CBORF_ARRAY._blocks_conditional_reservation(child)
-                for child in field.seq
-            )
-        return True
+    def _field_names(field):
+        # type: (Any) -> List[str]
+        if isinstance(field, CBORF_CONDITIONAL):
+            return CBORF_ARRAY._field_names(field.fld)
+        get_fields_list = getattr(field, "get_fields_list", None)
+        if get_fields_list is not None:
+            return [f.name for f in get_fields_list()]
+        name = getattr(field, "name", None)
+        return [name] if name else []
+
+    @staticmethod
+    def _conditional_reserved_items(field, pkt, decoded):
+        # type: (Any, CBOR_Packet, set) -> int
+        """Reserve items for *field* only when its condition is decidable."""
+        class _DecodedView(object):
+            def __getattr__(self, name):
+                # type: (str) -> Any
+                if name not in decoded and name not in pkt.fields:
+                    raise AttributeError(name)
+                return pkt.getfieldval(name)
+
+        try:
+            active = bool(field.cond(_DecodedView()))
+        except AttributeError:
+            return 0
+        if not active:
+            return 0
+        return field.fld.min_items(pkt)
 
     def _dissect_children_budgeted(self, pkt, s, count):
         # type: (CBOR_Packet, bytes, int) -> bytes
         remaining = s
         items_left = count
+        decoded = set(pkt.fields)  # type: set
         for index, field in enumerate(self.seq):
+            if isinstance(field, CBORF_optional):
+                if not field._field.matches_next_item(pkt, remaining):
+                    field._field.mark_absent(pkt)
+                    decoded.update(self._field_names(field))
+                    continue
             needed = field.min_items(pkt)
             reserved = 0
-            for j, suffix in enumerate(self.seq[index + 1:], start=index + 1):
+            for suffix in self.seq[index + 1:]:
                 if isinstance(suffix, CBORF_CONDITIONAL):
-                    # Do not reserve from defaults while reading a required
-                    # discriminator, or while any required field remains
-                    # between the current slot and this conditional.
-                    if needed > 0:
-                        continue
-                    between = self.seq[index + 1:j]
-                    if any(
-                        self._blocks_conditional_reservation(f)
-                        for f in between
-                    ):
-                        continue
-                    reserved += suffix.min_items(pkt)
+                    reserved += self._conditional_reserved_items(
+                        suffix, pkt, decoded
+                    )
                 else:
                     reserved += suffix.min_items(pkt)
             available = items_left - reserved
             if available < 0 or available < needed:
                 raise CBOR_Decoding_Error("CBOR item count mismatch")
             if available == 0:
-                self._init_zero_budget_field(pkt, field)
+                if isinstance(field, CBORF_optional):
+                    field._field.mark_absent(pkt)
+                elif isinstance(field, CBORF_REMAINDER_OF):
+                    field._dissect_counted(pkt, b"", max_items=0)
+                elif isinstance(field, CBORF_CONDITIONAL):
+                    field._dissect_counted(pkt, b"")
+                decoded.update(self._field_names(field))
                 continue
             result = self._dissect_field(
                 pkt, field, remaining, max_items=available
@@ -1344,24 +1362,10 @@ class CBORF_ARRAY(_CBORF_compound):
                 )
             remaining = result.remaining
             items_left -= result.items
+            decoded.update(self._field_names(field))
         if items_left != 0:
             raise CBOR_Decoding_Error("CBOR item count mismatch")
         return remaining
-
-    def _init_zero_budget_field(self, pkt, field):
-        # type: (CBOR_Packet, Any) -> None
-        """Establish decoded state for a field that receives zero items.
-
-        Must not consume wire bytes from the outer array payload.
-        """
-        if isinstance(field, CBORF_optional):
-            field._field.mark_absent(pkt)
-        elif isinstance(field, CBORF_REMAINDER_OF):
-            field._dissect_counted(pkt, b"", max_items=0)
-        elif isinstance(field, CBORF_CONDITIONAL):
-            # False conditionals emit nothing; true ones are required and
-            # already rejected by the available < needed check above.
-            field._dissect_counted(pkt, b"")
 
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
