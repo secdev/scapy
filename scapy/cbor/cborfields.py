@@ -1306,16 +1306,26 @@ class CBORF_ARRAY(_CBORF_compound):
     def _conditional_reserved_items(field, pkt, decoded):
         # type: (Any, CBOR_Packet, set) -> int
         """Reserve items for *field* only when its condition is decidable."""
+        class _UnresolvedDependency(Exception):
+            """Field not yet available to the predicate."""
+
         class _DecodedView(object):
-            def __getattr__(self, name):
+            def getfieldval(self, name):
                 # type: (str) -> Any
                 if name not in decoded and name not in pkt.fields:
-                    raise AttributeError(name)
+                    raise _UnresolvedDependency(name)
                 return pkt.getfieldval(name)
+
+            def __getattr__(self, name):
+                # type: (str) -> Any
+                cls_attr = getattr(type(pkt), name, None)
+                if callable(cls_attr):
+                    return cls_attr.__get__(self, type(pkt))
+                return self.getfieldval(name)
 
         try:
             active = bool(field.cond(_DecodedView()))
-        except AttributeError:
+        except _UnresolvedDependency:
             return 0
         if not active:
             return 0
