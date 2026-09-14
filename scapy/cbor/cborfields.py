@@ -1267,11 +1267,11 @@ class CBORF_ARRAY(_CBORF_compound):
     Framed nested :class:`CBORF_ARRAY` values remain boundaries.
 
     Suffix :class:`CBORF_CONDITIONAL` reservation uses
-    :meth:`CBORF_CONDITIONAL.min_items` on the real packet, so predicates
-    see Scapy Packet APIs. A discriminator must already be decoded (to
-    the left of any earlier optional it should starve). Unread fields
-    use packet defaults; same-type ``optional`` before an unread flag is
-    greedy. Place the discriminator left of that optional.
+    :meth:`CBORF_CONDITIONAL.min_items` on the real packet
+    (``ConditionalField._evalcond``). Unread fields use packet defaults.
+    Place a discriminator left of any optional it should starve. A
+    default-on trailing conditional reserves as if that default were
+    already present.
 
     Example::
 
@@ -1310,22 +1310,19 @@ class CBORF_ARRAY(_CBORF_compound):
         items_left = count
         for index, field in enumerate(self.seq):
             if isinstance(field, CBORF_optional):
-                if not field._field.matches_next_item(pkt, remaining):
-                    field._field.mark_absent(pkt)
+                if not field.matches_next_item(pkt, remaining):
+                    field.mark_absent(pkt)
                     continue
             needed = field.min_items(pkt)
-            reserved = 0
-            for suffix in self.seq[index + 1:]:
-                if isinstance(suffix, CBORF_CONDITIONAL):
-                    reserved += self._conditional_reserved_items(suffix, pkt)
-                else:
-                    reserved += suffix.min_items(pkt)
+            reserved = sum(
+                suffix.min_items(pkt) for suffix in self.seq[index + 1:]
+            )
             available = items_left - reserved
             if available < 0 or available < needed:
                 raise CBOR_Decoding_Error("CBOR item count mismatch")
             if available == 0:
                 if isinstance(field, CBORF_optional):
-                    field._field.mark_absent(pkt)
+                    field.mark_absent(pkt)
                 elif isinstance(field, CBORF_REMAINDER_OF):
                     field._dissect_counted(pkt, b"", max_items=0)
                 elif isinstance(field, CBORF_CONDITIONAL):
@@ -1343,47 +1340,6 @@ class CBORF_ARRAY(_CBORF_compound):
         if items_left != 0:
             raise CBOR_Decoding_Error("CBOR item count mismatch")
         return remaining
-
-    @staticmethod
-    def _conditional_reserved_items(field, pkt):
-        # type: (Any, CBOR_Packet) -> int
-        """Reserve *field* only from already-dissected packet state.
-
-        Predicates run on the real packet. Unread names (not in
-        ``pkt.fields``) are undecided: do not reserve from defaults.
-        """
-        from scapy.cborpacket import CBOR_Packet
-
-        class _Unread(Exception):
-            pass
-
-        orig_getfieldval = Packet.getfieldval
-        orig_getfield_and_val = Packet.getfield_and_val
-
-        def getfieldval(self, name):
-            # type: (Packet, str) -> Any
-            if self is pkt and name not in self.fields:
-                raise _Unread(name)
-            return orig_getfieldval(self, name)
-
-        def getfield_and_val(self, name):
-            # type: (Packet, str) -> Any
-            if self is pkt and name not in self.fields:
-                raise _Unread(name)
-            return orig_getfield_and_val(self, name)
-
-        setattr(CBOR_Packet, "getfieldval", getfieldval)
-        setattr(CBOR_Packet, "getfield_and_val", getfield_and_val)
-        try:
-            active = bool(field.cond(pkt))
-        except _Unread:
-            return 0
-        finally:
-            delattr(CBOR_Packet, "getfieldval")
-            delattr(CBOR_Packet, "getfield_and_val")
-        if not active:
-            return 0
-        return field.fld.min_items(pkt)
 
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
@@ -2070,7 +2026,7 @@ class CBORF_MAP(CBORF_element):
         for fld in self.seq:
             if not isinstance(fld, CBORF_CONDITIONAL):
                 continue
-            name = fld.fld.name
+            name = fld.name
             if name not in pair_values:
                 continue
             if not fld._evalcond(pkt):
