@@ -192,11 +192,6 @@ class CBORF_element(object):
         # type: (CBOR_Packet) -> int
         return 1
 
-    def reservation_min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        """Items this field must keep when an earlier optional is budgeted."""
-        return self.min_items(pkt)
-
     def structural_max_items(self, pkt):
         # type: (CBOR_Packet) -> int
         """Upper bound independent of not-yet-dissected discriminators."""
@@ -1253,10 +1248,6 @@ class CBORF_ITEMS(_CBORF_compound):
         # type: (CBOR_Packet) -> int
         return sum(f.min_items(pkt) for f in self.seq)
 
-    def reservation_min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return sum(f.reservation_min_items(pkt) for f in self.seq)
-
     def structural_max_items(self, pkt):
         # type: (CBOR_Packet) -> int
         return sum(f.structural_max_items(pkt) for f in self.seq)
@@ -1275,10 +1266,10 @@ class CBORF_ARRAY(_CBORF_compound):
     array's positional schema so budgeting applies to one field sequence.
     Framed nested :class:`CBORF_ARRAY` values remain boundaries.
 
-    Suffix reservation runs only for :class:`CBORF_optional`. Trailing
-    :class:`CBORF_CONDITIONAL` fields reserve through
-    ``depends_on`` names already present in ``pkt.fields``. Place the
-    discriminator left of any optional it should starve. Same-type
+    Suffix reservation runs only for :class:`CBORF_optional`. A trailing
+    :class:`CBORF_CONDITIONAL` reserves only when ``depends_on`` is set
+    and those names are already in ``pkt.fields``. Omit ``depends_on``
+    to evaluate the condition when the field is reached. Same-type
     optional before an unread flag is greedy.
 
     Example::
@@ -1312,6 +1303,18 @@ class CBORF_ARRAY(_CBORF_compound):
                 flat.append(field)
         return flat
 
+    @staticmethod
+    def _reserved_items(field, pkt):
+        # type: (Any, CBOR_Packet) -> int
+        if isinstance(field, CBORF_optional):
+            return 0
+        if isinstance(field, CBORF_CONDITIONAL):
+            if field.depends_on is None:
+                return 0
+            if not all(name in pkt.fields for name in field.depends_on):
+                return 0
+        return field.min_items(pkt)
+
     def _dissect_children_budgeted(self, pkt, s, count):
         # type: (CBOR_Packet, bytes, int) -> bytes
         remaining = s
@@ -1322,7 +1325,7 @@ class CBORF_ARRAY(_CBORF_compound):
                     field.mark_absent(pkt)
                     continue
                 reserved = sum(
-                    suffix.reservation_min_items(pkt)
+                    self._reserved_items(suffix, pkt)
                     for suffix in self.seq[index + 1:]
                 )
                 if items_left <= reserved:
@@ -2217,10 +2220,6 @@ class CBORF_optional(CBORF_element):
         # type: (CBOR_Packet) -> int
         return 0
 
-    def reservation_min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        return 0
-
     def structural_max_items(self, pkt):
         # type: (CBOR_Packet) -> int
         return self._field.structural_max_items(pkt)
@@ -2233,13 +2232,16 @@ class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
 
     ``depends_on`` names must already be in ``pkt.fields`` before this
     field may reserve items against an earlier :class:`CBORF_optional`.
-    An empty tuple means the conditional is evaluated only when reached.
+    ``None`` (the default) means the condition is evaluated only when
+    the field is reached. An empty tuple means the predicate has no
+    field dependencies and may reserve immediately. A string is treated
+    as a one-element name tuple.
     """
 
     def __init__(self,
                  fld,  # type: CBORF_field[Any]
                  cond,  # type: Callable[[Packet], bool]
-                 depends_on=(),  # type: Tuple[str, ...]
+                 depends_on=None,  # type: Optional[Union[str, Tuple[str, ...]]]
                  ):
         # type: (...) -> None
         if isinstance(fld, CBORF_REMAINDER_OF):
@@ -2248,7 +2250,12 @@ class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
                 "place it directly as the final positional field"
             )
         fields.ConditionalField.__init__(self, fld, cond)
-        self.depends_on = tuple(depends_on)
+        if depends_on is None:
+            self.depends_on = None  # type: Optional[Tuple[str, ...]]
+        elif isinstance(depends_on, str):
+            self.depends_on = (depends_on,)
+        else:
+            self.depends_on = tuple(depends_on)
 
     def __repr__(self):
         # type: () -> str
@@ -2275,12 +2282,6 @@ class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
         if self._evalcond(pkt):
             return self.fld.min_items(pkt)
         return 0
-
-    def reservation_min_items(self, pkt):
-        # type: (CBOR_Packet) -> int
-        if not all(name in pkt.fields for name in self.depends_on):
-            return 0
-        return self.min_items(pkt)
 
     def structural_max_items(self, pkt):
         # type: (CBOR_Packet) -> int
