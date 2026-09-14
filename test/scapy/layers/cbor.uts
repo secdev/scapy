@@ -1424,7 +1424,8 @@ class ConditionalOpt(CBOR_Packet):
         CBORF_INTEGER("flag", 1),
         CBORF_optional(CBORF_INTEGER("optional", None)),
         CBORF_CONDITIONAL(
-            CBORF_INTEGER("last", 8), lambda p: p.flag == 1
+            CBORF_INTEGER("last", 8), lambda p: p.flag == 1,
+            depends_on=("flag",),
         ),
     )
 
@@ -1469,6 +1470,7 @@ class ConditionalTail(CBOR_Packet):
         CBORF_CONDITIONAL(
             CBORF_UNSIGNED_INTEGER("req", 0),
             lambda pkt: pkt.flag == 1,
+            depends_on=("flag",),
         ),
     )
 
@@ -1495,6 +1497,7 @@ class OptionalBeforeFlag(CBOR_Packet):
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 3),
             lambda p: p.flag == 1,
+            depends_on=("flag",),
         ),
     )
 
@@ -1538,6 +1541,7 @@ class OptionalThenRequiredThenCond(CBOR_Packet):
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 0),
             lambda p: p.flag == 1,
+            depends_on=("flag",),
         ),
     )
 
@@ -1597,6 +1601,7 @@ class OptionalThenRequiredThenCondGet(CBOR_Packet):
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 0),
             lambda p: p.getfieldval("flag") == 1,
+            depends_on=("flag",),
         ),
     )
 
@@ -1638,6 +1643,7 @@ class OptionalThenRequiredThenCondMethod(CBOR_Packet):
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 0),
             lambda p: p.flag_enabled(),
+            depends_on=("flag",),
         ),
     )
 
@@ -1674,6 +1680,7 @@ class OptionalThenRequiredThenCondIsInstance(CBOR_Packet):
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 0),
             lambda p: p.value_enabled(),
+            depends_on=("flag",),
         ),
     )
 
@@ -1708,6 +1715,7 @@ class OptionalThenRequiredThenCondGetField(CBOR_Packet):
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 0),
             lambda p: p.get_field("flag").name == "flag" and p.flag == 1,
+            depends_on=("flag",),
         ),
     )
 
@@ -1741,6 +1749,7 @@ class OptionalBeforeUnreadFlag(CBOR_Packet):
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 0),
             lambda p: p.flag == 1,
+            depends_on=("flag",),
         ),
     )
 
@@ -1774,6 +1783,7 @@ class OptionalThenRequiredThenCondBoom(CBOR_Packet):
             CBORF_INTEGER("value", 0),
             lambda p: (_ for _ in ()).throw(ValueError("predicate failed"))
             if p.getfieldval("flag") == 1 else False,
+            depends_on=("flag",),
         ),
     )
 
@@ -1793,6 +1803,7 @@ class OptionalThenRequiredThenCondAttrErr(CBOR_Packet):
             CBORF_INTEGER("value", 0),
             lambda p: (_ for _ in ()).throw(AttributeError("predicate failed"))
             if p.flag == 1 else False,
+            depends_on=("flag",),
         ),
     )
 
@@ -1818,6 +1829,7 @@ class GroupedConditional(CBOR_Packet):
             CBORF_CONDITIONAL(
                 CBORF_INTEGER("value", 3),
                 lambda p: p.flag == 1,
+                depends_on=("flag",),
             ),
         ),
     )
@@ -1828,6 +1840,7 @@ class FlatConditional(CBOR_Packet):
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 3),
             lambda p: p.flag == 1,
+            depends_on=("flag",),
         ),
     )
 
@@ -1870,8 +1883,7 @@ assert pkt.a == 1
 assert pkt.b is CBOR_ABSENT
 assert pkt.tail == 2
 
-= Default-on trailing conditional reserves from the unread default
-from scapy.cbor.cbor import CBOR_Decoding_Error
+= Default-on trailing conditional round-trips when the discriminator is off
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_CONDITIONAL,
@@ -1885,6 +1897,7 @@ class ConditionalArrayOn(CBOR_Packet):
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 3),
             lambda p: p.flag == 1,
+            depends_on=("flag",),
         ),
     )
 
@@ -1892,11 +1905,42 @@ wire = bytes(ConditionalArrayOn())
 assert wire == b"\x82\x01\x03"
 pkt = ConditionalArrayOn(wire)
 assert pkt.flag == 1 and pkt.value == 3
-try:
-    ConditionalArrayOn(b"\x81\x00")
-    assert False, "default-on short array should mismatch"
-except CBOR_Decoding_Error:
-    pass
+
+pkt = ConditionalArrayOn(flag=0)
+wire = bytes(pkt)
+assert wire == b"\x81\x00"
+decoded = ConditionalArrayOn(wire)
+assert decoded.flag == 0
+assert bytes(decoded) == wire
+
+= Default-on future discriminator does not starve a typed optional
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_TEXT_STRING,
+    CBORF_optional,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptionalBeforeDefaultOn(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_optional(CBORF_TEXT_STRING("label", None)),
+        CBORF_INTEGER("flag", 1),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 3),
+            lambda p: p.flag == 1,
+            depends_on=("flag",),
+        ),
+    )
+
+pkt = OptionalBeforeDefaultOn(label="a", flag=0)
+wire = bytes(pkt)
+assert wire == b"\x82\x61a\x00"
+decoded = OptionalBeforeDefaultOn(wire)
+assert decoded.label == "a"
+assert decoded.flag == 0
+assert bytes(decoded) == wire
 
 = Default-off conditional omits when discriminator is off (definite)
 from scapy.cbor.cborfields import (
@@ -1912,6 +1956,7 @@ class ConditionalArray(CBOR_Packet):
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 3),
             lambda p: p.flag == 1,
+            depends_on=("flag",),
         ),
     )
 
@@ -1934,6 +1979,7 @@ class ConditionalArrayIndef(CBOR_Packet):
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 3),
             lambda p: p.flag == 1,
+            depends_on=("flag",),
         ),
     )
 
@@ -1960,6 +2006,7 @@ class ConditionalWithOpt(CBOR_Packet):
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 3),
             lambda p: p.flag == 1,
+            depends_on=("flag",),
         ),
     )
 
@@ -1982,6 +2029,7 @@ class ConditionalOffDefault(CBOR_Packet):
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 3),
             lambda p: p.flag == 1,
+            depends_on=("flag",),
         ),
     )
 
