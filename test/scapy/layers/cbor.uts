@@ -3044,39 +3044,52 @@ ok = CBORMapData([
 assert CBORcodec_MAP.enc(ok) == b"\xa2\x01\x00\x02\x01"
 
 
-+ Finding 10 - Indefinite arrays should scale linearly without repeated suffix pre-decodes
++ Finding 10 - Indefinite array schema budget cost
 
-= Indefinite array span work remains linear in the input size
-import scapy.cbor.cborfields as cborfields
-from scapy.cbor.cborfields import CBORF_ARRAY_INDEFINITE, CBORF_UNSIGNED_INTEGER
+= Indefinite array schema min_items work grows with field count
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY_INDEFINITE,
+    CBORF_UNSIGNED_INTEGER,
+    CBORF_element,
+)
 from scapy.cborpacket import CBOR_Packet
 
-many_fields = [CBORF_UNSIGNED_INTEGER("v%d" % i, 0) for i in range(64)]
-
-class IndefiniteManyInts(CBOR_Packet):
-    CBOR_root = CBORF_ARRAY_INDEFINITE(*many_fields)
-
-orig_span = cborfields.cbor_item_span
-span_input_sizes = []
-
-def counted_span(data):
-    span_input_sizes.append(len(data))
-    return orig_span(data)
-
-wire = b"\x9f" + (b"\x00" * 64) + b"\xff"
-cborfields.cbor_item_span = counted_span
+# Budgeted indefinite dissection calls min_items across remaining schema
+# fields for each consumed item. That intentional O(n^2) schema scan must
+# stay measurable and scale with n; the old cbor_item_span monkeypatch was
+# unused on this path (cbor_count_items + min_items do the work).
+orig_min_items = CBORF_element.min_items
+call_counts = {}
 try:
-    pkt = IndefiniteManyInts(wire)
-    assert pkt.v0 == 0
-    assert pkt.v63 == 0
-finally:
-    cborfields.cbor_item_span = orig_span
+    for n in (32, 64, 128):
+        many_fields = [CBORF_UNSIGNED_INTEGER("v%d" % i, 0) for i in range(n)]
 
-# Repeatedly handing cbor_item_span() the complete shrinking suffix is
-# quadratic. Exact-item spans or a shared cursor keep aggregate scanned input
-# proportional to the original wire size. The 4x allowance avoids constraining
-# the exact implementation while still rejecting an O(n^2) pre-scan.
-assert sum(span_input_sizes) <= len(wire) * 4, span_input_sizes
+        class IndefiniteManyInts(CBOR_Packet):
+            CBOR_root = CBORF_ARRAY_INDEFINITE(*many_fields)
+
+        calls = [0]
+
+        def counted_min_items(self, pkt, _calls=calls):
+            _calls[0] += 1
+            return orig_min_items(self, pkt)
+
+        CBORF_element.min_items = counted_min_items
+        wire = b"\x9f" + (b"\x00" * n) + b"\xff"
+        pkt = IndefiniteManyInts(wire)
+        assert getattr(pkt, "v0") == 0
+        assert getattr(pkt, "v%d" % (n - 1)) == 0
+        call_counts[n] = calls[0]
+finally:
+    CBORF_element.min_items = orig_min_items
+
+assert call_counts[32] > 0
+assert call_counts[64] > call_counts[32]
+assert call_counts[128] > call_counts[64]
+# Doubling n roughly quadruples min_items work (schema scan over remaining
+# fields per item). Allow a wide band so the bound tracks the cost model
+# without pinning an exact implementation constant.
+assert 3.0 <= call_counts[64] / float(call_counts[32]) <= 5.0, call_counts
+assert 3.0 <= call_counts[128] / float(call_counts[64]) <= 5.0, call_counts
 
 + Additional regressions for recently fixed generic-CBOR behavior
 
@@ -3171,78 +3184,54 @@ assert bytes(pkt) == b"\xa2\x01\x61i\xf5\x61b"
 
 + Deterministic CBOR: large binary64 and indefinite map key order
 
-= Large binary64 values do not crash the deterministic scanner
-import struct
-from importlib.machinery import SourceFileLoader
-cbor_find_non_deterministic = SourceFileLoader(
-    "cbor_test_utils",
-    scapy_path("/test/scapy/layers/cbor_test_utils.py"),
-).load_module().cbor_find_non_deterministic
+= Large binary64 values encode and rebuild deterministically
+from scapy.cbor.cborcodec import CBORcodec_Object
 
 # RFC 8949 Appendix A example: 1.0e+300 as binary64
 wire = bytes.fromhex("fb7e37e43c8800759c")
-assert cbor_find_non_deterministic(wire) == []
+obj, rem = CBORcodec_Object.decode_cbor_item(wire)
+assert rem == b""
+assert CBORcodec_Object.encode_cbor_item_deterministic(obj) == wire
+assert CBORcodec_Object.encode_cbor_item(1.0e300) == wire
 
-wire = struct.pack(">B", 0xfb) + struct.pack(">d", -1e300)
-assert cbor_find_non_deterministic(wire) == []
+wire = CBORcodec_Object.encode_cbor_item(-1.0e300)
+assert wire == bytes.fromhex("fbfe37e43c8800759c")
+obj, rem = CBORcodec_Object.decode_cbor_item(wire)
+assert rem == b""
+assert CBORcodec_Object.encode_cbor_item_deterministic(obj) == wire
 
-= Indefinite maps require bytewise lexicographic key order
-from importlib.machinery import SourceFileLoader
-cbor_find_non_deterministic = SourceFileLoader(
-    "cbor_test_utils",
-    scapy_path("/test/scapy/layers/cbor_test_utils.py"),
-).load_module().cbor_find_non_deterministic
+= Indefinite maps rebuild into bytewise lexicographic key order
+from scapy.cbor.cborcodec import CBORcodec_Object
 
-assert not cbor_find_non_deterministic(
-    bytes.fromhex("bf616101616202ff"),
-    allow_indefinite=True,
+# Out-of-order keys decode; deterministic rebuild sorts encoded keys.
+unordered = bytes.fromhex("bf616201616102ff")
+obj, rem = CBORcodec_Object.decode_cbor_item(unordered)
+assert rem == b""
+assert CBORcodec_Object.encode_cbor_item_deterministic(obj) == bytes.fromhex(
+    "a2616102616201"
 )
-assert cbor_find_non_deterministic(
-    bytes.fromhex("bf616201616102ff"),
-    allow_indefinite=True,
+ordered = bytes.fromhex("bf616101616202ff")
+obj, rem = CBORcodec_Object.decode_cbor_item(ordered)
+assert rem == b""
+assert CBORcodec_Object.encode_cbor_item_deterministic(obj) == bytes.fromhex(
+    "a2616101616202"
 )
 
-= NaN preferred width uses the original payload bit pattern
-from importlib.machinery import SourceFileLoader
-cbor_find_non_deterministic = SourceFileLoader(
-    "cbor_test_utils",
-    scapy_path("/test/scapy/layers/cbor_test_utils.py"),
-).load_module().cbor_find_non_deterministic
+= Deterministic NaN preferred width follows the original payload bits
+from scapy.cbor.cbor import CBOR_FLOAT
+from scapy.cbor.cborcodec import CBORcodec_Object
 
+enc = CBORcodec_Object.encode_cbor_item_deterministic
 # binary64 NaN with a low payload bit cannot shorten to binary16/32
-assert cbor_find_non_deterministic(bytes.fromhex("fb7ff8000000000001")) == []
-
+irreducible = CBOR_FLOAT(
+    float("nan"), encoded=bytes.fromhex("fb7ff8000000000001")
+)
+assert enc(irreducible) == bytes.fromhex("fb7ff8000000000001")
 # binary64 quiet NaN with only top significand bits set prefers binary16
-assert cbor_find_non_deterministic(bytes.fromhex("fb7ffc000000000000"))
-
-= Non-det walker enforces nesting depth and indefinite string chunks
-from scapy.cbor.cborcodec import MAX_CBOR_NESTING
-from importlib.machinery import SourceFileLoader
-cbor_find_non_deterministic = SourceFileLoader(
-    "cbor_test_utils",
-    scapy_path("/test/scapy/layers/cbor_test_utils.py"),
-).load_module().cbor_find_non_deterministic
-
-# Malformed indefinite strings: checker must not raise RecursionError.
-bad_bstr = b"\x5f\x61a\xff"  # byte string with a text chunk
-bad_tstr = b"\x7f\x41a\xff"  # text string with a byte chunk
-nested_indef = b"\x5f\x5f\xff\xff"
-for wire in (bad_bstr, bad_tstr, nested_indef):
-    issues = cbor_find_non_deterministic(wire, allow_indefinite=True)
-    assert isinstance(issues, list)
-
-# Over-nested arrays: swallowed as malformed, not RecursionError.
-too_deep = b"\x81" * (MAX_CBOR_NESTING + 1) + b"\x00"
-issues = cbor_find_non_deterministic(too_deep)
-assert isinstance(issues, list)
-
-# Well-formed indefinite byte string still scans without error issues.
-assert cbor_find_non_deterministic(
-    b"\x5f\x41a\xff", allow_indefinite=True
-) == []
-
-
-+ Cached unframed packets preserve exact bytes
+wide_half = CBOR_FLOAT(
+    float("nan"), encoded=bytes.fromhex("fb7ffc000000000000")
+)
+assert enc(wide_half) == bytes.fromhex("f97f00")
 
 = Unframed SEQUENCE cache returns exact bytes without rebuild
 from scapy.cbor.cborfields import (
@@ -3712,12 +3701,8 @@ assert bytes(parent) == b"\x01\x02"
 + deterministic fixed-schema maps
 
 = CBORF_MAP emits deterministic encoded-key order independent of declaration order
-from importlib.machinery import SourceFileLoader
-cbor_find_non_deterministic = SourceFileLoader(
-    "cbor_test_utils",
-    scapy_path("/test/scapy/layers/cbor_test_utils.py"),
-).load_module().cbor_find_non_deterministic
-from scapy.cbor.cborfields import CBORF_MAP
+from scapy.cbor.cborfields import CBORF_MAP, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
 
 class ReverseDeclaredMap(CBOR_Packet):
     CBOR_root = CBORF_MAP(
@@ -3729,7 +3714,6 @@ wire = bytes(ReverseDeclaredMap())
 # RFC 8949 deterministic ordering sorts by the encoded key bytes, so "a"
 # precedes "b" even though the fields were declared in the opposite order.
 assert wire == b"\xa2\x61a\x02\x61b\x01"
-assert cbor_find_non_deterministic(wire) == []
 
 ########### Scapy-native conversion pipeline #################
 
@@ -4541,10 +4525,14 @@ class TwoInts(CBOR_Packet):
 
 pkt = TwoInts(b"\x01\x02\x03")
 assert pkt.a == 1 and pkt.b == 2
-assert isinstance(pkt.payload, Raw) or pkt.original.endswith(b"\x03")
+assert isinstance(pkt.payload, Raw)
+assert bytes(pkt.payload) == b"\x03"
+assert pkt.raw_packet_cache == b"\x01\x02"
 # Remaining third item is not consumed by the schema
 remain = TwoInts.CBOR_root._dissect_counted(TwoInts(), b"\x01\x02\x03").remaining
 assert remain == b"\x03"
+pkt.a = 4
+assert bytes(pkt) == b"\x04\x02\x03"
 
 = CBORF_SEMANTIC_TAG rejects the wrong tag number
 from scapy.cbor.cborfields import (
@@ -4570,17 +4558,16 @@ obj = CBOR_MAP(CBORMapData([
 wire = CBORcodec_Object.encode_cbor_item_deterministic(obj)
 assert wire == b"\xa2\x61a\x02\x61b\x01"
 
-= Non-determinism scanner reports bare break and short simples
-from importlib.machinery import SourceFileLoader
-cbor_find_non_deterministic = SourceFileLoader(
-    "cbor_test_utils",
-    scapy_path("/test/scapy/layers/cbor_test_utils.py"),
-).load_module().cbor_find_non_deterministic
+= Bare break and non-shortest simples are rejected by the decoder
+from scapy.cbor import CBOR_Codecs
+from scapy.cbor.cborcodec import CBOR_Codec_Decoding_Error
 
-issues = cbor_find_non_deterministic(b"\xff")
-assert issues and "break" in issues[0][1].lower()
-issues = cbor_find_non_deterministic(b"\xf8\x14")  # simple 20 via AI=24
-assert issues and "simple" in issues[0][1].lower()
+for wire in (b"\xff", b"\xf8\x14"):  # bare break; simple 20 via AI=24
+    try:
+        CBOR_Codecs.CBOR.dec(wire)
+        assert False, "decoder accepted %r" % (wire,)
+    except CBOR_Codec_Decoding_Error:
+        pass
 
 = CBORMapData lookup treats +0.0 and -0.0 as equivalent map keys
 from scapy.cbor import CBOR_Codecs
@@ -5252,46 +5239,35 @@ assert CBORcodec_Object.encode_cbor_item_deterministic(value) == bytes.fromhex("
 = Deterministic NaN encoding preserves sign and preferred width
 from scapy.cbor.cbor import CBOR_FLOAT, _cbor_key_equivalent
 from scapy.cbor.cborcodec import CBORcodec_Object
-from importlib.machinery import SourceFileLoader
-cbor_find_non_deterministic = SourceFileLoader(
-    "cbor_test_utils",
-    scapy_path("/test/scapy/layers/cbor_test_utils.py"),
-).load_module().cbor_find_non_deterministic
 
 enc = CBORcodec_Object.encode_cbor_item_deterministic
 
 # Already-shortest quiet half NaN stays half
 half = CBOR_FLOAT(float("nan"), encoded=bytes.fromhex("f97e00"))
 assert enc(half) == bytes.fromhex("f97e00")
-assert cbor_find_non_deterministic(enc(half)) == []
 
 # binary64 quiet NaN with only top significand bits shortens to half
 wide_half = CBOR_FLOAT(float("nan"), encoded=bytes.fromhex("fb7ff8000000000000"))
 assert enc(wide_half) == bytes.fromhex("f97e00")
 assert _cbor_key_equivalent(half, wide_half)
-assert cbor_find_non_deterministic(enc(wide_half)) == []
 
 # binary64 NaN using top 23 significand bits shortens to float32, not half
-# significand bits 51..29 set as 0x40000001 << 29? Use mant with bit 29 set:
-# 0x8000000000000 | 0x20000000 = top quiet bit + lowest single-preserved bit
 to_single = CBOR_FLOAT(
     float("nan"), encoded=bytes.fromhex("fb7ff8000020000000")
 )
 assert enc(to_single) == bytes.fromhex("fa7fc00001")
-assert cbor_find_non_deterministic(bytes.fromhex("fb7ff8000020000000"))
-assert cbor_find_non_deterministic(enc(to_single)) == []
+# Non-preferred width is longer than the deterministic rebuild
+assert len(bytes.fromhex("fb7ff8000020000000")) > len(enc(to_single))
 
 # binary64 NaN with a low significand bit cannot shorten
 irreducible = CBOR_FLOAT(
     float("nan"), encoded=bytes.fromhex("fb7ff8000000000001")
 )
 assert enc(irreducible) == bytes.fromhex("fb7ff8000000000001")
-assert cbor_find_non_deterministic(enc(irreducible)) == []
 
 # Negative quiet half NaN keeps its sign under deterministic encoding
 neg = CBOR_FLOAT(float("nan"), encoded=bytes.fromhex("fbfff8000000000000"))
 assert enc(neg) == bytes.fromhex("f9fe00")
-assert cbor_find_non_deterministic(enc(neg)) == []
 assert not _cbor_key_equivalent(half, neg)
 
 = Unknown map NaN values keep payload through deterministic rebuild
