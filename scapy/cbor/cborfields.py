@@ -1108,7 +1108,7 @@ class CBORF_FLOAT(CBORF_field[float]):
         """Wire-sensitive snapshot: distinguishes +0.0/-0.0 and NaN bits."""
         if x is None or x is CBOR_ABSENT:
             return x
-        return struct.unpack(">Q", struct.pack(">d", float(x)))[0]
+        return struct.pack(">d", float(x))
 
     def randval(self):
         # type: () -> RandFloat
@@ -1256,6 +1256,10 @@ class CBORF_ARRAY(_CBORF_compound):
     Prefer this over :class:`CBORF_ITEMS` when the wire form is a single
     array item.
 
+    Nested unframed :class:`CBORF_ITEMS` groups are flattened into this
+    array's positional schema so budgeting applies to one field sequence.
+    Framed nested :class:`CBORF_ARRAY` values remain boundaries.
+
     Example::
 
         class MyCBOR(CBOR_Packet):
@@ -1272,7 +1276,35 @@ class CBORF_ARRAY(_CBORF_compound):
     def __init__(self, *seq):
         # type: (*Any) -> None
         super(CBORF_ARRAY, self).__init__(*seq)
+        self.seq = tuple(self._flatten_items(self.seq))
+        self.islist = len(self.seq) > 1
         self._reject_nonterminal_remainder_of()
+
+    @staticmethod
+    def _flatten_items(seq):
+        # type: (Tuple[Any, ...]) -> List[Any]
+        flat = []  # type: List[Any]
+        for field in seq:
+            if isinstance(field, CBORF_ITEMS):
+                flat.extend(CBORF_ARRAY._flatten_items(field.seq))
+            else:
+                flat.append(field)
+        return flat
+
+    @staticmethod
+    def _blocks_conditional_reservation(field):
+        # type: (Any) -> bool
+        """True if *field* must be decoded before a later conditional is reserved."""
+        if isinstance(
+            field, (CBORF_optional, CBORF_CONDITIONAL, CBORF_REMAINDER_OF)
+        ):
+            return False
+        if isinstance(field, CBORF_ITEMS):
+            return any(
+                CBORF_ARRAY._blocks_conditional_reservation(child)
+                for child in field.seq
+            )
+        return True
 
     def _dissect_children_budgeted(self, pkt, s, count):
         # type: (CBOR_Packet, bytes, int) -> bytes
@@ -1280,19 +1312,23 @@ class CBORF_ARRAY(_CBORF_compound):
         items_left = count
         for index, field in enumerate(self.seq):
             needed = field.min_items(pkt)
-            # Required leading slots must not reserve suffix conditionals
-            # against packet defaults (discriminator not yet decoded).
-            # Optional / zero-min slots keep full min_items so an already
-            # true conditional still steals from a same-type optional.
-            reserve_conditionals = needed == 0
             reserved = 0
-            for suffix in self.seq[index + 1:]:
-                if (
-                    isinstance(suffix, CBORF_CONDITIONAL)
-                    and not reserve_conditionals
-                ):
-                    continue
-                reserved += suffix.min_items(pkt)
+            for j, suffix in enumerate(self.seq[index + 1:], start=index + 1):
+                if isinstance(suffix, CBORF_CONDITIONAL):
+                    # Do not reserve from defaults while reading a required
+                    # discriminator, or while any required field remains
+                    # between the current slot and this conditional.
+                    if needed > 0:
+                        continue
+                    between = self.seq[index + 1:j]
+                    if any(
+                        self._blocks_conditional_reservation(f)
+                        for f in between
+                    ):
+                        continue
+                    reserved += suffix.min_items(pkt)
+                else:
+                    reserved += suffix.min_items(pkt)
             available = items_left - reserved
             if available < 0 or available < needed:
                 raise CBOR_Decoding_Error("CBOR item count mismatch")
@@ -1322,9 +1358,6 @@ class CBORF_ARRAY(_CBORF_compound):
             field._field.mark_absent(pkt)
         elif isinstance(field, CBORF_REMAINDER_OF):
             field._dissect_counted(pkt, b"", max_items=0)
-        elif isinstance(field, CBORF_ITEMS):
-            for child in field.seq:
-                self._init_zero_budget_field(pkt, child)
         elif isinstance(field, CBORF_CONDITIONAL):
             # False conditionals emit nothing; true ones are required and
             # already rejected by the available < needed check above.
