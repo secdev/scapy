@@ -1145,12 +1145,18 @@ class _CBORF_compound(CBORF_element):
             for field in self.seq
             for child in field.get_fields_list()
         ]
-        names = [f.name for f in fields_list]
-        if len(names) != len(set(names)):
-            dupes = sorted({n for n in names if names.count(n) > 1})
+        seen = set()  # type: set
+        dupes = set()  # type: set
+        for child in fields_list:
+            name = child.name
+            if name in seen:
+                dupes.add(name)
+            else:
+                seen.add(name)
+        if dupes:
             raise ValueError(
                 "Duplicate CBOR field name(s) %s; for multiple maps use "
-                "distinct unknown_field= values" % (dupes,)
+                "distinct unknown_field= values" % (sorted(dupes),)
             )
         return fields_list
 
@@ -1260,6 +1266,13 @@ class CBORF_ARRAY(_CBORF_compound):
     array's positional schema so budgeting applies to one field sequence.
     Framed nested :class:`CBORF_ARRAY` values remain boundaries.
 
+    Suffix :class:`CBORF_CONDITIONAL` reservation uses
+    :meth:`CBORF_CONDITIONAL.min_items` on the real packet, so predicates
+    see Scapy Packet APIs. A discriminator must already be decoded (to
+    the left of any earlier optional it should starve). Unread fields
+    use packet defaults; same-type ``optional`` before an unread flag is
+    greedy. Place the discriminator left of that optional.
+
     Example::
 
         class MyCBOR(CBOR_Packet):
@@ -1291,64 +1304,20 @@ class CBORF_ARRAY(_CBORF_compound):
                 flat.append(field)
         return flat
 
-    @staticmethod
-    def _field_names(field):
-        # type: (Any) -> List[str]
-        if isinstance(field, CBORF_CONDITIONAL):
-            return CBORF_ARRAY._field_names(field.fld)
-        get_fields_list = getattr(field, "get_fields_list", None)
-        if get_fields_list is not None:
-            return [f.name for f in get_fields_list()]
-        name = getattr(field, "name", None)
-        return [name] if name else []
-
-    @staticmethod
-    def _conditional_reserved_items(field, pkt, decoded):
-        # type: (Any, CBOR_Packet, set) -> int
-        """Reserve items for *field* only when its condition is decidable."""
-        class _UnresolvedDependency(Exception):
-            """Field not yet available to the predicate."""
-
-        class _DecodedView(object):
-            def getfieldval(self, name):
-                # type: (str) -> Any
-                if name not in decoded and name not in pkt.fields:
-                    raise _UnresolvedDependency(name)
-                return pkt.getfieldval(name)
-
-            def __getattr__(self, name):
-                # type: (str) -> Any
-                cls_attr = getattr(type(pkt), name, None)
-                if callable(cls_attr):
-                    return cls_attr.__get__(self, type(pkt))
-                return self.getfieldval(name)
-
-        try:
-            active = bool(field.cond(_DecodedView()))
-        except _UnresolvedDependency:
-            return 0
-        if not active:
-            return 0
-        return field.fld.min_items(pkt)
-
     def _dissect_children_budgeted(self, pkt, s, count):
         # type: (CBOR_Packet, bytes, int) -> bytes
         remaining = s
         items_left = count
-        decoded = set(pkt.fields)  # type: set
         for index, field in enumerate(self.seq):
             if isinstance(field, CBORF_optional):
                 if not field._field.matches_next_item(pkt, remaining):
                     field._field.mark_absent(pkt)
-                    decoded.update(self._field_names(field))
                     continue
             needed = field.min_items(pkt)
             reserved = 0
             for suffix in self.seq[index + 1:]:
                 if isinstance(suffix, CBORF_CONDITIONAL):
-                    reserved += self._conditional_reserved_items(
-                        suffix, pkt, decoded
-                    )
+                    reserved += self._conditional_reserved_items(suffix, pkt)
                 else:
                     reserved += suffix.min_items(pkt)
             available = items_left - reserved
@@ -1361,7 +1330,6 @@ class CBORF_ARRAY(_CBORF_compound):
                     field._dissect_counted(pkt, b"", max_items=0)
                 elif isinstance(field, CBORF_CONDITIONAL):
                     field._dissect_counted(pkt, b"")
-                decoded.update(self._field_names(field))
                 continue
             result = self._dissect_field(
                 pkt, field, remaining, max_items=available
@@ -1372,10 +1340,50 @@ class CBORF_ARRAY(_CBORF_compound):
                 )
             remaining = result.remaining
             items_left -= result.items
-            decoded.update(self._field_names(field))
         if items_left != 0:
             raise CBOR_Decoding_Error("CBOR item count mismatch")
         return remaining
+
+    @staticmethod
+    def _conditional_reserved_items(field, pkt):
+        # type: (Any, CBOR_Packet) -> int
+        """Reserve *field* only from already-dissected packet state.
+
+        Predicates run on the real packet. Unread names (not in
+        ``pkt.fields``) are undecided: do not reserve from defaults.
+        """
+        from scapy.cborpacket import CBOR_Packet
+
+        class _Unread(Exception):
+            pass
+
+        orig_getfieldval = Packet.getfieldval
+        orig_getfield_and_val = Packet.getfield_and_val
+
+        def getfieldval(self, name):
+            # type: (Packet, str) -> Any
+            if self is pkt and name not in self.fields:
+                raise _Unread(name)
+            return orig_getfieldval(self, name)
+
+        def getfield_and_val(self, name):
+            # type: (Packet, str) -> Any
+            if self is pkt and name not in self.fields:
+                raise _Unread(name)
+            return orig_getfield_and_val(self, name)
+
+        setattr(CBOR_Packet, "getfieldval", getfieldval)
+        setattr(CBOR_Packet, "getfield_and_val", getfield_and_val)
+        try:
+            active = bool(field.cond(pkt))
+        except _Unread:
+            return 0
+        finally:
+            delattr(CBOR_Packet, "getfieldval")
+            delattr(CBOR_Packet, "getfield_and_val")
+        if not active:
+            return 0
+        return field.fld.min_items(pkt)
 
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
@@ -1439,7 +1447,7 @@ class CBORF_ARRAY_INDEFINITE(CBORF_ARRAY):
 
 
 _ARRAY_T = Union[
-    Type[Packet],
+    Type['CBOR_Packet'],
     Type['CBORF_field[Any]'],
     'CBORF_PACKET',
     'CBORF_field[Any]',
@@ -2039,19 +2047,13 @@ class CBORF_MAP(CBORF_element):
 
         def _dissect_value_bytes(fld, val_bytes):
             # type: (Any, bytes) -> None
-            if isinstance(fld, CBORF_optional):
-                value_fld = fld._field
-            elif isinstance(fld, CBORF_CONDITIONAL):
-                value_fld = fld.fld
-            else:
-                value_fld = fld
-            result = value_fld._dissect_counted(pkt, val_bytes)
+            result = fld._dissect_counted(pkt, val_bytes)
             if result.items != 1 or result.remaining:
                 raise CBOR_Decoding_Error(
                     "Map value for %r must contain exactly one item"
-                    % getattr(value_fld, "name", value_fld)
+                    % getattr(fld, "name", fld)
                 )
-            seen_fields.add(value_fld.name)
+            seen_fields.add(fld.name)
 
         # Phase 1: unconditional members (order-independent).
         for fld in self.seq:
@@ -2060,7 +2062,7 @@ class CBORF_MAP(CBORF_element):
             name = fld.name
             if name not in pair_values:
                 if isinstance(fld, CBORF_optional):
-                    fld._field.mark_absent(pkt)
+                    fld.mark_absent(pkt)
                 continue
             _dissect_value_bytes(fld, pair_values[name])
 
