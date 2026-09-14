@@ -36,12 +36,12 @@ import threading
 import time
 import traceback
 import warnings
+import zlib
 
 from scapy.config import conf
 from scapy.consts import DARWIN, OPENBSD, WINDOWS
 from scapy.data import MTU, DLT_EN10MB, DLT_RAW
 from scapy.compat import (
-    orb,
     plain_str,
     chb,
     hex_bytes,
@@ -245,7 +245,7 @@ def _create_fifo() -> Tuple[str, Any]:
     else:
         f = get_temp_file()
         os.unlink(f)
-        os.mkfifo(f)
+        os.mkfifo(f, 0o600)
         return f, f
 
 
@@ -260,10 +260,10 @@ def _open_fifo(fd: Any, mode: str = "rb") -> IO[bytes]:
 
 
 def sane(x, color=False):
-    # type: (AnyStr, bool) -> str
+    # type: (bytes, bool) -> str
     r = ""
     for i in x:
-        j = orb(i)
+        j = i
         if (j < 32) or (j >= 127):
             if color:
                 r += conf.color_theme.not_printable(".")
@@ -320,7 +320,7 @@ def hexdump(p, dump=False):
         s += "%04x  " % i
         for j in range(16):
             if i + j < x_len:
-                s += "%02X " % orb(x[i + j])
+                s += "%02X " % x[i + j]
             else:
                 s += "   "
         s += " %s\n" % sane(x[i:i + 16], color=True)
@@ -370,7 +370,7 @@ def chexdump(p, dump=False):
     :return: a String only if dump=True
     """
     x = bytes_encode(p)
-    s = ", ".join("%#04x" % orb(x) for x in x)
+    s = ", ".join("%#04x" % x for x in x)
     if dump:
         return s
     else:
@@ -385,7 +385,7 @@ def hexstr(p, onlyasc=0, onlyhex=0, color=False):
     x = bytes_encode(p)
     s = []
     if not onlyasc:
-        s.append(" ".join("%02X" % orb(b) for b in x))
+        s.append(" ".join("%02X" % b for b in x))
     if not onlyhex:
         s.append(sane(x, color=color))
     return "  ".join(s)
@@ -394,7 +394,7 @@ def hexstr(p, onlyasc=0, onlyhex=0, color=False):
 def repr_hex(s):
     # type: (bytes) -> str
     """ Convert provided bitstring to a simple string of hex digits """
-    return "".join("%02x" % orb(x) for x in s)
+    return "".join("%02x" % x for x in s)
 
 
 @conf.commands.register
@@ -557,7 +557,7 @@ def hexdiff(
             if i + j < min(len(backtrackx), len(backtracky)):
                 if line[j]:
                     col = colorize[(linex[j] != liney[j]) * (doy - dox)]
-                    print(col("%02X" % orb(line[j])), end=' ')
+                    print(col("%02X" % line[j][0]), end=' ')
                     if linex[j] == liney[j]:
                         cl += sane(line[j], color=True)
                     else:
@@ -1386,17 +1386,30 @@ class PcapReader_metaclass(type):
         if isinstance(fname, str):
             filename = fname
             fdesc = open(filename, "rb")  # type: _ByteStream
-            magic = fdesc.read(2)
-            if magic == b"\x1f\x8b":
-                # GZIP header detected.
-                fdesc.seek(0)
-                fdesc = gzip.GzipFile(fileobj=fdesc)
-                magic = fdesc.read(2)
-            magic += fdesc.read(2)
+            magic = fdesc.peek(2)[:2]  # type: ignore[union-attr]  # BufferedReader
+            if magic != b"\x1f\x8b":
+                magic = fdesc.read(4)
         else:
             fdesc = fname
             filename = getattr(fdesc, "name", "No name")
-            magic = fdesc.read(4)
+            magic = fdesc.read(2)
+        if magic == b"\x1f\x8b":
+            # GZIP header detected.
+            if not isinstance(fname, str):
+                fdesc.seek(0)
+            raw_fdesc = fdesc
+            fdesc = gzip.GzipFile(fileobj=raw_fdesc)
+            try:
+                magic = fdesc.read(4)
+            except (EOFError, OSError, zlib.error) as err:
+                fdesc.close()
+                if isinstance(fname, str):
+                    raw_fdesc.close()
+                raise Scapy_Exception(
+                    "Not a supported capture file (invalid gzip file)"
+                ) from err
+        else:
+            magic += fdesc.read(4 - len(magic))
         return filename, fdesc, magic
 
 
@@ -1469,14 +1482,26 @@ class RawPcapReader(metaclass=PcapReader_metaclass):
 
         raise EOFError when no more packets are available
         """
-        hdr = self.f.read(16)
-        if len(hdr) < 16:
-            raise EOFError
-        sec, usec, caplen, wirelen = struct.unpack(self.endian + "IIII", hdr)
-
         try:
-            data = self.f.read(caplen)[:size]
-        except OverflowError as e:
+            hdr = self.f.read(16)
+            if len(hdr) < 16:
+                raise EOFError
+            sec, usec, caplen, wirelen = struct.unpack(self.endian + "IIII", hdr)
+            # A malicious caplen can be up to 4 GiB: bound each read,
+            # truncate the packet, then skip the rest of the record so the
+            # next pcap header can still be parsed.
+            read_size = min(caplen, MTU * 4)
+            read_data = self.f.read(read_size)
+            data = read_data[:size]
+            remaining = caplen - len(read_data)
+            if remaining > 0:
+                warning("Pcap: packet has been truncated")
+            while remaining > 0:
+                skipped = self.f.read(min(remaining, MTU * 4))
+                if not skipped:
+                    break
+                remaining -= len(skipped)
+        except (OSError, OverflowError, zlib.error) as e:
             warning(f"Pcap: {e}")
             raise EOFError
 
@@ -1658,6 +1683,7 @@ class RawPcapNgReader(RawPcapReader):
         }
         self.endian = "!"  # Will be overwritten by first SHB
         self.process_information = []  # type: List[Dict[str, Any]]
+        self._tls_state = None  # type: Optional[Tuple[Dict[str, bytes], bool]]
 
         if magic != b"\x0a\x0d\x0d\x0a":  # PcapNg:
             raise Scapy_Exception(
@@ -1693,8 +1719,8 @@ class RawPcapNgReader(RawPcapReader):
         _block_body_length = blocklen - 12
         block = self.f.read(_block_body_length)
         if len(block) != _block_body_length:
-            raise Scapy_Exception("PcapNg: Invalid Block body length "
-                                  "(too short)")
+            warning("PcapNg: Invalid Block body length (too short)")
+            raise EOFError
         self._read_block_tail(blocklen)
         if blocktype in self.blocktypes:
             return self.blocktypes[blocktype](block, size)
@@ -1777,29 +1803,33 @@ class RawPcapNgReader(RawPcapReader):
     def _read_options(self, options):
         # type: (bytes) -> Dict[int, Union[bytes, List[bytes]]]
         opts = dict()  # type: Dict[int, Union[bytes, List[bytes]]]
-        while len(options) >= 4:
+        offset = 0
+        while len(options) - offset >= 4:
             try:
-                code, length = struct.unpack(self.endian + "HH", options[:4])
+                code, length = struct.unpack_from(
+                    self.endian + "HH", options, offset
+                )
             except struct.error:
                 warning("PcapNg: options header is too small "
-                        "%d !" % len(options))
+                        "%d !" % (len(options) - offset))
                 raise EOFError
-            if code != 0 and 4 + length <= len(options):
+            value_offset = offset + 4
+            if code != 0 and value_offset + length <= len(options):
                 # https://www.ietf.org/archive/id/draft-tuexen-opsawg-pcapng-05.html#name-options-format
                 if code in [1, 2988, 2989, 19372, 19373]:
                     if code not in opts:
                         opts[code] = []
-                    opts[code].append(options[4:4 + length])  # type: ignore
+                    opts[code].append(  # type: ignore
+                        options[value_offset:value_offset + length]
+                    )
                 else:
-                    opts[code] = options[4:4 + length]
+                    opts[code] = options[value_offset:value_offset + length]
             if code == 0:
                 if length != 0:
                     warning("PcapNg: invalid option "
                             "length %d for end-of-option" % length)
                 break
-            if length % 4:
-                length += (4 - (length % 4))
-            options = options[4 + length:]
+            offset = value_offset + length + (-length % 4)
         return opts
 
     def _read_block_idb(self, block, _):
@@ -1819,7 +1849,7 @@ class RawPcapNgReader(RawPcapReader):
             if c == 9:
                 length = len(v)
                 if length == 1:
-                    tsresol = orb(v)
+                    tsresol = v[0]
                     options["tsresol"] = (2 if tsresol & 128 else 10) ** (
                         tsresol & 127
                     )
@@ -1841,15 +1871,16 @@ class RawPcapNgReader(RawPcapReader):
         self.interfaces.append(interface)
 
     def _check_interface_id(self, intid):
-        # type: (int) -> None
-        """Check the interface id value and raise EOFError if invalid."""
+        # type: (int) -> bool
+        """Whether this block names an interface the file has described."""
         tmp_len = len(self.interfaces)
         if intid >= tmp_len:
             warning("PcapNg: invalid interface id %d/%d" % (intid, tmp_len))
-            raise EOFError
+            return False
+        return True
 
     def _read_block_epb(self, block, size):
-        # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
+        # type: (bytes, int) -> Optional[Tuple[bytes, RawPcapNgReader.PacketMetadata]]  # noqa: E501
         """Enhanced Packet Block"""
         try:
             intid, tshigh, tslow, caplen, wirelen = struct.unpack(
@@ -1901,7 +1932,8 @@ class RawPcapNgReader(RawPcapReader):
         else:
             direction = None
 
-        self._check_interface_id(intid)
+        if not self._check_interface_id(intid):
+            return None
         ifname = self.interfaces[intid][2].get('name', None)
 
         return (block[20:20 + caplen][:size],
@@ -1916,13 +1948,14 @@ class RawPcapNgReader(RawPcapReader):
                                                comments=comments))
 
     def _read_block_spb(self, block, size):
-        # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
+        # type: (bytes, int) -> Optional[Tuple[bytes, RawPcapNgReader.PacketMetadata]]  # noqa: E501
         """Simple Packet Block"""
         # "it MUST be assumed that all the Simple Packet Blocks have
         # been captured on the interface previously specified in the
         # first Interface Description Block."
         intid = 0
-        self._check_interface_id(intid)
+        if not self._check_interface_id(intid):
+            return None
 
         try:
             wirelen, = struct.unpack(self.endian + "I", block[:4])
@@ -1943,7 +1976,7 @@ class RawPcapNgReader(RawPcapReader):
                                                comments=None))
 
     def _read_block_pkt(self, block, size):
-        # type: (bytes, int) -> Tuple[bytes, RawPcapNgReader.PacketMetadata]
+        # type: (bytes, int) -> Optional[Tuple[bytes, RawPcapNgReader.PacketMetadata]]  # noqa: E501
         """(Obsolete) Packet Block"""
         try:
             intid, drops, tshigh, tslow, caplen, wirelen = struct.unpack(
@@ -1954,7 +1987,8 @@ class RawPcapNgReader(RawPcapReader):
             warning("PcapNg: PKT is too small %d/20 !" % len(block))
             raise EOFError
 
-        self._check_interface_id(intid)
+        if not self._check_interface_id(intid):
+            return None
         return (block[20:20 + caplen][:size],
                 RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],  # noqa: E501
                                                tsresol=self.interfaces[intid][2]['tsresol'],  # noqa: E501
@@ -1999,24 +2033,34 @@ class RawPcapNgReader(RawPcapReader):
                         "the TLS layer is not loaded! Scapy won't be able "
                         "to decrypt the packets.")
             else:
-                from scapy.layers.tls.session import load_nss_keys
+                from scapy.layers.tls.session import parse_nss_keys
 
-                # Write Key Log to a file and parse it
-                filename = get_temp_file()
-                with open(filename, "wb") as fd:
-                    fd.write(secrets_data)
-                    fd.close()
-
-                keys = load_nss_keys(filename)
+                try:
+                    keys = parse_nss_keys(secrets_data.decode())
+                except UnicodeDecodeError as ex:
+                    warning("Cannot read NSS Key Log: %s", str(ex))
+                    keys = {}
                 if not keys:
                     warning("PcapNg: invalid TLS Key Log in DSB!")
                 else:
                     # Note: these attributes are only available when the TLS
                     #       layer is loaded.
+                    if self._tls_state is None:
+                        self._tls_state = (
+                            conf.tls_nss_keys,
+                            conf.tls_session_enable,
+                        )
                     conf.tls_nss_keys = keys
                     conf.tls_session_enable = True
         else:
             warning("PcapNg: Unknown DSB secrets type (0x%x)!", secrets_type)
+
+    def close(self):
+        # type: () -> None
+        if self._tls_state is not None:
+            conf.tls_nss_keys, conf.tls_session_enable = self._tls_state
+            self._tls_state = None
+        RawPcapReader.close(self)
 
     def _read_block_pib(self, block, _):
         # type: (bytes, int) -> None
@@ -2195,9 +2239,12 @@ class GenericPcapWriter(object):
         ifname = getattr(packet, "sniffed_on", None)
         direction = getattr(packet, "direction", None)
         if not isinstance(packet, bytes):
-            linktype: int = conf.l2types.layer2num[
-                packet.__class__
-            ]
+            # The class may not be bound to any linktype (e.g. conf.raw_layer),
+            # in which case fall back to the one write_header() settled on.
+            linktype: int = conf.l2types.layer2num.get(
+                packet.__class__,
+                self.linktype,
+            )
         else:
             linktype = self.linktype
         if ifname is not None:
@@ -2785,9 +2832,9 @@ class ERFEthernetReader(PcapReader,
         # not support it. Extended headers size is 8 bytes before the payload.
         if type & 0x80:
             _ = self.f.read(8)
-            s = self.f.read(rlen - 24)
+            s = self.f.read(max(0, rlen - 24))
         else:
-            s = self.f.read(rlen - 16)
+            s = self.f.read(max(0, rlen - 16))
 
         # Ethernet has 2 bytes of padding containing `offset` and `pad`. Both
         # of the fields are disregarded by Endace.

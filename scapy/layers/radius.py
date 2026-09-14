@@ -1605,6 +1605,23 @@ class Radius_am(AnsweringMachine):
             for x in req.attributes
         }
 
+        # Verify the request Message-Authenticator, if present
+        if 80 in attrs:
+            mauth = attrs[80]
+            received = mauth.value
+            radius = req[Radius]
+            # For a request, the Request Authenticator is the packet's own.
+            # This zeroes the attribute to hash it, so put the value back.
+            expected = mauth.compute_message_authenticator(
+                radius,
+                radius.authenticator,
+                self.secret,
+            )
+            mauth.value = received
+            if not hmac.compare_digest(received, expected):
+                log_runtime.warning("Invalid Message-Authenticator !")
+                return None
+
         # Build Radius response
         rad = Radius(code=2, id=req[Radius].id)
 
@@ -1714,6 +1731,7 @@ class Radius_am(AnsweringMachine):
         except Scapy_Exception as ex:
             # display a warning
             log_runtime.warning(str(ex))
+            rad.code = 3
 
         # Add additional records if it's an accept
         if rad.code == 2:

@@ -31,7 +31,7 @@ from scapy.cbor.cbor import (
     CBOR_Object,
     _CBOR_ERROR,
 )
-from scapy.compat import chb, orb
+from scapy.compat import chb
 from scapy.error import log_runtime
 
 
@@ -100,7 +100,7 @@ def CBOR_decode_head(s):
     if not s:
         raise CBOR_Codec_Decoding_Error("Empty CBOR data", remaining=s)
 
-    initial_byte = orb(s[0])
+    initial_byte = s[0]
     major_type = initial_byte >> 5
     additional_info = initial_byte & 0x1f
 
@@ -112,7 +112,7 @@ def CBOR_decode_head(s):
         if len(s) < 2:
             raise CBOR_Codec_Decoding_Error(
                 "Not enough bytes for 1-byte value", remaining=s)
-        return major_type, orb(s[1]), s[2:]
+        return major_type, s[1], s[2:]
     elif additional_info == 25:
         # 2-byte value follows
         if len(s) < 3:
@@ -562,7 +562,7 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
 
         # For major type 7, we need special handling because additional_info
         # encodes different things (simple values vs float sizes)
-        initial_byte = orb(s[0])
+        initial_byte = s[0]
         major_type = initial_byte >> 5
         additional_info = initial_byte & 0x1f
 
@@ -639,7 +639,7 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
                 if len(s) < 2:
                     raise CBOR_Codec_Decoding_Error(
                         "Not enough bytes for simple value", remaining=s)
-                return CBOR_SIMPLE_VALUE(orb(s[1])), s[2:]
+                return CBOR_SIMPLE_VALUE(s[1]), s[2:]
             else:
                 raise CBOR_Codec_Decoding_Error(
                     "Invalid additional info for major type 7: %d" % additional_info,
@@ -687,7 +687,7 @@ def _decode_cbor_item(s, safe=False):
     if not s:
         raise CBOR_Codec_Decoding_Error("Empty CBOR data", remaining=s)
 
-    initial_byte = orb(s[0])
+    initial_byte = s[0]
     major_type = initial_byte >> 5
 
     # Dispatch to appropriate codec based on major type

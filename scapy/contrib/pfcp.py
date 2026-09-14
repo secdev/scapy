@@ -12,7 +12,7 @@
 
 import struct
 
-from scapy.compat import chb, orb
+from scapy.compat import chb
 from scapy.error import warning
 from scapy.fields import Field, BitEnumField, BitField, ByteEnumField, \
     ShortEnumField, ByteField, IntField, LongField, \
@@ -416,7 +416,7 @@ class APNStrLenField(StrLenField):
         ret_s = b""
         tmp_s = s
         while tmp_s:
-            tmp_len = orb(tmp_s[0]) + 1
+            tmp_len = tmp_s[0] + 1
             if tmp_len > len(tmp_s):
                 warning("APN prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))  # noqa: E501
             ret_s += tmp_s[1:tmp_len]
@@ -468,7 +468,7 @@ def IE_Dispatcher(s):
     """Choose the correct Information Element class."""
 
     # Get the IE type
-    ietype = (orb(s[0]) * 256) + orb(s[1])
+    ietype = (s[0] * 256) + s[1]
     if ietype & 0x8000:
         return IE_EnterpriseSpecific(s)
 

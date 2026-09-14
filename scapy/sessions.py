@@ -10,8 +10,9 @@ from collections import defaultdict
 import socket
 import struct
 
-from scapy.compat import orb
 from scapy.config import conf
+from scapy.data import MTU
+from scapy.error import log_runtime
 from scapy.packet import Packet
 from scapy.pton_ntop import inet_pton
 
@@ -58,7 +59,20 @@ class DefaultSession(object):
         pkt = sock.recv()
         if not pkt:
             return
-        pkt = self.process(pkt)
+        try:
+            pkt = self.process(pkt)
+        except Exception as ex:
+            log_runtime.warning(
+                "%s processing failed with '%s'. Skipping." % (
+                    type(self),
+                    ex,
+                )
+            )
+            if conf.debug_dissector:
+                raise
+            if pkt is not None:
+                yield pkt
+            return
         if pkt:
             yield pkt
 
@@ -76,12 +90,15 @@ class IPSession(DefaultSession):
         self.fragments = defaultdict(list)  # type: DefaultDict[Tuple[Any, ...], List[Packet]]  # noqa: E501
 
     def process(self, packet: Packet) -> Optional[Packet]:
-        from scapy.layers.inet import IP, _defrag_ip_pkt
+        from scapy.layers.inet import BadFragments, IP, _defrag_ip_pkt
         if not packet:
             return None
         if IP not in packet:
             return packet
-        return _defrag_ip_pkt(packet, self.fragments)[1]  # type: ignore
+        try:
+            return _defrag_ip_pkt(packet, self.fragments)[1]  # type: ignore
+        except BadFragments:
+            return None
 
 
 class StringBuffer(object):
@@ -94,14 +111,18 @@ class StringBuffer(object):
 
     If a TCP fragment is missed, this class will fill the missing space with
     zeros.
+
+    :param max_gap: the largest missing range that will be zero-filled, in bytes.
+        A sequence number far from the data already buffered would otherwise
+        allocate the whole distance. Defaults to MTU.
     """
 
-    def __init__(self):
-        # type: () -> None
+    def __init__(self, max_gap: int = MTU) -> None:
         self.content = bytearray(b"")
         self.content_len = 0
         self.noff = 0  # negative offset
         self.incomplete = []  # type: List[Tuple[int, int]]
+        self.max_gap = max_gap
 
     def append(self, data: bytes, seq: Optional[int] = None) -> None:
         if not data:
@@ -113,12 +134,22 @@ class StringBuffer(object):
         if seq < 0:
             # Data is located before the start of the current buffer
             # (e.g. the first fragment was missing)
+            if -seq > self.max_gap:
+                log_runtime.warning(
+                    "Dropped data further than allowed per 'max_gap'."
+                )
+                return
             self.content = bytearray(b"\x00" * (-seq)) + self.content
             self.content_len += (-seq)
             self.noff += seq
             seq = 0
         if seq + data_len > self.content_len:
             # Data is located after the end of the current buffer
+            if seq - self.content_len > self.max_gap:
+                log_runtime.warning(
+                    "Dropped data further than allowed per 'max_gap'."
+                )
+                return
             self.content += b"\x00" * (seq - self.content_len + data_len)
             # As data was missing, mark it.
             # self.incomplete.append((self.content_len, seq))
@@ -241,7 +272,7 @@ class TCPSession(IPSession):
             # Bidirectional
             def xor(x, y):
                 # type: (bytes, bytes) -> bytes
-                return bytes(orb(a) ^ orb(b) for a, b in zip(x, y))
+                return bytes(a ^ b for a, b in zip(x, y))
             return struct.pack("!4sH", xor(src, dst), pkt.dport ^ pkt.sport)
         else:
             # Uni-directional
@@ -278,11 +309,14 @@ class TCPSession(IPSession):
             else:
                 return None
             if self.data.full():
-                packet = tcp_reassemble(
-                    bytes(self.data),
-                    self.metadata,
-                    self.session,
-                )
+                min_len = self.metadata.get("tcp_min_len")
+                if min_len is None or len(self.data) >= min_len:
+                    self.metadata.pop("tcp_min_len", None)
+                    packet = tcp_reassemble(
+                        bytes(self.data),
+                        self.metadata,
+                        self.session,
+                    )
             if packet:
                 padding = self._strip_padding(packet)
                 if padding:
@@ -355,14 +389,17 @@ class TCPSession(IPSession):
         # XXX TODO: check that no empty space is missing in the buffer.
         # XXX Currently, if a TCP fragment was missing, we won't notice it.
         if data.full():
-            # Reassemble using all previous packets
-            metadata["original"] = pkt
-            metadata["ident"] = ident
-            packet = tcp_reassemble(
-                bytes(data),
-                metadata,
-                tcp_session
-            )
+            min_len = metadata.get("tcp_min_len")
+            if min_len is None or len(data) >= min_len:
+                # Reassemble using all previous packets
+                metadata["original"] = pkt
+                metadata["ident"] = ident
+                metadata.pop("tcp_min_len", None)
+                packet = tcp_reassemble(
+                    bytes(data),
+                    metadata,
+                    tcp_session
+                )
         # Stack the result on top of the previous frames
         if packet:
             if "seq" in metadata:
@@ -383,7 +420,7 @@ class TCPSession(IPSession):
                     tcp_session
                 )
                 if sub_packet:
-                    packet /= sub_packet
+                    packet.add_payload(sub_packet)
                     padding = self._strip_padding(sub_packet)
                 else:
                     break
@@ -412,16 +449,41 @@ class TCPSession(IPSession):
         Will be called by sniff() to ask for a packet
         """
         pkt = sock.recv(stop_dissection_after=self.stop_dissection_after)
+        _orig = pkt
         # Now handle TCP reassembly
         if self.app:
             while pkt is not None:
-                pkt = self.process(pkt)
+                try:
+                    pkt = self.process(pkt)
+                except Exception as ex:
+                    log_runtime.warning(
+                        "%s processing failed with '%s'. Aborting." % (
+                            type(self),
+                            ex,
+                        )
+                    )
+                    if conf.debug_dissector:
+                        raise
+                    return None
                 if pkt:
                     yield pkt
                     # keep calling process as there might be more
                     pkt = b""  # type: ignore
         else:
-            pkt = self.process(pkt)  # type: ignore
+            try:
+                pkt = self.process(pkt)  # type: ignore
+            except Exception as ex:
+                log_runtime.warning(
+                    "%s processing failed with '%s'. Skipping." % (
+                        type(self),
+                        ex,
+                    )
+                )
+                if conf.debug_dissector:
+                    raise
+                if _orig is not None:
+                    yield _orig
+                return None
             if pkt:
                 yield pkt
         return None

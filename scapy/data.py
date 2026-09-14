@@ -312,7 +312,7 @@ def scapy_data_cache(name):
             if cachepath.exists():
                 try:
                     with cachepath.open("rb") as fd:
-                        data = pickle.load(fd)
+                        data = _CacheUnpickler(fd).load()
                     if data["id"] == cache_id:
                         return data["content"]
                 except Exception as ex:
@@ -533,6 +533,25 @@ class ManufDA(DADict[str, Tuple[str, str]]):
             "loopkup",
             "reverse_lookup",
         ] + super(ManufDA, self).__dir__()
+
+
+class _CacheUnpickler(pickle.Unpickler):
+    """Unpickle cache data without loading classes outside its data types."""
+
+    _ALLOWED = {
+        ("scapy.dadict", "DADict"): DADict,
+        ("scapy.data", "EtherDA"): EtherDA,
+        ("scapy.data", "ManufDA"): ManufDA,
+    }
+
+    def find_class(self, module, name):
+        # type: (str, str) -> Any
+        try:
+            return self._ALLOWED[(module, name)]
+        except KeyError as exc:
+            raise pickle.UnpicklingError(
+                "Forbidden class in cache: %s.%s" % (module, name)
+            ) from exc
 
 
 @scapy_data_cache("manufdb")

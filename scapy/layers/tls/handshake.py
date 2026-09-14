@@ -34,7 +34,7 @@ from scapy.fields import (
     UTCTimeField,
 )
 
-from scapy.compat import hex_bytes, orb, raw
+from scapy.compat import hex_bytes, raw
 from scapy.config import conf, crypto_validator
 from scapy.packet import Packet, Raw, Padding
 from scapy.utils import randstring, repr_hex
@@ -104,7 +104,7 @@ class _TLSHandshake(_GenericTLSSessionInheritance):
         tmp_len = len(p)
         if self.msglen is None:
             l2 = tmp_len - 4
-            p = struct.pack("!I", (orb(p[0]) << 24) | l2) + p[4:]
+            p = struct.pack("!I", (p[0] << 24) | l2) + p[4:]
         return p + pay
 
     def guess_payload_class(self, p):
@@ -395,7 +395,7 @@ class TLS13ClientHello(_TLSHandshake):
         tmp_len = len(p)
         if self.msglen is None:
             sz = tmp_len - 4
-            p = struct.pack("!I", (orb(p[0]) << 24) | sz) + p[4:]
+            p = struct.pack("!I", (p[0] << 24) | sz) + p[4:]
         s = self.tls_session
         if self.ext:
             for e in self.ext:
@@ -1270,6 +1270,7 @@ class TLSCertificateVerify(_TLSHandshake):
         if s.connection_end == "server":
             if s.client_certs and len(s.client_certs) > 0:
                 sig_test = self.sig._verify_sig(m, s.client_certs[0])
+                s.client_cert_verify_valid = sig_test
                 if not sig_test:
                     pkt_info = pkt.firstlayer().summary()
                     log_runtime.info("TLS: invalid CertificateVerify signature [%s]", pkt_info)  # noqa: E501
@@ -1277,6 +1278,7 @@ class TLSCertificateVerify(_TLSHandshake):
             # should be TLS 1.3 only
             if s.server_certs and len(s.server_certs) > 0:
                 sig_test = self.sig._verify_sig(m, s.server_certs[0])
+                s.server_cert_verify_valid = sig_test
                 if not sig_test:
                     pkt_info = pkt.firstlayer().summary()
                     log_runtime.info("TLS: invalid CertificateVerify signature [%s]", pkt_info)  # noqa: E501
@@ -1739,6 +1741,8 @@ class TLS13KeyUpdate(_TLSHandshake):
 
     def post_dissection_tls_session_update(self, msg_str):
         s = self.tls_session
+        if s.tls_version != 0x0304 or not s.post_handshake:
+            return
         s.prcs = writeConnState(ciphersuite=type(s.rcs.ciphersuite),
                                 connection_end=s.connection_end,
                                 tls_version=s.tls_version)

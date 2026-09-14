@@ -441,6 +441,8 @@ def _tls_named_groups_import(group, pubbytes):
         params = _ffdh_groups[_tls_named_ffdh_groups[group]][0]
         pn = params.parameter_numbers()
         y = bytes_int(pubbytes)
+        if not 1 < y < pn.p - 1:
+            return None
         public_numbers = DHPublicNumbers(y, pn)
         return public_numbers.public_key(default_backend())
     elif group in _tls_named_curves:

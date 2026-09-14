@@ -1,0 +1,118 @@
+% CSR/BlueCore Bluetooth Vendor-Specific Command (VSC) layer tests
+
++ Load the CSR VSC contrib module
+
+= Import the module (opt-in layer)
+from scapy.layers.bluetooth import *
+load_contrib("bluetooth_vsc_csr")
+from scapy.contrib.bluetooth_vsc_csr import *
+
+
++ CSR BCCMD command (opcode 0xFC00)
+
+= BCCMD shares OGF 0x3F / OCF 0x000, i.e. opcode 0xFC00
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_CSR_BCCMD(pdu_type="getreq", seqno=1, varid=0x2819)
+assert cmd.ogf == 0x3f
+assert cmd.ocf == 0x000
+assert cmd.opcode == 0xfc00
+
+= GETREQ build with auto-computed length word
+# The 8-byte default value area makes a 19-byte PDU: all bytes after the channel
+# byte are 18, i.e. 9 little-endian words, so length is auto-filled to 0x0009.
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_CSR_BCCMD(pdu_type="getreq", seqno=1, varid=0x2819)
+r = raw(cmd)
+# 00fc(op) 13(plen) c2(channel) 0000(getreq) 0900(length) 0100(seqno)
+# 1928(varid buildid) 0000(status) 0000000000000000(value)
+assert r == bytes.fromhex("00fc13c2000009000100192800000000000000000000")
+p = HCI_Command_Hdr(r)
+assert HCI_Cmd_VSC_CSR_BCCMD in p
+b = p[HCI_Cmd_VSC_CSR_BCCMD]
+assert b.channel == 0xc2
+assert b.pdu_type == 0x0000
+assert b.length == 9
+assert b.seqno == 1
+assert b.varid == 0x2819
+assert b.status == 0
+assert b.value == b"\x00" * 8
+
+= The length word counts every 16-bit word after the channel byte
+# Drop the value area entirely: 11-byte PDU -> (11 - 1) / 2 = 5 words.
+cmd = HCI_Cmd_VSC_CSR_BCCMD(pdu_type="getreq", seqno=1, varid=0x2819, value=b"")
+r = raw(cmd)
+assert r == bytes.fromhex("c200000500010019280000")
+assert HCI_Cmd_VSC_CSR_BCCMD(r).length == 5
+
+= An explicit length is preserved, not recomputed
+cmd = HCI_Cmd_VSC_CSR_BCCMD(pdu_type="getreq", seqno=1, varid=0x2819, length=0x1234)
+assert HCI_Cmd_VSC_CSR_BCCMD(raw(cmd)).length == 0x1234
+
+= The pdu_type and varid enums resolve to names
+cmd = HCI_Cmd_VSC_CSR_BCCMD(pdu_type="setreq", varid=0x7003)
+assert cmd.pdu_type == 0x0002
+assert cmd.varid == 0x7003
+assert cmd.sprintf("%pdu_type%") == "setreq"
+assert cmd.sprintf("%varid%") == "ps"
+
+= A GETREQ carrying a non-default value payload (PS-key door) round-trips
+# The PS-key door (varid 0x7003) puts [pskey, nwords, stores] at the head of the
+# value area; the contrib carries it as opaque bytes.
+val = bytes.fromhex("010004000000") + b"\x00" * 8
+cmd = HCI_Cmd_VSC_CSR_BCCMD(pdu_type="getreq", seqno=0x42, varid=0x7003, value=val)
+p = HCI_Cmd_VSC_CSR_BCCMD(raw(cmd))
+assert p.varid == 0x7003
+assert p.seqno == 0x42
+assert p.value == val
+# length = (1 channel excluded) -> 10 header bytes + 14 value bytes = 24 -> 12 words
+assert p.length == 12
+
+
++ CSR BCCMD response (HCI vendor event, code 0xFF)
+
+= The response is registered as an HCI_Event_Vendor handler
+# The 0xFF event code is shared across vendors, so the CSR response is registered
+# as a handler (its check() claims only BCCMD-shaped bodies) instead of rebound.
+assert HCI_Event_VSC_CSR_BCCMD in HCI_Event_Vendor.registered_handlers
+assert issubclass(HCI_Event_VSC_CSR_BCCMD, HCI_Event_Vendor)
+
+= check() claims a 0xC2-led PDU of at least 11 bytes and nothing else
+assert HCI_Event_VSC_CSR_BCCMD.check(b"\xc2" + b"\x00" * 10)
+assert not HCI_Event_VSC_CSR_BCCMD.check(b"\xc2\x00")       # too short
+assert not HCI_Event_VSC_CSR_BCCMD.check(b"\x99" + b"\x00" * 10)  # wrong channel
+assert not HCI_Event_VSC_CSR_BCCMD.check(b"")
+
+= A GETRESP vendor event dissects through the handler (buildid = 0x22bb)
+# 04(evt) ff(vendor) 13(plen) c2(channel) 0100(getresp) 0900(length) 0100(seqno)
+# 1928(varid buildid) 0000(status) bb22000000000000(value)
+raw_evt = bytes.fromhex("04ff13c201000900010019280000bb22000000000000")
+evt = HCI_Hdr(raw_evt)
+assert HCI_Event_VSC_CSR_BCCMD in evt
+r = evt[HCI_Event_VSC_CSR_BCCMD]
+assert r.channel == 0xc2
+assert r.pdu_type == 0x0001
+assert r.get_field("pdu_type").i2repr(r, r.pdu_type) == "getresp"
+assert r.length == 9
+assert r.seqno == 1
+assert r.varid == 0x2819
+assert r.status == 0
+assert r.value == bytes.fromhex("bb22000000000000")
+# match_subclass keeps the handler reachable as the generic vendor event
+assert HCI_Event_Vendor in evt
+assert evt[HCI_Event_Vendor] is r
+
+= Dissection is idempotent and rebuild reproduces the wire bytes
+assert raw(HCI_Hdr(raw_evt)) == raw_evt
+# rebuild from parsed fields with auto-length reproduces the PDU body
+body = raw_evt[3:]
+r2 = HCI_Event_VSC_CSR_BCCMD(channel=r.channel, pdu_type=r.pdu_type,
+                            seqno=r.seqno, varid=r.varid, status=r.status,
+                            value=r.value)
+assert raw(r2) == body
+
+= A vendor event that is not a BCCMD PDU falls back to the generic event
+# No registered check claims it (channel byte is not 0xC2), so the body stays in
+# HCI_Event_Vendor.data and other vendor contribs remain free to claim it.
+p = HCI_Event_Hdr(b"\xff\x02\x99\xaa")
+assert type(p[HCI_Event_Vendor]) is HCI_Event_Vendor
+assert HCI_Event_VSC_CSR_BCCMD not in p
+assert p[HCI_Event_Vendor].data == b"\x99\xaa"
+assert raw(p) == b"\xff\x02\x99\xaa"

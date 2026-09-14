@@ -17,7 +17,6 @@ from scapy.fields import BitFieldLenField, BitField, BitEnumField, ByteField, \
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IPv6, in6_chksum, _IPv6ExtHdr
 from scapy.utils import checksum
-from scapy.compat import orb
 from scapy.config import conf
 from scapy.volatile import RandInt
 
@@ -75,7 +74,7 @@ class PIMv2Hdr(Packet):
 def _guess_pim_tlv_class(h_classes, default_key, pkt, **kargs):
     cls = conf.raw_layer
     if len(pkt) >= 2:
-        tlvtype = orb(pkt[1])
+        tlvtype = pkt[1]
         cls = h_classes.get(tlvtype, default_key)
     return cls(pkt, **kargs)
 

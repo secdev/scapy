@@ -329,6 +329,12 @@ class LDAPHero:
         self.tprint("client.close()")
         self.client.close()
         self.connected = False
+        self.sids = dict(WELL_KNOWN_SIDS)
+        self.sidscombo = {}
+        self.guids = {}
+        self.guidscombo = {"None": None}
+        self.guidscomboobject = {"None": None}
+        self.loadedSchemaIDGuids = False
 
         self.menu_connection.entryconfig("Connect", state=tk.ACTIVE)
         self.menu_connection.entryconfig("Bind", state=tk.DISABLED)
@@ -758,6 +764,9 @@ class LDAPHero:
         """
         unknowns = [x for x in (y.summary() for y in sids) if x not in self.sids]
         if not unknowns:
+            return
+        if self.ssp is None:
+            self.sidscombo = {self._rslvsid(x): x for x in self.sids.keys()}
             return
 
         # Perform a resolution using [MS-LSAT] LsarLookupSids3

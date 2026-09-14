@@ -41,7 +41,7 @@ from scapy.packet import (
 )
 from scapy.layers.l2 import SourceMACField, Ether, CookedLinux, GRE, SNAP
 from scapy.config import conf
-from scapy.compat import orb, chb
+from scapy.compat import chb
 
 #
 # EAPOL
@@ -256,9 +256,9 @@ class EAP(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            c = orb(_pkt[0])
+            c = _pkt[0]
             if c in [1, 2] and len(_pkt) >= 5:
-                t = orb(_pkt[4])
+                t = _pkt[4]
                 return cls.registered_methods.get(t, cls)
         return cls
 
@@ -578,7 +578,7 @@ class MKAParamSet(Packet):
 
         cls = conf.raw_layer
         if _pkt is not None:
-            ptype = orb(_pkt[0])
+            ptype = _pkt[0]
             return globals().get(_param_set_cls.get(ptype), conf.raw_layer)
 
         return cls

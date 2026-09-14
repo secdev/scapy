@@ -187,3 +187,10 @@ assert MQTTUnsubscribe in u and len(u.topics) == 2 and u.topics[1].topic == b"c/
 = MQTTSubscribe
 u = MQTT(b'\x82\x10\x00\x01\x00\x03\x61\x2F\x62\x02\x00\x03\x63\x2F\x64\x00')
 assert MQTTSubscribe in u and len(u.topics) == 2 and u.topics[1].topic == b"c/d"
+
+= MQTTPublish without underlayer does not crash
+p = MQTTPublish()
+p.show()
+assert p.topic == b""
+assert p.value == b""
+assert p.msgid is None

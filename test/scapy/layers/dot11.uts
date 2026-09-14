@@ -23,6 +23,11 @@ raw_data = raw(pkt)
 expected = b'\x05\x12'
 assert raw_data[2:4] == b'\x05\x12', f"Encoded Dot11 ID field is {raw_data[2:4]}, expected {repr(expected)}."
 
+= Dot11 - build with fuzz
+# GH5070
+Dot11(type=RandInt())
+fuzz(Dot11())
+
 = Dot11 - dissection
 p = Dot11(s)
 Dot11 in p and p.addr3 == "00:00:00:00:00:00"

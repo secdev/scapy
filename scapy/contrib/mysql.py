@@ -39,7 +39,7 @@ resultset metadata/rows, or full command/authentication coverage.
 import struct
 from typing import Any, Optional, Tuple
 
-from scapy.compat import orb
+from scapy.config import conf
 from scapy.fields import (
     ByteEnumField,
     ByteField,
@@ -227,7 +227,7 @@ def _read_lenenc_int(data: bytes) -> Tuple[int, int]:
     """Decode a MySQL length-encoded integer and return (value, consumed)."""
     if not data:
         return 0, 0
-    first = orb(data[0])
+    first = data[0]
     if first < 0xFB:
         return first, 1
     if first == 0xFC:
@@ -301,7 +301,7 @@ class MySQLByteLenStrField(Field[Any, Any]):
     def getfield(self, pkt: Packet, s: bytes) -> Tuple[bytes, Any]:
         if not s:
             return s, b""
-        length = orb(s[0])
+        length = s[0]
         return s[1 + length:], s[1:1 + length]
 
     def i2repr(self, pkt: Optional[Packet], val: Any) -> str:
@@ -626,7 +626,7 @@ class MySQLClientPacket(_MySQLPacket):
             if _capability(flags, CLIENT_PROTOCOL_41):
                 return MySQLHandshakeResponse41
         if payload:
-            command = orb(payload[0])
+            command = payload[0]
             if command == 0x03:
                 return MySQLComQuery
             if command in MYSQL_COMMANDS:
@@ -640,10 +640,10 @@ class MySQLServerPacket(_MySQLPacket):
     name = "MySQL Server Packet"
 
     def guess_payload_class(self, payload: bytes) -> type:
-        if payload and self.sequence_id == 0 and orb(payload[0]) == 0x0A:
+        if payload and self.sequence_id == 0 and payload[0] == 0x0A:
             return MySQLHandshakeV10
         if payload:
-            header = orb(payload[0])
+            header = payload[0]
             if header == 0x00:
                 if self.sequence_id == 1 and len(payload) == 12:
                     return MySQLStmtPrepareOK
@@ -672,6 +672,7 @@ class _MySQLStream(Packet, TCPSession):
         session: Any = None,
     ) -> Optional[Packet]:
         offset = 0
+        packet_count = 0
         while offset < len(data):
             if len(data) - offset < 4:
                 return None
@@ -683,6 +684,9 @@ class _MySQLStream(Packet, TCPSession):
             if len(data) - offset < payload_length:
                 return None
             offset += payload_length
+            packet_count += 1
+            if packet_count == conf.max_list_count and offset < len(data):
+                return cls(data[:offset]) / conf.padding_layer(data[offset:])
         if data:
             return cls(data)
         return None

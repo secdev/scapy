@@ -128,18 +128,24 @@ def autorun_commands_timeout(cmds, timeout=None, **kwargs):
     if timeout is None:
         return autorun_commands(cmds, **kwargs)
 
-    q = Queue()  # type: Queue[Any]
+    q = Queue()  # type: Queue[Tuple[bool, Any]]
 
     def _runner():
         # type: () -> None
-        q.put(autorun_commands(cmds, **kwargs))
+        try:
+            q.put((False, autorun_commands(cmds, **kwargs)))
+        except BaseException as e:
+            q.put((True, e))
     th = threading.Thread(target=_runner)
     th.daemon = True
     th.start()
     th.join(timeout)
     if th.is_alive():
         raise StopAutorunTimeout
-    return q.get()
+    is_exc, result = q.get()
+    if is_exc:
+        raise result
+    return result
 
 
 class StringWriter(StringIO):

@@ -897,7 +897,7 @@ assert isinstance(ske, TLSServerKeyExchange)
 p = ske.params
 assert isinstance(p, ServerECDHNamedCurveParams)
 assert p.named_curve == 0x0017
-assert orb(p.point[0]) == 4 and p.point[1:5] == b'\xc3\x9d\x1cD' and p.point[-4:] == b'X\x19\x03u'
+assert p.point[0] == 4 and p.point[1:5] == b'\xc3\x9d\x1cD' and p.point[-4:] == b'X\x19\x03u'
 assert ske.sig.sig_alg == 0x0601
 ske.sig.sig_val[:4] == b'y\x8aQ\x11' and ske.sig.sig_val[-4:] == b'`15\xef'
 
@@ -1193,6 +1193,25 @@ assert isinstance(cfin, TLSFinished)
 = Verify MAC - TLSFinished record
 assert (t6.payload.payload.mac == b'\x10\xce\xca2\xb4\xc3m\xf1\x16c\xdb\xfc\x08\x16\x1d\x82\x83U\x8c\xe1')
 
+= RSA premaster secret uses a random suffix
+
+from scapy.layers.tls.cert import Cert
+from scapy.layers.tls.keyexchange import EncryptedPreMasterSecret
+from scapy.layers.tls.session import tlsSession
+
+premasters = []
+for _ in range(2):
+    session = tlsSession(connection_end="client")
+    session.tls_version = 0x0303
+    session.server_certs = [Cert(scapy_path("/test/scapy/layers/tls/pki/srv_cert.pem"))]
+    session.extms = True
+    EncryptedPreMasterSecret(tls_session=session).build()
+    premasters.append(session.pre_master_secret)
+
+assert all(len(pms) == 48 and pms[:2] == b"\x03\x03" for pms in premasters)
+assert all(pms[2:] != b"\x00" * 46 for pms in premasters)
+assert premasters[0] != premasters[1]
+
 ###############################################################################
 ################## Reading TLS vulnerable test session ########################
 ###############################################################################
@@ -1254,6 +1273,40 @@ assert res[4].getlayer(TLS, 2).msg[0].data == b"To boldly go where no man has go
 
 conf.tls_session_enable = False
 
+= TCPSession waits for a complete TLS record header
+
+import io
+import struct
+
+def make_pcap(*packets):
+    header = struct.pack("<IHHiIII", 0xA1B2C3D4, 2, 4, 0, 0, 0x40000, 1)
+    records = (
+        struct.pack("<IIII", index, 0, len(packet), len(packet)) + packet
+        for index, packet in enumerate(packets)
+    )
+    return header + b"".join(records)
+
+client_hello = bytes(TLS(msg=[TLSClientHello(
+    gmt_unix_time=0, random_bytes=b"R" * 28, ciphers=[0x1301], comp=[0], ext=[]
+)]))
+following = bytes(Ether() / IP() / UDP(sport=1111, dport=2222) / Raw(b"tail"))
+partial = bytes(Ether() / IP() / TCP(dport=443, flags="PA") / Raw(client_hello[:4]))
+with no_debug_dissector():
+    packets = sniff(offline=io.BytesIO(make_pcap(partial, following)), session=TCPSession)
+
+assert len(packets) == 1
+assert UDP in packets[0]
+
+= Complete record header waits and complete ClientHello parses
+
+for payload, count in ((client_hello[:5], 1), (client_hello, 2)):
+    first = bytes(Ether() / IP() / TCP(dport=443, flags="PA") / Raw(payload))
+    with no_debug_dissector():
+        packets = sniff(offline=io.BytesIO(make_pcap(first, following)), session=TCPSession)
+    assert len(packets) == count
+
+assert TLS in packets[0]
+
 ###############################################################################
 ############################## Building packets ###############################
 ###############################################################################
@@ -1272,6 +1325,16 @@ raw(TLSClientKeyExchange())
 raw(TLSAlert())
 raw(TLSChangeCipherSpec())
 raw(TLSApplicationData()) == b""
+
+= Parsing TLS certificate bytes does not resolve local file paths
+cert_path = b"test/scapy/layers/tls/pki/srv_cert.pem"
+packet = Ether() / IP() / TCP(dport=443) / TLS(
+    msg=[TLSCertificate(certs=[(len(cert_path), cert_path)])]
+)
+with no_debug_dissector():
+    parsed = Ether(bytes(packet))
+
+assert Raw in parsed[TLS]
 
 
 = Building packets - ClientHello with automatic length computation
@@ -1632,6 +1695,42 @@ if shutil.which("editcap"):
     assert b"GET /pki/srv_key.pem HTTP/1.0\r\n" in packets[27].inner.msg[0].data
     assert b"BEGIN PRIVATE KEY" in packets[28].inner.msg[0].data
     conf = bck_conf
+
+= pcapng Decryption Secrets Block state follows the reader lifecycle
+
+import io
+import struct
+
+def pcapng_block(block_type, body):
+    body += b"\x00" * (-len(body) % 4)
+    length = 12 + len(body)
+    return (
+        struct.pack("<II", block_type, length)
+        + body
+        + struct.pack("<I", length)
+    )
+
+old_keys = conf.tls_nss_keys
+old_session_enable = conf.tls_session_enable
+previous_keys = {"EXISTING": {b"identifier": b"secret"}}
+conf.tls_nss_keys = previous_keys
+conf.tls_session_enable = False
+key_log_path = scapy_path("doc/notebooks/tls/raw_data/tls_nss_example.keys.txt")
+with open(key_log_path, "rb") as key_log_file:
+    key_log = key_log_file.read()
+
+section = bytes.fromhex("4d3c2b1a") + struct.pack("<HHq", 1, 0, -1)
+secrets = struct.pack("<II", 0x544c534b, len(key_log)) + key_log
+capture = pcapng_block(0x0a0d0d0a, section) + pcapng_block(10, secrets)
+reader = PcapReader(io.BytesIO(capture))
+assert len(reader.read_all()) == 0
+assert conf.tls_nss_keys is not previous_keys
+assert conf.tls_session_enable is True
+reader.close()
+assert conf.tls_nss_keys is previous_keys
+assert conf.tls_session_enable is False
+conf.tls_nss_keys = old_keys
+conf.tls_session_enable = old_session_enable
 
 = pcapng file with a non-UTF-8 Decryption Secrets Block
 

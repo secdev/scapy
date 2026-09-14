@@ -15,7 +15,6 @@ from collections import defaultdict
 from types import GeneratorType
 from threading import Lock
 
-from scapy.compat import orb
 from scapy.packet import Raw, Packet
 from scapy.plist import PacketList
 from scapy.sessions import DefaultSession
@@ -40,6 +39,24 @@ from typing import (
 
 __all__ = ["EcuState", "Ecu", "EcuResponse", "EcuSession",
            "EcuAnsweringMachine"]
+
+
+def _security_access_key(pkt):
+    # type: (Packet) -> Optional[bytes]
+    """
+    Return the key carried by a UDS SecurityAccess request, or None.
+
+    Read from the raw bytes rather than through ``UDS_SA.securityKey``, so that
+    renaming the field cannot quietly turn the check off. An odd sub-function is
+    a requestSeed and carries no key; an even one is a sendKey.
+
+    :param pkt: a request packet, whose first byte is the service identifier
+    :return: the key bytes, or None if this is not a sendKey request
+    """
+    data = bytes(pkt)
+    if len(data) > 2 and data[0] == 0x27 and data[1] % 2 == 0:
+        return data[2:] or None
+    return None
 
 
 class EcuState(object):
@@ -295,6 +312,9 @@ class Ecu(object):
         self.lookahead = lookahead
         self.log = defaultdict(list)  # type: Dict[str, List[Any]]
         self.__supported_responses = list()  # type: List[EcuResponse]
+        self.__supported_response_index = defaultdict(
+            list
+        )  # type: Dict[Tuple[Type[Packet], bytes], List[EcuResponse]]
         self.__unanswered_packets = PacketList()
 
     def reset(self):
@@ -373,18 +393,28 @@ class Ecu(object):
             if not self.store_supported_responses:
                 continue
 
-            for sup_resp in self.__supported_responses:
-                if resp == sup_resp.key_response:
-                    if sup_resp.states is not None and \
-                            self.state not in sup_resp.states:
-                        sup_resp.states.append(current_state)
-                    added = True
-                    break
+            if len(self.__supported_responses) <= 1:
+                known_responses = self.__supported_responses
+            else:
+                response_key = (resp.__class__, bytes(resp))
+                known_responses = self.__supported_response_index[response_key]
+
+            for sup_resp in known_responses:
+                if resp != sup_resp.key_response or not sup_resp.answers(req):
+                    continue
+                if sup_resp.states is not None and self.state not in sup_resp.states:
+                    sup_resp.states.append(current_state)
+                added = True
+                break
 
             if added:
                 continue
 
-            ecu_resp = EcuResponse(current_state, responses=resp)
+            ecu_resp = EcuResponse(
+                current_state, responses=resp,
+                security_key=_security_access_key(req))
+            response_key = (resp.__class__, bytes(resp))
+            self.__supported_response_index[response_key].append(ecu_resp)
             if self.verbose:
                 print("[+] ", repr(ecu_resp))
             self.__supported_responses.append(ecu_resp)
@@ -402,7 +432,7 @@ class Ecu(object):
         :return: Tuple as sort key
         """
         first_layer = cast(Packet, resp.key_response[0])  # type: ignore
-        service = orb(bytes(first_layer)[0])
+        service = bytes(first_layer)[0]
         return (service == 0x7f,
                 service,
                 0xffffffff - len(resp.states or []),
@@ -506,9 +536,12 @@ class EcuResponse:
                     be implemented in this way or generic NegativeResponse
                     messages which answers to everything can be realized
                     in this way.
+    :param security_key: Optional key to retain when learning a SecurityAccess
+                         response from a packet trace.
     """   # noqa: E501
-    def __init__(self, state=None, responses=Raw(b"\x7f\x10"), answers=None):
-        # type: (Optional[Union[EcuState, Iterable[EcuState]]], Union[Iterable[Packet], PacketList, Packet], Optional[Callable[[Packet, Packet], bool]]) -> None  # noqa: E501
+    def __init__(self, state=None, responses=Raw(b"\x7f\x10"), answers=None,
+                 security_key=None):
+        # type: (Optional[Union[EcuState, Iterable[EcuState]]], Union[Iterable[Packet], PacketList, Packet], Optional[Callable[[Packet, Packet], bool]], Optional[bytes]) -> None  # noqa: E501
         if state is None:
             self.__states = None  # type: Optional[List[EcuState]]
         else:
@@ -530,6 +563,7 @@ class EcuResponse:
                 "Can't handle type %s as response" % type(responses))
 
         self.__custom_answers = answers
+        self.__security_key = security_key
 
     @property
     def states(self):
@@ -556,6 +590,10 @@ class EcuResponse:
 
     def answers(self, other):
         # type: (Packet) -> Union[int, bool]
+        if self.__security_key is not None:
+            security_key = _security_access_key(other)
+            if security_key and self.__security_key != security_key:
+                return False
         if self.__custom_answers is not None:
             return self.__custom_answers(self.key_response, other)
         else:
@@ -575,11 +613,12 @@ class EcuResponse:
             len(self.responses) == len(other.responses) and \
             all(bytes(x) == bytes(y) for x, y in zip(self.responses,
                                                      other.responses))
+        keys_equal = self.__security_key == other.__security_key
         if self.__states is None:
-            return responses_equal
+            return responses_equal and keys_equal
         else:
             return any(other.supports_state(s) for s in self.__states) and \
-                responses_equal
+                responses_equal and keys_equal
 
     def __ne__(self, other):
         # type: (object) -> bool
@@ -588,13 +627,17 @@ class EcuResponse:
 
     def command(self):
         # type: () -> str
+        security_key = "" if self.__security_key is None else \
+            ", security_key=%r" % self.__security_key
         if self.__states is not None:
-            return "EcuResponse(%s, responses=%s)" % (
+            return "EcuResponse(%s, responses=%s%s)" % (
                 "[" + ", ".join(s.command() for s in self.__states) + "]",
-                "[" + ", ".join(p.command() for p in self.__responses) + "]")
+                "[" + ", ".join(p.command() for p in self.__responses) + "]",
+                security_key)
         else:
-            return "EcuResponse(responses=%s)" % "[" + ", ".join(
-                p.command() for p in self.__responses) + "]"
+            return "EcuResponse(responses=%s%s)" % (
+                "[" + ", ".join(p.command() for p in self.__responses) + "]",
+                security_key)
 
     __hash__ = None  # type: ignore
 

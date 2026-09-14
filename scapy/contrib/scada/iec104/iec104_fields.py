@@ -23,7 +23,6 @@
 """
 import struct
 
-from scapy.compat import orb
 from scapy.fields import Field, ThreeBytesField, BitField
 from scapy.volatile import RandSShort
 
@@ -106,8 +105,8 @@ class IEC104SequenceNumber(Field):
         return s + bytes(bytearray([b0, b1]))
 
     def getfield(self, pkt, s):
-        b0 = (orb(s[0]) & 0xfe) >> 1
-        b1 = orb(s[1])
+        b0 = (s[0] & 0xfe) >> 1
+        b1 = s[1]
 
         seq_num = b0 + (b1 << 7)
 

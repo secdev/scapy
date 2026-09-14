@@ -618,6 +618,13 @@ raw(DHCP6OptDNSServers(dnsservers = ["2001:db8::1", "2001:db8::2"] )) == b'\x00\
 a = DHCP6OptDNSServers(b'\x00\x17\x00  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
 a.optcode == 23 and a.optlen == 32 and len(a.dnsservers) == 2 and a.dnsservers[0] == "2001:db8::1" and a.dnsservers[1] == "2001:db8::2"
 
+= DHCP6OptDNSServers - Dissection with a truncated trailing address (regression)
+# optlen=20: one full IPv6 address plus 4 stray bytes. IP6ListField used to raise
+# ValueError ("invalid length of packed IP address string") on the short final
+# chunk; it must stop and leave the extra bytes to the next layer instead.
+a = DHCP6OptDNSServers(b'\x00\x17\x00\x14 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xde\xad\xbe\xef')
+a.optcode == 23 and a.dnsservers == ["2001:db8::1"]
+
 
 ############
 ############

@@ -11,7 +11,7 @@ VRRP (Virtual Router Redundancy Protocol).
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitField, ByteField, FieldLenField, FieldListField, \
     IPField, IP6Field, IntField, MultipleTypeField, StrField, XShortField
-from scapy.compat import chb, orb
+from scapy.compat import chb
 from scapy.layers.inet import IP, in4_chksum, checksum
 from scapy.layers.inet6 import IPv6, in6_chksum
 from scapy.error import warning
@@ -45,7 +45,7 @@ class VRRP(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 9:
-            ver_n_type = orb(_pkt[0])
+            ver_n_type = _pkt[0]
             if ver_n_type >= 48 and ver_n_type <= 57:  # Version == 3
                 return VRRPv3
         return VRRP
@@ -91,7 +91,7 @@ class VRRPv3(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 16:
-            ver_n_type = orb(_pkt[0])
+            ver_n_type = _pkt[0]
             if ver_n_type < 48 or ver_n_type > 57:  # Version != 3
                 return VRRP
         return VRRPv3

@@ -18,8 +18,8 @@ from scapy.error import warning
 from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
     FieldListField, PacketField, ShortEnumField, ShortField, \
     StrFixedLenField, StrLenField
-from scapy.compat import orb
 from scapy.packet import Packet, Raw, Padding
+from scapy.volatile import RandBin
 from scapy.layers.tls.cert import PubKeyRSA, PrivKeyRSA
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import _tls_version, _TLSClientVersionField
@@ -662,7 +662,7 @@ _tls_server_ecdh_cls = {1: ServerECDHExplicitPrimeParams,
 def _tls_server_ecdh_cls_guess(m):
     if not m:
         return None
-    curve_type = orb(m[0])
+    curve_type = m[0]
     return _tls_server_ecdh_cls.get(curve_type, None)
 
 
@@ -910,7 +910,7 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
     name = "RSA Encrypted PreMaster Secret"
     fields_desc = [_TLSClientVersionField("client_version", None,
                                           _tls_version),
-                   StrFixedLenField("random", None, 46)]
+                   StrFixedLenField("random", RandBin(46), 46)]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):

@@ -198,6 +198,9 @@ class NBNS_ADD_ENTRY(Packet):
         IPField("NB_ADDRESS", "127.0.0.1")
     ]
 
+    def default_payload_class(self, payload):
+        return conf.padding_layer
+
 
 class NBNSQueryResponse(Packet):
     name = "NBNS query response"
@@ -453,7 +456,7 @@ def nbns_resolve(
     qname = NBNSQueryRequest.QUESTION_NAME.any2i(None, qname)
 
     # Check cache
-    cache_ident = qname + b"raw" if raw else b""
+    cache_ident = (qname, raw)
     result = _nbns_cache.get(cache_ident)
     if result:
         return result

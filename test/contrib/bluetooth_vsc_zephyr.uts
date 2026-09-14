@@ -1,0 +1,104 @@
+% Zephyr Bluetooth Vendor-Specific Command (VSC) tests
+# test/run_tests -P "load_contrib('bluetooth_vsc_zephyr')" -t test/contrib/bluetooth_vsc_zephyr.uts
+# Frames captured live from an nRF52840 running Zephyr hci_usb (Zephyr OS v3.4.99).
+
++ Load the Zephyr VSC contrib module
+
+= Load the contrib module
+from scapy.layers.bluetooth import *
+load_contrib("bluetooth_vsc_zephyr")
+from scapy.contrib.bluetooth_vsc_zephyr import *
+
+
++ Zephyr no-parameter read commands build + dissect
+
+= Read Version Info (opcode 0xFC01)
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Zephyr_Read_Version_Info()
+assert cmd.ogf == 0x3f
+assert cmd.ocf == 0x001
+assert cmd.opcode == 0xfc01
+assert raw(cmd) == b'\x01\xfc\x00'
+# A zero-length command payload is not re-instantiated on dissection (this is how
+# scapy handles empty payloads -- core HCI_Cmd_Reset behaves the same); the opcode
+# is what survives the round-trip.
+p = HCI_Command_Hdr(raw(cmd))
+assert p.opcode == 0xfc01
+
+= Read Supported Commands / Features / Build Info / Static Addrs / Key Roots opcodes
+assert (HCI_Command_Hdr() / HCI_Cmd_VSC_Zephyr_Read_Supported_Commands()).opcode == 0xfc02
+assert (HCI_Command_Hdr() / HCI_Cmd_VSC_Zephyr_Read_Supported_Features()).opcode == 0xfc03
+assert (HCI_Command_Hdr() / HCI_Cmd_VSC_Zephyr_Read_Build_Info()).opcode == 0xfc08
+assert (HCI_Command_Hdr() / HCI_Cmd_VSC_Zephyr_Read_Static_Addresses()).opcode == 0xfc09
+assert (HCI_Command_Hdr() / HCI_Cmd_VSC_Zephyr_Read_Key_Hierarchy_Roots()).opcode == 0xfc0a
+
+
++ Zephyr Write BD_ADDR (opcode 0xFC06)
+
+= Build a Write BD_ADDR command (little-endian on the wire)
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Zephyr_Write_BD_Addr(bd_addr="00:11:22:33:44:55")
+assert cmd.opcode == 0xfc06
+assert raw(cmd) == b'\x06\xfc\x06\x55\x44\x33\x22\x11\x00'
+p = HCI_Command_Hdr(raw(cmd))
+assert p[HCI_Cmd_VSC_Zephyr_Write_BD_Addr].bd_addr == "00:11:22:33:44:55"
+
+= Write BD_ADDR command complete (status only)
+evt = HCI_Hdr(bytes.fromhex("040e040106fc00"))
+assert evt[HCI_Event_Command_Complete].opcode == 0xfc06
+assert evt[HCI_Event_Command_Complete].status == 0
+
+
++ Read Version Info command complete (opcode 0xFC01)
+
+= Dissect the version info return (Nordic nRF52x, Zephyr v3.4 build 99)
+evt = HCI_Hdr(bytes.fromhex("040e100101fc00020002000003040063000000"))
+vi = evt[HCI_Cmd_Complete_VSC_Zephyr_Read_Version_Info]
+assert evt[HCI_Event_Command_Complete].status == 0
+assert vi.hw_platform == 0x0002       # Nordic Semiconductor
+assert vi.hw_variant == 0x0002        # nRF52x
+assert vi.fw_variant == 0x00          # standard_controller
+assert vi.fw_version == 3
+assert vi.fw_revision == 4
+assert vi.fw_build == 99
+
+
++ Read Supported Commands / Features command complete
+
+= Supported Commands is a 64-byte bitmap; byte0 advertises {FC01,02,03,06,08}
+evt = HCI_Hdr(bytes.fromhex("040e440102fc00" + "a703" + "00" * 62))
+sc = evt[HCI_Cmd_Complete_VSC_Zephyr_Read_Supported_Commands]
+assert len(sc.commands) == 64
+assert sc.commands[0] == 0xa7
+assert sc.commands[1] == 0x03
+
+= Supported Features is an 8-byte bitmap (all-zero on this build)
+evt = HCI_Hdr(bytes.fromhex("040e0c0103fc000000000000000000"))
+sf = evt[HCI_Cmd_Complete_VSC_Zephyr_Read_Supported_Features]
+assert sf.features == b"\x00" * 8
+
+
++ Read Build Info command complete (opcode 0xFC08)
+
+= The build-info string is length-derived from the event header
+evt = HCI_Hdr(bytes.fromhex("040e160108fc005a6570687972204f532076332e342e393900"))
+bi = evt[HCI_Cmd_Complete_VSC_Zephyr_Read_Build_Info]
+assert bi.build_info == b"Zephyr OS v3.4.99\x00"
+
+
++ Read Static Addresses command complete (opcode 0xFC09) -- read primitive
+
+= One static random address + its 16-byte Identity Root
+evt = HCI_Hdr(bytes.fromhex("040e1b0109fc00015449a10d1bff9fca692d41532c66a76b0c22cf189318"))
+sa = evt[HCI_Cmd_Complete_VSC_Zephyr_Read_Static_Addresses]
+assert sa.num == 1
+assert len(sa.addrs) == 1
+assert sa.addrs[0].addr == "ff:1b:0d:a1:49:54"
+assert sa.addrs[0].ir == bytes.fromhex("9fca692d41532c66a76b0c22cf189318")
+
+
++ Read Key Hierarchy Roots command complete (opcode 0xFC0A) -- read primitive
+
+= Identity Root (IR) and Encryption Root (ER), 16 bytes each
+evt = HCI_Hdr(bytes.fromhex("040e24010afc00" + "00" * 16 + "e37d530d4cfdaf8b89817f33ca1d8416"))
+kr = evt[HCI_Cmd_Complete_VSC_Zephyr_Read_Key_Hierarchy_Roots]
+assert kr.ir == b"\x00" * 16
+assert kr.er == bytes.fromhex("e37d530d4cfdaf8b89817f33ca1d8416")

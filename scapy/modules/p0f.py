@@ -13,7 +13,7 @@ import random
 
 from scapy.data import KnowledgeBase, select_path
 from scapy.config import conf
-from scapy.compat import raw, orb
+from scapy.compat import raw
 from scapy.packet import NoPayload
 from scapy.layers.inet import IP, TCP, TCPOptions
 from scapy.layers.http import HTTP, HTTPRequest, HTTPResponse
@@ -126,7 +126,7 @@ class TCP_Signature(object):
         optlen = (tcp.dataofs << 2) - 20
         x = raw(tcp)[-optlen:]  # raw bytes of TCP options
         while x:
-            onum = orb(x[0])
+            onum = x[0]
             if onum == 0:
                 x = x[1:]
                 olayout += "eol+%i," % len(x)
@@ -138,7 +138,7 @@ class TCP_Signature(object):
                 olayout += "nop,"
                 continue
             try:
-                olen = orb(x[1])
+                olen = x[1]
             except IndexError:  # no room for length field
                 addq("bad")
                 break

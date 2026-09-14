@@ -9,7 +9,7 @@
 
 import struct
 
-from scapy.compat import orb, chb
+from scapy.compat import chb
 from scapy.config import conf
 from scapy.data import (
     DLT_BLUETOOTH_LE_LL,
@@ -237,7 +237,7 @@ class BTLE(Packet):
 
         state = swapbits(init & 0xff) + (swapbits((init >> 8) & 0xff) << 8) + (swapbits((init >> 16) & 0xff) << 16)  # noqa: E501
         lfsr_mask = 0x5a6000
-        for i in (orb(x) for x in pdu):
+        for i in pdu:
             for j in range(8):
                 next_bit = (state ^ i) & 1
                 i >>= 1

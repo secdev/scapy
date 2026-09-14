@@ -97,3 +97,21 @@ v=struct.pack(">I",CRC_32(b"12345678"))
 r = CRC.search(v+b"123"+t+b"xx12345678ttt"+v+u+b"sdsef12345678fsf", only_registry=True)
 len(r)
 len(r) >= 9 and ((5,29),29752,CRC_16_CCITT) in r and ((13,21),2598427311,CRC_32) in r and ((37,45),2948878546,CRC_32_AUTOSAR) in r
+
+############
+############
++ Typing imports
+
+= crc.py imports typing names referenced in type comments
+import pathlib
+import re
+
+src = pathlib.Path("scapy/libs/crc.py").read_text()
+needed = set(re.findall(r"# type: .*?\b(Any|Set|List|Tuple)\b", src))
+imports = set(re.findall(r"from typing import ([^\n]+)", src))
+imported = set()
+for chunk in imports:
+    imported.update(n.strip() for n in chunk.split(","))
+
+for name in needed:
+    assert name in imported, "missing typing import for %s" % name

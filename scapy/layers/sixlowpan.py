@@ -51,7 +51,7 @@ Known Issues:
 import socket
 import struct
 
-from scapy.compat import chb, orb, raw
+from scapy.compat import chb, raw
 from scapy.data import ETHER_TYPES
 
 from scapy.packet import Packet, bind_layers, bind_top_down
@@ -528,7 +528,7 @@ def _extract_upperaddress(pkt, source=True):
         if addrmode == 3:  # Extended/long
             tmp_ip = LINK_LOCAL_PREFIX[0:8] + addr
             # Turn off the bit 7.
-            return tmp_ip[0:8] + struct.pack("B", (orb(tmp_ip[8]) ^ 0x2)) + tmp_ip[9:16]  # noqa: E501
+            return tmp_ip[0:8] + struct.pack("B", (tmp_ip[8] ^ 0x2)) + tmp_ip[9:16]  # noqa: E501
         elif addrmode == 2:  # Short
             return (
                 LINK_LOCAL_PREFIX[0:8] +

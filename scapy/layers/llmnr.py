@@ -21,7 +21,6 @@ from scapy.fields import (
     ShortField,
 )
 from scapy.packet import Packet, bind_layers, bind_bottom_up
-from scapy.compat import orb
 from scapy.layers.inet import UDP, DestIPField
 from scapy.layers.dns import (
     DNSCompressedPacket,
@@ -91,7 +90,7 @@ class _LLMNR(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if len(_pkt) >= 2:
-            if (orb(_pkt[2]) & 0x80):  # Response
+            if (_pkt[2] & 0x80):  # Response
                 return LLMNRResponse
             else:                  # Query
                 return LLMNRQuery

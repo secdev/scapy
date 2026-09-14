@@ -18,7 +18,7 @@ from typing import (
     cast,
 )
 
-from scapy.compat import chb, orb
+from scapy.compat import chb
 from scapy.config import conf
 from scapy.error import Scapy_Exception
 from scapy.fields import BitField, FlagsField, StrLenField, \
@@ -246,9 +246,9 @@ class ISOTPHeader(CAN):
         if len(payload) < 1:
             return self.default_payload_class(payload)
 
-        t = (orb(payload[0]) & 0xf0) >> 4
+        t = (payload[0] & 0xf0) >> 4
         if t == 0:
-            length = (orb(payload[0]) & 0x0f)
+            length = (payload[0] & 0x0f)
             if length == 0:
                 return ISOTP_SF_FD
             else:
@@ -256,7 +256,7 @@ class ISOTPHeader(CAN):
         elif t == 1:
             if len(payload) < 2:
                 return self.default_payload_class(payload)
-            length = ((orb(payload[0]) & 0x0f) << 12) + orb(payload[1])
+            length = ((payload[0] & 0x0f) << 12) + payload[1]
             if length == 0:
                 return ISOTP_FF_FD
             else:

@@ -13,7 +13,6 @@ import copy
 
 from collections import defaultdict
 
-from scapy.compat import orb
 from scapy.contrib.automotive import log_automotive
 from scapy.packet import Packet
 from scapy.config import conf
@@ -690,7 +689,7 @@ class GMLAN_RMBAEnumerator(GMLAN_Enumerator):
             ih = IntelHex()
             for tup in self.results_with_positive_response:
                 for i, b in enumerate(tup.resp.dataRecord):
-                    ih[tup.req.memoryAddress + i] = orb(b)
+                    ih[tup.req.memoryAddress + i] = b
 
             ih.tofile("RMBA_dump.hex", format="hex")
         except ImportError:

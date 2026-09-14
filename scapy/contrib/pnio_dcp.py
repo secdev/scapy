@@ -6,7 +6,6 @@
 # scapy.contrib.description = Profinet DCP layer
 # scapy.contrib.status = loads
 
-from scapy.compat import orb
 from scapy.all import Packet, bind_layers, Padding
 from scapy.fields import (
     ByteEnumField,
@@ -459,8 +458,8 @@ def guess_dcp_block_class(packet, **kargs):
     :return: dcp block class
     """
     # packet = unicode(packet, "utf-8")
-    option = orb(packet[0])
-    suboption = orb(packet[1])
+    option = packet[0]
+    suboption = packet[1]
 
     # NOTE implement the other functions if needed
 

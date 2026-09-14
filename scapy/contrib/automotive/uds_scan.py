@@ -26,7 +26,6 @@ from typing import (
     Sequence,
 )
 
-from scapy.compat import orb
 from scapy.contrib.automotive import log_automotive
 from scapy.contrib.automotive.ecu import EcuState
 from scapy.contrib.automotive.scanner.configuration import \
@@ -576,6 +575,7 @@ class UDS_WDBIEnumerator(UDS_Enumerator):
         # type: (Any) -> Iterable[Packet]
         scan_range = kwargs.pop("scan_range", range(0x10000))
         rdbi_enumerator = kwargs.pop("rdbi_enumerator", None)
+        state = kwargs.pop("state", None)
 
         if rdbi_enumerator is None:
             log_automotive.debug("Use entire scan range")
@@ -585,7 +585,8 @@ class UDS_WDBIEnumerator(UDS_Enumerator):
             return (UDS() / UDS_WDBI(dataIdentifier=t.resp.dataIdentifier) /
                     Raw(load=bytes(t.resp)[3:])
                     for t in rdbi_enumerator.results_with_positive_response
-                    if len(bytes(t.resp)) >= 3)
+                    if len(bytes(t.resp)) >= 3 and
+                    (state is None or t.state == state))
         else:
             raise Scapy_Exception("rdbi_enumerator has to be an instance "
                                   "of UDS_RDBIEnumerator")
@@ -1175,7 +1176,7 @@ class UDS_RMBASequentialEnumerator(UDS_RMBAEnumeratorABC):
             for tup in self.results_with_positive_response:
                 for i, b in enumerate(tup.resp.dataRecord):
                     addr = self.get_addr(tup.req)
-                    ih[addr + i] = orb(b)
+                    ih[addr + i] = b
 
             ih.tofile("RMBA_dump.hex", format="hex")
         except ImportError:

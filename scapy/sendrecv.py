@@ -1139,6 +1139,10 @@ class AsyncSniffer(object):
         # type: (*Any, **Any) -> None
         # Store keyword arguments
         self.args = args
+        if "timeout" in kwargs:
+            raise ValueError(
+                "'timeout' isn't supported with AsyncSniffer. Use join(timeout=1)"
+            )
         self.kwargs = kwargs
         self.running = False
         self.thread = None  # type: Optional[Thread]
@@ -1311,9 +1315,9 @@ class AsyncSniffer(object):
                         packets = session.recv(s)
                         # A session can return multiple objects
                         for p in packets:
+                            p.sniffed_on = sniff_sockets.get(s, None)
                             if lfilter and not lfilter(p):
                                 continue
-                            p.sniffed_on = sniff_sockets.get(s, None)
                             # post-processing
                             self.count += 1
                             if store:

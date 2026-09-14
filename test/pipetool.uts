@@ -701,6 +701,25 @@ assert c.recv() == b"hello"
 p.stop()
 srv.stop()
 
+= TCP pipes are exhausted on peer EOF
+
+def eof_exhausts_pipe(source):
+    receiver, peer = socket.socketpair()
+    source.fd = receiver
+    if isinstance(source, TCPListenPipe):
+        source.connected = True
+    try:
+        peer.close()
+        source.deliver()
+        return source.exhausted()
+    finally:
+        source.stop()
+
+assert all([
+    eof_exhausts_pipe(TCPConnectPipe()),
+    eof_exhausts_pipe(TCPListenPipe()),
+])
+
 = TCPConnectPipe networking test
 ~ networking needs_root
 

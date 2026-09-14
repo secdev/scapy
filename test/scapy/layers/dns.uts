@@ -24,12 +24,23 @@ dns_ans = retry_test(_test)
 val = dns_resolve(qname="google.com", qtype="A")
 assert val
 assert inet_pton(socket.AF_INET, val[0].rdata)
-assert val == conf.netcache.dns_cache[b'google.com.;\x01']
+assert val == conf.netcache.dns_cache[b'google.com.;\x00\x01']
 
 val = dns_resolve(qname="google.com", qtype="AAAA")
 assert val
 assert inet_pton(socket.AF_INET6, val[0].rdata)
-assert val == conf.netcache.dns_cache[b'google.com.;\x1c']
+assert val == conf.netcache.dns_cache[b'google.com.;\x00\x1c']
+
+= DNS resolution cache key holds a 16-bit query type
+~ DNS
+
+# The cache is consulted before any query goes out, so this needs no network.
+wide_qtype_key = b'qtype.example.;\x80\x01'
+conf.netcache.dns_cache[wide_qtype_key] = ['cached']
+try:
+    assert dns_resolve(qname='qtype.example', qtype=32769) == ['cached']
+finally:
+    del conf.netcache.dns_cache[wide_qtype_key]
 
 = DNS labels
 ~ DNS

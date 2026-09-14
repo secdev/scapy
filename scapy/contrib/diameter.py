@@ -33,7 +33,7 @@ from scapy.fields import ConditionalField, EnumField, Field, FieldLenField, \
     XByteField, XIntField
 from scapy.layers.inet import TCP
 from scapy.layers.sctp import SCTPChunkData
-from scapy.compat import chb, orb, raw, bytes_hex, plain_str
+from scapy.compat import chb, raw, bytes_encode, bytes_hex, plain_str
 from scapy.error import warning
 from scapy.utils import inet_ntoa, inet_aton
 from scapy.pton_ntop import inet_pton, inet_ntop
@@ -307,8 +307,8 @@ class QoSFilterRule (StrLenField):        # Defined in 4.1.1 of RFC7155
 class ISDN (StrLenField):
     def i2repr(self, pkt, x):
         out = b''
-        for char in x:
-            c = orb(char)
+        for char in bytes_encode(x):
+            c = char
             out += chb(48 + (c & 15))  # convert second digit first
             v = (c & 240) >> 4
             if v != 15:
@@ -319,8 +319,8 @@ class ISDN (StrLenField):
         out = b''
         if x:
             fd = True     # waiting for first digit
-            for c in x:
-                digit = orb(c) - 48
+            for c in bytes_encode(x):
+                digit = c - 48
                 if fd:
                     val = digit
                 else:

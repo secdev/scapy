@@ -162,6 +162,40 @@ with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, 
     assert res.msg_id == req.msg_id
     assert res.token == req.token
 
+= URI-Path uses UTF-8 and an invalid path does not stop the socket
+
+class Utf8Resource(CoAPResource):
+    def get(self, payload, options, token, sa_ll):
+        return {"type": ACK, "code": CONTENT_205, "payload": b"utf8"}
+
+class _PathHandler(CoAPSocketImpl):
+    def __del__(self):
+        pass
+
+def _handle_path(handler, message_id, path):
+    token = bytes([message_id])
+    packet = (
+        IP(src="192.0.2.1", dst="192.0.2.2") /
+        UDP(sport=49152, dport=5683) /
+        CoAP(
+            type=CON, code=GET, msg_id=message_id, tkl=1, token=token,
+            options=[(URI_PATH, path)],
+        )
+    )
+    handler._handle_rcv_request(packet, ("192.0.2.1", 49152))
+
+handler = object.__new__(_PathHandler)
+handler.resources = {"/\u03c0": Utf8Resource("/\u03c0")}
+sent = []
+handler._sock_send = lambda address, packet: sent.append(packet)
+
+_handle_path(handler, 1, b"\xcf\x80")
+assert len(sent) == 1 and bytes(sent[-1].payload) == b"utf8"
+_handle_path(handler, 2, b"\xff")
+assert len(sent) == 1
+_handle_path(handler, 3, b"\xcf\x80")
+assert len(sent) == 2 and bytes(sent[-1].payload) == b"utf8"
+
 = Invalid method
 
 with CoAPSocket("127.0.0.1", 5683, lst_resources=lst_resources) as coap_server, CoAPSocket("127.0.0.1", 5684) as coap_client:

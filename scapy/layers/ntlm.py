@@ -1870,6 +1870,7 @@ class NTLMSSP(SSP):
                 ),
                 ProductMajorVersion=10,
                 ProductMinorVersion=0,
+                ProductBuild=26100,
                 Payload=[
                     ("TargetName", ""),
                     (

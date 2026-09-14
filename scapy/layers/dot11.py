@@ -18,7 +18,7 @@ from zlib import crc32
 from scapy.config import conf, crypto_validator
 from scapy.data import ETHER_ANY, DLT_IEEE802_11, DLT_PRISM_HEADER, \
     DLT_IEEE802_11_RADIO
-from scapy.compat import raw, plain_str, orb, chb
+from scapy.compat import raw, plain_str, chb
 from scapy.packet import Packet, bind_layers, bind_top_down, NoPayload
 from scapy.fields import (
     BitEnumField,
@@ -734,7 +734,7 @@ class Dot11(Packet):
         _Dot11MacField("addr1", ETHER_ANY, 1),
         ConditionalField(
             _Dot11MacField("addr2", ETHER_ANY, 2),
-            lambda pkt: (pkt.type not in {1, 3} or
+            lambda pkt: (pkt.type not in [1, 3] or
                          pkt.subtype in [0x4, 0x5, 0x6, 0x8, 0x9, 0xa, 0xb, 0xe, 0xf]),
         ),
         ConditionalField(
@@ -742,7 +742,7 @@ class Dot11(Packet):
             lambda pkt: (pkt.type in [0, 2] or
                          ((pkt.type, pkt.subtype) == (1, 6) and pkt.cfe == 6)),
         ),
-        ConditionalField(LEShortField("SC", 0), lambda pkt: pkt.type not in {1, 3}),
+        ConditionalField(LEShortField("SC", 0), lambda pkt: pkt.type not in [1, 3]),
         ConditionalField(
             _Dot11MacField("addr4", ETHER_ANY, 4),
             lambda pkt: (pkt.type == 2 and
@@ -1081,7 +1081,7 @@ class Dot11Elt(Packet):
         # This allows to introduce new Dot11Elt classes without breaking
         # previous code
         if len(s) >= 3:
-            length = orb(s[1])
+            length = s[1]
             if length > 0 and length <= 255:
                 self.info = s[2:2 + length]
         return s
@@ -1476,7 +1476,7 @@ class Dot11EltMicrosoftWPA(Dot11EltVendorSpecific):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            type_ = orb(_pkt[5])
+            type_ = _pkt[5]
             if type_ == 0x01:
                 # MS WPA IE
                 return Dot11EltMicrosoftWPA
@@ -1581,7 +1581,7 @@ class Dot11EltExtension(Dot11Elt):
             return cls
 
         if _pkt:
-            ext_id = orb(_pkt[2])
+            ext_id = _pkt[2]
             idcls = cls.registered_ext_ids.get(ext_id)
             if idcls is not None:
                 return idcls
@@ -2303,10 +2303,10 @@ class Dot11Encrypted(Packet):
         KEY_EXTIV = 0x20
         EXTIV_LEN = 8
         if _pkt and len(_pkt) >= 3:
-            if (orb(_pkt[3]) & KEY_EXTIV) and (len(_pkt) >= EXTIV_LEN):
-                if orb(_pkt[1]) == ((orb(_pkt[0]) | 0x20) & 0x7f):  # IS_TKIP
+            if (_pkt[3] & KEY_EXTIV) and (len(_pkt) >= EXTIV_LEN):
+                if _pkt[1] == ((_pkt[0] | 0x20) & 0x7f):  # IS_TKIP
                     return Dot11TKIP
-                elif orb(_pkt[2]) == 0:  # IS_CCMP
+                elif _pkt[2] == 0:  # IS_CCMP
                     return Dot11CCMP
                 else:
                     # Unknown encryption algorithm

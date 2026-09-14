@@ -519,4 +519,3 @@ if LINUX:
         if LINUX:
             # Remove the iptables rule
             assert os.system(IPTABLE_RULE % ('D', SECDEV_IP4)) == 0
-

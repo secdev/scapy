@@ -20,7 +20,6 @@ from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     FieldLenField, XStrFixedLenField, XStrLenField, FlagsField, PacketListField, \
     PacketField
 from scapy.packet import Packet, NoPayload, Raw, bind_layers
-from scapy.compat import orb
 from scapy.config import conf
 from scapy.utils import PeriodicSenderThread
 from scapy.contrib.isotp import ISOTP
@@ -163,7 +162,7 @@ class UDS(ISOTP):
         # type: (...) -> type
         """Dispatch to the correct UDS service class in single layer mode."""
         if conf.contribs['UDS'].get('single_layer_mode', False) and len(_pkt) >= 1:
-            service = orb(_pkt[0])
+            service = _pkt[0]
             return cls._service_cls.get(service, cls)
         return cls
 

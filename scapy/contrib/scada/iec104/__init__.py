@@ -43,7 +43,6 @@ from scapy.contrib.scada.iec104.iec104_fields import *  # noqa F403,F401
 from scapy.contrib.scada.iec104.iec104_information_elements import *  # noqa F403,F401
 from scapy.contrib.scada.iec104.iec104_information_objects import *  # noqa F403,F401
 
-from scapy.compat import orb
 from scapy.config import conf
 from scapy.error import warning, Scapy_Exception
 from scapy.fields import ByteField, BitField, ByteEnumField, PacketListField, \
@@ -221,8 +220,8 @@ def _iec104_apci_type_from_packet(data):
     see EN 60870-5-104:2006, sec. 5 (p. 13, fig. 6,7,8)
     """
 
-    oct_1 = orb(data[2])
-    oct_3 = orb(data[4])
+    oct_1 = data[2]
+    oct_3 = data[4]
 
     oct_1_bit_1 = bool(oct_1 & 1)
     oct_1_bit_2 = bool(oct_1 & 2)
@@ -232,7 +231,7 @@ def _iec104_apci_type_from_packet(data):
         if len(data) < 8:
             return IEC104_APDU_TYPE_UNKNOWN
 
-        is_seq_ioa = ((orb(data[7]) & 0x80) == 0x80)
+        is_seq_ioa = ((data[7] & 0x80) == 0x80)
 
         if is_seq_ioa:
             return IEC104_APDU_TYPE_I_SEQ_IOA
@@ -260,12 +259,12 @@ class IEC104_APDU(Packet):
         if payload_len < 6:
             return self.default_payload_class(payload)
 
-        if orb(payload[0]) != 0x68:
+        if payload[0] != 0x68:
             self.default_payload_class(payload)
 
         # the length field contains the number of bytes starting from the
         # first control octet
-        apdu_length = 2 + orb(payload[1])
+        apdu_length = 2 + payload[1]
 
         if payload_len < apdu_length:
             warning(
@@ -575,8 +574,8 @@ def _iec104_is_i_apdu_seq_ioa(payload):
     if len_payload < 6:
         return False
 
-    if orb(payload[0]) != 0x68 or (
-            orb(payload[1]) + 2) > len_payload or len_payload < 8:
+    if payload[0] != 0x68 or (
+            payload[1] + 2) > len_payload or len_payload < 8:
         return False
 
     return IEC104_APDU_TYPE_I_SEQ_IOA == _iec104_apci_type_from_packet(payload)
@@ -587,8 +586,8 @@ def _iec104_is_i_apdu_single_ioa(payload):
     if len_payload < 6:
         return False
 
-    if orb(payload[0]) != 0x68 or (
-            orb(payload[1]) + 2) > len_payload or len_payload < 8:
+    if payload[0] != 0x68 or (
+            payload[1] + 2) > len_payload or len_payload < 8:
         return False
 
     return IEC104_APDU_TYPE_I_SINGLE_IOA == _iec104_apci_type_from_packet(
@@ -599,7 +598,7 @@ def _iec104_is_u_apdu(payload):
     if len(payload) < 6:
         return False
 
-    if orb(payload[0]) != 0x68 or orb(payload[1]) != 4:
+    if payload[0] != 0x68 or payload[1] != 4:
         return False
 
     return IEC104_APDU_TYPE_U == _iec104_apci_type_from_packet(payload)
@@ -609,7 +608,7 @@ def _iec104_is_s_apdu(payload):
     if len(payload) < 6:
         return False
 
-    if orb(payload[0]) != 0x68 or orb(payload[1]) != 4:
+    if payload[0] != 0x68 or payload[1] != 4:
         return False
 
     return IEC104_APDU_TYPE_S == _iec104_apci_type_from_packet(payload)

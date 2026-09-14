@@ -1042,6 +1042,8 @@ def read_routes():
         if DARWIN and flags.RTF_WASCLONED and msg.rtm_parentflags.RTF_PRCLONING:
             # OSX needs filtering
             continue
+        if NETBSD and flags.RTF_LLDATA:
+            continue
         addrs = msg.rtm_addrs
         net = 0
         mask = 0xFFFFFFFF
@@ -1137,6 +1139,8 @@ def read_routes6():
             continue
         if DARWIN and flags.RTF_WASCLONED and msg.rtm_parentflags.RTF_PRCLONING:
             # OSX needs filtering
+            continue
+        if NETBSD and flags.RTF_LLDATA:
             continue
         addrs = msg.rtm_addrs
         prefix = "::"
