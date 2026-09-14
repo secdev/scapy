@@ -17,10 +17,10 @@ from scapy.cbor.cborcodec import (
     CBOR_INDEFINITE,
     CBOR_decode_head,
     MAX_CBOR_NESTING,
+    _cbor_encode_preferred_float,
     _cbor_float_from_bits,
     _cbor_nan_components,
     _cbor_nan_preferred_ai,
-    _cbor_preferred_float_ai,
     cbor_is_break,
 )
 
@@ -135,8 +135,10 @@ def cbor_find_non_deterministic(s, allow_indefinite=False, base_offset=0):
                 if comps is not None:
                     preferred = _cbor_nan_preferred_ai(ai, int(value))
                 else:
-                    preferred = _cbor_preferred_float_ai(
-                        _cbor_float_from_bits(ai, int(value))
+                    preferred = (
+                        _cbor_encode_preferred_float(
+                            _cbor_float_from_bits(ai, int(value))
+                        )[0] & 0x1f
                     )
                 if preferred < ai:
                     issues.append((
