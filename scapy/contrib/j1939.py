@@ -145,8 +145,15 @@ J1939_TP_CTRL_ABORT = 255  # Connection Abort
 # PDU format threshold: PF < 240 → PDU1 (peer-to-peer), PF ≥ 240 → PDU2 (broadcast)
 J1939_PDU1_MAX_PF = 239
 
-# Default configuration key
-conf.contribs['J1939'] = {'channel': 'can0'}
+# Default configuration keys
+try:
+    conf.contribs['J1939'].setdefault('channel', 'can0')
+    conf.contribs['J1939'].setdefault('generic-answers-fallback', True)
+except KeyError:
+    conf.contribs['J1939'] = {
+        'channel': 'can0',
+        'generic-answers-fallback': True,
+    }
 
 # Common source address names (informational)
 J1939_ADDR_NAMES = {
@@ -284,11 +291,169 @@ class J1939(Packet):
         self.dst = kwargs.pop('dst', socket.J1939_NO_ADDR)  # type: int
         Packet.__init__(self, *args, **kwargs)
 
+    def clone_with(self, payload=None, **kargs):
+        # type: (Optional[Any], **Any) -> J1939
+        pkt = super(J1939, self).clone_with(payload=payload, **kargs)
+        pkt.priority = kargs.get('priority', self.priority)
+        pkt.pgn = kargs.get('pgn', self.pgn)
+        pkt.src = kargs.get('src', self.src)
+        pkt.dst = kargs.get('dst', self.dst)
+        return pkt
+
+    def copy(self):
+        # type: () -> J1939
+        clone = super(J1939, self).copy()
+        clone.priority = self.priority
+        clone.pgn = self.pgn
+        clone.src = self.src
+        clone.dst = self.dst
+        return clone
+
+    @property
+    def identifier(self):
+        # type: () -> int
+        """29-bit CAN arbitration identifier derived from J1939 fields."""
+        pf = (self.pgn >> 8) & 0xFF
+        dp = (self.pgn >> 16) & 0x1
+        if pf <= J1939_PDU1_MAX_PF:
+            ps = self.dst if self.dst != socket.J1939_NO_ADDR else 0xFF
+        else:
+            ps = self.pgn & 0xFF
+        return j1939_to_can_id(self.priority, 0, dp, pf, ps, self.src)
+
+    def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
+        if self.pgn == 0xEA00 and not self.data and self.payload:
+            target_pgn = getattr(
+                self.payload, "PGN", getattr(self.payload, "pgn", None)
+            )
+            if target_pgn is not None:
+                return p + struct.pack("<I", target_pgn)[:3]
+        return p + pay
+
     def answers(self, other):
         # type: (Packet) -> int
         if not isinstance(other, J1939):
             return 0
-        return self.data == other.data
+        # Per (SA, DA) session tracking: directed requests must originate from other.dst
+        if other.dst not in (socket.J1939_NO_ADDR, 0xFF) and self.src != other.dst:
+            return 0
+        # If both other.src and self.dst are unicast, verify session return address
+        if (other.src not in (socket.J1939_NO_ADDR, 0xFF) and
+                self.dst not in (socket.J1939_NO_ADDR, 0xFF) and
+                self.dst != other.src):
+            return 0
+        # Extract target PGN for Request PGN (0xEA00 / 59904) matching
+        if other.pgn == 0xEA00:
+            target_pgn = None  # type: Optional[int]
+            if other.payload:
+                target_pgn = getattr(
+                    other.payload, "PGN", getattr(other.payload, "pgn", None)
+                )
+                if target_pgn is None:
+                    pay_bytes = bytes(other.payload)
+                    if len(pay_bytes) >= 3:
+                        target_pgn = (
+                            pay_bytes[0] | (pay_bytes[1] << 8) | (pay_bytes[2] << 16)
+                        )
+            if target_pgn is None:
+                other_data = other.data
+                if isinstance(other_data, (bytes, bytearray)) and len(other_data) >= 3:
+                    target_pgn = (
+                        other_data[0] | (other_data[1] << 8) | (other_data[2] << 16)
+                    )
+
+            if target_pgn is not None:
+                if self.pgn == target_pgn:
+                    return 1
+                # BAM announcement for target_pgn (PGN 0xEC00) - only for ECU_ID
+                if self.pgn == 0xEC00 and target_pgn == 0xFDC5:
+                    self_data = self.data if self.data else bytes(self.payload)
+                    if len(self_data) >= 8 and self_data[0] == J1939_TP_CTRL_BAM:
+                        bam_pgn = (
+                            self_data[5] | (self_data[6] << 8) | (self_data[7] << 16)
+                        )
+                        if bam_pgn == target_pgn:
+                            return 1
+
+                # Acknowledgment PGN (0xE800 / 59392; J1939-21 §5.4.4)
+                if self.pgn == 0xE800:
+                    self_data = self.data if self.data else bytes(self.payload)
+                    if len(self_data) >= 8:
+                        ack_pgn = (
+                            self_data[5] | (self_data[6] << 8) | (self_data[7] << 16)
+                        )
+                        if ack_pgn == target_pgn:
+                            return 1
+                    elif len(self_data) >= 4:
+                        ack_pgn = (
+                            self_data[1] | (self_data[2] << 8) | (self_data[3] << 16)
+                        )
+                        if ack_pgn == target_pgn:
+                            return 1
+                return 0
+
+        # Paired Diagnostic Request/Response matching: DM14 (0xD900) -> DM15 (0xD800)
+        if other.pgn == 0xD900 and self.pgn == 0xD800:
+            return 1
+
+        # Diagnostic B (0xDB00) functional request ->
+        # Diagnostic A (0xDA00) or B (0xDB00) response
+        if other.pgn == 0xDB00 and self.pgn in (0xDA00, 0xDB00):
+            return 1
+
+        # Diagnostic A (0xDA00) physical request ->
+        # Diagnostic A (0xDA00) physical response
+        if other.pgn == 0xDA00 and self.pgn == 0xDA00:
+            return 1
+
+        # TP.CM RTS probe matching:
+        # Request is TP.CM (0xEC00) with ctrl=RTS (16 / 0x10).
+        # Responders reply with TP.CM (0xEC00) ctrl=CTS (17 / 0x11) or ABORT,
+        # or with Command Acknowledgment (0xE800) NACK/status.
+        if other.pgn == 0xEC00:
+            other_data = other.data if other.data else bytes(other.payload)
+            if other_data and other_data[0] == J1939_TP_CTRL_RTS:
+                if self.pgn == 0xEC00:
+                    self_data = self.data if self.data else bytes(self.payload)
+                    if self_data and self_data[0] in (
+                        J1939_TP_CTRL_CTS,
+                        J1939_TP_CTRL_ABORT,
+                    ):
+                        return 1
+                elif self.pgn == 0xE800:
+                    return 1
+
+        # General command acknowledgment matching (e.g. DM11 clear DTCs)
+
+        if self.pgn == 0xE800 and other.pgn:
+            self_data = self.data if self.data else bytes(self.payload)
+            if len(self_data) >= 8:
+                ack_pgn = (
+                    self_data[5] | (self_data[6] << 8) | (self_data[7] << 16)
+                )
+                if ack_pgn == other.pgn:
+                    return 1
+            elif len(self_data) >= 4:
+                ack_pgn = (
+                    self_data[1] | (self_data[2] << 8) | (self_data[3] << 16)
+                )
+                if ack_pgn == other.pgn:
+                    return 1
+        # Generic fallback heuristic: same PGN with swapped DA and SA
+        j1939_conf = conf.contribs.get('J1939', {})
+        fallback_enabled = j1939_conf.get(
+            'generic-answers-fallback',
+            j1939_conf.get('generic_answers_fallback', True)
+        )
+        if fallback_enabled:
+            if (self.pgn == other.pgn and
+                    self.src == other.dst and
+                    self.dst == other.src and
+                    self.src not in (socket.J1939_NO_ADDR, 0xFF) and
+                    self.dst not in (socket.J1939_NO_ADDR, 0xFF)):
+                return 1
+        return int(self.data == other.data)
 
     def mysummary(self):
         # type: () -> str
@@ -296,6 +461,30 @@ class J1939(Packet):
         return "J1939 PGN=0x%05X SA=0x%02X DA=0x%02X prio=%d" % (
             self.pgn, self.src, self.dst, self.priority
         )
+
+
+class J1939Request(J1939):
+    """J1939 Request frame (PGN 0xEA00 / 59904).
+
+    Used to request a Parameter Group from a network node or broadcast.
+    Can be instantiated directly with a requested PGN, with raw bytes,
+    or stacked with a layer representing the requested PGN:
+
+        >>> J1939Request(req_pgn=0xFECA, dst=0x10)
+        >>> J1939Request(dst=0x10) / Raw(b'\\xca\\xfe\\x00')
+        >>> J1939Request(dst=0x10) / J1939_DM1()
+    """
+
+    name = 'J1939Request'
+
+    def __init__(self, *args, **kwargs):
+        # type: (*Any, **Any) -> None
+        req_pgn = kwargs.pop('req_pgn', None)
+        if 'pgn' not in kwargs:
+            kwargs['pgn'] = 0xEA00
+        super(J1939Request, self).__init__(*args, **kwargs)
+        if req_pgn is not None and not self.data:
+            self.data = struct.pack('<I', req_pgn)[:3]
 
 
 # ---------------------------------------------------------------------------
@@ -375,6 +564,29 @@ class J1939_CAN(CAN):
         # type: () -> int
         """Destination address for PDU1 frames; :data:`socket.J1939_NO_ADDR` for PDU2."""  # noqa: E501
         return dst_from_fields(self.pdu_format, self.pdu_specific)
+
+    @property
+    def identifier(self):
+        # type: () -> int
+        """29-bit CAN arbitration identifier derived from J1939 sub-fields."""
+        return (
+            (self.priority << 26)
+            | (self.reserved << 25)
+            | (self.data_page << 24)
+            | (self.pdu_format << 16)
+            | (self.pdu_specific << 8)
+            | self.src
+        )
+
+    @identifier.setter
+    def identifier(self, val):
+        # type: (int) -> None
+        self.priority = (val >> 26) & 0x7
+        self.reserved = (val >> 25) & 0x1
+        self.data_page = (val >> 24) & 0x1
+        self.pdu_format = (val >> 16) & 0xFF
+        self.pdu_specific = (val >> 8) & 0xFF
+        self.src = val & 0xFF
 
     def to_can(self):
         # type: () -> CAN
@@ -943,7 +1155,10 @@ class J1939TPImplementation:
             listen_only=False,  # type: bool
             pgn_filter=socket.J1939_NO_PGN,  # type: int
             basecls=None,  # type: Optional[Type[Packet]]
+            promisc=False,  # type: bool
+            include_tp_cm=False,  # type: bool
     ):
+
         # type: (...) -> None
         from scapy.contrib.isotp.isotp_soft_socket import TimeoutScheduler
         self._TimeoutScheduler = TimeoutScheduler
@@ -953,11 +1168,14 @@ class J1939TPImplementation:
         self.listen_only = listen_only
         self.pgn_filter = pgn_filter
         self.basecls = basecls or J1939  # type: Type[Packet]
+        self.promisc = promisc
+        self.include_tp_cm = include_tp_cm
         self.closed = False
         self.closing = False
         self.rx_tx_poll_rate = 0.005
 
         # ── receive path ──────────────────────────────────────────────────────
+
         # In-progress receptions, keyed by (source address, destination).
         self.rx_sessions = {}  # type: Dict[Tuple[int, int], _J1939_RXSession]
 
@@ -1188,7 +1406,7 @@ class J1939TPImplementation:
         # ── Short (≤ 8-byte) data frame ──────────────────────────────────────
         # PDU1: ps is the destination address.  PDU2: always broadcast.
         if pf <= J1939_PDU1_MAX_PF:
-            if ps != self.src_addr and ps != socket.J1939_NO_ADDR:
+            if not self.promisc and ps != self.src_addr and ps != socket.J1939_NO_ADDR:
                 return
         self._on_short_frame(j)
 
@@ -1225,8 +1443,13 @@ class J1939TPImplementation:
                            total=bam.total_size, npkts=bam.num_packets,
                            max_packets=bam.num_packets, is_bam=True, ts=ts,
                            priority=j.priority)
+            if self.include_tp_cm:
+                msg = self.basecls(data, pgn=j.pgn, src=j.src, dst=j.dst,
+                                   priority=j.priority)
+                self.rx_queue.send((msg, j.time))
 
         elif ctrl == J1939_TP_CTRL_RTS:
+
             # RTS is directed; broadcast RTS must not start a session or CTS.
             if j.dst != self.src_addr:
                 return
@@ -1249,6 +1472,10 @@ class J1939TPImplementation:
             if (self.tx_state == _J1939_TX_RTS_WAIT_CTS and
                     sa == self.tx_peer_sa and cts.pgn == self.tx_pgn):
                 self._tx_handle_cts(cts)
+            else:
+                msg = self.basecls(data, pgn=j.pgn, src=j.src, dst=j.dst,
+                                   priority=j.priority)
+                self.rx_queue.send((msg, j.time))
 
         elif ctrl == J1939_TP_CTRL_ACK:
             if j.dst != self.src_addr:
@@ -1272,6 +1499,7 @@ class J1939TPImplementation:
             if j.dst != self.src_addr:
                 return
             abort = J1939_TP_CM_ABORT(data) if len(data) >= 8 else None
+            aborted = False
             # Only the peer of a session actually in progress may abort it,
             # and only for the PGN being transferred: an address left over
             # from an earlier session must not tear down the current one.
@@ -1281,13 +1509,20 @@ class J1939TPImplementation:
                     "J1939 TP: TX session aborted by peer (reason %d)",
                     abort.reason)
                 self._tx_reset()
+                aborted = True
             # A peer may equally abort a reception it started.
             session = self.rx_sessions.get((sa, self.src_addr))
             if session is not None and abort is not None and \
                     abort.pgn == session.pgn:
                 self._rx_drop(session, "aborted by peer")
+                aborted = True
+            if not aborted:
+                msg = self.basecls(data, pgn=j.pgn, src=j.src, dst=j.dst,
+                                   priority=j.priority)
+                self.rx_queue.send((msg, j.time))
 
     def _on_tp_dt(self, j):
+
         # type: (J1939_CAN) -> None
         sa = j.src
         session = self.rx_sessions.get((sa, j.pdu_specific))
@@ -1462,7 +1697,10 @@ class J1939TPImplementation:
 
     def _can_send(self, pkt):
         # type: (J1939_CAN) -> None
-        self.can_socket.send(pkt)
+        try:
+            self.can_socket.send(pkt)
+        except AttributeError:
+            self.can_socket.send(pkt.to_can())
 
     def _can_send_tp_cm(self, dst_sa, data, priority=6):
         # type: (int, bytes, int) -> None
@@ -1524,6 +1762,8 @@ class J1939TPImplementation:
         # type: (Packet) -> bytes
         """The bytes *msg* puts on the bus, however it was constructed."""
         if isinstance(msg, J1939):
+            if msg.payload:
+                return bytes(msg)
             data = msg.data
             if not isinstance(data, (bytes, bytearray)):
                 data = bytes(msg)
@@ -1552,14 +1792,20 @@ class J1939TPImplementation:
                 ps = dst & 0xFF
             else:
                 ps = pgn & 0xFF
+            src = (
+                msg.src
+                if (isinstance(msg, J1939) and msg.src != socket.J1939_NO_ADDR)
+                else self.src_addr
+            )
             pkt = J1939_CAN(
                 priority=priority, data_page=data_page,
                 pdu_format=pf, pdu_specific=ps,
-                src=self.src_addr, data=data,
+                src=src, data=data,
             )
             self._can_send(pkt)
 
         elif dst == socket.J1939_NO_ADDR:
+
             # Broadcast multi-packet message via BAM.
             self._tx_start_bam(data, pgn, dst, priority)
 
@@ -1815,7 +2061,10 @@ class J1939SoftSocket(SuperSocket):
             basecls=J1939,  # type: Type[Packet]
             listen_only=False,  # type: bool
             pgn=socket.J1939_NO_PGN,  # type: int
+            promisc=False,  # type: bool
+            include_tp_cm=False,  # type: bool
     ):
+
         # type: (...) -> None
         if LINUX and isinstance(can_socket, str):
             from scapy.contrib.cansocket_native import NativeCANSocket
@@ -1834,8 +2083,12 @@ class J1939SoftSocket(SuperSocket):
             listen_only=listen_only,
             pgn_filter=pgn,
             basecls=self.basecls,
+            promisc=promisc,
+            include_tp_cm=include_tp_cm,
         )
+
         # Cast so SuperSocket internals are satisfied (recv/send are overridden).
+
         self.ins = cast(socket.socket, impl)
         self.outs = cast(socket.socket, impl)
         self.impl = impl
