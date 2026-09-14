@@ -1477,7 +1477,7 @@ assert pkt.flag == 1
 assert pkt.opt is CBOR_ABSENT
 assert pkt.req == 7
 
-= Optional text before discriminator omits default-on conditional
+= Optional text before discriminator omits default-off conditional
 from scapy.cbor.cborfields import (
     CBOR_ABSENT,
     CBORF_ARRAY,
@@ -1491,7 +1491,7 @@ from scapy.cborpacket import CBOR_Packet
 class OptionalBeforeFlag(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_optional(CBORF_TEXT_STRING("label", None)),
-        CBORF_INTEGER("flag", 1),
+        CBORF_INTEGER("flag", 0),
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 3),
             lambda p: p.flag == 1,
@@ -1654,7 +1654,7 @@ assert pkt.flag == 0
 assert pkt.optional is CBOR_ABSENT
 assert pkt.required == 5
 
-= get_field and isinstance predicates see a real packet
+= isinstance predicate sees a real packet
 from scapy.cbor.cborfields import (
     CBOR_ABSENT,
     CBORF_ARRAY,
@@ -1664,13 +1664,9 @@ from scapy.cbor.cborfields import (
 )
 from scapy.cborpacket import CBOR_Packet
 
-class OptionalThenRequiredThenCondPacketApi(CBOR_Packet):
+class OptionalThenRequiredThenCondIsInstance(CBOR_Packet):
     def value_enabled(self):
-        return (
-            isinstance(self, OptionalThenRequiredThenCondPacketApi)
-            and self.get_field("flag").name == "flag"
-            and self.flag == 1
-        )
+        return isinstance(self, OptionalThenRequiredThenCondIsInstance) and self.flag == 1
     CBOR_root = CBORF_ARRAY(
         CBORF_INTEGER("flag", 0),
         CBORF_optional(CBORF_INTEGER("optional", None)),
@@ -1682,14 +1678,48 @@ class OptionalThenRequiredThenCondPacketApi(CBOR_Packet):
     )
 
 wire = bytes.fromhex("83010509")
-pkt = OptionalThenRequiredThenCondPacketApi(wire)
+pkt = OptionalThenRequiredThenCondIsInstance(wire)
 assert pkt.flag == 1
 assert pkt.optional is CBOR_ABSENT
 assert pkt.required == 5
 assert pkt.value == 9
 
 wire_off = bytes.fromhex("820005")
-pkt = OptionalThenRequiredThenCondPacketApi(wire_off)
+pkt = OptionalThenRequiredThenCondIsInstance(wire_off)
+assert pkt.flag == 0
+assert pkt.optional is CBOR_ABSENT
+assert pkt.required == 5
+
+= get_field predicate sees a real packet
+from scapy.cbor.cborfields import (
+    CBOR_ABSENT,
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_optional,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptionalThenRequiredThenCondGetField(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 0),
+        CBORF_optional(CBORF_INTEGER("optional", None)),
+        CBORF_INTEGER("required", 0),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 0),
+            lambda p: p.get_field("flag").name == "flag" and p.flag == 1,
+        ),
+    )
+
+wire = bytes.fromhex("83010509")
+pkt = OptionalThenRequiredThenCondGetField(wire)
+assert pkt.flag == 1
+assert pkt.optional is CBOR_ABSENT
+assert pkt.required == 5
+assert pkt.value == 9
+
+wire_off = bytes.fromhex("820005")
+pkt = OptionalThenRequiredThenCondGetField(wire_off)
 assert pkt.flag == 0
 assert pkt.optional is CBOR_ABSENT
 assert pkt.required == 5
@@ -1783,7 +1813,7 @@ from scapy.cborpacket import CBOR_Packet
 
 class GroupedConditional(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
-        CBORF_INTEGER("flag", 1),
+        CBORF_INTEGER("flag", 0),
         CBORF_ITEMS(
             CBORF_CONDITIONAL(
                 CBORF_INTEGER("value", 3),
@@ -1794,7 +1824,7 @@ class GroupedConditional(CBOR_Packet):
 
 class FlatConditional(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
-        CBORF_INTEGER("flag", 1),
+        CBORF_INTEGER("flag", 0),
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 3),
             lambda p: p.flag == 1,
@@ -1840,7 +1870,35 @@ assert pkt.a == 1
 assert pkt.b is CBOR_ABSENT
 assert pkt.tail == 2
 
-= Default-on conditional omits when discriminator is off (definite)
+= Default-on trailing conditional reserves from the unread default
+from scapy.cbor.cbor import CBOR_Decoding_Error
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class ConditionalArrayOn(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 1),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 3),
+            lambda p: p.flag == 1,
+        ),
+    )
+
+wire = bytes(ConditionalArrayOn())
+assert wire == b"\x82\x01\x03"
+pkt = ConditionalArrayOn(wire)
+assert pkt.flag == 1 and pkt.value == 3
+try:
+    ConditionalArrayOn(b"\x81\x00")
+    assert False, "default-on short array should mismatch"
+except CBOR_Decoding_Error:
+    pass
+
+= Default-off conditional omits when discriminator is off (definite)
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_CONDITIONAL,
@@ -1850,7 +1908,7 @@ from scapy.cborpacket import CBOR_Packet
 
 class ConditionalArray(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
-        CBORF_INTEGER("flag", 1),
+        CBORF_INTEGER("flag", 0),
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 3),
             lambda p: p.flag == 1,
@@ -1862,7 +1920,7 @@ assert pkt.flag == 0
 assert pkt.value is None or "value" not in pkt.fields
 assert bytes(pkt) == b"\x81\x00"
 
-= Default-on conditional omits when discriminator is off (indefinite)
+= Default-off conditional omits when discriminator is off (indefinite)
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_CONDITIONAL,
@@ -1872,7 +1930,7 @@ from scapy.cborpacket import CBOR_Packet
 
 class ConditionalArrayIndef(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
-        CBORF_INTEGER("flag", 1),
+        CBORF_INTEGER("flag", 0),
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 3),
             lambda p: p.flag == 1,
@@ -1885,7 +1943,7 @@ assert bytes(pkt) == b"\x9f\x00\xff"
 pkt.clear_cache()
 assert bytes(pkt) == b"\x81\x00"
 
-= Default-on conditional with intervening optional omits when off
+= Default-off conditional with intervening optional omits when off
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_CONDITIONAL,
@@ -1897,7 +1955,7 @@ from scapy.cborpacket import CBOR_Packet
 
 class ConditionalWithOpt(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
-        CBORF_INTEGER("flag", 1),
+        CBORF_INTEGER("flag", 0),
         CBORF_optional(CBORF_INTEGER("opt", None)),
         CBORF_CONDITIONAL(
             CBORF_INTEGER("value", 3),
