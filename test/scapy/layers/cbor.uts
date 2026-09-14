@@ -1520,6 +1520,65 @@ assert pkt.label == "a"
 assert pkt.flag == 1
 assert pkt.value == 5
 
+= Known discriminator reserves conditional past an unrelated required field
+from scapy.cbor.cborfields import (
+    CBOR_ABSENT,
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_optional,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptionalThenRequiredThenCond(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 0),
+        CBORF_optional(CBORF_INTEGER("optional", None)),
+        CBORF_INTEGER("required", 0),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 0),
+            lambda p: p.flag == 1,
+        ),
+    )
+
+wire = bytes(OptionalThenRequiredThenCond(flag=1, required=5, value=9))
+assert wire == bytes.fromhex("83010509")
+pkt = OptionalThenRequiredThenCond(wire)
+assert pkt.flag == 1
+assert pkt.optional is CBOR_ABSENT
+assert pkt.required == 5
+assert pkt.value == 9
+assert bytes(pkt) == wire
+
+wire_indef = b"\x9f\x01\x05\x09\xff"
+pkt = OptionalThenRequiredThenCond(wire_indef)
+assert pkt.flag == 1
+assert pkt.optional is CBOR_ABSENT
+assert pkt.required == 5
+assert pkt.value == 9
+
+wire_opt = bytes(
+    OptionalThenRequiredThenCond(flag=1, optional=7, required=5, value=9)
+)
+assert wire_opt == bytes.fromhex("8401070509")
+pkt = OptionalThenRequiredThenCond(wire_opt)
+assert pkt.flag == 1
+assert pkt.optional == 7
+assert pkt.required == 5
+assert pkt.value == 9
+
+wire_off = bytes(OptionalThenRequiredThenCond(flag=0, required=5))
+assert wire_off == bytes.fromhex("820005")
+pkt = OptionalThenRequiredThenCond(wire_off)
+assert pkt.flag == 0
+assert pkt.optional is CBOR_ABSENT
+assert pkt.required == 5
+
+pkt = OptionalThenRequiredThenCond(b"\x9f\x00\x05\xff")
+assert pkt.flag == 0
+assert pkt.optional is CBOR_ABSENT
+assert pkt.required == 5
+
 = Grouped ITEMS conditional matches flattened ARRAY schema
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
