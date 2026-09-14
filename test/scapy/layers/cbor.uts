@@ -1579,6 +1579,127 @@ assert pkt.flag == 0
 assert pkt.optional is CBOR_ABSENT
 assert pkt.required == 5
 
+= getfieldval predicate reserves conditional past an unrelated required field
+from scapy.cbor.cborfields import (
+    CBOR_ABSENT,
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_optional,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptionalThenRequiredThenCondGet(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 0),
+        CBORF_optional(CBORF_INTEGER("optional", None)),
+        CBORF_INTEGER("required", 0),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 0),
+            lambda p: p.getfieldval("flag") == 1,
+        ),
+    )
+
+wire = bytes.fromhex("83010509")
+pkt = OptionalThenRequiredThenCondGet(wire)
+assert pkt.flag == 1
+assert pkt.optional is CBOR_ABSENT
+assert pkt.required == 5
+assert pkt.value == 9
+assert bytes(pkt) == wire
+
+wire_opt = bytes.fromhex("8401070509")
+pkt = OptionalThenRequiredThenCondGet(wire_opt)
+assert pkt.flag == 1 and pkt.optional == 7 and pkt.required == 5 and pkt.value == 9
+
+wire_off = bytes.fromhex("820005")
+pkt = OptionalThenRequiredThenCondGet(wire_off)
+assert pkt.flag == 0
+assert pkt.optional is CBOR_ABSENT
+assert pkt.required == 5
+
+= Subclass method predicate reserves conditional past an unrelated required field
+from scapy.cbor.cborfields import (
+    CBOR_ABSENT,
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_optional,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptionalThenRequiredThenCondMethod(CBOR_Packet):
+    def flag_enabled(self):
+        return self.getfieldval("flag") == 1
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 0),
+        CBORF_optional(CBORF_INTEGER("optional", None)),
+        CBORF_INTEGER("required", 0),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 0),
+            lambda p: p.flag_enabled(),
+        ),
+    )
+
+wire = bytes.fromhex("83010509")
+pkt = OptionalThenRequiredThenCondMethod(wire)
+assert pkt.flag == 1
+assert pkt.optional is CBOR_ABSENT
+assert pkt.required == 5
+assert pkt.value == 9
+
+wire_off = bytes.fromhex("820005")
+pkt = OptionalThenRequiredThenCondMethod(wire_off)
+assert pkt.flag == 0
+assert pkt.optional is CBOR_ABSENT
+assert pkt.required == 5
+
+= Conditional predicate errors are not treated as unresolved dependencies
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_optional,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptionalThenRequiredThenCondBoom(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 0),
+        CBORF_optional(CBORF_INTEGER("optional", None)),
+        CBORF_INTEGER("required", 0),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 0),
+            lambda p: (_ for _ in ()).throw(ValueError("predicate failed"))
+            if p.getfieldval("flag") == 1 else False,
+        ),
+    )
+
+wire = bytes.fromhex("83010509")
+try:
+    OptionalThenRequiredThenCondBoom(wire)
+    assert False, "predicate ValueError was swallowed"
+except ValueError as err:
+    assert "predicate failed" in str(err)
+
+class OptionalThenRequiredThenCondAttrErr(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 0),
+        CBORF_optional(CBORF_INTEGER("optional", None)),
+        CBORF_INTEGER("required", 0),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 0),
+            lambda p: (_ for _ in ()).throw(AttributeError("predicate failed"))
+            if p.flag == 1 else False,
+        ),
+    )
+
+try:
+    OptionalThenRequiredThenCondAttrErr(wire)
+    assert False, "predicate AttributeError was swallowed"
+except AttributeError as err:
+    assert "predicate failed" in str(err)
+
 = Grouped ITEMS conditional matches flattened ARRAY schema
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
@@ -3044,9 +3165,10 @@ ok = CBORMapData([
 assert CBORcodec_MAP.enc(ok) == b"\xa2\x01\x00\x02\x01"
 
 
-+ Finding 10 - Indefinite array schema budget cost
++ Indefinite array schema budget cost
 
-= Indefinite array schema min_items work grows with field count
+= Indefinite array dissection stays within a schema min_items budget
+import scapy.cbor.cborfields as cborfields
 from scapy.cbor.cborfields import (
     CBORF_ARRAY_INDEFINITE,
     CBORF_UNSIGNED_INTEGER,
@@ -3054,12 +3176,15 @@ from scapy.cbor.cborfields import (
 )
 from scapy.cborpacket import CBOR_Packet
 
-# Budgeted indefinite dissection calls min_items across remaining schema
-# fields for each consumed item. That intentional O(n^2) schema scan must
-# stay measurable and scale with n; the old cbor_item_span monkeypatch was
-# unused on this path (cbor_count_items + min_items do the work).
+# Budgeted indefinite dissection may scan remaining schema fields via
+# min_items. Cap that work at n*(n+1) so a linear implementation still
+# passes, while pathological super-quadratic schema walks fail. Wire
+# pre-counting must remain a single forward pass.
 orig_min_items = CBORF_element.min_items
+orig_count_items = cborfields.cbor_count_items
 call_counts = {}
+count_calls = {}
+count_suffix_lens = {}
 try:
     for n in (32, 64, 128):
         many_fields = [CBORF_UNSIGNED_INTEGER("v%d" % i, 0) for i in range(n)]
@@ -3068,28 +3193,35 @@ try:
             CBOR_root = CBORF_ARRAY_INDEFINITE(*many_fields)
 
         calls = [0]
+        count_n = [0]
+        suffix_lens = []
 
         def counted_min_items(self, pkt, _calls=calls):
             _calls[0] += 1
             return orig_min_items(self, pkt)
 
+        def counted_count_items(data, *args, **kwargs):
+            count_n[0] += 1
+            suffix_lens.append(len(data))
+            return orig_count_items(data, *args, **kwargs)
+
         CBORF_element.min_items = counted_min_items
+        cborfields.cbor_count_items = counted_count_items
         wire = b"\x9f" + (b"\x00" * n) + b"\xff"
         pkt = IndefiniteManyInts(wire)
         assert getattr(pkt, "v0") == 0
         assert getattr(pkt, "v%d" % (n - 1)) == 0
         call_counts[n] = calls[0]
+        count_calls[n] = count_n[0]
+        count_suffix_lens[n] = suffix_lens
 finally:
     CBORF_element.min_items = orig_min_items
+    cborfields.cbor_count_items = orig_count_items
 
-assert call_counts[32] > 0
-assert call_counts[64] > call_counts[32]
-assert call_counts[128] > call_counts[64]
-# Doubling n roughly quadruples min_items work (schema scan over remaining
-# fields per item). Allow a wide band so the bound tracks the cost model
-# without pinning an exact implementation constant.
-assert 3.0 <= call_counts[64] / float(call_counts[32]) <= 5.0, call_counts
-assert 3.0 <= call_counts[128] / float(call_counts[64]) <= 5.0, call_counts
+for n in (32, 64, 128):
+    assert call_counts[n] <= n * (n + 1), call_counts
+    assert count_calls[n] == 1, count_calls
+    assert count_suffix_lens[n] == [n + 1], count_suffix_lens
 
 + Additional regressions for recently fixed generic-CBOR behavior
 
