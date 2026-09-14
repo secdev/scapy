@@ -453,8 +453,6 @@ def _cbor_nan_components(ai, bits):
 def _cbor_encode_preferred_float(value):
     # type: (float) -> bytes
     """Encode *value* with the shortest float that preserves its numeric value."""
-    import math
-    # NaN maps to quiet binary16 via _cbor_float_to_half_bits.
     half = _cbor_float_to_half_bits(value)
     if half is not None:
         return (
@@ -467,13 +465,9 @@ def _cbor_encode_preferred_float(value):
         single_bytes = struct.pack(">f", value)
         single = struct.unpack(">f", single_bytes)[0]
     except (OverflowError, struct.error):
-        return (
-            CBOR_encode_initial(
-                CBOR_MajorTypes.SIMPLE_AND_FLOAT, CBOR_FloatAI.DOUBLE
-            )
-            + struct.pack(">d", value)
-        )
-    if single == value or (math.isinf(single) and math.isinf(value)):
+        single = None
+        single_bytes = None
+    if single_bytes is not None and single == value:
         return (
             CBOR_encode_initial(
                 CBOR_MajorTypes.SIMPLE_AND_FLOAT, CBOR_FloatAI.SINGLE
@@ -486,12 +480,6 @@ def _cbor_encode_preferred_float(value):
         )
         + struct.pack(">d", value)
     )
-
-
-def _cbor_preferred_float_ai(value):
-    # type: (float) -> int
-    """Return the preferred float AI for a numeric *value*."""
-    return _cbor_encode_preferred_float(value)[0] & 0x1f
 
 
 #    [ CBOR codec classes ]    #

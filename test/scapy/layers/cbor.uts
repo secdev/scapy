@@ -1477,6 +1477,117 @@ assert pkt.flag == 1
 assert pkt.opt is CBOR_ABSENT
 assert pkt.req == 7
 
+= Optional text before discriminator omits default-on conditional
+from scapy.cbor.cborfields import (
+    CBOR_ABSENT,
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_TEXT_STRING,
+    CBORF_optional,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptionalBeforeFlag(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_optional(CBORF_TEXT_STRING("label", None)),
+        CBORF_INTEGER("flag", 1),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 3),
+            lambda p: p.flag == 1,
+        ),
+    )
+
+pkt = OptionalBeforeFlag(b"\x81\x00")
+assert pkt.label is CBOR_ABSENT
+assert pkt.flag == 0
+assert bytes(pkt) == b"\x81\x00"
+
+pkt = OptionalBeforeFlag(b"\x9f\x00\xff")
+assert pkt.label is CBOR_ABSENT
+assert pkt.flag == 0
+assert bytes(pkt) == b"\x9f\x00\xff"
+pkt.clear_cache()
+assert bytes(pkt) == b"\x81\x00"
+
+pkt = OptionalBeforeFlag(b"\x82\x61a\x00")
+assert pkt.label == "a"
+assert pkt.flag == 0
+assert bytes(pkt) == b"\x82\x61a\x00"
+
+pkt = OptionalBeforeFlag(b"\x83\x61a\x01\x05")
+assert pkt.label == "a"
+assert pkt.flag == 1
+assert pkt.value == 5
+
+= Grouped ITEMS conditional matches flattened ARRAY schema
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_ITEMS,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class GroupedConditional(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 1),
+        CBORF_ITEMS(
+            CBORF_CONDITIONAL(
+                CBORF_INTEGER("value", 3),
+                lambda p: p.flag == 1,
+            ),
+        ),
+    )
+
+class FlatConditional(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 1),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 3),
+            lambda p: p.flag == 1,
+        ),
+    )
+
+for wire in (b"\x81\x00", b"\x9f\x00\xff"):
+    grouped = GroupedConditional(wire)
+    flat = FlatConditional(wire)
+    assert grouped.flag == flat.flag == 0
+    assert bytes(grouped) == bytes(flat)
+
+grouped = GroupedConditional(b"\x82\x01\x05")
+assert grouped.flag == 1 and grouped.value == 5
+
+= Grouped ITEMS optionals respect enclosing ARRAY budget
+from scapy.cbor.cborfields import (
+    CBOR_ABSENT,
+    CBORF_ARRAY,
+    CBORF_INTEGER,
+    CBORF_ITEMS,
+    CBORF_optional,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class GroupedOptionals(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_ITEMS(
+            CBORF_optional(CBORF_INTEGER("a", None)),
+            CBORF_optional(CBORF_INTEGER("b", None)),
+        ),
+        CBORF_INTEGER("tail", 0),
+    )
+
+pkt = GroupedOptionals(b"\x82\x01\x02")
+assert pkt.a == 1
+assert pkt.b is CBOR_ABSENT
+assert pkt.tail == 2
+assert bytes(pkt) == b"\x82\x01\x02"
+
+pkt = GroupedOptionals(b"\x9f\x01\x02\xff")
+assert pkt.a == 1
+assert pkt.b is CBOR_ABSENT
+assert pkt.tail == 2
+
 = Default-on conditional omits when discriminator is off (definite)
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
