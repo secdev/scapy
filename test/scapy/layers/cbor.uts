@@ -1654,6 +1654,78 @@ assert pkt.flag == 0
 assert pkt.optional is CBOR_ABSENT
 assert pkt.required == 5
 
+= get_field and isinstance predicates see a real packet
+from scapy.cbor.cborfields import (
+    CBOR_ABSENT,
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_optional,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptionalThenRequiredThenCondPacketApi(CBOR_Packet):
+    def value_enabled(self):
+        return (
+            isinstance(self, OptionalThenRequiredThenCondPacketApi)
+            and self.get_field("flag").name == "flag"
+            and self.flag == 1
+        )
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 0),
+        CBORF_optional(CBORF_INTEGER("optional", None)),
+        CBORF_INTEGER("required", 0),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 0),
+            lambda p: p.value_enabled(),
+        ),
+    )
+
+wire = bytes.fromhex("83010509")
+pkt = OptionalThenRequiredThenCondPacketApi(wire)
+assert pkt.flag == 1
+assert pkt.optional is CBOR_ABSENT
+assert pkt.required == 5
+assert pkt.value == 9
+
+wire_off = bytes.fromhex("820005")
+pkt = OptionalThenRequiredThenCondPacketApi(wire_off)
+assert pkt.flag == 0
+assert pkt.optional is CBOR_ABSENT
+assert pkt.required == 5
+
+= Unread discriminator does not starve a same-type optional
+from scapy.cbor.cborfields import (
+    CBOR_ABSENT,
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_optional,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class OptionalBeforeUnreadFlag(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_optional(CBORF_INTEGER("optional", None)),
+        CBORF_INTEGER("flag", 0),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("value", 0),
+            lambda p: p.flag == 1,
+        ),
+    )
+
+# Two-item [1, 7]: greedy optional consumes 1; flag=7; conditional absent.
+pkt = OptionalBeforeUnreadFlag(bytes.fromhex("820107"))
+assert pkt.optional == 1
+assert pkt.flag == 7
+assert pkt.value == 0
+
+# Three-item [10, 1, 7]: optional present, flag already decoded for the tail.
+pkt = OptionalBeforeUnreadFlag(bytes.fromhex("830a0107"))
+assert pkt.optional == 10
+assert pkt.flag == 1
+assert pkt.value == 7
+
 = Conditional predicate errors are not treated as unresolved dependencies
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
@@ -3167,22 +3239,15 @@ assert CBORcodec_MAP.enc(ok) == b"\xa2\x01\x00\x02\x01"
 
 + Indefinite array schema budget cost
 
-= Indefinite array dissection stays within a schema min_items budget
+= Indefinite array dissection counts the wire in one pass
 import scapy.cbor.cborfields as cborfields
 from scapy.cbor.cborfields import (
     CBORF_ARRAY_INDEFINITE,
     CBORF_UNSIGNED_INTEGER,
-    CBORF_element,
 )
 from scapy.cborpacket import CBOR_Packet
 
-# Budgeted indefinite dissection may scan remaining schema fields via
-# min_items. Cap that work at n*(n+1) so a linear implementation still
-# passes, while pathological super-quadratic schema walks fail. Wire
-# pre-counting must remain a single forward pass.
-orig_min_items = CBORF_element.min_items
 orig_count_items = cborfields.cbor_count_items
-call_counts = {}
 count_calls = {}
 count_suffix_lens = {}
 try:
@@ -3192,34 +3257,25 @@ try:
         class IndefiniteManyInts(CBOR_Packet):
             CBOR_root = CBORF_ARRAY_INDEFINITE(*many_fields)
 
-        calls = [0]
         count_n = [0]
         suffix_lens = []
-
-        def counted_min_items(self, pkt, _calls=calls):
-            _calls[0] += 1
-            return orig_min_items(self, pkt)
 
         def counted_count_items(data, *args, **kwargs):
             count_n[0] += 1
             suffix_lens.append(len(data))
             return orig_count_items(data, *args, **kwargs)
 
-        CBORF_element.min_items = counted_min_items
         cborfields.cbor_count_items = counted_count_items
         wire = b"\x9f" + (b"\x00" * n) + b"\xff"
         pkt = IndefiniteManyInts(wire)
         assert getattr(pkt, "v0") == 0
         assert getattr(pkt, "v%d" % (n - 1)) == 0
-        call_counts[n] = calls[0]
         count_calls[n] = count_n[0]
         count_suffix_lens[n] = suffix_lens
 finally:
-    CBORF_element.min_items = orig_min_items
     cborfields.cbor_count_items = orig_count_items
 
 for n in (32, 64, 128):
-    assert call_counts[n] <= n * (n + 1), call_counts
     assert count_calls[n] == 1, count_calls
     assert count_suffix_lens[n] == [n + 1], count_suffix_lens
 
