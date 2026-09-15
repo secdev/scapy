@@ -29,6 +29,37 @@ _csr_bccmd_pdu_type = {
     0x0002: "setreq",
 }
 
+# BCCMD response status word (BlueCore spec; values 0x0004/0x0008 also confirmed
+# live against a 0a12:0001 CSR8510: a too-short GETREQ answers BAD_REQ, and a PS
+# key with no stored value answers ERROR).
+_csr_bccmd_status = {
+    0x0000: "ok",
+    0x0001: "no_such_varid",
+    0x0002: "too_big",
+    0x0003: "no_value",
+    0x0004: "bad_req",
+    0x0005: "no_access",
+    0x0006: "read_only",
+    0x0007: "write_only",
+    0x0008: "error",
+    0x0009: "permission_denied",
+    0x000a: "timeout",
+}
+
+# Selected PS keys, addressed through the PS door (varid 0x7003). The full list
+# (430 keys) is in BlueZ ``csr.h``; these are the ones the tools here use.
+_csr_pskey = {
+    0x0001: "bdaddr",
+    0x0002: "countrycode",
+    0x0003: "classofdevice",
+    0x0021: "lc_default_tx_power",
+    0x00f0: "lm_use_unit_key",
+    0x0108: "device_name",
+    0x01be: "uart_baudrate",
+    0x02be: "usb_vendor_id",
+    0x02bf: "usb_product_id",
+}
+
 # BCCMD varids (BlueZ ``csr.h``).
 # High nibble is an operation class: 0x2xxx read-only info, 0x3xxx iterators
 # and parameterised gets, 0x4xxx valueless actions (resets/halts/radio),
@@ -105,7 +136,7 @@ class HCI_Cmd_VSC_CSR_BCCMD(Packet):
         LEShortField("length", None),
         LEShortField("seqno", 0),
         LEShortEnumField("varid", 0, _csr_varid),
-        LEShortField("status", 0),
+        LEShortEnumField("status", 0, _csr_bccmd_status),
         XStrField("value", b"\x00" * 8),
     ]
 
@@ -131,7 +162,7 @@ class HCI_Event_VSC_CSR_BCCMD(HCI_Event_Vendor):
         LEShortField("length", None),
         LEShortField("seqno", 0),
         LEShortEnumField("varid", 0, _csr_varid),
-        LEShortField("status", 0),
+        LEShortEnumField("status", 0, _csr_bccmd_status),
         XStrField("value", b""),
     ]
 
@@ -148,6 +179,50 @@ class HCI_Event_VSC_CSR_BCCMD(HCI_Event_Vendor):
         if self.length is None:
             p = _bccmd_set_length(p)
         return p
+
+
+class CSR_PS(Packet):
+    """CSR PS-key access structure, carried in the ``value`` area of a BCCMD
+    whose varid is ``ps`` (0x7003). This is the read/write-config-memory door:
+    ``pskey`` selects the key, ``pslen`` is the value length in 16-bit words,
+    ``stores`` picks the store (0x0000 persistent/flash, 0x0008 transient/RAM),
+    and ``value`` is the key data (zero-filled to ``pslen`` words on a read).
+
+    The base BCCMD packet keeps ``value`` opaque; build it with
+    ``bytes(CSR_PS(...))`` and parse it back with ``CSR_PS(bccmd.value)``.
+    """
+    name = "CSR PS-key access"
+    fields_desc = [
+        LEShortEnumField("pskey", 0, _csr_pskey),
+        LEShortField("pslen", 0),
+        LEShortField("stores", 0),
+        XStrField("value", b""),
+    ]
+
+
+class CSR_PS_BDADDR(Packet):
+    """PSKEY_BDADDR (0x0001) value structure.
+
+    The address is not stored as a flat MAC but as the CSR NAP/UAP/LAP split in
+    four little-endian 16-bit words (BlueZ ``bdaddr.c`` / ``csr_write_bd_addr``):
+
+    * ``lap_hi`` - top byte of the 24-bit LAP (bits 16..23)
+    * ``lap_lo`` - low 16 bits of the LAP
+    * ``uap``    - the 8-bit UAP
+    * ``nap``    - the 16-bit NAP
+
+    So for ``AA:BB:CC:DD:EE:FF`` (AA = NAP high byte): ``nap=0xAABB``, ``uap=0xCC``,
+    ``lap_hi=0xDD``, ``lap_lo=0xEEFF``. Carried inside a :class:`CSR_PS` ``value``
+    when ``pskey`` is ``bdaddr``: ``bytes(CSR_PS_BDADDR(...))`` to build,
+    ``CSR_PS_BDADDR(ps.value)`` to parse.
+    """
+    name = "CSR PSKEY_BDADDR"
+    fields_desc = [
+        LEShortField("lap_hi", 0),
+        LEShortField("lap_lo", 0),
+        LEShortField("uap", 0),
+        LEShortField("nap", 0),
+    ]
 
 
 bind_layers(HCI_Command_Hdr, HCI_Cmd_VSC_CSR_BCCMD, ogf=0x3F, ocf=0x000)

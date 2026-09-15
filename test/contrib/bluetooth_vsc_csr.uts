@@ -116,3 +116,68 @@ assert type(p[HCI_Event_Vendor]) is HCI_Event_Vendor
 assert HCI_Event_VSC_CSR_BCCMD not in p
 assert p[HCI_Event_Vendor].data == b"\x99\xaa"
 assert raw(p) == b"\xff\x02\x99\xaa"
+
+
++ CSR BCCMD status enum
+
+= The response status word resolves to a name (live-observed values)
+r = HCI_Event_VSC_CSR_BCCMD(varid=0x2819, status=0x0001)
+assert r.sprintf("%status%") == "no_such_varid"
+r = HCI_Event_VSC_CSR_BCCMD(varid=0x7003, status=0x0004)
+assert r.sprintf("%status%") == "bad_req"
+
+
++ CSR PS-key door structure and BD_ADDR codec
+
+= CSR_PS builds and parses the value area [pskey, pslen, stores, value]
+ps = CSR_PS(pskey=0x0001, pslen=4, stores=0x0008, value=bytes.fromhex("3300554422001100"))
+assert raw(ps) == bytes.fromhex("0100" "0400" "0800" "3300554422001100")
+p = CSR_PS(raw(ps))
+assert p.pskey == 0x0001
+assert p.sprintf("%pskey%") == "bdaddr"
+assert p.pslen == 4
+assert p.stores == 0x0008
+assert p.value == bytes.fromhex("3300554422001100")
+
+= CSR_PS_BDADDR models the NAP/UAP/LAP split of PSKEY_BDADDR
+# 00:11:22:33:44:55 -> NAP=0x0011, UAP=0x22, LAP=0x334455 (lap_hi=0x33, lap_lo=0x4455)
+b = CSR_PS_BDADDR(lap_hi=0x0033, lap_lo=0x4455, uap=0x0022, nap=0x0011)
+assert raw(b) == bytes.fromhex("3300554422001100")
+p = CSR_PS_BDADDR(bytes.fromhex("3300554422001100"))
+assert p.lap_hi == 0x0033 and p.lap_lo == 0x4455 and p.uap == 0x0022 and p.nap == 0x0011
+
+= A PSKEY_BDADDR value nests inside a CSR_PS value area
+ps = CSR_PS(pskey=0x0001, pslen=4, stores=0x0000,
+            value=raw(CSR_PS_BDADDR(lap_hi=0x33, lap_lo=0x4455, uap=0x22, nap=0x11)))
+# 0100(pskey) 0400(pslen) 0000(stores) 3300554422001100(bdaddr words)
+assert raw(ps) == bytes.fromhex("0100040000003300554422001100")
+b = CSR_PS_BDADDR(CSR_PS(raw(ps)).value)
+assert b.nap == 0x0011 and b.uap == 0x0022
+
+
++ Composing full PS-door commands from the packet definitions
+
+= A PSKEY read is a GETREQ whose value is a CSR_PS with a zeroed value area
+cmd = HCI_Cmd_VSC_CSR_BCCMD(pdu_type="getreq", seqno=0x100, varid=0x7003,
+                            value=raw(CSR_PS(pskey=0x0001, pslen=4, stores=0x0000,
+                                             value=b"\x00" * 8)))
+# length auto-fills to 12 words (10 header bytes + 14 value bytes) / 2
+assert HCI_Cmd_VSC_CSR_BCCMD(raw(cmd)).length == 12
+assert CSR_PS(cmd.value).pskey == 0x0001
+
+= A valueless reset command is a SETREQ with the 9-word (8-byte value) PDU
+warm = HCI_Command_Hdr() / HCI_Cmd_VSC_CSR_BCCMD(pdu_type="setreq", seqno=1,
+                                                 varid=0x4002, value=b"\x00" * 8)
+assert warm.opcode == 0xFC00
+assert warm[HCI_Cmd_VSC_CSR_BCCMD].varid == 0x4002
+assert raw(warm) == bytes.fromhex("00fc13c2020009000100024000000000000000000000")
+
+= A PSKEY_BDADDR write matches the BlueZ bdaddr wire bytes
+# BlueZ csr_write_bd_addr: SETREQ, len 0x000c, seq 0x4711, varid 0x7003,
+# pskey 0x0001, pslen 0x0004, store 0x0000, then the 4 BD_ADDR words.
+val = raw(CSR_PS(pskey=0x0001, pslen=4, stores=0x0000,
+                 value=raw(CSR_PS_BDADDR(lap_hi=0x33, lap_lo=0x4455, uap=0x22, nap=0x11))))
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_CSR_BCCMD(pdu_type="setreq", seqno=0x4711,
+                                                varid=0x7003, value=val)
+assert cmd.opcode == 0xFC00
+assert raw(cmd) == bytes.fromhex("00fc19c202000c001147037000000100040000003300554422001100")
