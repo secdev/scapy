@@ -80,6 +80,7 @@ from typing import (
     Generic,
     List,
     Optional,
+    Sequence,
     Tuple,
     Type,
     TypeVar,
@@ -1266,9 +1267,10 @@ class CBORF_ARRAY(_CBORF_compound):
 
     ``depends_on=None`` does not participate in early reservation.
     ``depends_on=()`` may reserve immediately. ``depends_on="flag"``
-    or ``("flag",)`` reserves once ``flag`` has been resolved (processed
-    in this array pass, or already present on the packet). Same-type
-    optional before an unresolved discriminator is greedy.
+    or a sequence of names such as ``("flag",)`` reserves once those
+    names have been resolved (processed in this array pass, or
+    already present on the packet). Same-type optional before an
+    unresolved discriminator is greedy.
 
     Example::
 
@@ -2259,8 +2261,9 @@ class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
     ``None`` (the default) does not participate in early reservation.
     An empty tuple means the predicate has no field dependencies and may
     reserve immediately. A string ``"flag"`` is treated as
-    ``("flag",)`` and reserves once ``flag`` has been resolved
-    (processed in this array pass, or already present on the packet).
+    ``("flag",)``. A sequence of names is stored as a tuple. Either
+    form reserves once those names have been resolved (processed in
+    this array pass, or already present on the packet).
     Conditions participating in optional-tail reservation may be
     evaluated before and again when the conditional field is reached;
     predicates should not have side effects.
@@ -2282,7 +2285,7 @@ class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
     def __init__(self,
                  fld,  # type: CBORF_field[Any]
                  cond,  # type: Callable[[Packet], bool]
-                 depends_on=None,  # type: Optional[Union[str, Tuple[str, ...]]]
+                 depends_on=None,  # type: Optional[Union[str, Sequence[str]]]
                  ):
         # type: (...) -> None
         if isinstance(fld, CBORF_REMAINDER_OF):
