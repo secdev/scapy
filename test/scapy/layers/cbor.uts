@@ -2027,6 +2027,101 @@ assert decoded.label == "a"
 assert decoded.flag == 0
 assert bytes(decoded) == wire
 
+= Empty-tuple depends_on reserves immediately against a same-type optional
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_optional,
+    CBOR_ABSENT,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class AlwaysPresentTail(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_optional(CBORF_INTEGER("opt", None)),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("required", 0),
+            lambda p: True,
+            depends_on=(),
+        ),
+    )
+
+pkt = AlwaysPresentTail(b"\x81\x07")
+assert pkt.opt is CBOR_ABSENT
+assert pkt.required == 7
+
+= Skipped conditional is resolved for a later same-type conditional
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_optional,
+    CBOR_ABSENT,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class ConditionalDependency(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 0),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("a", 0),
+            lambda p: p.flag == 1,
+            depends_on="flag",
+        ),
+        CBORF_optional(
+            CBORF_INTEGER("opt", None)
+        ),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("b", 0),
+            lambda p: p.a == 0,
+            depends_on="a",
+        ),
+    )
+
+pkt = ConditionalDependency(flag=0, b=7)
+wire = bytes(pkt)
+assert wire == bytes.fromhex("820007")
+decoded = ConditionalDependency(wire)
+assert decoded.flag == 0
+assert "a" not in decoded.fields
+assert decoded.opt is CBOR_ABSENT
+assert decoded.b == 7
+assert bytes(decoded) == wire
+
+pkt = ConditionalDependency(b"\x9f\x00\x07\xff")
+assert pkt.flag == 0
+assert "a" not in pkt.fields
+assert pkt.opt is CBOR_ABSENT
+assert pkt.b == 7
+assert bytes(pkt) == b"\x9f\x00\x07\xff"
+
+= Unknown depends_on name raises during suffix reservation
+from scapy.cbor.cborfields import (
+    CBORF_ARRAY,
+    CBORF_CONDITIONAL,
+    CBORF_INTEGER,
+    CBORF_optional,
+)
+from scapy.cborpacket import CBOR_Packet
+
+class UnknownDependsOn(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY(
+        CBORF_INTEGER("flag", 0),
+        CBORF_optional(CBORF_INTEGER("opt", None)),
+        CBORF_CONDITIONAL(
+            CBORF_INTEGER("req", 0),
+            lambda p: p.flag == 1,
+            depends_on="flga",
+        ),
+    )
+
+try:
+    UnknownDependsOn(b"\x82\x01\x07")
+    assert False, "unknown depends_on was accepted"
+except ValueError as err:
+    assert "flga" in str(err)
+
 = Default-off conditional omits when discriminator is off (definite)
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
