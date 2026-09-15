@@ -1266,12 +1266,17 @@ class CBORF_ARRAY(_CBORF_compound):
     array's positional schema so budgeting applies to one field sequence.
     Framed nested :class:`CBORF_ARRAY` values remain boundaries.
 
-    Suffix reservation runs only for :class:`CBORF_optional`. A trailing
-    :class:`CBORF_CONDITIONAL` reserves only when ``depends_on`` is set
-    and those names are already resolved (processed in this array pass,
-    or already present on the packet). Omit ``depends_on`` to evaluate
-    the condition when the field is reached. Same-type optional before
-    an unread flag is greedy.
+    Suffix reservation runs only for :class:`CBORF_optional`. Required
+    fields and conditionals are processed left to right when reached.
+    ``CBORF_CONDITIONAL.depends_on`` is used only for that reservation;
+    it does not delay normal conditional evaluation. Place
+    discriminators before the conditional.
+
+    ``depends_on=None`` does not participate in early reservation.
+    ``depends_on=()`` may reserve immediately. ``depends_on="flag"``
+    or ``("flag",)`` reserves once ``flag`` has been resolved (processed
+    in this array pass, or already present on the packet). Same-type
+    optional before an unresolved discriminator is greedy.
 
     Example::
 
@@ -1307,6 +1312,7 @@ class CBORF_ARRAY(_CBORF_compound):
     @staticmethod
     def _reserved_items(field, pkt, resolved):
         # type: (Any, CBOR_Packet, set) -> int
+        """Items this suffix field must keep against a preceding optional."""
         if isinstance(field, CBORF_optional):
             return 0
         if isinstance(field, CBORF_CONDITIONAL):
@@ -1318,8 +1324,9 @@ class CBORF_ARRAY(_CBORF_compound):
             ]
             if unknown:
                 raise ValueError(
-                    "Unknown CBOR conditional dependency: %s"
-                    % ", ".join(unknown)
+                    "Unknown CBOR conditional dependency: %s "
+                    "(field %r)"
+                    % (", ".join(unknown), field.fld.name)
                 )
             if not all(name in resolved for name in field.depends_on):
                 return 0
@@ -1329,6 +1336,8 @@ class CBORF_ARRAY(_CBORF_compound):
         # type: (CBOR_Packet, bytes, int) -> bytes
         remaining = s
         items_left = count
+        # Presence known so far. False conditionals are resolved without
+        # appearing in pkt.fields.
         resolved = set(pkt.fields)
         for index, field in enumerate(self.seq):
             skip = False
@@ -1357,6 +1366,7 @@ class CBORF_ARRAY(_CBORF_compound):
                     )
                 remaining = result.remaining
                 items_left -= result.items
+            # Mark resolved even if this field consumed zero items.
             resolved.update(
                 child.name for child in field.get_fields_list()
             )
@@ -2247,13 +2257,31 @@ class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
     Wrapper making a :class:`CBORF_field` conditional on some other packet
     state.
 
-    ``depends_on`` names must already be resolved (processed in this
-    array pass, or already present on the packet) before this field may
-    reserve items against an earlier :class:`CBORF_optional`.
-    ``None`` (the default) means the condition is evaluated only when
-    the field is reached. An empty tuple means the predicate has no
-    field dependencies and may reserve immediately. A string is treated
-    as a one-element name tuple.
+    Predicates run against the real packet. Discriminator fields should
+    appear before this field.
+
+    ``depends_on`` is used only for :class:`CBORF_ARRAY` optional-tail
+    reservation. It does not delay normal ConditionalField evaluation:
+    ``cond`` still runs when this field is reached.
+
+    ``None`` (the default) does not participate in early reservation.
+    An empty tuple means the predicate has no field dependencies and may
+    reserve immediately. A string ``"flag"`` is treated as
+    ``("flag",)`` and reserves once ``flag`` has been resolved
+    (processed in this array pass, or already present on the packet).
+
+    ``depends_on`` does not make a forward discriminator safe. This still
+    evaluates ``p.flag`` when the conditional is reached, using the
+    unread field's default::
+
+        CBORF_ARRAY(
+            CBORF_CONDITIONAL(
+                CBORF_INTEGER("value", 0),
+                lambda p: p.flag == 1,
+                depends_on="flag",
+            ),
+            CBORF_INTEGER("flag", 0),
+        )
     """
 
     def __init__(self,

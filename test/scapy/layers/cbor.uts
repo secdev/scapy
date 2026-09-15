@@ -2121,6 +2121,7 @@ try:
     assert False, "unknown depends_on was accepted"
 except ValueError as err:
     assert "flga" in str(err)
+    assert "req" in str(err)
 
 = Default-off conditional omits when discriminator is off (definite)
 from scapy.cbor.cborfields import (
