@@ -1,0 +1,3246 @@
+% Tests for ASN.1 UPER encoding
+
+#
+# Try me with:
+# bash test/run_tests -t test/scapy/layers/uper.uts -F
+
++ ASN.1 UPER load
+= prepare helpers and packet classes
+import scapy.contrib.uper
+
+from scapy.contrib.uper import *
+
+from scapy.packet import raw
+
+class UPERFixedFields(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("n", 0, size_len=1, oer_unsigned=True),
+        ASN1F_STRING("s", "", size_len=3),
+    )
+
+class UPERIntegerField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0)
+
+class UPERBooleanField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_BOOLEAN("b", False)
+
+class UPERStringField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_STRING("s", "")
+
+class UPERConstrainedInteger(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0, size_len=1, oer_unsigned=True,
+    )
+
+class UPEROptionalField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_BOOLEAN("flag", False),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0)),
+    )
+
+class UPERSequenceOfIntegers(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
+
+class UPERChoiceField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+class UPERChoiceStringFirst(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_STRING(b""), ASN1F_STRING, ASN1F_INTEGER,
+    )
+
+class UPERRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_BOOLEAN("flag", False),
+        ASN1F_STRING("label", ""),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0)),
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER),
+    )
+
+class UPEREnumeratedField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_ENUMERATED(
+        "state", 1, {1: "alpha", 200: "beta"},
+    )
+
+class UPERBitStringField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_BIT_STRING(
+        "bits", "0", uper_min=1, uper_max=20,
+    )
+
+class UPERMessagePrefix(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("msgId", 0),
+        ASN1F_INTEGER("myflag", 0),
+        ASN1F_STRING("szDescription", "", size_len=10),
+        ASN1F_BOOLEAN("isReady", False),
+    )
+
+class UPERSequenceWithChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_CHOICE("c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING),
+    )
+
+class UPERNullPacket(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_NULL("n", None)
+
+class UPERVariableOctetString(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_STRING("data", "", uper_min=1, uper_max=20)
+
+class UPERConstrainedRangeInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0, uper_min=0, uper_max=15)
+
+class UPERSequenceWithEnumerated(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_ENUMERATED("state", 1, {1: "alpha", 200: "beta"}),
+    )
+
+class UPERSequenceOfStrings(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF("items", [], ASN1F_STRING)
+
+class UPERNestedSequence(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("x", 0),
+            ASN1F_BOOLEAN("y", False),
+        ),
+    )
+
+class UPERSequenceWithNull(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_NULL("n", None),
+    )
+
+class UPERFixedBitString(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_BIT_STRING("b", "0", uper_min=16, uper_max=16)
+
+class UPERSequenceOfConstrainedInts(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values", [], ASN1F_INTEGER("item", 0, uper_min=0, uper_max=255),
+    )
+
+class UPERSignedInteger(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0, uper_min=-128, uper_max=127)
+
+class UPERMultiOptional(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_optional(ASN1F_INTEGER("a", 0)),
+        ASN1F_optional(ASN1F_STRING("b", "")),
+    )
+
+def _roundtrip(cls, pkt):
+    # type: (type, ASN1_Packet) -> ASN1_Packet
+    return cls(raw(pkt))
+
+CodecRoundtrip = Tuple[
+    Type[Any],
+    Any,
+    Dict[str, Any],
+    Any,
+]
+
+CODEC_ROUNDTRIPS = [
+    (UPERcodec_NULL, None, {}, None),
+    (UPERcodec_BOOLEAN, 1, {}, 1),
+    (UPERcodec_BOOLEAN, 0, {}, 0),
+    (UPERcodec_INTEGER, 42, {}, 42),
+    (UPERcodec_INTEGER, -1, {}, -1),
+    (UPERcodec_INTEGER, 68719476736, {}, 68719476736),
+    (UPERcodec_INTEGER, 200, {"uper_min": 0, "uper_max": 255}, 200),
+    (UPERcodec_INTEGER, -1, {"uper_min": -128, "uper_max": 127}, -1),
+    (UPERcodec_INTEGER, 127, {"uper_min": -128, "uper_max": 127}, 127),
+    (UPERcodec_INTEGER, -128, {"uper_min": -128, "uper_max": 127}, -128),
+    (UPERcodec_STRING, b"AB", {}, b"AB"),
+    (UPERcodec_STRING, b"\x12\x34\x56", {"size_len": 3}, b"\x12\x34\x56"),
+    (
+        UPERcodec_STRING,
+        bytes.fromhex("afbc4583"),
+        {"uper_min": 1, "uper_max": 20},
+        bytes.fromhex("afbc4583"),
+    ),
+    (UPERcodec_ENUMERATED, 1, {"uper_enum_values": [1, 200]}, 1),
+    (UPERcodec_ENUMERATED, 200, {"uper_enum_values": [1, 200]}, 200),
+    (
+        UPERcodec_BIT_STRING,
+        (bytes.fromhex("abcd"), 16),
+        {"uper_min": 1, "uper_max": 20},
+        "1010101111001101",
+    ),
+    (
+        UPERcodec_BIT_STRING,
+        (bytes.fromhex("abcd"), 16),
+        {"uper_min": 16, "uper_max": 16},
+        "1010101111001101",
+    ),
+    (UPERcodec_ENUMERATED, 1, {"uper_enum_values": [1]}, 1),
+]
+
+DecodeVector = Tuple[
+    str,
+    Any,
+    Type[Any],
+    Dict[str, Any],
+    Any,
+    bytes,
+]
+
+DECODE_VECTORS = [
+    ("A", True, UPERcodec_BOOLEAN, {}, 1, b"\x80"),
+    ("A", False, UPERcodec_BOOLEAN, {}, 0, b"\x00"),
+    ("B", 42, UPERcodec_INTEGER, {}, 42, b"\x01*"),
+    ("B", -1, UPERcodec_INTEGER, {}, -1, b"\x01\xff"),
+    (
+        "C",
+        200,
+        UPERcodec_INTEGER,
+        {"uper_min": 0, "uper_max": 255},
+        200,
+        b"\xc8",
+    ),
+    (
+        "Signed",
+        -1,
+        UPERcodec_INTEGER,
+        {"uper_min": -128, "uper_max": 127},
+        -1,
+        b"\x7f",
+    ),
+    (
+        "Signed",
+        127,
+        UPERcodec_INTEGER,
+        {"uper_min": -128, "uper_max": 127},
+        127,
+        b"\xff",
+    ),
+    ("D", b"AB", UPERcodec_STRING, {}, b"AB", b"\x02AB"),
+    (
+        "E",
+        b"\x12\x34\x56",
+        UPERcodec_STRING,
+        {"size_len": 3},
+        b"\x12\x34\x56",
+        b"\x12\x34\x56",
+    ),
+    ("G", None, UPERcodec_NULL, {}, None, b""),
+    ("H", "alpha", UPERcodec_ENUMERATED, {"uper_enum_values": [1, 200]}, 1, b"\x00"),
+    ("H", "beta", UPERcodec_ENUMERATED, {"uper_enum_values": [1, 200]}, 200, b"\x80"),
+]
+
+OID_ENCODE_VECTORS = [
+    ("1.2.3", b"\x02*\x03"),
+    ("2.999.3", b"\x03\x887\x03"),
+]
+
+def _assert_codec_roundtrip(codec, value, kwargs, expected):
+    # type: (Type[Any], Any, Dict[str, Any], Any) -> None
+    data = codec.enc(value, **kwargs)
+    decoded, _remain = codec.do_dec(data, **kwargs)
+    assert decoded.val == expected
+
+PRIMITIVE_VECTORS = [
+    ("A", True, lambda v: UPERcodec_BOOLEAN.enc(1 if v else 0), b"\x80"),
+    ("A", False, lambda v: UPERcodec_BOOLEAN.enc(1 if v else 0), b"\x00"),
+    ("B", 42, lambda v: UPERcodec_INTEGER.enc(v), b"\x01*"),
+    ("B", -1, lambda v: UPERcodec_INTEGER.enc(v), b"\x01\xff"),
+    (
+        "C",
+        200,
+        lambda v: UPERcodec_INTEGER.enc(v, uper_min=0, uper_max=255),
+        b"\xc8",
+    ),
+    ("D", b"AB", lambda v: UPERcodec_STRING.enc(v), b"\x02AB"),
+    (
+        "E",
+        b"\x12\x34\x56",
+        lambda v: UPERcodec_STRING.enc(v, size_len=3),
+        b"\x12\x34\x56",
+    ),
+    ("G", None, lambda v: UPERcodec_NULL.enc(None), b""),
+    (
+        "H",
+        "beta",
+        lambda v: UPERcodec_ENUMERATED.enc(200, uper_enum_values=[1, 200]),
+        b"\x80",
+    ),
+]
+
+COMPOSITE_VECTORS = [
+    ("Seq", {"id": 42, "flag": True}, b"\x00\x95@"),
+    ("Seq", {"id": 42, "flag": True, "extra": 7}, b"\x80\x95@A\xc0"),
+    ("SeqOf", [1, 2, 3], b"\x03\x01\x01\x01\x02\x01\x03"),
+    ("SeqOfC", [1, 200, 0], b"\x03\x01\xc8\x00"),
+    ("Choice", ("a", 99), b"\x00\xb1\x80"),
+    ("Choice", ("b", b"AB"), b"\x81 \xa1\x00"),
+    ("ChoiceC", ("a", 10), b"P"),
+    ("ChoiceC", ("b", b"AB"), b"\x81 \xa1\x00"),
+]
+
+DECODE_PACKET_VECTORS = [
+    (
+        UPERNestedSequence,
+        {"id": 5, "x": 3, "y": True},
+        bytes.fromhex("0105010380"),
+    ),
+    (
+        UPERMultiOptional,
+        {"id": 1, "a": 2, "b": b"hi"},
+        bytes.fromhex("c0404040809a1a40"),
+    ),
+]
+
+PACKET_REFERENCE_VECTORS = [
+    (
+        UPERNestedSequence,
+        {"id": 5, "x": 3, "y": True},
+        bytes.fromhex("0105010380"),
+    ),
+    (
+        UPERMultiOptional,
+        {"id": 1, "a": 2, "b": b"hi"},
+        bytes.fromhex("c0404040809a1a40"),
+    ),
+]
+
+def _encode_composite(typename, value):
+    # type: (str, Any) -> bytes
+    enc = UPER_Encoder()
+    if typename == "Seq":
+        enc.append_bit(1 if value.get("extra") is not None else 0)
+        UPERcodec_INTEGER.encode_into(enc, value["id"])
+        UPERcodec_BOOLEAN.encode_into(enc, 1 if value["flag"] else 0)
+        if value.get("extra") is not None:
+            UPERcodec_INTEGER.encode_into(enc, value["extra"])
+        return enc.as_bytes()
+    if typename == "SeqOf":
+        enc.append_length_determinant(len(value))
+        for item in value:
+            UPERcodec_INTEGER.encode_into(enc, item)
+        return enc.as_bytes()
+    if typename == "SeqOfC":
+        enc.append_length_determinant(len(value))
+        for item in value:
+            UPERcodec_INTEGER.encode_into(
+                enc, item, uper_min=0, uper_max=255,
+            )
+        return enc.as_bytes()
+    if typename == "Choice":
+        alt, payload = value
+        index = 0 if alt == "a" else 1
+        UPER_choice_index_enc(enc, index, 2)
+        if alt == "a":
+            UPERcodec_INTEGER.encode_into(enc, payload)
+        else:
+            UPERcodec_STRING.encode_into(enc, payload)
+        return enc.as_bytes()
+    if typename == "ChoiceC":
+        alt, payload = value
+        index = 0 if alt == "a" else 1
+        UPER_choice_index_enc(enc, index, 2)
+        if alt == "a":
+            UPERcodec_INTEGER.encode_into(
+                enc, payload, uper_min=0, uper_max=15,
+            )
+        else:
+            UPERcodec_STRING.encode_into(enc, payload)
+        return enc.as_bytes()
+    raise ValueError("unknown composite type %s" % typename)
+
+BOOLEAN_SPEC = (
+    "TEST-CASE DEFINITIONS AUTOMATIC TAGS::= BEGIN "
+    "MyPDU ::= BOOLEAN "
+    "END"
+)
+
+NULL_SPEC = (
+    "TEST-CASE DEFINITIONS AUTOMATIC TAGS::= BEGIN "
+    "MyPDU ::= NULL "
+    "END"
+)
+
+OCTET_STRING_VAR_SPEC = (
+    "TEST-CASE DEFINITIONS AUTOMATIC TAGS::= BEGIN "
+    "MyPDU ::= OCTET STRING (SIZE(1..20)) "
+    "END"
+)
+
+CHOICE_SPEC = (
+    "TEST-CASE DEFINITIONS AUTOMATIC TAGS::= BEGIN "
+    "MyPDU ::= CHOICE { "
+    "int1 INTEGER(0..15), "
+    "int2 INTEGER(0..65535), "
+    "enm ENUMERATED { one(1), two(2), three(3), four(4), thousand(1000) }, "
+    "buf OCTET STRING (SIZE(10)), "
+    "gg SEQUENCE { "
+    "int1 INTEGER(0..15), "
+    "int2 INTEGER(0..65535), "
+    "enm ENUMERATED { pone(1), ptwo(2), pthree(3), pfour(4), pthousand(1000) }, "
+    "buf [APPLICATION 104] OCTET STRING (SIZE(10)) "
+    "} "
+    "} "
+    "END"
+)
+
+ENUMERATED_SPEC = (
+    "TEST-CASE DEFINITIONS AUTOMATIC TAGS::= BEGIN "
+    "MyPDU ::= ENUMERATED { alpha(1), beta(200) } "
+    "END"
+)
+
+BIT_STRING_VAR_SPEC = (
+    "TEST-CASE DEFINITIONS AUTOMATIC TAGS::= BEGIN "
+    "MyPDU ::= BIT STRING (SIZE(1..20)) "
+    "END"
+)
+
+README_MESSAGE_HEX = (
+    "010101020980cd191eb851eb851f48656c6c6f576f726c6480"
+)
+
+README_MESSAGE_PREFIX_HEX = (
+    "0101010248656c6c6f576f726c6480"
+)
+
+ASN1SCC_VECTORS = [
+    (
+        "05-BOOLEAN/001 pdu1",
+        True,
+        lambda _v: UPERcodec_BOOLEAN.enc(1),
+        b"\x80",
+    ),
+    (
+        "18-NULL/001 pdu1",
+        None,
+        lambda _v: UPERcodec_NULL.enc(None),
+        b"",
+    ),
+    (
+        "06-OCTET-STRING/001 pdu1",
+        bytes.fromhex("afbc4583"),
+        lambda v: UPERcodec_STRING.enc(v, uper_min=1, uper_max=20),
+        bytes.fromhex("1d7de22c18"),
+    ),
+    (
+        "05-BOOLEAN/001 pdu1 false",
+        False,
+        lambda _v: UPERcodec_BOOLEAN.enc(0),
+        b"\x00",
+    ),
+    (
+        "04-ENUMERATED/001 pdu1 alpha",
+        "alpha",
+        lambda _v: UPERcodec_ENUMERATED.enc(1, uper_enum_values=[1, 200]),
+        b"\x00",
+    ),
+    (
+        "04-ENUMERATED/001 pdu1 beta",
+        "beta",
+        lambda _v: UPERcodec_ENUMERATED.enc(200, uper_enum_values=[1, 200]),
+        b"\x80",
+    ),
+    (
+        "09-CHOICE/001 pdu1 int1:10",
+        ("int1", 10),
+        lambda _v: _encode_choice_int1_10(),
+        b"\x14",
+    ),
+    (
+        "08-BIT-STRING/001 pdu1 ABCD",
+        (bytes.fromhex("abcd"), 16),
+        lambda _v: UPERcodec_BIT_STRING.enc(
+            (bytes.fromhex("abcd"), 16), uper_min=1, uper_max=20,
+        ),
+        bytes.fromhex("7d5e68"),
+    ),
+]
+
+def _encode_choice_int1_10():
+    # type: () -> bytes
+    enc = UPER_Encoder()
+    UPER_choice_index_enc(enc, 0, 5)
+    UPERcodec_INTEGER.encode_into(enc, 10, uper_min=0, uper_max=15)
+    return enc.as_bytes()
+
+_UPER_CODEC_CLASSES = (
+    UPERcodec_INTEGER,
+    UPERcodec_BOOLEAN,
+    UPERcodec_NULL,
+    UPERcodec_STRING,
+    UPERcodec_OID,
+    UPERcodec_ENUMERATED,
+    UPERcodec_BIT_STRING,
+)
+
+_DECODE_ERRORS = (
+    UPER_Decoding_Error,
+    UPER_Encoding_Error,
+    ASN1_Decoding_Error,
+    ASN1_Error,
+    ValueError,
+    IndexError,
+)
+
+class UPERFuzzRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_BOOLEAN("flag", False),
+        ASN1F_STRING("label", ""),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0)),
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER),
+    )
+
+class UPERFuzzNested(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_SEQUENCE(
+            ASN1F_INTEGER("x", 0),
+            ASN1F_BOOLEAN("y", False),
+        ),
+    )
+
+class UPERFuzzEnumerated(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_ENUMERATED(
+        "state", 1, {1: "alpha", 200: "beta"},
+    )
+
+def _fuzz_packets():
+    # type: () -> Iterable[Type[ASN1_Packet]]
+    return (UPERFuzzRecord, UPERFuzzNested, UPERFuzzEnumerated)
+
+def _record_kwargs():
+    # type: () -> dict
+    return dict(
+        id=42,
+        flag=True,
+        label=b"hi",
+        extra=7,
+        values=[1, 2, 3],
+    )
+
+def _asn1_int(val):
+    # type: (Any) -> int
+    return val.val if hasattr(val, "val") else val
+
+def _assert_record(decoded):
+    # type: (ASN1_Packet) -> None
+    assert decoded.id.val == 42
+    assert decoded.flag.val == 1
+    assert decoded.label.val == b"hi"
+    assert decoded.extra.val == 7
+    assert [x.val for x in decoded.values] == [1, 2, 3]
+
+def _assert_record_empty(decoded):
+    # type: (ASN1_Packet) -> None
+    assert decoded.id.val == 1
+    assert decoded.flag.val == 0
+    assert decoded.label.val == b""
+    assert decoded.extra is None
+    assert [x.val for x in decoded.values] == []
+
+def _dissect(cls, data_hex):
+    # type: (Type[ASN1_Packet], str) -> ASN1_Packet
+    return cls(bytes.fromhex(data_hex))
+
+from unittest import mock
+
+from scapy.asn1.ber import BER_Decoding_Error
+
+from scapy.contrib.oer import OER_Decoding_Error, OER_Encoding_Error
+
+from scapy.contrib.uper import (
+    UPER_Decoding_Error, UPER_Encoding_Error, UPER_Decoder, UPER_Encoder,
+)
+
+from scapy.packet import Raw, raw
+
+class _InnerRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_enum_INTEGER("mode", ASN1_INTEGER(0), ["off", "on"]),
+    )
+
+class _EncapsRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_STRING_ENCAPS("payload", None, _InnerRecord),
+    )
+
+class _FlagsRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_FLAGS("f", "000", ["read", "write", "exec"]),
+    )
+
+class _SetOfRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SET_OF("items", [], ASN1F_INTEGER)
+
+class _PacketFieldRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_STRING_PacketField("data", b""),
+    )
+
+class _ExplicitPacket(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_PACKET("inner", None, _InnerRecord, explicit_tag=0xA2)
+
+class _BitEncapsRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BIT_STRING_ENCAPS("b", None, _InnerRecord),
+    )
+
+def _raises(exc, func):
+    # type: (type, Any) -> None
+    try:
+        func()
+    except exc:
+        return
+    raise AssertionError("Expected %s" % exc.__name__)
+
+import scapy.contrib.oer
+
+from scapy.contrib.oer import *
+
+from scapy.contrib.uper import ASN1F_DEFAULT
+
+import scapy.asn1fields as asn1fields
+
+def _val(x):
+    # type: (Any) -> Any
+    return x.val if hasattr(x, "val") else x
+
+class UPERSmallDefaultRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+        ASN1F_DEFAULT(
+            ASN1F_INTEGER("n", 5, uper_min=0, uper_max=10),
+            5,
+        ),
+    )
+
+class UPEREmptySeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values",
+        [],
+        ASN1F_INTEGER("item", 0, uper_min=0, uper_max=7),
+        uper_min=0,
+        uper_max=3,
+    )
+
+class UPERExtSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values",
+        [],
+        ASN1F_INTEGER("item", 0, uper_min=0, uper_max=7),
+        uper_min=1,
+        uper_max=2,
+        uper_extensible=True,
+    )
+
+class UPERFlagsField(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_FLAGS(
+        "f", "101", ["a", "b", "c"], uper_min=3, uper_max=3,
+    )
+
+class UPERInnerPacket(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("x", 0, uper_min=0, uper_max=15),
+    )
+
+class UPERWrappedPacket(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+        ASN1F_PACKET("inner", None, UPERInnerPacket),
+    )
+
+class UPERConstrainedInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0, uper_min=0, uper_max=255)
+
++ ASN.1 UPER codec
+= UPER boolean true
+UPERcodec_BOOLEAN.enc(1) == b"\x80"
+= UPER boolean false
+UPERcodec_BOOLEAN.enc(0) == b"\x00"
+= UPER unconstrained integer
+UPERcodec_INTEGER.enc(42) == b"\x01*"
+= UPER constrained integer
+UPERcodec_INTEGER.enc(200, uper_min=0, uper_max=255) == b"\xc8"
+= UPER signed constrained integer
+UPERcodec_INTEGER.enc(-1, uper_min=-128, uper_max=127) == b"\x7f"
+= UPER octet string
+UPERcodec_STRING.enc(b"AB") == b"\x02AB"
+= UPER fixed octet string
+UPERcodec_STRING.enc(b"\x12\x34\x56", size_len=3) == b"\x12\x34\x56"
+= UPER null
+UPERcodec_NULL.enc(None) == b""
+= UPER enumerated index
+UPERcodec_ENUMERATED.enc(200, uper_enum_values=[1, 200]) == b"\x80"
+= UPER bit string variable size
+UPERcodec_BIT_STRING.enc((b"\xab\xcd", 16), uper_min=1, uper_max=20) == bytes.fromhex("7d5e68")
+= UPER enumerated roundtrip
+x, r = UPERcodec_ENUMERATED.do_dec(UPERcodec_ENUMERATED.enc(200, uper_enum_values=[1, 200]), uper_enum_values=[1, 200])
+x.val == 200 and r == b""
+= UPER integer roundtrip
+x, r = UPERcodec_INTEGER.do_dec(UPERcodec_INTEGER.enc(-1))
+x.val == -1 and r == b""
+= UPER boolean roundtrip
+x, r = UPERcodec_BOOLEAN.do_dec(UPERcodec_BOOLEAN.enc(1))
+x.val == 1 and r == b""
+= UPER ASN1 object encoding
+ASN1_INTEGER(42).enc(ASN1_Codecs.PER) == b"\x01*"
+= UPER codec registration
+ASN1_Class_UNIVERSAL.INTEGER.get_codec(ASN1_Codecs.PER) is UPERcodec_INTEGER
+
++ ASN.1 UPER packets, helpers, interop and fuzz
+= uper field fixed size
+pkt = UPERFixedFields(n=200, s=b"ABC")
+
+assert raw(pkt) == b"\xc8ABC"
+
+decoded = _roundtrip(UPERFixedFields, pkt)
+
+assert decoded.n.val == 200
+
+assert decoded.s.val == b"ABC"
+
+True
+
+= uper field integer
+pkt = UPERIntegerField(n=12345)
+
+assert raw(pkt) == bytes.fromhex("023039")
+
+decoded = _roundtrip(UPERIntegerField, pkt)
+
+assert decoded.n.val == 12345
+
+True
+
+= uper field boolean
+true_pkt = UPERBooleanField(b=True)
+
+assert raw(true_pkt) == b"\x80"
+
+decoded = _roundtrip(UPERBooleanField, true_pkt)
+
+assert decoded.b.val == 1
+
+false_pkt = UPERBooleanField(b=False)
+
+assert raw(false_pkt) == b"\x00"
+
+decoded = _roundtrip(UPERBooleanField, false_pkt)
+
+assert decoded.b.val == 0
+
+True
+
+= uper field string
+pkt = UPERStringField(s=b"hi")
+
+assert raw(pkt) == bytes.fromhex("026869")
+
+decoded = _roundtrip(UPERStringField, pkt)
+
+assert decoded.s.val == b"hi"
+
+True
+
+= uper field constrained integer
+pkt = UPERConstrainedInteger(n=200)
+
+assert raw(pkt) == b"\xc8"
+
+decoded = _roundtrip(UPERConstrainedInteger, pkt)
+
+assert decoded.n.val == 200
+
+True
+
+= uper field optional
+present = UPEROptionalField(id=42, flag=True, extra=7)
+
+assert raw(present) == bytes.fromhex("80954041c0")
+
+decoded = _roundtrip(UPEROptionalField, present)
+
+assert decoded.id.val == 42
+
+assert decoded.flag.val == 1
+
+assert decoded.extra.val == 7
+
+absent = UPEROptionalField(id=42, flag=True, extra=None)
+
+assert raw(absent) == bytes.fromhex("009540")
+
+decoded = _roundtrip(UPEROptionalField, absent)
+
+assert decoded.id.val == 42
+
+assert decoded.flag.val == 1
+
+assert decoded.extra is None
+
+True
+
+= uper field sequence of
+pkt = UPERSequenceOfIntegers(values=[1, 2, 3])
+
+assert raw(pkt) == bytes.fromhex("03010101020103")
+
+decoded = _roundtrip(UPERSequenceOfIntegers, pkt)
+
+assert [x.val for x in decoded.values] == [1, 2, 3]
+
+empty = UPERSequenceOfIntegers(values=[])
+
+assert raw(empty) == b"\x00"
+
+decoded = _roundtrip(UPERSequenceOfIntegers, empty)
+
+assert [x.val for x in decoded.values] == []
+
+True
+
+= uper field choice
+as_int = UPERChoiceField(c=ASN1_INTEGER(99))
+
+assert raw(as_int) == bytes.fromhex("00b180")
+
+decoded = _roundtrip(UPERChoiceField, as_int)
+
+assert decoded.c.val == 99
+
+as_str = UPERChoiceField(c=ASN1_STRING(b"AB"))
+
+assert raw(as_str) == bytes.fromhex("8120a100")
+
+decoded = _roundtrip(UPERChoiceField, as_str)
+
+assert decoded.c.val == b"AB"
+
+True
+
+= uper field choice definition order
+as_str = UPERChoiceStringFirst(c=ASN1_STRING(b"AB"))
+
+assert raw(as_str) == bytes.fromhex("0120a100")
+
+decoded = _roundtrip(UPERChoiceStringFirst, as_str)
+
+assert decoded.c.val == b"AB"
+
+as_int = UPERChoiceStringFirst(c=ASN1_INTEGER(99))
+
+assert raw(as_int) == bytes.fromhex("80b180")
+
+decoded = _roundtrip(UPERChoiceStringFirst, as_int)
+
+assert decoded.c.val == 99
+
+True
+
+= uper packet record
+full = UPERRecord(
+    id=42,
+    flag=True,
+    label=b"hi",
+    extra=7,
+    values=[1, 2, 3],
+)
+
+assert raw(full) == bytes.fromhex("8095409a1a4041c0c04040408040c0")
+
+decoded = _roundtrip(UPERRecord, full)
+
+assert decoded.id.val == 42
+
+assert decoded.flag.val == 1
+
+assert decoded.label.val == b"hi"
+
+assert decoded.extra.val == 7
+
+assert [x.val for x in decoded.values] == [1, 2, 3]
+
+pkt = UPERRecord(
+    id=42,
+    flag=True,
+    label=b"AB",
+    extra=None,
+    values=[1, 2],
+)
+
+body = bytes.fromhex("0095409050808040404080")
+
+assert raw(pkt) == body
+
+decoded = _roundtrip(UPERRecord, pkt)
+
+assert decoded.id.val == 42
+
+assert decoded.flag.val == 1
+
+assert decoded.label.val == b"AB"
+
+assert decoded.extra is None
+
+assert [x.val for x in decoded.values] == [1, 2]
+
+empty = UPERRecord(
+    id=1,
+    flag=False,
+    label=b"",
+    extra=None,
+    values=[],
+)
+
+assert raw(empty) == bytes.fromhex("0080800000")
+
+decoded = _roundtrip(UPERRecord, empty)
+
+assert decoded.id.val == 1
+
+assert decoded.flag.val == 0
+
+assert decoded.label.val == b""
+
+assert decoded.extra is None
+
+assert [x.val for x in decoded.values] == []
+
+True
+
+= uper field enumerated
+alpha = UPEREnumeratedField(state=1)
+
+assert raw(alpha) == b"\x00"
+
+decoded = _roundtrip(UPEREnumeratedField, alpha)
+
+assert decoded.state.val == 1
+
+beta = UPEREnumeratedField(state=200)
+
+assert raw(beta) == b"\x80"
+
+decoded = _roundtrip(UPEREnumeratedField, beta)
+
+assert decoded.state.val == 200
+
+True
+
+= uper field bit string
+from scapy.asn1.asn1 import ASN1_BIT_STRING
+
+pkt = UPERBitStringField(bits=ASN1_BIT_STRING("1010101111001101"))
+
+assert raw(pkt) == bytes.fromhex("7d5e68")
+
+decoded = _roundtrip(UPERBitStringField, pkt)
+
+assert decoded.bits.val == "1010101111001101"
+
+True
+
+= uper message prefix
+pkt = UPERMessagePrefix(
+    msgId=1,
+    myflag=2,
+    szDescription=b"HelloWorld",
+    isReady=True,
+)
+
+assert raw(pkt) == bytes.fromhex("0101010248656c6c6f576f726c6480")
+
+decoded = _roundtrip(UPERMessagePrefix, pkt)
+
+assert decoded.msgId.val == 1
+
+assert decoded.myflag.val == 2
+
+assert decoded.szDescription.val == b"HelloWorld"
+
+assert decoded.isReady.val == 1
+
+True
+
+= uper sequence with choice
+pkt = UPERSequenceWithChoice(id=42, c=ASN1_INTEGER(99))
+
+body = raw(pkt)
+
+decoded = UPERSequenceWithChoice(body)
+
+assert decoded.id.val == 42
+
+assert decoded.c.val == 99
+
+as_str = UPERSequenceWithChoice(id=1, c=ASN1_STRING(b"AB"))
+
+decoded = UPERSequenceWithChoice(raw(as_str))
+
+assert decoded.id.val == 1
+
+assert decoded.c.val == b"AB"
+
+True
+
+= uper null packet
+pkt = UPERNullPacket()
+
+assert raw(pkt) == b""
+
+decoded = _roundtrip(UPERNullPacket, pkt)
+
+assert decoded.n is None
+
+True
+
+= uper variable octet string
+pkt = UPERVariableOctetString(data=bytes.fromhex("afbc4583"))
+
+assert raw(pkt) == bytes.fromhex("1d7de22c18")
+
+decoded = _roundtrip(UPERVariableOctetString, pkt)
+
+assert decoded.data.val == bytes.fromhex("afbc4583")
+
+True
+
+= uper constrained range integer
+pkt = UPERConstrainedRangeInt(n=10)
+
+assert raw(pkt) == b"\xa0"
+
+decoded = _roundtrip(UPERConstrainedRangeInt, pkt)
+
+assert decoded.n.val == 10
+
+True
+
+= uper sequence with enumerated
+pkt = UPERSequenceWithEnumerated(id=1, state=200)
+
+assert raw(pkt) == bytes.fromhex("010180")
+
+decoded = _roundtrip(UPERSequenceWithEnumerated, pkt)
+
+assert decoded.id.val == 1
+
+assert decoded.state.val == 200
+
+alpha = UPERSequenceWithEnumerated(id=7, state=1)
+
+assert raw(alpha) == bytes.fromhex("010700")
+
+decoded = _roundtrip(UPERSequenceWithEnumerated, alpha)
+
+assert decoded.state.val == 1
+
+True
+
+= uper sequence of strings
+pkt = UPERSequenceOfStrings(items=[b"A", b"BC"])
+
+assert raw(pkt) == bytes.fromhex("020141024243")
+
+decoded = _roundtrip(UPERSequenceOfStrings, pkt)
+
+assert [x.val for x in decoded.items] == [b"A", b"BC"]
+
+empty = UPERSequenceOfStrings(items=[])
+
+assert raw(empty) == b"\x00"
+
+decoded = _roundtrip(UPERSequenceOfStrings, empty)
+
+assert [x.val for x in decoded.items] == []
+
+True
+
+= uper sequence choice hex
+pkt = UPERSequenceWithChoice(id=1, c=ASN1_INTEGER(99))
+
+assert raw(pkt) == bytes.fromhex("010100b180")
+
+decoded = UPERSequenceWithChoice(raw(pkt))
+
+assert decoded.id.val == 1
+
+assert decoded.c.val == 99
+
+True
+
+= uper nested sequence
+pkt = UPERNestedSequence(id=5, x=3, y=True)
+
+assert raw(pkt) == bytes.fromhex("0105010380")
+
+decoded = _roundtrip(UPERNestedSequence, pkt)
+
+assert decoded.id.val == 5
+
+assert decoded.x.val == 3
+
+assert decoded.y.val == 1
+
+True
+
+= uper sequence with null
+pkt = UPERSequenceWithNull(id=1)
+
+assert raw(pkt) == bytes.fromhex("0101")
+
+decoded = _roundtrip(UPERSequenceWithNull, pkt)
+
+assert decoded.id.val == 1
+
+assert getattr(decoded.n, "val", decoded.n) is None
+
+True
+
+= uper fixed bit string
+from scapy.asn1.asn1 import ASN1_BIT_STRING
+
+pkt = UPERFixedBitString(b=ASN1_BIT_STRING("1010101111001101"))
+
+assert raw(pkt) == bytes.fromhex("abcd")
+
+decoded = _roundtrip(UPERFixedBitString, pkt)
+
+assert decoded.b.val == "1010101111001101"
+
+True
+
+= uper sequence of constrained ints
+pkt = UPERSequenceOfConstrainedInts(values=[1, 200, 0])
+
+assert raw(pkt) == bytes.fromhex("0301c800")
+
+decoded = _roundtrip(UPERSequenceOfConstrainedInts, pkt)
+
+assert [x.val for x in decoded.values] == [1, 200, 0]
+
+True
+
+= uper signed integer
+for value, expected in [
+    (0, b"\x80"),
+    (-1, b"\x7f"),
+    (127, b"\xff"),
+    (-128, b"\x00"),
+]:
+    pkt = UPERSignedInteger(n=value)
+    assert raw(pkt) == expected
+    decoded = _roundtrip(UPERSignedInteger, pkt)
+    assert decoded.n.val == value
+
+True
+
+= uper multi optional
+both = UPERMultiOptional(id=1, a=2, b=b"hi")
+
+assert raw(both) == bytes.fromhex("c0404040809a1a40")
+
+decoded = _roundtrip(UPERMultiOptional, both)
+
+assert decoded.id.val == 1
+
+assert decoded.a.val == 2
+
+assert decoded.b.val == b"hi"
+
+none = UPERMultiOptional(id=1, a=None, b=None)
+
+assert raw(none) == bytes.fromhex("004040")
+
+decoded = _roundtrip(UPERMultiOptional, none)
+
+assert decoded.id.val == 1
+
+assert decoded.a is None
+
+assert decoded.b is None
+
+only_a = UPERMultiOptional(id=3, a=9, b=None)
+
+assert raw(only_a) == bytes.fromhex("8040c04240")
+
+decoded = _roundtrip(UPERMultiOptional, only_a)
+
+assert decoded.id.val == 3
+
+assert decoded.a.val == 9
+
+assert decoded.b is None
+
+True
+
+= uper length determinant
+for length, expected in [
+    (0, b"\x00"),
+    (1, b"\x01"),
+    (127, b"\x7f"),
+    (128, b"\x80\x80"),
+    (16383, b"\xbf\xff"),
+]:
+    enc = UPER_Encoder()
+    enc.append_length_determinant(length)
+    assert enc.as_bytes() == expected
+
+True
+
+= uper length determinant refuses lengths that need fragmentation
+# X.691 11.9.3.8: the caller has to split the content, so a bare determinant
+# of 16K or more would not match what follows it.
+enc = UPER_Encoder()
+try:
+    enc.append_length_determinant(16384)
+    assert False
+except UPER_Encoding_Error:
+    pass
+
+True
+
+= uper fragmented length determinant
+# X.691 11.9.3.8: fragments of 16K units, always closed by a determinant
+# below 16K. Byte vectors checked against asn1tools.
+for count, expected_header in [
+    (16384, b"\xc1"),
+    (32768, b"\xc2"),
+    (49152, b"\xc3"),
+    (65536, b"\xc4"),
+    (81920, b"\xc4"),
+]:
+    enc = UPER_Encoder()
+    seen = []
+    enc.append_fragmented(count, lambda offset, size: seen.append((offset, size)))
+    got = enc.as_bytes()
+    assert got.startswith(expected_header), (count, got[:1])
+    assert sum(size for _, size in seen) == count, (count, seen)
+    assert got.endswith(b"\x00"), (count, got[-1:])
+
+True
+
+= uper fragmented length determinant roundtrip
+for count in [0, 127, 16383, 16384, 40000, 70000]:
+    enc = UPER_Encoder()
+    enc.append_fragmented(count, lambda offset, size: None)
+    dec = UPER_Decoder(enc.as_bytes())
+    seen = []
+    dec.read_fragmented(lambda size: seen.append(size))
+    assert sum(seen) == count, (count, seen)
+
+True
+
+= uper count roundtrip
+for count in [0, 1, 3, 127]:
+    enc = UPER_Encoder()
+    enc.append_length_determinant(count)
+    assert UPER_Decoder(enc.as_bytes()).read_length_determinant() == count
+
+True
+
+= uper choice index roundtrip
+for index, choices in [(0, 2), (1, 5), (3, 5)]:
+    enc = UPER_Encoder()
+    UPER_choice_index_enc(enc, index, choices)
+    got = UPER_choice_index_dec(UPER_Decoder(enc.as_bytes()), choices)
+    assert got == index
+
+True
+
+= uper optional presence
+enc = UPER_Encoder()
+
+for bit in [0, 1, 0]:
+    enc.append_bit(bit)
+
+assert enc.as_bytes() == b"\x40"
+
+True
+
+= uper constrained integer
+enc = UPER_Encoder()
+
+UPER_constrained_int_enc(enc, 10, 0, 15)
+
+assert UPER_constrained_int_dec(UPER_Decoder(enc.as_bytes()), 0, 15) == 10
+
+True
+
+= uper constrained signed integer
+for value, expected in [(0, b"\x80"), (-1, b"\x7f"), (127, b"\xff"), (-128, b"\x00")]:
+    enc = UPER_Encoder()
+    UPER_constrained_int_enc(enc, value, -128, 127)
+    assert enc.as_bytes() == expected
+    dec = UPER_Decoder(enc.as_bytes())
+    assert UPER_constrained_int_dec(dec, -128, 127) == value
+
+True
+
+= uper octet string roundtrip
+for data, minimum, maximum in [
+    (b"AB", None, None),
+    (b"\x12\x34\x56", 3, 3),
+    (bytes.fromhex("afbc4583"), 1, 20),
+]:
+    enc = UPER_Encoder()
+    UPER_octet_string_enc(enc, data, minimum, maximum)
+    dec = UPER_Decoder(enc.as_bytes())
+    assert UPER_octet_string_dec(dec, minimum, maximum) == data
+    assert not UPER_has_unexpected_remainder(dec)
+
+True
+
+= uper has unexpected remainder
+assert UPER_has_unexpected_remainder(UPER_Decoder(b"\x00")) is False
+
+assert UPER_has_unexpected_remainder(UPER_Decoder(b"\x80")) is True
+
+True
+
+= uper chained encode into
+enc = UPER_Encoder()
+
+UPERcodec_INTEGER.encode_into(enc, 42)
+
+UPERcodec_INTEGER.encode_into(enc, -7)
+
+dec = UPER_Decoder(enc.as_bytes())
+
+assert dec.read_unconstrained_whole_number() == 42
+
+assert dec.read_unconstrained_whole_number() == -7
+
+True
+
+= uper codec roundtrips
+for codec, value, kwargs, expected in CODEC_ROUNDTRIPS:
+    _assert_codec_roundtrip(codec, value, kwargs, expected)
+
+True
+
+= uper codec oid roundtrip
+import scapy.all  # noqa: F401  # loads conf.mib for ASN1_OID
+
+for oid in ("1.2.3", "1.2.840.113549"):
+    data = UPERcodec_OID.enc(oid)
+    decoded, remain = UPERcodec_OID.do_dec(data)
+    assert remain == b""
+    assert decoded.val == oid
+
+True
+
+= uper codec oid encode interop
+for oid, expected in OID_ENCODE_VECTORS:
+    got = UPERcodec_OID.enc(oid)
+    assert got == expected, (
+        "OID %r: expected %s, got %s" %
+        (oid, expected.hex(), got.hex())
+    )
+
+True
+
+= uper codec reference decode
+for _typename, _value, codec, kwargs, expected, encoded in DECODE_VECTORS:
+    decoded, _remain = codec.do_dec(encoded, **kwargs)
+    assert decoded.val == expected, (
+        "%s %r: expected %r, got %r" %
+        (_typename, _value, expected, decoded.val)
+    )
+
+True
+
+= uper codec encode reference
+for typename, value, encoder, expected in PRIMITIVE_VECTORS:
+    encoded = encoder(value)
+    assert encoded == expected, (
+        "%s %r: expected %s, got %s" %
+        (typename, value, expected.hex(), encoded.hex())
+    )
+
+True
+
+= primitive interop
+for typename, value, encoder, expected in PRIMITIVE_VECTORS:
+    got = encoder(value)
+    assert got == expected, (
+        "%s %r: expected %s, got %s" %
+        (typename, value, expected.hex(), got.hex())
+    )
+
+True
+
+= composite interop
+for typename, value, expected in COMPOSITE_VECTORS:
+    got = _encode_composite(typename, value)
+    assert got == expected, (
+        "%s %r: expected %s, got %s" %
+        (typename, value, expected.hex(), got.hex())
+    )
+
+True
+
+= packet reference interop
+for cls, pkt_kwargs, expected in PACKET_REFERENCE_VECTORS:
+    got = raw(cls(**pkt_kwargs))
+    assert got == expected, (
+        "%s: expected %s, got %s" %
+        (cls.__name__, expected.hex(), got.hex())
+    )
+    decoded = cls(got)
+    for key, value in pkt_kwargs.items():
+        field = getattr(decoded, key)
+        if value is None:
+            assert field is None
+        elif isinstance(value, bool):
+            assert field.val == (1 if value else 0)
+        else:
+            assert field.val == value
+
+True
+
+= packet decode vectors
+for cls, pkt_kwargs, data in DECODE_PACKET_VECTORS:
+    decoded = cls(data)
+    for key, value in pkt_kwargs.items():
+        field = getattr(decoded, key)
+        if isinstance(value, bool):
+            assert field.val == (1 if value else 0)
+        else:
+            assert field.val == value
+
+True
+
+= asn1scc vectors
+for name, _value, encoder, expected in ASN1SCC_VECTORS:
+    got = encoder(_value)
+    assert got == expected, (
+        "%s: expected %s, got %s" %
+        (name, expected.hex(), got.hex())
+    )
+
+True
+
+= asn1scc readme message prefix
+from scapy.packet import raw
+
+expected = bytes.fromhex(README_MESSAGE_PREFIX_HEX)
+
+pkt = UPERMessagePrefix(
+    msgId=1,
+    myflag=2,
+    szDescription=b"HelloWorld",
+    isReady=True,
+)
+
+got = raw(pkt)
+
+assert got == expected
+
+decoded = UPERMessagePrefix(got)
+
+assert decoded.msgId.val == 1
+
+assert decoded.myflag.val == 2
+
+assert decoded.szDescription.val == b"HelloWorld"
+
+assert decoded.isReady.val == 1
+
+True
+
+= asn1scc readme message reference
+assert README_MESSAGE_HEX == (
+    "010101020980cd191eb851eb851f48656c6c6f576f726c6480"
+)
+
+True
+
+= uper fuzz encode
+iterations = 25
+
+for cls in _fuzz_packets():
+    for _ in range(iterations):
+        try:
+            data = raw(fuzz(cls()))
+        except _DECODE_ERRORS:
+            continue
+        assert isinstance(data, bytes)
+
+True
+
+= uper fuzz roundtrip
+iterations = 25
+
+for cls in _fuzz_packets():
+    for _ in range(iterations):
+        try:
+            cls(raw(fuzz(cls())))
+        except _DECODE_ERRORS:
+            pass
+
+True
+
+= uper fuzz codec decode
+iterations = 100
+
+for codec in _UPER_CODEC_CLASSES:
+    for _ in range(iterations):
+        data = os.urandom(random.randint(0, 64))
+        try:
+            codec.safedec(data)
+        except _DECODE_ERRORS:
+            pass
+
+True
+
+= uper fuzz packet decode
+iterations = 100
+
+for cls in _fuzz_packets():
+    for _ in range(iterations):
+        data = os.urandom(random.randint(0, 128))
+        try:
+            cls(data)
+        except _DECODE_ERRORS:
+            pass
+
+True
+
++ ASN.1 UPER build and dissect
+= per record build roundtrip
+pkt = UPERRecord(**_record_kwargs())
+
+assert len(raw(pkt)) > 0
+
+decoded = _roundtrip(UPERRecord, pkt)
+
+assert decoded.id.val == 42
+
+assert decoded.flag.val == 1
+
+assert decoded.label.val == b"hi"
+
+assert decoded.extra.val == 7
+
+assert [x.val for x in decoded.values] == [1, 2, 3]
+
+True
+
+= per default field build
+class UPERDefaultRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+        ASN1F_DEFAULT(
+            ASN1F_INTEGER(
+                "count", 600,
+                uper_min=0, uper_max=86401, oer_unsigned=True,
+            ),
+            600,
+        ),
+    )
+
+absent = UPERDefaultRecord(id=1)
+
+assert raw(absent) == b"\x00\x80"
+
+decoded = _roundtrip(UPERDefaultRecord, absent)
+
+assert decoded.id.val == 1
+
+assert _asn1_int(decoded.count) == 600
+
+present = UPERDefaultRecord(id=1, count=86400)
+
+assert raw(present) == bytes.fromhex("80d46000")
+
+decoded = _roundtrip(UPERDefaultRecord, present)
+
+assert decoded.id.val == 1
+
+assert _asn1_int(decoded.count) == 86400
+
+True
+
+= per extensible integer build
+class UPERExtInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER(
+            "n", 0,
+            uper_min=1, uper_max=65535,
+            uper_extensible=True, oer_unsigned=True,
+        ),
+    )
+
+in_range = UPERExtInt(n=42)
+
+assert raw(in_range) == bytes.fromhex("001480")
+
+decoded = _roundtrip(UPERExtInt, in_range)
+
+assert decoded.n.val == 42
+
+out_of_range = UPERExtInt(n=1706733817)
+
+assert raw(out_of_range) == bytes.fromhex("8232dd587c80")
+
+decoded = _roundtrip(UPERExtInt, out_of_range)
+
+assert decoded.n.val == 1706733817
+
+True
+
+= per extensible integer as a bare root
+~ per
+class UPERBareExtInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0, uper_min=0, uper_max=15, uper_extensible=True,
+    )
+
+class UPERWrappedExtInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("n", 0, uper_min=0, uper_max=15, uper_extensible=True),
+    )
+
+# A bare root must encode the extension bit just like the nested field does.
+assert raw(UPERBareExtInt(n=5)) == bytes.fromhex("28")
+
+assert raw(UPERBareExtInt(n=5)) == raw(UPERWrappedExtInt(n=5))
+
+assert _dissect(UPERBareExtInt, "28").n.val == 5
+
+assert _roundtrip(UPERBareExtInt, UPERBareExtInt(n=99)).n.val == 99
+
+True
+
+= per constrained sequence of build
+class UPERConstrainedSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "items", [],
+        ASN1F_INTEGER("n", 0, uper_min=0, uper_max=7),
+        uper_min=1, uper_max=3,
+    )
+
+pkt = UPERConstrainedSeqOf(items=[1, 2])
+
+assert raw(pkt) == bytes.fromhex("4a")
+
+decoded = _roundtrip(UPERConstrainedSeqOf, pkt)
+
+assert [x.val for x in decoded.items] == [1, 2]
+
+True
+
+= per field dissect
+fixed = _dissect(UPERFixedFields, "c8414243")
+
+assert fixed.n.val == 200
+
+assert fixed.s.val == b"ABC"
+
+present = _dissect(UPEROptionalField, "80954041c0")
+
+assert present.id.val == 42
+
+assert present.flag.val == 1
+
+assert present.extra.val == 7
+
+absent = _dissect(UPEROptionalField, "009540")
+
+assert absent.id.val == 42
+
+assert absent.flag.val == 1
+
+assert absent.extra is None
+
+seqof = _dissect(UPERSequenceOfIntegers, "03010101020103")
+
+assert [x.val for x in seqof.values] == [1, 2, 3]
+
+empty_seqof = _dissect(UPERSequenceOfIntegers, "00")
+
+assert [x.val for x in empty_seqof.values] == []
+
+as_int = _dissect(UPERChoiceField, "00b180")
+
+assert as_int.c.val == 99
+
+as_str = _dissect(UPERChoiceField, "8120a100")
+
+assert as_str.c.val == b"AB"
+
+True
+
+= per record dissect
+decoded = _dissect(
+    UPERRecord,
+    "8095409a1a4041c0c04040408040c0",
+)
+
+_assert_record(decoded)
+
+partial = _dissect(UPERRecord, "0095409050808040404080")
+
+assert partial.id.val == 42
+
+assert partial.flag.val == 1
+
+assert partial.label.val == b"AB"
+
+assert partial.extra is None
+
+assert [x.val for x in partial.values] == [1, 2]
+
+empty = _dissect(UPERRecord, "0080800000")
+
+_assert_record_empty(empty)
+
+True
+
+= per default field dissect
+class UPERDefaultRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+        ASN1F_DEFAULT(
+            ASN1F_INTEGER(
+                "count", 600,
+                uper_min=0, uper_max=86401, oer_unsigned=True,
+            ),
+            600,
+        ),
+    )
+
+absent = _dissect(UPERDefaultRecord, "0080")
+
+assert absent.id.val == 1
+
+assert _asn1_int(absent.count) == 600
+
+present = _dissect(UPERDefaultRecord, "80d46000")
+
+assert present.id.val == 1
+
+assert _asn1_int(present.count) == 86400
+
+True
+
+= per extensible integer dissect
+class UPERExtInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER(
+            "n", 0,
+            uper_min=1, uper_max=65535,
+            uper_extensible=True, oer_unsigned=True,
+        ),
+    )
+
+in_range = _dissect(UPERExtInt, "001480")
+
+assert in_range.n.val == 42
+
+out_of_range = _dissect(UPERExtInt, "8232dd587c80")
+
+assert out_of_range.n.val == 1706733817
+
+True
+
+= per constrained sequence of dissect
+class UPERConstrainedSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "items", [],
+        ASN1F_INTEGER("n", 0, uper_min=0, uper_max=7),
+        uper_min=1, uper_max=3,
+    )
+
+decoded = _dissect(UPERConstrainedSeqOf, "4a")
+
+assert [x.val for x in decoded.items] == [1, 2]
+
+True
+
++ ASN.1 UPER coverage
+= uper error str
+obj = ASN1_INTEGER(2)
+
+err = UPER_Encoding_Error("enc", encoded=obj, remaining=b"x")
+
+assert "Already encoded" in str(err)
+
+err2 = UPER_Decoding_Error("dec", decoded=obj, remaining=b"y")
+
+assert "Already decoded" in str(err2)
+
+True
+
+= uper length determinant extended
+# X.691 11.9.3.8: multiples of 16K units are emitted as 0xc1..0xc4 fragments
+# and the sequence is closed by a determinant below 16K.
+def _fragment_headers(count):
+    enc = UPER_Encoder()
+    sizes = []
+    enc.append_fragmented(count, lambda offset, size: sizes.append(size))
+    return enc.as_bytes(), sizes
+
+assert _fragment_headers(32768) == (b"\xc2\x00", [32768, 0])
+
+assert _fragment_headers(49152) == (b"\xc3\x00", [49152, 0])
+
+assert _fragment_headers(65535) == (b"\xc3\xbf\xff", [49152, 16383])
+
+assert _fragment_headers(65536) == (b"\xc4\x00", [65536, 0])
+
+assert _fragment_headers(81920) == (b"\xc4\xc1\x00", [65536, 16384, 0])
+
+True
+
+= uper unconstrained whole number
+enc = UPER_Encoder()
+
+enc.append_unconstrained_whole_number(-256)
+
+dec = UPER_Decoder(enc.as_bytes())
+
+assert dec.read_unconstrained_whole_number() == -256
+
+enc = UPER_Encoder()
+
+enc.append_unconstrained_whole_number(0)
+
+dec = UPER_Decoder(enc.as_bytes())
+
+assert dec.read_unconstrained_whole_number() == 0
+
+True
+
+= uper bit string paths
+encoded = UPERcodec_BIT_STRING.enc("1010", uper_min=1, uper_max=20)
+
+obj, remain = UPERcodec_BIT_STRING.do_dec(
+    encoded, uper_min=1, uper_max=20,
+)
+
+assert obj.val == "1010"
+
+encoded2 = UPERcodec_BIT_STRING.enc(b"\xab", uper_min=4, uper_max=8)
+
+obj2, _ = UPERcodec_BIT_STRING.do_dec(encoded2, uper_min=4, uper_max=8)
+
+assert len(obj2.val) == 8
+
+fixed = UPERcodec_BIT_STRING.enc("1010101111001101", uper_min=16, uper_max=16)
+
+obj3, _ = UPERcodec_BIT_STRING.do_dec(fixed, uper_min=16, uper_max=16)
+
+assert obj3.val == "1010101111001101"
+
+True
+
+= uper enumerated range
+encoded = UPERcodec_ENUMERATED.enc(3, uper_min=0, uper_max=7)
+
+obj, remain = UPERcodec_ENUMERATED.do_dec(encoded, uper_min=0, uper_max=7)
+
+assert obj.val == 3
+
+assert remain == b""
+
+enc = UPER_Encoder()
+
+UPERcodec_ENUMERATED.encode_into(enc, 2, uper_min=0, uper_max=3)
+
+obj2 = UPERcodec_ENUMERATED.dec_from_decoder(
+    UPER_Decoder(enc.as_bytes()),
+    uper_min=0,
+    uper_max=3,
+)
+
+assert obj2.val == 2
+
+True
+
+= uper enumerated without a range
+# The width would otherwise follow the value, which the decoder cannot redo
+_raises(UPER_Encoding_Error, lambda: UPERcodec_ENUMERATED.enc(3))
+
+_raises(UPER_Decoding_Error, lambda: UPERcodec_ENUMERATED.do_dec(b"\x60"))
+
+True
+
+= uper enumerated index follows the value order
+# X.691 14.1: sort the enumeration by value, whatever order it was declared in
+class UPERUnsortedEnum(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_ENUMERATED("e", 0, {2: "c", 0: "a", 1: "b"}),
+    )
+
+# byte vectors from asn1tools for ENUMERATED { c(2), a(0), b(1) }
+for value, expected in [(0, "00"), (1, "40"), (2, "80")]:
+    assert raw(UPERUnsortedEnum(e=value)) == bytes.fromhex(expected), value
+    assert _dissect(UPERUnsortedEnum, expected).e.val == value
+
+True
+
+= uper extensible enumerated
+# X.691 14.3: a one bit prefix, zero for a value of the extension root
+class UPERExtEnum(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_ENUMERATED("e", 0, {0: "a", 1: "b", 2: "c"},
+                         uper_extensible=True),
+    )
+
+# byte vectors from asn1tools for ENUMERATED { a(0), b(1), c(2), ... }
+for value, expected in [(0, "00"), (1, "20"), (2, "40")]:
+    assert raw(UPERExtEnum(e=value)) == bytes.fromhex(expected), value
+    assert _dissect(UPERExtEnum, expected).e.val == value
+
+enc = UPER_Encoder()
+
+_raises(UPER_Encoding_Error, lambda: UPERcodec_ENUMERATED.encode_into(
+    enc, 7, uper_enum_values=[0, 1, 2], uper_extensible=True))
+
+_raises(UPER_Decoding_Error, lambda: UPERcodec_ENUMERATED.dec_from_decoder(
+    UPER_Decoder(b"\x80"), uper_enum_values=[0, 1, 2], uper_extensible=True))
+
+True
+
+= uper octet string honours its size constraint
+# A determinant sized after the constraint cannot express a violating length
+_raises(UPER_Encoding_Error, lambda: UPERcodec_STRING.enc(b"AB", size_len=4))
+
+_raises(UPER_Encoding_Error, lambda: UPERcodec_STRING.enc(b"ABCDEF", size_len=4))
+
+assert UPERcodec_STRING.enc(b"ABCD", size_len=4) == b"ABCD"
+
+_raises(UPER_Encoding_Error,
+        lambda: UPERcodec_STRING.enc(b"A", uper_min=2, uper_max=4))
+
+_raises(UPER_Encoding_Error,
+        lambda: UPERcodec_STRING.enc(b"ABCDEFGH", uper_min=2, uper_max=4))
+
+True
+
+= uper sequence errors
+_raises(UPER_Encoding_Error, lambda: UPERcodec_SEQUENCE.enc([ASN1_INTEGER(1)]))
+
+_raises(UPER_Decoding_Error, lambda: UPERcodec_SEQUENCE.do_dec(b"\x00"))
+
+# A finished encoding is octet padded, so it cannot be spliced into a bitstream
+_raises(UPER_Encoding_Error, lambda: UPERcodec_SEQUENCE.encode_into(UPER_Encoder(), b"raw"))
+
+assert UPERcodec_SET.enc(b"raw") == b"raw"
+
+True
+
+= uper ipaddress
+encoded = UPERcodec_IPADDRESS.enc("10.0.0.1")
+
+obj, remain = UPERcodec_IPADDRESS.do_dec(encoded)
+
+assert obj.val == "10.0.0.1"
+
+assert remain == b""
+
+_raises(UPER_Encoding_Error, lambda: UPERcodec_IPADDRESS.enc("bad-ip"))
+
+True
+
++ ASN.1 fields coverage
+= asn1fields enum and flags
+pkt = _InnerRecord(mode="on")
+
+built = raw(pkt)
+
+decoded = _InnerRecord(built)
+
+assert decoded.mode.val == 1
+
+flags = _FlagsRecord(f="read+exec")
+
+assert flags.f.val == "101"
+
+assert "read, exec" in _FlagsRecord.ASN1_root.seq[0].i2repr(flags, flags.f)
+
+set_pkt = _SetOfRecord(items=[ASN1_INTEGER(0), ASN1_INTEGER(1)])
+
+set_raw = raw(set_pkt)
+
+set_dec = _SetOfRecord(set_raw)
+
+assert [x.val for x in set_dec.items] == [0, 1]
+
+True
+
+= asn1fields encaps and packet
+inner = _InnerRecord(mode=1)
+
+enc = _EncapsRecord()
+
+enc.payload = inner
+
+enc_raw = raw(enc)
+
+enc_dec = _EncapsRecord(enc_raw)
+
+assert enc_dec.payload.mode.val == 1
+
+pkt_field = _PacketFieldRecord()
+
+pkt_field.data = _InnerRecord(mode=0)
+
+pf_raw = raw(pkt_field)
+
+pf_dec = _PacketFieldRecord(pf_raw)
+
+assert isinstance(pf_dec.data.val, bytes)
+
+explicit = _ExplicitPacket()
+
+explicit.inner = _InnerRecord(mode=1)
+
+ex_raw = raw(explicit)
+
+ex_dec = _ExplicitPacket(ex_raw)
+
+assert ex_dec.inner.mode.val == 1
+
+True
+
+= asn1fields choice and special
+class _OerChoiceRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+class _BerChoiceRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+oer = _OerChoiceRecord(c=ASN1_INTEGER(1))
+
+oer_dec = _OerChoiceRecord(raw(oer))
+
+assert oer_dec.c.val == 1
+
+ber = _BerChoiceRecord(c=ASN1_INTEGER(0))
+
+ber_dec = _BerChoiceRecord(raw(ber))
+
+assert ber_dec.c.val == 0
+
+inner_bytes = raw(_InnerRecord(mode=0))
+
+bit_payload = ASN1_BIT_STRING(
+    inner_bytes,
+    readable=True,
+)
+
+bit_pkt = _BitEncapsRecord(b=bit_payload)
+
+bit_dec = _BitEncapsRecord(raw(bit_pkt))
+
+assert bit_dec.b.mode.val == 0
+
+class _TicksRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_TIME_TICKS("t", ASN1_TIME_TICKS(0))
+
+class _IpRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_IPADDRESS("addr", ASN1_STRING(b""))
+
+ticks = _TicksRecord(t=ASN1_TIME_TICKS(1234))
+
+assert raw(ticks).endswith(b"\x04\xd2")
+
+ip = _IpRecord()
+
+ip.addr = "192.168.1.1"
+
+assert raw(ip) == b"\x40\x04\xc0\xa8\x01\x01"
+
+True
+
+= asn1fields optional dissect
+class _OptRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0)),
+    )
+
+class _BerChoiceRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+pkt = _OptRecord(id=0, extra=None)
+
+assert raw(pkt)
+
+decoded = _OptRecord(raw(pkt))
+
+assert decoded.extra is None
+
+choice_rand = _BerChoiceRecord.ASN1_root.randval()
+
+assert choice_rand is not None
+
+True
+
+= asn1fields default and omit
+class _DefaultRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+        ASN1F_DEFAULT(
+            ASN1F_INTEGER(
+                "count", 600,
+                uper_min=0, uper_max=86401, oer_unsigned=True,
+            ),
+            600,
+        ),
+    )
+
+absent = _DefaultRecord(id=1)
+
+assert raw(absent) == b"\x00\x80"
+
+decoded = _DefaultRecord(raw(absent))
+
+assert decoded.id.val == 1
+
+assert decoded.count == 600 or decoded.count.val == 600
+
+present = _DefaultRecord(id=1, count=86400)
+
+decoded = _DefaultRecord(raw(present))
+
+assert decoded.count.val == 86400
+
+class _OmitRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_omit("ignored", None),
+    )
+
+omit_pkt = _OmitRecord(id=7)
+
+assert raw(omit_pkt) == bytes.fromhex("3003020107")
+
+True
+
+= asn1fields extensible per
+class _ExtSeq(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+        ASN1F_optional(ASN1F_INTEGER("extra", 0, uper_min=0, uper_max=7)),
+        uper_extensible=True,
+    )
+
+pkt = _ExtSeq(id=2, extra=3)
+
+data = raw(pkt)
+
+decoded = _ExtSeq(data)
+
+assert decoded.id.val == 2
+
+assert decoded.extra.val == 3
+
+dec = UPER_Decoder(b"\x80")
+
+_raises(
+    UPER_Decoding_Error,
+    lambda: _ExtSeq.ASN1_root.dissect_from_decoder(_ExtSeq(), dec),
+)
+
+class _ExtChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+        uper_extensible=True,
+    )
+
+choice = _ExtChoice(c=ASN1_INTEGER(4))
+
+assert raw(choice)
+
+dec = UPER_Decoder(b"\x80")
+
+_raises(
+    UPER_Decoding_Error,
+    lambda: _ExtChoice.ASN1_root.m2i_from_decoder(_ExtChoice(), dec),
+)
+
+class _InnerItem(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0, uper_min=0, uper_max=7)
+
+class _ExtSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "items", [], _InnerItem,
+        uper_min=1, uper_max=2, uper_extensible=True,
+    )
+
+in_range = _ExtSeqOf(items=[_InnerItem(n=1)])
+
+assert raw(in_range)
+
+decoded = _ExtSeqOf(raw(in_range))
+
+assert decoded.items[0].n.val == 1
+
+out_of_range = _ExtSeqOf(
+    items=[_InnerItem(n=i) for i in range(4)],
+)
+
+assert raw(out_of_range)
+
+decoded = _ExtSeqOf(raw(out_of_range))
+
+assert len(decoded.items) == 4
+
+True
+
+= asn1fields sequence of advanced
+class _Inner(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("n", 0, uper_min=0, uper_max=7)
+
+class _SeqOfPackets(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "items", [], _Inner, uper_min=1, uper_max=3,
+    )
+
+pkt = _SeqOfPackets(items=[_Inner(n=1), _Inner(n=2)])
+
+decoded = _SeqOfPackets(raw(pkt))
+
+assert [x.n.val for x in decoded.items] == [1, 2]
+
+class _OerSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
+
+oer_pkt = _OerSeqOf(values=[1, 2])
+
+oer_dec = _OerSeqOf(raw(oer_pkt))
+
+assert [x.val for x in oer_dec.values] == [1, 2]
+
+class _EmptySeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
+
+empty = _EmptySeqOf(values=None)
+
+assert raw(empty) == b"\x00"
+
+assert _EmptySeqOf.ASN1_root.i2repr(empty, None) == "[]"
+
+assert _EmptySeqOf.ASN1_root.i2repr(
+    _EmptySeqOf(values=[ASN1_INTEGER(1)]),
+    [ASN1_INTEGER(1)],
+).startswith("[")
+
+_raises(ValueError, lambda: ASN1F_SEQUENCE_OF("bad", [], object()))
+
+True
+
+= asn1fields choice advanced
+class _InnerChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+class _NestedChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), _InnerChoice, ASN1F_INTEGER,
+    )
+
+nested = _NestedChoice(c=_InnerChoice(c=ASN1_STRING(b"xy")))
+
+assert len(raw(nested)) > 0
+
+nested_dec = _NestedChoice(raw(nested))
+
+assert isinstance(nested_dec.c, (_InnerChoice, ASN1_STRING))
+
+class _OerTaggedChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+        explicit_tag=0xA1,
+    )
+
+oer_choice = _OerTaggedChoice(c=ASN1_INTEGER(9))
+
+assert raw(oer_choice)
+
+class _PacketChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE(
+        "c",
+        ASN1_INTEGER(0),
+        ASN1F_PACKET("inner", None, _InnerRecord, explicit_tag=0xA2),
+        ASN1F_INTEGER,
+    )
+
+packet_choice = _PacketChoice(
+    c=_InnerRecord(mode=ASN1_INTEGER(1)),
+)
+
+packet_dec = _PacketChoice(raw(packet_choice))
+
+assert packet_dec.c.mode.val == 1
+
+class _PerChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+_raises(
+    ASN1_Error,
+    lambda: ASN1F_CHOICE(
+        "c", 0, ASN1F_INTEGER, implicit_tag=0xA0,
+    ),
+)
+
+_raises(
+    ASN1_Error,
+    lambda: _PerChoice.ASN1_root.m2i(_PerChoice(), b""),
+)
+
+_raises(
+    ASN1_Error,
+    lambda: _PerChoice.ASN1_root.encode_into(
+        UPER_Encoder(), _PerChoice(), 42,
+    ),
+)
+
+True
+
+= asn1fields enum bitstring and flags
+class _NamedEnum(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_enum_INTEGER(
+        "state", 0, ["off", "on", "auto"],
+    )
+
+named = _NamedEnum(state="on")
+
+built = raw(named)
+
+decoded = _NamedEnum(built)
+
+assert decoded.state.val == 1
+
+assert "'on'" in _NamedEnum.ASN1_root.i2repr(decoded, decoded.state)
+
+class _BitRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_BIT_STRING("bits", b"\xaa")
+
+assert raw(_BitRecord())
+
+flags = _FlagsRecord()
+
+flags.f = ASN1_BIT_STRING("101")
+
+assert "read, exec" in _FlagsRecord.ASN1_root.seq[0].i2repr(flags, flags.f)
+
+class _BadBitEncaps(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_BIT_STRING_ENCAPS("b", None, _InnerRecord)
+
+_raises(
+    BER_Decoding_Error,
+    lambda: _BadBitEncaps.ASN1_root.m2i(
+        _BadBitEncaps(),
+        b"\x03\x02\x01\x00",
+    ),
+)
+
+True
+
+= asn1fields packet and sequence errors
+class _PerInner(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_INTEGER("mode", 0, uper_min=0, uper_max=1)
+
+class _PacketWrap(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_PACKET("inner", None, _PerInner)
+
+inner = _PerInner(mode=1)
+
+wrap = _PacketWrap(inner=inner)
+
+decoded = _PacketWrap(raw(wrap))
+
+assert decoded.inner.mode.val == 1
+
+class _DynamicPacket(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_PACKET(
+        "inner", None, _PerInner,
+        next_cls_cb=lambda pkt: _PerInner,
+    )
+
+dyn = _DynamicPacket(inner=_PerInner(mode=0))
+
+assert _DynamicPacket.ASN1_root._resolve_cls(dyn) is _PerInner
+
+empty_packet = _PacketWrap(inner=None)
+
+assert raw(empty_packet) == b""
+
+class _BerSeq(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        ASN1F_INTEGER("extra", 0),
+    )
+
+_raises(
+    BER_Decoding_Error,
+    lambda: _BerSeq.ASN1_root.m2i(
+        _BerSeq(),
+        bytes.fromhex("300702010102010200ff"),
+    ),
+)
+
+class _OerSeq(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, size_len=1, oer_unsigned=True),
+    )
+
+_, remain = _OerSeq.ASN1_root.m2i(_OerSeq(), b"\x01\xff")
+
+assert remain == b"\xff"
+
+class _PerSeq(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+    )
+
+_raises(
+    UPER_Decoding_Error,
+    lambda: _PerSeq.ASN1_root.m2i(_PerSeq(), b"\x80\xff"),
+)
+
+empty_seq = _BerSeq()
+
+_BerSeq.ASN1_root._dissect_sequence_children(empty_seq, b"")
+
+assert empty_seq.id is None
+
+assert empty_seq.extra is None
+
+class _OptListRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+        ASN1F_optional(
+            ASN1F_SEQUENCE_OF("items", [], ASN1F_INTEGER),
+        ),
+    )
+
+opt_list = _OptListRecord(id=1, items=None)
+
+assert raw(opt_list)
+
+field = ASN1F_INTEGER("n", 0)
+
+with mock.patch.object(
+    _InnerRecord, "__init__", side_effect=ASN1F_badsequence,
+):
+    pkt_obj, remain = field.extract_packet(
+        _InnerRecord, b"\xab\xcd", _underlayer=None,
+    )
+
+assert isinstance(pkt_obj, Raw)
+
+assert pkt_obj.load == b"\xab\xcd"
+
+assert remain == b"\xab\xcd"
+
+True
+
+= asn1fields more coverage
+_raises(
+    ASN1_Error,
+    lambda: ASN1F_INTEGER("x", 0, implicit_tag=1, explicit_tag=2),
+)
+
+class _IntRecord(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER("n", 0)
+
+field = _IntRecord.ASN1_root
+
+_raises(
+    ASN1_Error,
+    lambda: field.i2m(_IntRecord(), ASN1_STRING(b"bad")),
+)
+
+flex_field = ASN1F_INTEGER("n", 0, flexible_tag=True, explicit_tag=0xA0)
+
+obj, remain = flex_field.m2i(_IntRecord(), bytes.fromhex("a1020101"))
+
+assert obj.tag != ASN1_Class_UNIVERSAL.INTEGER or remain == b""
+
+class _FlexSeq(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0),
+        explicit_tag=0xA1,
+        flexible_tag=True,
+    )
+
+flex_seq = _FlexSeq(id=1)
+
+assert raw(flex_seq)
+
+decoded = _FlexSeq(raw(flex_seq))
+
+assert decoded.id.val == 1
+
+assert ASN1F_BOOLEAN("b", False).randval() is not None
+
+assert ASN1F_BIT_STRING("b", b"").randval() is not None
+
+assert ASN1F_OID("o", None).randval() is not None
+
+assert ASN1F_UTC_TIME("t", "").randval() is not None
+
+assert "<ASN1F_SEQUENCE" in repr(_FlexSeq.ASN1_root)
+
+class _EmptySeq(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_optional(ASN1F_INTEGER("id", 0)),
+    )
+
+empty = _EmptySeq()
+
+empty.id = None
+
+assert _EmptySeq.ASN1_root.is_empty(empty)
+
+class _StrEnum(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_enum_INTEGER(
+        "mode", 0, {"off": 0, "on": 1},
+    )
+
+str_enum = _StrEnum(mode=1)
+
+built = raw(str_enum)
+
+decoded = _StrEnum(built)
+
+assert "'on'" in _StrEnum.ASN1_root.i2repr(decoded, decoded.mode)
+
+omit_field = ASN1F_omit("ignored", None)
+
+val, remain = omit_field.m2i(_IntRecord(), b"leftover")
+
+assert val is None and remain == b"leftover"
+
+class _OptList(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("id", 0, uper_min=0, uper_max=255),
+        ASN1F_optional(
+            ASN1F_SEQUENCE_OF("items", [], ASN1F_INTEGER),
+        ),
+    )
+
+opt = _OptList(id=1, items=None)
+
+opt_field = _OptList.ASN1_root.seq[1]
+
+assert opt_field.is_empty(opt)
+
+opt_present = _OptList(id=1, items=[])
+
+assert opt_field.is_empty(opt_present) is False
+
+class _DefaultPkt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_DEFAULT(ASN1F_INTEGER("n", 5, uper_min=0, uper_max=10), 5),
+    )
+
+default_pkt = _DefaultPkt(n=5)
+
+default_field = _DefaultPkt.ASN1_root.seq[0]
+
+assert default_field.is_empty(default_pkt)
+
+class _BerChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+assert _BerChoice.ASN1_root.randval() is not None
+
+class _PacketChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE(
+        "c",
+        ASN1_INTEGER(0),
+        ASN1F_PACKET("inner", None, _InnerRecord, explicit_tag=0xA2),
+        ASN1F_INTEGER,
+    )
+
+assert _PacketChoice.ASN1_root.randval() is not None
+
+packet_field = _PacketChoice.ASN1_root.choice_list[0]
+
+assert packet_field.randval() is not None
+
+class _FlexPacket(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_PACKET(
+        "inner", None, _InnerRecord,
+        explicit_tag=0xA2,
+    )
+
+_FlexPacket.ASN1_root.flexible_tag = True
+
+inner_pkt = _InnerRecord(mode=0)
+
+flex_pkt = _FlexPacket(inner=inner_pkt)
+
+assert raw(flex_pkt)
+
+packet_field = _FlexPacket.ASN1_root
+
+built_inner = raw(_InnerRecord(mode=1))
+
+assert len(packet_field.i2m(_FlexPacket(), built_inner)) > 0
+
+empty_inner, remain = packet_field.m2i(_FlexPacket(), b"")
+
+assert empty_inner is None and remain == b""
+
+obj_val = packet_field.i2m(_FlexPacket(), _InnerRecord(mode=0))
+
+assert len(obj_val) > 0
+
+flags_field = _FlagsRecord.ASN1_root.seq[0]
+
+assert flags_field.i2repr(_FlagsRecord(), None) == "None"
+
+class _OerFlexSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values", [], ASN1F_INTEGER,
+        explicit_tag=0xA1,
+    )
+
+_OerFlexSeqOf.ASN1_root.flexible_tag = True
+
+oer_seq = _OerFlexSeqOf(values=[1])
+
+data = raw(oer_seq)
+
+decoded = _OerFlexSeqOf(data)
+
+assert decoded.values[0].val == 1
+
+class _BerFlexSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_SEQUENCE_OF(
+        "values", [], ASN1F_INTEGER,
+        explicit_tag=0xA1,
+    )
+
+_BerFlexSeqOf.ASN1_root.flexible_tag = True
+
+ber_seq = _BerFlexSeqOf(values=[2])
+
+assert raw(ber_seq)
+
+class _ExtChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+        uper_extensible=True,
+    )
+
+dec = UPER_Decoder(b"\x80")
+
+_raises(
+    UPER_Decoding_Error,
+    lambda: _ExtChoice.ASN1_root.m2i_from_decoder(_ExtChoice(), dec),
+)
+
+class _SingleChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE("c", ASN1_INTEGER(0), ASN1F_INTEGER)
+
+single = _SingleChoice(c=ASN1_INTEGER(3))
+
+assert raw(single)
+
+class _FlexChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+        flexible_tag=True,
+    )
+
+flex_choice = _FlexChoice(c=ASN1_INTEGER(4))
+
+assert raw(flex_choice)
+
+class _OerPktChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.OER
+    ASN1_root = ASN1F_CHOICE(
+        "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+    )
+
+oer_pkt_choice = _OerPktChoice(c=ASN1_STRING(b"hi"))
+
+assert raw(oer_pkt_choice)
+
+True
+
+
++ ASN.1 UPER field hooks and packet extras
+= uper field hooks registered
+assert ASN1_Codecs.hooks[ASN1_Codecs.PER]
+
+assert ASN1_Codecs.PER.hook("sequence_m2i") is not None
+
+use_object_enc = ASN1_Codecs.PER.hook("use_object_enc")
+
+assert use_object_enc(
+    UPERConstrainedInt.ASN1_root, UPERConstrainedInt(), ASN1_INTEGER(1),
+) is False
+
+True
+
+= uper DEFAULT published on asn1fields
+assert ASN1F_DEFAULT is asn1fields.ASN1F_DEFAULT
+
+assert issubclass(ASN1F_DEFAULT, ASN1F_optional)
+
+enum_fld = ASN1F_ENUMERATED("e", 0, {1: "a", 2: "b"})
+
+# ENUMERATED values are added per-codec, so BER packets keep an empty
+# codec_opts while PER packets get the permitted values.
+assert enum_fld.codec_opts == {}
+
+assert "uper_enum_values" not in enum_fld._codec_kwargs(
+    type("P", (), {"ASN1_codec": ASN1_Codecs.BER})()
+)
+
+assert enum_fld._codec_kwargs(
+    type("P", (), {"ASN1_codec": ASN1_Codecs.PER})()
+)["uper_enum_values"] == [1, 2]
+
+assert hasattr(ASN1F_field, "encode_into")
+
+assert hasattr(ASN1F_SEQUENCE, "dissect_from_decoder")
+
+True
+
+= uper use_object_enc and codec_opts
+fld = UPERConstrainedInt.ASN1_root
+
+assert fld.codec_opts == {"uper_min": 0, "uper_max": 255}
+
+assert fld._use_object_enc(UPERConstrainedInt(), ASN1_INTEGER(5)) is False
+
+assert raw(UPERConstrainedInt(n=5)) == b"\x05"
+
+assert _val(_roundtrip(UPERConstrainedInt, UPERConstrainedInt(n=5)).n) == 5
+
+True
+
+= uper DEFAULT presence bit
+absent = UPERSmallDefaultRecord(id=1, n=5)
+
+present = UPERSmallDefaultRecord(id=1, n=7)
+
+assert raw(absent) == bytes.fromhex("0080")
+
+assert raw(present) == bytes.fromhex("80b8")
+
+assert raw(absent) != raw(present)
+
+decoded_absent = _roundtrip(UPERSmallDefaultRecord, absent)
+
+decoded_present = _roundtrip(UPERSmallDefaultRecord, present)
+
+assert _val(decoded_absent.n) == 5
+
+assert _val(decoded_present.n) == 7
+
+True
+
+= uper empty constrained sequence of
+pkt = UPEREmptySeqOf(values=[])
+
+assert raw(pkt) == b"\x00"
+
+decoded = _roundtrip(UPEREmptySeqOf, pkt)
+
+assert decoded.values == []
+
+True
+
+= uper extensible sequence of outside range
+pkt = UPERExtSeqOf(values=[1, 2, 3])
+
+assert raw(pkt) == bytes.fromhex("8194c0")
+
+decoded = _roundtrip(UPERExtSeqOf, pkt)
+
+assert [_val(x) for x in decoded.values] == [1, 2, 3]
+
+True
+
+= uper FLAGS field
+pkt = UPERFlagsField(f="101")
+
+assert raw(pkt) == bytes.fromhex("a0")
+
+decoded = _roundtrip(UPERFlagsField, pkt)
+
+assert decoded.f.val == "101"
+
+assert UPERFlagsField.ASN1_root.get_flags(decoded) == ["a", "c"]
+
+True
+
+= uper nested ASN1F_PACKET
+pkt = UPERWrappedPacket(id=1, inner=UPERInnerPacket(x=7))
+
+assert raw(pkt) == bytes.fromhex("0170")
+
+decoded = _roundtrip(UPERWrappedPacket, pkt)
+
+assert _val(decoded.id) == 1
+
+assert _val(decoded.inner.x) == 7
+
+True
+
+= uper field encode_into nesting
+built = UPERWrappedPacket(id=1, inner=UPERInnerPacket(x=7))
+
+enc = UPER_Encoder()
+
+UPERWrappedPacket.ASN1_root.encode_into(enc, built)
+
+assert enc.as_bytes() == raw(built)
+
+empty = UPERWrappedPacket()
+
+UPERWrappedPacket.ASN1_root.dissect_from_decoder(
+    empty, UPER_Decoder(raw(built)),
+)
+
+assert _val(empty.id) == 1
+
+assert _val(empty.inner.x) == 7
+
+True
+
+= uper unconstrained bit string counts bits
+# X.691 16.11: the length determinant of an unconstrained BIT STRING counts
+# bits, not octets, and nothing is padded before the next field. Byte vectors
+# checked against asn1tools.
+class UPERFreeBitString(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BIT_STRING("b", ""),
+        ASN1F_INTEGER("tail", 0, uper_min=0, uper_max=255),
+    )
+
+for bits, expected in [
+    ("", "00a5"),
+    ("1", "01d280"),
+    ("10110", "05b528"),
+    ("10110011", "08b3a5"),
+    ("1" * 20, "14fffffa50"),
+]:
+    pkt = UPERFreeBitString(b=bits, tail=0xa5)
+    assert raw(pkt) == bytes.fromhex(expected), (bits, raw(pkt).hex())
+    decoded = _roundtrip(UPERFreeBitString, pkt)
+    assert decoded.b.val == bits, (bits, decoded.b.val)
+    assert _val(decoded.tail) == 0xa5
+
+True
+
+= uper fixed size bit string refuses a mismatched length
+class UPERFixedBitString(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_BIT_STRING("b", "0" * 8, size_len=8))
+
+assert raw(UPERFixedBitString(b="10110011")) == bytes.fromhex("b3")
+
+_raises(UPER_Encoding_Error, lambda: raw(UPERFixedBitString(b="101")))
+
+_raises(UPER_Encoding_Error, lambda: raw(UPERFixedBitString(b="1011001100")))
+
+True
+
+= uper octet string fragmentation
+# X.691 11.9.3.8. Byte vectors checked against asn1tools: a fragment header,
+# 16K octets, then the terminating determinant.
+class UPERFreeOctetString(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_STRING("s", ""))
+
+data = bytes(i % 256 for i in range(16384))
+
+built = raw(UPERFreeOctetString(s=data))
+
+assert built == b"\xc1" + data + b"\x00"
+
+assert _roundtrip(UPERFreeOctetString, UPERFreeOctetString(s=data)).s.val == data
+
+data = bytes(i % 256 for i in range(40000))
+
+built = raw(UPERFreeOctetString(s=data))
+
+assert built == b"\xc2" + data[:32768] + b"\x9c\x40" + data[32768:]
+
+assert _roundtrip(UPERFreeOctetString, UPERFreeOctetString(s=data)).s.val == data
+
+True
+
+= uper sequence of fragmentation
+class UPERFreeSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER("x", 0, uper_min=0, uper_max=255)),
+    )
+
+items = [i % 256 for i in range(16385)]
+
+built = raw(UPERFreeSeqOf(values=items))
+
+assert built == b"\xc1" + bytes(items[:16384]) + b"\x01" + bytes(items[16384:])
+
+decoded = _roundtrip(UPERFreeSeqOf, UPERFreeSeqOf(values=items))
+
+assert [_val(x) for x in decoded.values] == items
+
+True
+
+= uper integer with an empty length determinant
+_raises(
+    UPER_Decoding_Error,
+    lambda: UPER_Decoder(b"\x00").read_unconstrained_whole_number(),
+)
+
+True
+
+= uper choice with tagged packet alternatives
+class UPERAltA(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("i", 0),
+    )
+
+class UPERAltB(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_BOOLEAN("b", True),
+    )
+
+class UPERTaggedChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_CHOICE(
+            "c", None,
+            ASN1F_PACKET("a1", None, UPERAltA, explicit_tag=0xA0),
+            ASN1F_PACKET("a2", None, UPERAltB, explicit_tag=0xA1),
+        ),
+    )
+
+# Reference (asn1tools) for
+#   Ch ::= SEQUENCE { c CHOICE { a1 A, a2 B } }
+#   A ::= SEQUENCE { i INTEGER }, B ::= SEQUENCE { b BOOLEAN }
+# The alternative is picked by the type of the value, tags are not encoded.
+assert raw(UPERTaggedChoice(c=UPERAltA(i=4))) == b"\x00\x82\x00"
+
+assert raw(UPERTaggedChoice(c=UPERAltB(b=False))) == b"\x80"
+
+decoded = _roundtrip(UPERTaggedChoice, UPERTaggedChoice(c=UPERAltA(i=4)))
+
+assert isinstance(decoded.c, UPERAltA) and decoded.c.i.val == 4
+
+decoded = _roundtrip(UPERTaggedChoice, UPERTaggedChoice(c=UPERAltB(b=False)))
+
+assert isinstance(decoded.c, UPERAltB) and decoded.c.b.val == 0
+
+True
+
+= uper choice with packet class alternatives
+class UPERClassChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE("c", None, UPERAltA, ASN1F_INTEGER)
+
+pkt = UPERClassChoice(c=UPERAltA(i=5))
+
+# index bit 0, then the sequence: an unconstrained integer of one octet
+assert raw(pkt) == b"\x00\x82\x80"
+
+decoded = _roundtrip(UPERClassChoice, pkt)
+
+assert isinstance(decoded.c, UPERAltA) and decoded.c.i.val == 5
+
+decoded = _roundtrip(UPERClassChoice, UPERClassChoice(c=ASN1_INTEGER(3)))
+
+assert decoded.c.val == 3
+
+# An unset CHOICE encodes to nothing, as the field is then absent
+assert raw(UPERClassChoice(c=None)) == b""
+
+True
+
+= uper choice with constrained field alternatives
+class UPERFieldChoice(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE(
+        "c", None,
+        ASN1F_INTEGER("a", 0, uper_min=0, uper_max=7),
+        ASN1F_INTEGER("b", 0, uper_min=0, uper_max=255),
+        ASN1F_NULL("n1", 0),
+        ASN1F_NULL("n2", 0),
+    )
+
+# Reference (asn1tools) for
+#   Choice ::= CHOICE { a INTEGER (0..7), b INTEGER (0..255), n1 NULL, n2 NULL }
+# Alternatives carry their own constraints and may share a tag, as PER tells
+# them apart by their position alone.
+assert UPERFieldChoice.ASN1_root.choice_order == [2, 2, 5, 5]
+
+assert raw(UPERFieldChoice(c=ASN1_INTEGER(5))) == b"\x28"
+
+assert raw(UPERFieldChoice(c=ASN1_NULL(0))) == b"\x80"
+
+assert UPERFieldChoice(b"\x28").c.val == 5
+
+# The second alternative uses eight bits, the first three
+assert UPERFieldChoice(b"\x72\x00").c.val == 200
+
+assert isinstance(UPERFieldChoice(b"\xc0").c, ASN1_NULL)
+
+# A dissected value remembers the alternative it was read as, so it goes back
+# out on the same one instead of on the first alternative of its type
+for encoded in (b"\x28", b"\x72\x00", b"\x80", b"\xc0"):
+    assert raw(UPERFieldChoice(encoded)) == encoded
+
+# A value built by hand still takes the first alternative that carries it
+assert raw(UPERFieldChoice(c=ASN1_NULL(0))) == b"\x80"
+
+True
+
+= uper enumerated bounds
+_raises(UPER_Encoding_Error, lambda: UPER_enumerated_enc(UPER_Encoder(), 0, []))
+
+_raises(UPER_Decoding_Error, lambda: UPER_enumerated_dec(UPER_Decoder(b"\x00"), []))
+
+# Three values are indexed on two bits, which can carry an index they do not
+# define
+_raises(UPER_Decoding_Error, lambda: UPER_enumerated_dec(UPER_Decoder(b"\xc0"), [0, 1, 2]))
+
+assert UPER_enumerated_dec(UPER_Decoder(b"\x40"), [0, 1, 2]) == 1
+
+True
+
+= uper untyped codec falls back on string and integer
+enc = UPER_Encoder()
+
+UPERcodec_Object.encode_into(enc, b"hi")
+
+assert enc.as_bytes() == b"\x02hi"
+
+enc = UPER_Encoder()
+
+UPERcodec_Object.encode_into(enc, 5)
+
+assert enc.as_bytes() == b"\x01\x05"
+
+_raises(UPER_Encoding_Error, lambda: UPERcodec_Object.encode_into(UPER_Encoder(), object()))
+
+_raises(UPER_Decoding_Error, lambda: UPERcodec_Object.dec_from_decoder(UPER_Decoder(b"\x01")))
+
+True
+
+= uper choice with a single alternative
+class UPEROneAlt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE("c", None, ASN1F_INTEGER)
+
+# X.691 23.5: one alternative leaves nothing to choose, so no index is encoded
+assert raw(UPEROneAlt(c=ASN1_INTEGER(4))) == b"\x01\x04"
+
+assert _roundtrip(UPEROneAlt, UPEROneAlt(c=ASN1_INTEGER(4))).c.val == 4
+
+class UPERThreeAlt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_CHOICE("c", None, ASN1F_INTEGER, ASN1F_STRING, ASN1F_BOOLEAN)
+
+# Three alternatives are indexed on two bits, which can carry a fourth index
+_raises(ASN1_Error, lambda: UPERThreeAlt(b"\xc0"))
+
+True
+
+= uper sequence of an unset field
+class UPERUnsetSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER("x", 0, uper_min=0, uper_max=255)),
+    )
+
+assert raw(UPERUnsetSeqOf(values=None)) == b"\x00"
+
+assert raw(UPERUnsetSeqOf(values=[])) == b"\x00"
+
+True
+
+= uper field rejects a value of another type
+class UPERIntOnly(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("n", 0),
+    )
+
+_raises(ASN1_Error, lambda: raw(UPERIntOnly(n=ASN1_STRING(b"x"))))
+
+enc = UPER_Encoder()
+
+UPERcodec_OID.encode_into(enc, b"")
+
+assert enc.as_bytes() == b"\x00"
+
+True
+
+= uper constrained values honour their range
+class UPERSmallInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("n", 0, uper_min=0, uper_max=7),
+    )
+
+assert raw(UPERSmallInt(n=5)) == b"\xa0"
+
+# The value is written on the width of the range, so one outside it would be
+# read back as another value
+_raises(UPER_Encoding_Error, lambda: raw(UPERSmallInt(n=100)))
+
+_raises(UPER_Encoding_Error, lambda: raw(UPERSmallInt(n=-3)))
+
+class UPERSmallExtInt(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_INTEGER("n", 0, uper_min=0, uper_max=7, uper_extensible=True),
+    )
+
+# An extensible range does accept it, as an extension addition
+assert _roundtrip(UPERSmallExtInt, UPERSmallExtInt(n=100)).n.val == 100
+
+True
+
+= uper sequence of honours its size constraint
+class UPERSizedSeqOf(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.PER
+    ASN1_root = ASN1F_SEQUENCE(
+        ASN1F_SEQUENCE_OF(
+            "values", [], ASN1F_INTEGER("x", 0, uper_min=0, uper_max=255),
+            uper_min=1, uper_max=3,
+        ),
+    )
+
+assert raw(UPERSizedSeqOf(values=[ASN1_INTEGER(7)])) == b"\x01\xc0"
+
+# An unset field is an empty one, which the constraint rules out here
+_raises(UPER_Encoding_Error, lambda: raw(UPERSizedSeqOf(values=[])))
+
+_raises(UPER_Encoding_Error, lambda: raw(UPERSizedSeqOf(values=None)))
+
+True

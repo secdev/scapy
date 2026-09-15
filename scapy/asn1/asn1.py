@@ -126,19 +126,17 @@ class ASN1Codec(EnumElement):
         # type: (Type[BERcodec_Object[Any]]) -> None
         cls._stem = stem
 
-    def register_tagging(cls, enc, dec):
-        # type: (Any, Any) -> None
-        # Codec-level implicit/explicit tagging (BER/OER) or identity (UPER/PER).
-        cls._tagging_enc = enc
-        cls._tagging_dec = dec
+    def register_hooks(cls, **hooks):
+        # type: (**Any) -> None
+        # Field operations a codec does its own way: the tagging of a field
+        # (BER) and the compound fields (SEQUENCE/CHOICE/… in OER and PER).
+        ASN1_Codecs.hooks.setdefault(cls, {}).update(hooks)
 
-    def tagging_enc(cls, s, **kwargs):
-        # type: (bytes, **Any) -> bytes
-        return cls._tagging_enc(s, **kwargs)  # type: ignore
-
-    def tagging_dec(cls, s, **kwargs):
-        # type: (bytes, **Any) -> Tuple[Optional[int], bytes]
-        return cls._tagging_dec(s, **kwargs)  # type: ignore
+    def hook(cls, name):
+        # type: (str) -> Any
+        # Hooks are optional and may be partial: missing entries mean that
+        # asn1fields keeps its default implementation.
+        return ASN1_Codecs.hooks.get(cls, {}).get(name)
 
     def dec(cls, s, context=None, _depth=0):
         # type: (bytes, Optional[Type[ASN1_Class]], int) -> ASN1_Object[Any]
@@ -167,6 +165,9 @@ class ASN1_Codecs(metaclass=ASN1_Codecs_metaclass):
     OER = cast(ASN1Codec, 7)
     SER = cast(ASN1Codec, 8)
     XER = cast(ASN1Codec, 9)
+
+    # The field hooks of every codec, by codec then by field operation.
+    hooks = {}  # type: Dict[ASN1Codec, Dict[str, Any]]
 
 
 class ASN1Tag(EnumElement):
@@ -315,6 +316,9 @@ _K = TypeVar('_K')
 
 class ASN1_Object(Generic[_K], metaclass=ASN1_Object_metaclass):
     tag = ASN1_Class_UNIVERSAL.ANY
+    # Alternative a value was dissected as, when it comes from a CHOICE that
+    # holds several of its type. See ASN1F_CHOICE.record_alternative.
+    asn1_choice_index = None  # type: Optional[int]
 
     def __init__(self, val):
         # type: (_K) -> None
