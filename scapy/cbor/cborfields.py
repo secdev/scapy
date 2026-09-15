@@ -1268,9 +1268,10 @@ class CBORF_ARRAY(_CBORF_compound):
 
     Suffix reservation runs only for :class:`CBORF_optional`. A trailing
     :class:`CBORF_CONDITIONAL` reserves only when ``depends_on`` is set
-    and those names are already in ``pkt.fields``. Omit ``depends_on``
-    to evaluate the condition when the field is reached. Same-type
-    optional before an unread flag is greedy.
+    and those names are already resolved (processed in this array pass,
+    or already present on the packet). Omit ``depends_on`` to evaluate
+    the condition when the field is reached. Same-type optional before
+    an unread flag is greedy.
 
     Example::
 
@@ -1304,14 +1305,23 @@ class CBORF_ARRAY(_CBORF_compound):
         return flat
 
     @staticmethod
-    def _reserved_items(field, pkt):
-        # type: (Any, CBOR_Packet) -> int
+    def _reserved_items(field, pkt, resolved):
+        # type: (Any, CBOR_Packet, set) -> int
         if isinstance(field, CBORF_optional):
             return 0
         if isinstance(field, CBORF_CONDITIONAL):
             if field.depends_on is None:
                 return 0
-            if not all(name in pkt.fields for name in field.depends_on):
+            unknown = [
+                name for name in field.depends_on
+                if name not in pkt.fieldtype
+            ]
+            if unknown:
+                raise ValueError(
+                    "Unknown CBOR conditional dependency: %s"
+                    % ", ".join(unknown)
+                )
+            if not all(name in resolved for name in field.depends_on):
                 return 0
         return field.min_items(pkt)
 
@@ -1319,30 +1329,37 @@ class CBORF_ARRAY(_CBORF_compound):
         # type: (CBOR_Packet, bytes, int) -> bytes
         remaining = s
         items_left = count
+        resolved = set(pkt.fields)
         for index, field in enumerate(self.seq):
+            skip = False
             if isinstance(field, CBORF_optional):
                 if not field.matches_next_item(pkt, remaining):
                     field.mark_absent(pkt)
-                    continue
-                reserved = sum(
-                    self._reserved_items(suffix, pkt)
-                    for suffix in self.seq[index + 1:]
-                )
-                if items_left <= reserved:
-                    field.mark_absent(pkt)
-                    continue
-            if isinstance(field, CBORF_REMAINDER_OF):
-                result = field._dissect_counted(
-                    pkt, remaining, max_items=items_left
-                )
-            else:
-                result = field._dissect_counted(pkt, remaining)
-            if result.items > items_left:
-                raise CBOR_Decoding_Error(
-                    "CBOR field consumed more items than remaining"
-                )
-            remaining = result.remaining
-            items_left -= result.items
+                    skip = True
+                else:
+                    reserved = sum(
+                        self._reserved_items(suffix, pkt, resolved)
+                        for suffix in self.seq[index + 1:]
+                    )
+                    if items_left <= reserved:
+                        field.mark_absent(pkt)
+                        skip = True
+            if not skip:
+                if isinstance(field, CBORF_REMAINDER_OF):
+                    result = field._dissect_counted(
+                        pkt, remaining, max_items=items_left
+                    )
+                else:
+                    result = field._dissect_counted(pkt, remaining)
+                if result.items > items_left:
+                    raise CBOR_Decoding_Error(
+                        "CBOR field consumed more items than remaining"
+                    )
+                remaining = result.remaining
+                items_left -= result.items
+            resolved.update(
+                child.name for child in field.get_fields_list()
+            )
         if items_left != 0:
             raise CBOR_Decoding_Error("CBOR item count mismatch")
         return remaining
@@ -2230,8 +2247,9 @@ class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
     Wrapper making a :class:`CBORF_field` conditional on some other packet
     state.
 
-    ``depends_on`` names must already be in ``pkt.fields`` before this
-    field may reserve items against an earlier :class:`CBORF_optional`.
+    ``depends_on`` names must already be resolved (processed in this
+    array pass, or already present on the packet) before this field may
+    reserve items against an earlier :class:`CBORF_optional`.
     ``None`` (the default) means the condition is evaluated only when
     the field is reached. An empty tuple means the predicate has no
     field dependencies and may reserve immediately. A string is treated
