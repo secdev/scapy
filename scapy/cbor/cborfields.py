@@ -1170,14 +1170,6 @@ class _CBORF_compound(CBORF_element):
             total_items += result.items
         return b"".join(parts), total_items
 
-    def _dissect_field(self, pkt, field, remaining, max_items=None):
-        # type: (CBOR_Packet, Any, bytes, Optional[int]) -> _CBORParseResult
-        if isinstance(field, CBORF_REMAINDER_OF):
-            return field._dissect_counted(
-                pkt, remaining, max_items=max_items
-            )
-        return field._dissect_counted(pkt, remaining)
-
     def _reject_nonterminal_remainder_of(self, allow_terminal=True):
         # type: (bool) -> None
         """Reject ``CBORF_REMAINDER_OF`` that is not a direct final child of *self*.
@@ -1239,7 +1231,7 @@ class CBORF_ITEMS(_CBORF_compound):
         remaining = s
         total_items = 0
         for field in self.seq:
-            result = self._dissect_field(pkt, field, remaining)
+            result = field._dissect_counted(pkt, remaining)
             remaining = result.remaining
             total_items += result.items
         return _CBORParseResult(remaining=remaining, items=total_items)
@@ -2269,6 +2261,9 @@ class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
     reserve immediately. A string ``"flag"`` is treated as
     ``("flag",)`` and reserves once ``flag`` has been resolved
     (processed in this array pass, or already present on the packet).
+    Conditions participating in optional-tail reservation may be
+    evaluated before and again when the conditional field is reached;
+    predicates should not have side effects.
 
     ``depends_on`` does not make a forward discriminator safe. This still
     evaluates ``p.flag`` when the conditional is reached, using the
@@ -2302,6 +2297,11 @@ class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
             self.depends_on = (depends_on,)
         else:
             self.depends_on = tuple(depends_on)
+        if (
+            self.depends_on is not None
+            and not all(isinstance(name, str) for name in self.depends_on)
+        ):
+            raise TypeError("depends_on must contain field names")
 
     def __repr__(self):
         # type: () -> str
