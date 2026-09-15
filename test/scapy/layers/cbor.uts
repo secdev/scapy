@@ -1222,6 +1222,19 @@ try:
 except ValueError:
     pass
 
+= depends_on entries must be field names
+from scapy.cbor.cborfields import CBORF_CONDITIONAL, CBORF_INTEGER
+
+try:
+    CBORF_CONDITIONAL(
+        CBORF_INTEGER("value", 0),
+        lambda pkt: True,
+        depends_on=("flag", 123),
+    )
+    assert False, "non-string depends_on was accepted"
+except TypeError:
+    pass
+
 = CBORF_SEMANTIC_TAG cannot wrap CBORF_REMAINDER_OF
 from scapy.cbor.cborfields import (
     CBORF_SEMANTIC_TAG,
