@@ -51,8 +51,14 @@ assert evt[HCI_Event_Command_Complete].status == 0
 
 = Dissect the version info return (Nordic nRF52x, Zephyr v3.4 build 99)
 evt = HCI_Hdr(bytes.fromhex("040e100101fc00020002000003040063000000"))
-vi = evt[HCI_Cmd_Complete_VSC_Zephyr_Read_Version_Info]
-assert evt[HCI_Event_Command_Complete].status == 0
+cc = evt[HCI_Event_Command_Complete]
+assert cc.opcode == 0xfc01
+assert cc.status == 0
+# opcode 0xFC01 command-complete is also Espressif Read Memory (bluetooth_vsc_espressif);
+# a bare VSC opcode has no vendor tag, so when both contribs are loaded the first
+# one loaded wins the shared binding. Parse the return parameters with the explicit
+# class so this test is independent of contrib load order.
+vi = HCI_Cmd_Complete_VSC_Zephyr_Read_Version_Info(bytes(cc.payload))
 assert vi.hw_platform == 0x0002       # Nordic Semiconductor
 assert vi.hw_variant == 0x0002        # nRF52x
 assert vi.fw_variant == 0x00          # standard_controller
