@@ -88,7 +88,7 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
             # Compose nested CBOR field fingerprints instead of shallow-copying
             # child.fields (which aliases mutable CBOR_Object trees).
             def _child_fp(child):
-                # type: (Packet) -> Tuple[Any, Any]
+                # type: (Packet) -> Tuple[Any, ...]
                 child_fields = {}  # type: Dict[str, Any]
                 if isinstance(child, CBOR_Packet):
                     from scapy.cbor.cborfields import CBOR_ABSENT
@@ -112,7 +112,13 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
                     child_fields = (
                         fld.do_copy(child.fields) if copy else child.fields
                     )
-                return (child_fields, child.payload.raw_packet_cache)
+                # Include the child's own raw_packet_cache: assigning the same
+                # semantic value clears it and must invalidate the parent.
+                return (
+                    child_fields,
+                    child.raw_packet_cache,
+                    child.payload.raw_packet_cache,
+                )
 
             if fld.islist:
                 return [_child_fp(item) for item in val]
