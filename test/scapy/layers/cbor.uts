@@ -3364,6 +3364,40 @@ pkt = ParentWithMutableChild(b"\x82\x00\x18\x01")
 pkt.child.value = 2
 assert bytes(pkt) == b"\x82\x00\x02"
 
+= Same-semantic nested child assignment invalidates parent overlong cache
+from scapy.cbor.cborfields import CBORF_PACKET, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class SameValueChild(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("value", 0)
+
+class SameValueParent(CBOR_Packet):
+    CBOR_root = CBORF_PACKET("child", None, SameValueChild)
+
+pkt = SameValueParent(b"\x18\x01")
+assert bytes(pkt) == b"\x18\x01"
+assert bytes(pkt.child) == b"\x18\x01"
+pkt.child.value = 1
+assert pkt.child.raw_packet_cache is None
+assert bytes(pkt.child) == b"\x01"
+assert bytes(pkt) == b"\x01"
+
+= Same-semantic ARRAY_OF child assignment invalidates parent overlong cache
+from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+class SameValueListChild(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("value", 0)
+
+class SameValueChildren(CBOR_Packet):
+    CBOR_root = CBORF_ARRAY_OF("children", [], SameValueListChild)
+
+pkt = SameValueChildren(b"\x81\x18\x01")
+assert bytes(pkt) == b"\x81\x18\x01"
+pkt.children[0].value = 1
+assert pkt.children[0].raw_packet_cache is None
+assert bytes(pkt) == b"\x81\x01"
+
 + Additional CBOR API blind spots
 
 = Optional semantic tag with default=None builds an empty array
