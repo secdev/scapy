@@ -271,9 +271,9 @@ class IPOption_Timestamp(IPOption):
     optclass = 2
     option = 4
     # RFC 791 requires the originating host to compose the option with a data
-    # area large enough to hold every timestamp it expects back, so
-    # `timestamp` holds a list: bare timestamps for flg 0, and internet
-    # address / timestamp pairs otherwise.
+    # area large enough to hold every timestamp it expects back, so the data
+    # area is a list: bare timestamps for flg 0 (`timestamp`), and internet
+    # address / timestamp pairs otherwise (`ip_timestamp_pairs`).
     fields_desc = [_IPOption_HDR,
                    ByteField("length", None),
                    ByteField("pointer", 5),
@@ -282,12 +282,15 @@ class IPOption_Timestamp(IPOption):
                                 {0: "timestamp_only",
                                  1: "timestamp_and_ip_addr",
                                  3: "prespecified_ip_addr"}),
-                   MultipleTypeField(
-                       [(FieldListField("timestamp", [], IntField("", 0),
-                                        length_from=lambda pkt: pkt.length - 4),
-                         lambda pkt: pkt.flg == 0)],
-                       PacketListField("timestamp", [], IPOption_Timestamp_Pair,
-                                       length_from=lambda pkt: pkt.length - 4))]
+                   ConditionalField(
+                       FieldListField("timestamp", [], IntField("", 0),
+                                      length_from=lambda pkt: pkt.length - 4),
+                       lambda pkt: pkt.flg == 0),
+                   ConditionalField(
+                       PacketListField("ip_timestamp_pairs", [],
+                                       IPOption_Timestamp_Pair,
+                                       length_from=lambda pkt: pkt.length - 4),
+                       lambda pkt: pkt.flg != 0)]
 
     def post_build(self, p, pay):
         if self.length is None:
