@@ -87,6 +87,18 @@ class J1939Socket(SuperSocket, metaclass=_J1939SocketMeta):
         return NotImplemented
 
 
+from scapy.contrib.automotive.j1939.j1939_dm import (
+    J1939_DTC,
+    J1939_DM1,
+    J1939_DM13,
+    J1939_DM14,
+    PGN_DM1,
+    PGN_DM13,
+    PGN_DM14,
+    sniff_dm1,
+    send_dm14_request,
+)
+
 from scapy.contrib.automotive.j1939.j1939_scanner import (
     SockOrFactory,
     _j1939_can_id,
@@ -111,6 +123,15 @@ from scapy.contrib.automotive.j1939.j1939_scanner import (
     SCAN_METHODS,
 )
 
+from scapy.contrib.automotive.j1939.j1939_dm_scanner import (
+    DmScanResult,
+    J1939_DM_PGNS,
+    J1939_PF_ACK,
+    PGN_ACK,
+    j1939_scan_dm,
+    j1939_scan_dm_pgn,
+)
+
 __all__ = [
     'J1939',
     'J1939Request',
@@ -129,6 +150,15 @@ __all__ = [
     'j1939_dst_from_fields',
     'pgn_is_pdu1',
     'j1939_pgn_is_pdu1',
+    'J1939_DTC',
+    'J1939_DM1',
+    'J1939_DM13',
+    'J1939_DM14',
+    'PGN_DM1',
+    'PGN_DM13',
+    'PGN_DM14',
+    'sniff_dm1',
+    'send_dm14_request',
     'SockOrFactory',
     'j1939_scan',
     'j1939_scan_passive',
@@ -147,4 +177,10 @@ __all__ = [
     'J1939_PF_DIAG_B',
     'J1939_PF_XCP',
     'SCAN_METHODS',
+    'DmScanResult',
+    'J1939_DM_PGNS',
+    'J1939_PF_ACK',
+    'PGN_ACK',
+    'j1939_scan_dm',
+    'j1939_scan_dm_pgn',
 ]
