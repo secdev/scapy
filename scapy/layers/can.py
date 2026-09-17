@@ -11,6 +11,7 @@ Wireshark dissectors. See https://wiki.wireshark.org/CANopen
 
 import os
 import gzip
+import socket
 import struct
 
 from scapy.config import conf
@@ -43,13 +44,14 @@ __all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
            "LEUnsignedSignalField", "LEFloatSignalField", "BEFloatSignalField",
            "BESignedSignalField", "BEUnsignedSignalField", "rdcandump",
            "CandumpReader", "SignalHeader", "CAN_MTU", "CAN_MAX_IDENTIFIER",
-           "CAN_MAX_DLEN", "CAN_INV_FILTER", "CANFD", "CAN_FD_MTU",
-           "CAN_FD_MAX_DLEN"]
+           "CAN_MAX_DLEN", "CAN_INV_FILTER", "CAN_EFF_FLAG", "CANFD",
+           "CAN_FD_MTU", "CAN_FD_MAX_DLEN"]
 
 # CONSTANTS
 CAN_MAX_IDENTIFIER = (1 << 29) - 1  # Maximum 29-bit identifier
 CAN_MTU = 16
 CAN_MAX_DLEN = 8
+CAN_EFF_FLAG = getattr(socket, "CAN_EFF_FLAG", 0x80000000)
 CAN_INV_FILTER = 0x20000000
 CAN_FD_MTU = 72
 CAN_FD_MAX_DLEN = 64
