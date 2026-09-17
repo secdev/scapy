@@ -299,8 +299,8 @@ class OERcodec_Object(Generic[_K], metaclass=ASN1Codec_metaclass):
 
     @classmethod
     def enc(cls, s, minimum=None, maximum=None, extensible=False,
-            unsigned=False, oer_unsigned=None, **_kwargs):
-        # type: (_K, Optional[int], Optional[int], bool, bool, Optional[bool], **Any) -> bytes  # noqa: E501
+            unsigned=False, **_kwargs):
+        # type: (_K, Optional[int], Optional[int], bool, bool, **Any) -> bytes
         if isinstance(s, (str, bytes)):
             return OERcodec_STRING.enc(
                 s, minimum=minimum, maximum=maximum, extensible=extensible,
@@ -313,7 +313,6 @@ class OERcodec_Object(Generic[_K], metaclass=ASN1Codec_metaclass):
                     maximum=maximum,
                     extensible=extensible,
                     unsigned=unsigned,
-                    oer_unsigned=oer_unsigned,
                 )  # type: ignore
             except TypeError:
                 raise TypeError("Trying to encode an invalid value !")
@@ -342,7 +341,6 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
                     maximum=None,  # type: Optional[int]
                     unsigned=False,  # type: bool
                     extensible=False,  # type: bool
-                    oer_unsigned=None,  # type: Optional[bool]
                     ):
         # type: (...) -> Tuple[Optional[int], bool, Optional[int], Optional[int]]
         """Derive OER INTEGER width and signedness from schema bounds.
@@ -352,8 +350,6 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
         bound uses variable-width unsigned encoding. A fixed eight-octet width
         is used only when ``maximum <= 2**64 - 1``.
         """
-        if oer_unsigned is not None:
-            unsigned = bool(oer_unsigned)
         size_len = None  # type: Optional[int]
 
         # Extension values may lie outside the root range.
@@ -391,14 +387,13 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
 
     @classmethod
     def enc(cls, i, minimum=None, maximum=None, extensible=False,
-            unsigned=False, oer_unsigned=None, **_kwargs):
-        # type: (int, Optional[int], Optional[int], bool, bool, Optional[bool], **Any) -> bytes  # noqa: E501
-        size_len, oer_unsigned_flag, minimum, maximum = cls.wire_params(
+            unsigned=False, **_kwargs):
+        # type: (int, Optional[int], Optional[int], bool, bool, **Any) -> bytes
+        size_len, unsigned_flag, minimum, maximum = cls.wire_params(
             minimum=minimum,
             maximum=maximum,
             unsigned=unsigned,
             extensible=extensible,
-            oer_unsigned=oer_unsigned,
         )
         if minimum is not None and i < minimum:
             raise OER_Encoding_Error(
@@ -410,7 +405,7 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
                 "%s: %i is above maximum %i" %
                 (cls.__name__, i, maximum)
             )
-        if oer_unsigned_flag and i < 0:
+        if unsigned_flag and i < 0:
             raise OER_Encoding_Error(
                 "%s: %i is negative for an unsigned type" % (cls.__name__, i)
             )
@@ -418,7 +413,7 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
         # the type, never the value at hand, otherwise the decoder (which only
         # knows the type) reads something else back.
         if size_len in (1, 2, 4, 8):
-            signed = not oer_unsigned_flag
+            signed = not unsigned_flag
             try:
                 return struct.pack(cls._FIXED_FORMATS[signed][size_len], i)
             except struct.error:
@@ -427,7 +422,7 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
                     (cls.__name__, i, size_len,
                      "signed" if signed else "unsigned")
                 )
-        if oer_unsigned_flag:
+        if unsigned_flag:
             return OER_unsigned_integer_enc(i)
         return OER_signed_integer_enc(i)
 
@@ -440,16 +435,14 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
                maximum=None,  # type: Optional[int]
                extensible=False,  # type: bool
                unsigned=False,  # type: bool
-               oer_unsigned=None,  # type: Optional[bool]
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[int], bytes]
-        size_len, oer_unsigned_flag, minimum, maximum = cls.wire_params(
+        size_len, unsigned_flag, minimum, maximum = cls.wire_params(
             minimum=minimum,
             maximum=maximum,
             unsigned=unsigned,
             extensible=extensible,
-            oer_unsigned=oer_unsigned,
         )
         if size_len in (1, 2, 4, 8):
             if len(s) < size_len:
@@ -459,10 +452,10 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
                     remaining=s
                 )
             x = struct.unpack(
-                cls._FIXED_FORMATS[not oer_unsigned_flag][size_len], s[:size_len]
+                cls._FIXED_FORMATS[not unsigned_flag][size_len], s[:size_len]
             )[0]
             t = s[size_len:]
-        elif oer_unsigned_flag:
+        elif unsigned_flag:
             x, t = OER_unsigned_integer_dec(s)
         else:
             x, t = OER_signed_integer_dec(s)

@@ -20,7 +20,7 @@ string encodings (rejected rather than emitted as plain octets).
 ``ASN1F_SET_OF`` is encoded as ``ASN1F_SEQUENCE_OF``.
 
 ``ASN1F_CHOICE`` alternatives are indexed in X.691 10.2 canonical tag order
-(via ``ASN1F_CHOICE.canonical_order``). Declaration order is kept for
+(sorted by tag class/number). Declaration order is kept for
 BER tag lookup (``choices``) and ``alternative_tag``.
 """
 
@@ -43,6 +43,7 @@ from scapy.asn1.asn1 import (
 
 from typing import (
     Any,
+    Dict,
     AnyStr,
     Callable,
     Generic,
@@ -78,15 +79,6 @@ def UPER_bits_for_range(size):
 # X.691 11.9.3.8: content of 16K units or more is split into fragments, each
 # one holding a multiple of this many units.
 UPER_FRAGMENT_SIZE = 16384
-
-
-def resolve_uper_size_bounds(minimum=None,  # type: Optional[int]
-                             maximum=None,  # type: Optional[int]
-                             extensible=False,  # type: bool
-                             ):
-    # type: (...) -> Tuple[Optional[int], Optional[int], bool]
-    """Return UPER SIZE bounds as provided by the caller."""
-    return minimum, maximum, bool(extensible)
 
 
 def uper_uses_constrained_length(minimum, maximum):
@@ -548,32 +540,17 @@ ASN1_Codecs.UPER.register_stem(UPERcodec_Object)
 class UPERcodec_INTEGER(UPERcodec_Object[int]):
     tag = ASN1_Class_UNIVERSAL.INTEGER
 
-    @staticmethod
-    def resolve_bounds(minimum=None,  # type: Optional[int]
-                       maximum=None,  # type: Optional[int]
-                       extensible=False,  # type: bool
-                       **_ignored  # type: Any
-                       ):
-        # type: (...) -> Tuple[Optional[int], Optional[int], bool]
-        """Return UPER INTEGER root range as provided by the caller."""
-        return minimum, maximum, bool(extensible)
-
     @classmethod
     def encode_into(cls,
                     enc,  # type: UPER_Encoder
                     i,  # type: int
-                    field=None,  # type: Any
-                    size_len=None,  # type: Optional[int]
                     minimum=None,  # type: Optional[int]
                     maximum=None,  # type: Optional[int]
-                    unsigned=None,  # type: Optional[bool]
                     extensible=None,  # type: Optional[bool]
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
-        minimum, maximum, extensible = cls.resolve_bounds(
-            minimum=minimum, maximum=maximum, extensible=extensible or False,
-        )
+        extensible = bool(extensible)
         if extensible and minimum is not None and maximum is not None:
             if minimum <= i <= maximum:
                 enc.append_bit(0)
@@ -602,19 +579,13 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
     @classmethod
     def dec_from_decoder(cls,
                          dec,  # type: UPER_Decoder
-                         field=None,  # type: Any
-                         pkt=None,  # type: Any
-                         size_len=None,  # type: Optional[int]
                          minimum=None,  # type: Optional[int]
                          maximum=None,  # type: Optional[int]
-                         unsigned=None,  # type: Optional[bool]
                          extensible=None,  # type: Optional[bool]
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[int]
-        minimum, maximum, extensible = cls.resolve_bounds(
-            minimum=minimum, maximum=maximum, extensible=extensible or False,
-        )
+        extensible = bool(extensible)
         if extensible and minimum is not None and maximum is not None:
             if dec.read_bit():
                 value = dec.read_unconstrained_whole_number()
@@ -663,8 +634,6 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
     def encode_into(cls,
                     enc,  # type: UPER_Encoder
                     _s,  # type: Any
-                    field=None,  # type: Any
-                    size_len=None,  # type: Optional[int]
                     minimum=None,  # type: Optional[int]
                     maximum=None,  # type: Optional[int]
                     extensible=None,  # type: Optional[bool]
@@ -685,10 +654,7 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
         else:
             s = bytes_encode(_s)
             nbits = 8 * len(s)
-        minimum, maximum, extensible = resolve_uper_size_bounds(
-            minimum=minimum, maximum=maximum,
-            extensible=extensible or False,
-        )
+        extensible = bool(extensible)
 
         def append_bits_slice(offset, size):
             # type: (int, int) -> None
@@ -723,18 +689,13 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
     @classmethod
     def dec_from_decoder(cls,
                          dec,  # type: UPER_Decoder
-                         field=None,  # type: Any
-                         size_len=None,  # type: Optional[int]
                          minimum=None,  # type: Optional[int]
                          maximum=None,  # type: Optional[int]
                          extensible=None,  # type: Optional[bool]
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[str]
-        minimum, maximum, extensible = resolve_uper_size_bounds(
-            minimum=minimum, maximum=maximum,
-            extensible=extensible or False,
-        )
+        extensible = bool(extensible)
 
         def _read_unconstrained():
             # type: () -> ASN1_Object[str]
@@ -826,8 +787,6 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
     def encode_into(cls,
                     enc,  # type: UPER_Encoder
                     _s,  # type: Union[str, bytes]
-                    field=None,  # type: Any
-                    size_len=None,  # type: Optional[int]
                     minimum=None,  # type: Optional[int]
                     maximum=None,  # type: Optional[int]
                     extensible=None,  # type: Optional[bool]
@@ -835,27 +794,19 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                     ):
         # type: (...) -> None
         s = bytes_encode(_s)
-        minimum, maximum, extensible = resolve_uper_size_bounds(
-            minimum=minimum, maximum=maximum,
-            extensible=extensible or False,
-        )
+        extensible = bool(extensible)
         cls._octet_string_enc(enc, s, minimum, maximum, extensible)
 
     @classmethod
     def dec_from_decoder(cls,
                          dec,  # type: UPER_Decoder
-                         field=None,  # type: Any
-                         size_len=None,  # type: Optional[int]
                          minimum=None,  # type: Optional[int]
                          maximum=None,  # type: Optional[int]
                          extensible=None,  # type: Optional[bool]
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[Any]
-        minimum, maximum, extensible = resolve_uper_size_bounds(
-            minimum=minimum, maximum=maximum,
-            extensible=extensible or False,
-        )
+        extensible = bool(extensible)
         raw = cls._octet_string_dec(dec, minimum, maximum, extensible)
         return cls.asn1_object(raw)
 
@@ -1155,3 +1106,376 @@ class UPERcodec_BMP_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
 # KNOWN_MULTIPLIER inherits STRING's tag for registration; restore the
 # generic STRING codec used by ASN1F_STRING (octet-string UPER path).
 ASN1_Class_UNIVERSAL.STRING.register(ASN1_Codecs.UPER, UPERcodec_STRING)
+
+
+##############################
+#    UPER schema walker      #
+##############################
+
+
+def _uper_optionals(field):
+    # type: (Any) -> list
+    from scapy.asn1fields import ASN1F_optional
+    return [f for f in field.seq if isinstance(f, ASN1F_optional)]
+
+
+def _uper_canonical_choices(field):
+    # type: (Any) -> Tuple[list, Dict[Any, int]]
+    from scapy.asn1.ber import asn1_tag_parts
+    canon_items = sorted(
+        field.choices.items(),
+        key=lambda item: asn1_tag_parts(item[0])[:2],
+    )
+    order = [alt for _tag, alt in canon_items]
+    index = {tag: i for i, (tag, _alt) in enumerate(canon_items)}
+    return order, index
+
+
+def _uper_schema_kwargs(field):
+    # type: (Any) -> Dict[str, Any]
+    kw = {
+        "minimum": field.minimum,
+        "maximum": field.maximum,
+        "extensible": field.extensible,
+        "unsigned": field.unsigned,
+    }  # type: Dict[str, Any]
+    i2s = getattr(field, "i2s", None)
+    if i2s is not None:
+        kw["uper_enum_values"] = sorted(i2s)
+    return kw
+
+
+def _uper_encode_leaf(bit_enc, field, pkt, value=None):
+    # type: (UPER_Encoder, Any, Any, Any) -> None
+    if value is None:
+        value = getattr(pkt, field.name)
+    if value is None:
+        return
+    codec = field.ASN1_tag.get_codec(ASN1_Codecs.UPER)
+    if isinstance(value, ASN1_Object):
+        if (field.ASN1_tag == ASN1_Class_UNIVERSAL.ANY or
+                value.tag == ASN1_Class_UNIVERSAL.RAW or
+                value.tag == ASN1_Class_UNIVERSAL.ERROR or
+                field.ASN1_tag == value.tag):
+            raw = value.val
+        else:
+            raise ASN1_Error(
+                "Encoding Error: got %r instead of an %r for field [%s]" %
+                (value, field.ASN1_tag, field.name)
+            )
+    else:
+        raw = value
+    if isinstance(raw, str) and hasattr(field, "s2i"):
+        raw = field.s2i[raw]
+    codec.encode_into(bit_enc, raw, **_uper_schema_kwargs(field))
+
+
+def _uper_decode_leaf(bit_dec, field, pkt):
+    # type: (UPER_Decoder, Any, Any) -> Any
+    codec = field.ASN1_tag.get_codec(ASN1_Codecs.UPER)
+    return codec.dec_from_decoder(bit_dec, **_uper_schema_kwargs(field))
+
+
+def _uper_encode_node(ctx, obj, pkt, value=None):
+    # type: (UPER_EncoderContext, Any, Any, Any) -> None
+    from scapy.asn1fields import (
+        ASN1F_CHOICE,
+        ASN1F_PACKET,
+        ASN1F_SEQUENCE,
+        ASN1F_SEQUENCE_OF,
+        ASN1F_optional,
+    )
+    if isinstance(obj, ASN1F_optional):
+        if obj.is_present(pkt):
+            _uper_encode_node(ctx, obj._field, pkt)
+        return
+    if isinstance(obj, ASN1F_SEQUENCE):
+        ctx.encode_sequence(obj, pkt)
+    elif isinstance(obj, ASN1F_SEQUENCE_OF):
+        ctx.encode_sequence_of(obj, pkt, value)
+    elif isinstance(obj, ASN1F_CHOICE):
+        ctx.encode_choice(obj, pkt, value)
+    elif isinstance(obj, ASN1F_PACKET):
+        ctx.encode_packet(obj, pkt, value)
+    else:
+        _uper_encode_leaf(ctx.bit_encoder, obj, pkt, value)
+
+
+def _uper_decode_node(ctx, obj, pkt):
+    # type: (UPER_DecoderContext, Any, Any) -> None
+    from scapy.asn1fields import (
+        ASN1F_CHOICE,
+        ASN1F_PACKET,
+        ASN1F_SEQUENCE,
+        ASN1F_SEQUENCE_OF,
+        ASN1F_optional,
+    )
+    if isinstance(obj, ASN1F_optional):
+        _uper_decode_node(ctx, obj._field, pkt)
+        return
+    if isinstance(obj, ASN1F_SEQUENCE):
+        ctx.decode_sequence(obj, pkt)
+    elif isinstance(obj, ASN1F_SEQUENCE_OF):
+        ctx.decode_sequence_of(obj, pkt)
+    elif isinstance(obj, ASN1F_CHOICE):
+        ctx.decode_choice(obj, pkt)
+    elif isinstance(obj, ASN1F_PACKET):
+        ctx.decode_packet(obj, pkt)
+    else:
+        obj.set_val(pkt, _uper_decode_leaf(ctx.bit_decoder, obj, pkt))
+
+
+class UPER_EncoderContext(object):
+    """Bit-stream walker for UPER compound encode."""
+    codec = ASN1_Codecs.UPER
+
+    def __init__(self):
+        # type: () -> None
+        self.bit_encoder = UPER_Encoder()
+
+    def finish(self):
+        # type: () -> bytes
+        return self.bit_encoder.as_bytes()
+
+    def encode_sequence(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1fields import ASN1F_SET, ASN1F_optional
+
+        if isinstance(field, ASN1F_SET):
+            raise UPER_Encoding_Error("ASN1F_SET is not supported")
+        bit_enc = self.bit_encoder
+        if field.extensible:
+            bit_enc.append_bit(0)
+        optionals = _uper_optionals(field)
+        for opt in optionals:
+            bit_enc.append_bit(1 if opt.is_present(pkt) else 0)
+        for obj in field.seq:
+            if isinstance(obj, ASN1F_optional) and not obj.is_present(pkt):
+                continue
+            _uper_encode_node(self, obj, pkt)
+
+    def encode_sequence_of(self, field, pkt, value=None):
+        # type: (Any, Any, Any) -> None
+        from scapy.asn1fields import (
+            ASN1F_CHOICE,
+            ASN1F_PACKET,
+            ASN1F_SEQUENCE,
+            ASN1F_SEQUENCE_OF,
+        )
+
+        if (
+                not field.holds_packets and
+                isinstance(field.fld, (ASN1F_SEQUENCE, ASN1F_CHOICE, ASN1F_SEQUENCE_OF))
+        ):
+            raise UPER_Encoding_Error(
+                "ASN1F_SEQUENCE_OF: compound ASN1F_field elements are not "
+                "supported in UPER; use an ASN1_Packet for structured items"
+            )
+
+        bit_enc = self.bit_encoder
+        if value is None:
+            value = getattr(pkt, field.name)
+        if value is None:
+            value = []
+        count = len(value)
+
+        def append_items(offset, size):
+            # type: (int, int) -> None
+            for i in range(offset, offset + size):
+                item = value[i]
+                if field.holds_packets:
+                    _uper_encode_node(self, item.ASN1_root, item)
+                elif isinstance(field.fld, ASN1F_PACKET):
+                    self.encode_packet(field.fld, pkt, item)
+                else:
+                    _uper_encode_leaf(bit_enc, field.fld, pkt, item)
+
+        uper_min, uper_max = field.minimum, field.maximum
+        if field.extensible:
+            if (
+                    uper_min is not None and uper_max is not None and
+                    uper_min <= count <= uper_max
+            ):
+                bit_enc.append_bit(0)
+            else:
+                bit_enc.append_bit(1)
+                bit_enc.append_fragmented(count, append_items)
+                return
+        if uper_uses_constrained_length(uper_min, uper_max):
+            UPER_constrained_int_enc(bit_enc, count, uper_min, uper_max)
+            append_items(0, count)
+        else:
+            bit_enc.append_fragmented(count, append_items)
+
+    def encode_choice(self, field, pkt, value=None):
+        # type: (Any, Any, Any) -> None
+        bit_enc = self.bit_encoder
+        if value is None:
+            value = getattr(pkt, field.name)
+        if value is None:
+            return
+        tag = field.alternative_tag(value)
+        if tag is None:
+            raise ASN1_Error(
+                "ASN1F_CHOICE: cannot encode unknown alternative in '%s'" %
+                field.name
+            )
+        if field.extensible:
+            bit_enc.append_bit(0)
+        order, canon_index = _uper_canonical_choices(field)
+        canon_idx = canon_index[tag]
+        if len(order) > 1:
+            UPER_choice_index_enc(bit_enc, canon_idx, len(order))
+        choice = order[canon_idx]
+        if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
+            _uper_encode_node(self, value.ASN1_root, value)
+        elif hasattr(choice, "cls"):
+            self.encode_packet(choice, pkt, value)
+        elif isinstance(choice, type):
+            _uper_encode_leaf(bit_enc, choice(field.name, b""), pkt, value)
+        else:
+            _uper_encode_leaf(bit_enc, choice, pkt, value)
+
+    def encode_packet(self, field, pkt, value=None):
+        # type: (Any, Any, Any) -> None
+        if value is None:
+            value = getattr(pkt, field.name)
+        if value is None:
+            return
+        if isinstance(value, ASN1_Object):
+            value = value.val
+        _uper_encode_node(self, value.ASN1_root, value)
+
+
+class UPER_DecoderContext(object):
+    """Bit-stream walker for UPER compound decode."""
+    codec = ASN1_Codecs.UPER
+
+    def __init__(self, data):
+        # type: (bytes) -> None
+        self.bit_decoder = UPER_Decoder(data)
+
+    def remaining(self):
+        # type: () -> bytes
+        return self.bit_decoder.remaining_bytes()
+
+    def decode_nested_packet(self, field, pkt):
+        # type: (Any, Any) -> Any
+        cls = (field.next_cls_cb(pkt) or field.cls) if field.next_cls_cb else field.cls
+        p = cls()
+        p.add_underlayer(pkt)
+        p.add_parent(pkt)
+        _uper_decode_node(self, p.ASN1_root, p)
+        return p
+
+    def decode_sequence(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1fields import ASN1F_SET, ASN1F_badsequence, ASN1F_optional
+
+        if isinstance(field, ASN1F_SET):
+            raise UPER_Decoding_Error("ASN1F_SET is not supported")
+        bit_dec = self.bit_decoder
+        if field.extensible:
+            if bit_dec.read_bit():
+                raise UPER_Decoding_Error(
+                    "ASN1F_SEQUENCE: extension additions are not supported"
+                )
+        optionals = _uper_optionals(field)
+        presence = [bit_dec.read_bit() for _ in optionals]
+        opt_index = 0
+        for obj in field.seq:
+            if isinstance(obj, ASN1F_optional):
+                if not presence[opt_index]:
+                    obj.set_missing(pkt)
+                    opt_index += 1
+                    continue
+                opt_index += 1
+            try:
+                _uper_decode_node(self, obj, pkt)
+            except ASN1F_badsequence:
+                break
+
+    def decode_sequence_of(self, field, pkt):
+        # type: (Any, Any) -> None
+        from scapy.asn1fields import (
+            ASN1F_CHOICE,
+            ASN1F_PACKET,
+            ASN1F_SEQUENCE,
+            ASN1F_SEQUENCE_OF,
+        )
+
+        if (
+                not field.holds_packets and
+                isinstance(field.fld, (ASN1F_SEQUENCE, ASN1F_CHOICE, ASN1F_SEQUENCE_OF))
+        ):
+            raise UPER_Decoding_Error(
+                "ASN1F_SEQUENCE_OF: compound ASN1F_field elements are not "
+                "supported in UPER; use an ASN1_Packet for structured items"
+            )
+
+        bit_dec = self.bit_decoder
+        lst = []
+
+        def read_items(count):
+            # type: (int) -> None
+            for _ in range(count):
+                if field.holds_packets:
+                    p = field.cls()
+                    p.add_underlayer(pkt)
+                    p.add_parent(pkt)
+                    _uper_decode_node(self, p.ASN1_root, p)
+                    lst.append(p)
+                elif isinstance(field.fld, ASN1F_PACKET):
+                    lst.append(self.decode_nested_packet(field.fld, pkt))
+                else:
+                    lst.append(_uper_decode_leaf(bit_dec, field.fld, pkt))
+
+        if field.extensible and bit_dec.read_bit():
+            bit_dec.read_fragmented(read_items)
+        else:
+            uper_min, uper_max = field.minimum, field.maximum
+            if uper_uses_constrained_length(uper_min, uper_max):
+                read_items(UPER_constrained_int_dec(bit_dec, uper_min, uper_max))
+            else:
+                bit_dec.read_fragmented(read_items)
+        field.set_val(pkt, lst)
+
+    def decode_choice(self, field, pkt):
+        # type: (Any, Any) -> None
+        bit_dec = self.bit_decoder
+        if field.extensible:
+            if bit_dec.read_bit():
+                raise UPER_Decoding_Error(
+                    "ASN1F_CHOICE: extension additions are not supported"
+                )
+        order, _canon_index = _uper_canonical_choices(field)
+        if len(order) > 1:
+            index = UPER_choice_index_dec(bit_dec, len(order))
+        else:
+            index = 0
+        if index >= len(order):
+            raise ASN1_Error(
+                "ASN1F_CHOICE: unexpected index %s in '%s'" %
+                (index, field.name)
+            )
+        choice = order[index]
+        if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
+            p = choice()
+            p.add_underlayer(pkt)
+            p.add_parent(pkt)
+            _uper_decode_node(self, p.ASN1_root, p)
+            field.set_val(pkt, p)
+            return
+        if hasattr(choice, "cls"):
+            field.set_val(pkt, self.decode_nested_packet(choice, pkt))
+            return
+        if isinstance(choice, type):
+            field.set_val(
+                pkt, _uper_decode_leaf(bit_dec, choice(field.name, b""), pkt),
+            )
+            return
+        field.set_val(pkt, _uper_decode_leaf(bit_dec, choice, pkt))
+
+    def decode_packet(self, field, pkt):
+        # type: (Any, Any) -> None
+        field.set_val(pkt, self.decode_nested_packet(field, pkt))

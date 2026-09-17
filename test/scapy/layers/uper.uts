@@ -9,7 +9,7 @@
 import scapy.asn1.uper
 
 from scapy.asn1.uper import *
-from scapy.asn1.context import UPER_EncoderContext, UPER_DecoderContext
+from scapy.asn1.uper import UPER_EncoderContext, UPER_DecoderContext
 
 from scapy.packet import raw
 
@@ -2210,7 +2210,7 @@ dec = UPER_DecoderContext(b"\x80")
 
 _raises(
     UPER_Decoding_Error,
-    lambda: _ExtSeq.ASN1_root.decode_from(_ExtSeq(), dec),
+    lambda: dec.decode_sequence(_ExtSeq.ASN1_root, _ExtSeq()),
 )
 
 class _ExtChoice(ASN1_Packet):
@@ -2228,7 +2228,7 @@ dec = UPER_DecoderContext(b"\x80")
 
 _raises(
     UPER_Decoding_Error,
-    lambda: _ExtChoice.ASN1_root.decode_from(_ExtChoice(), dec),
+    lambda: dec.decode_choice(_ExtChoice.ASN1_root, _ExtChoice()),
 )
 
 class _InnerItem(ASN1_Packet):
@@ -2321,8 +2321,8 @@ class _UperSeqOfSeq(ASN1_Packet):
 _raises(UPER_Encoding_Error, lambda: raw(_UperSeqOfSeq(items=[])))
 _raises(
     UPER_Decoding_Error,
-    lambda: _UperSeqOfSeq.ASN1_root.decode_from(
-        _UperSeqOfSeq(), UPER_DecoderContext(b"\x00"),
+    lambda: UPER_DecoderContext(b"\x00").decode_sequence_of(
+        _UperSeqOfSeq.ASN1_root, _UperSeqOfSeq(),
     ),
 )
 
@@ -2786,7 +2786,7 @@ dec = UPER_DecoderContext(b"\x80")
 
 _raises(
     UPER_Decoding_Error,
-    lambda: _ExtChoice.ASN1_root.decode_from(_ExtChoice(), dec),
+    lambda: dec.decode_choice(_ExtChoice.ASN1_root, _ExtChoice()),
 )
 
 class _SingleChoice(ASN1_Packet):
@@ -2916,19 +2916,19 @@ assert _val(decoded.inner.x) == 7
 
 True
 
-= uper field encode_to nesting
+= uper field encode nesting
 built = UPERWrappedPacket(id=1, inner=UPERInnerPacket(x=7))
 
 enc = UPER_EncoderContext()
 
-UPERWrappedPacket.ASN1_root.encode_to(built, enc)
+enc.encode_sequence(UPERWrappedPacket.ASN1_root, built)
 
 assert enc.finish() == raw(built)
 
 empty = UPERWrappedPacket()
 
-UPERWrappedPacket.ASN1_root.decode_from(
-    empty, UPER_DecoderContext(raw(built)),
+UPER_DecoderContext(raw(built)).decode_sequence(
+    UPERWrappedPacket.ASN1_root, empty,
 )
 
 assert _val(empty.id) == 1
@@ -3393,7 +3393,7 @@ all(
     for value in [0, 1, 2, 3]
 )
 
-= legacy oer_unsigned inference matches an explicit UPER 0 to 255 constraint
+= unsigned=True matches an explicit UPER 0 to 255 constraint
 class UPERLegacyUnsigned(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_INTEGER("n", 0, minimum=0, maximum=255, unsigned=True)
@@ -3686,7 +3686,7 @@ _raises(UPER_Encoding_Error, lambda: UPERcodec_GENERALIZED_TIME.enc(
 
 = CHOICE encode_choice does not mutate packet fields
 import copy
-from scapy.asn1.context import UPER_EncoderContext
+from scapy.asn1.uper import UPER_EncoderContext
 
 pkt = UPERChoiceField(c=ASN1_INTEGER(1))
 before = copy.copy(pkt.fields)

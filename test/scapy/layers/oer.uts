@@ -101,31 +101,31 @@ INTEGER_VECTORS = [
     (
         "F",
         128,
-        lambda v: OERcodec_INTEGER.enc(v, minimum=0, maximum=255, oer_unsigned=True),
+        lambda v: OERcodec_INTEGER.enc(v, minimum=0, maximum=255, unsigned=True),
         b"\x80",
     ),
     (
         "G",
         128,
-        lambda v: OERcodec_INTEGER.enc(v, minimum=0, maximum=65535, oer_unsigned=True),
+        lambda v: OERcodec_INTEGER.enc(v, minimum=0, maximum=65535, unsigned=True),
         b"\x00\x80",
     ),
     (
         "G",
         1000,
-        lambda v: OERcodec_INTEGER.enc(v, minimum=0, maximum=65535, oer_unsigned=True),
+        lambda v: OERcodec_INTEGER.enc(v, minimum=0, maximum=65535, unsigned=True),
         b"\x03\xe8",
     ),
     (
         "H",
         128,
-        lambda v: OERcodec_INTEGER.enc(v, minimum=0, maximum=4294967295, oer_unsigned=True),
+        lambda v: OERcodec_INTEGER.enc(v, minimum=0, maximum=4294967295, unsigned=True),
         b"\x00\x00\x00\x80",
     ),
     (
         "I",
         128,
-        lambda v: OERcodec_INTEGER.enc(v, minimum=0, maximum=18446744073709551615, oer_unsigned=True),
+        lambda v: OERcodec_INTEGER.enc(v, minimum=0, maximum=18446744073709551615, unsigned=True),
         b"\x00\x00\x00\x00\x00\x00\x00\x80",
     ),
     ("B", 1, lambda v: OERcodec_INTEGER.enc(v, minimum=-128, maximum=127), b"\x01"),
@@ -410,7 +410,7 @@ v == 65535 and r == b""
 _raises(OER_Decoding_Error, lambda: OER_unsigned_integer_dec(b"\x00"))
 True
 = OER fixed unsigned 1 byte
-OERcodec_INTEGER.enc(255, minimum=0, maximum=255, oer_unsigned=True) == b"\xff"
+OERcodec_INTEGER.enc(255, minimum=0, maximum=255, unsigned=True) == b"\xff"
 = OER fixed signed 2 bytes negative
 OERcodec_INTEGER.enc(-2, minimum=-32768, maximum=32767) == b"\xff\xfe"
 = OER fixed signed 4 bytes
@@ -470,7 +470,7 @@ ASN1_NULL(None).enc(ASN1_Codecs.OER) == b""
 
 + ASN.1 OER review fixes
 = OER fixed integer decode roundtrip
-x, r = OERcodec_INTEGER.do_dec(OERcodec_INTEGER.enc(128, minimum=0, maximum=255, oer_unsigned=True), minimum=0, maximum=255, oer_unsigned=True)
+x, r = OERcodec_INTEGER.do_dec(OERcodec_INTEGER.enc(128, minimum=0, maximum=255, unsigned=True), minimum=0, maximum=255, unsigned=True)
 x.val == 128 and r == b""
 = OER fixed integer signed decode
 x, r = OERcodec_INTEGER.do_dec(OERcodec_INTEGER.enc(-2, minimum=-32768, maximum=32767), minimum=-32768, maximum=32767)
@@ -687,13 +687,13 @@ for type_name, value, enc, expected in INTEGER_VECTORS:
         assert remain == b"" and dec.val == value
     elif type_name == "F":
         dec, remain = OERcodec_INTEGER.do_dec(
-            got, minimum=0, maximum=255, oer_unsigned=True,
+            got, minimum=0, maximum=255, unsigned=True,
         )
         assert remain == b"" and dec.val == value
     elif type_name in ("G", "H", "I"):
         size = {"G": 2, "H": 4, "I": 8}[type_name]
         dec, remain = OERcodec_INTEGER.do_dec(
-            got, minimum=0, maximum=(256 ** size) - 1, oer_unsigned=True,
+            got, minimum=0, maximum=(256 ** size) - 1, unsigned=True,
         )
         assert remain == b"" and dec.val == value
     elif type_name in ("B", "C", "D", "E"):
@@ -758,7 +758,7 @@ for type_name, value, encoded in SCAPY_DECODE_VECTORS:
         dec, remain = OERcodec_INTEGER.do_dec(encoded)
     elif type_name == "F":
         dec, remain = OERcodec_INTEGER.do_dec(
-            encoded, minimum=0, maximum=255, oer_unsigned=True,
+            encoded, minimum=0, maximum=255, unsigned=True,
         )
     else:
         dec, remain = OERcodec_INTEGER.do_dec(encoded, minimum=-128, maximum=127)
