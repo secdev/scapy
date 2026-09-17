@@ -43,7 +43,6 @@ from scapy.asn1.asn1 import (
 
 from typing import (
     Any,
-    Dict,
     AnyStr,
     Callable,
     Generic,
@@ -872,32 +871,32 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                     i,  # type: int
                     minimum=None,  # type: Optional[int]
                     maximum=None,  # type: Optional[int]
-                    uper_enum_values=None,  # type: Optional[List[int]]
+                    enum_values=None,  # type: Optional[List[int]]
                     extensible=False,  # type: bool
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
-        if uper_enum_values is not None:
+        if enum_values is not None:
             if extensible:
                 # X.691 14.3: a one bit prefix says whether the value is an
                 # extension addition. Only root values can be encoded.
-                if i not in uper_enum_values:
+                if i not in enum_values:
                     raise UPER_Encoding_Error(
                         "UPERcodec_ENUMERATED: extension additions are not "
                         "supported"
                     )
                 enc.append_bit(0)
-            if not uper_enum_values:
+            if not enum_values:
                 raise UPER_Encoding_Error(
                     "UPERcodec_ENUMERATED: empty enumeration"
                 )
             try:
-                index = uper_enum_values.index(i)
+                index = enum_values.index(i)
             except ValueError:
                 raise UPER_Encoding_Error(
                     "UPERcodec_ENUMERATED: unknown enumeration value %r" % i
                 )
-            UPER_choice_index_enc(enc, index, len(uper_enum_values))
+            UPER_choice_index_enc(enc, index, len(enum_values))
             return
         lo, hi = cls._range(minimum, maximum, UPER_Encoding_Error)
         UPER_constrained_int_enc(enc, i, lo, hi)
@@ -907,27 +906,27 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                          dec,  # type: UPER_Decoder
                          minimum=None,  # type: Optional[int]
                          maximum=None,  # type: Optional[int]
-                         uper_enum_values=None,  # type: Optional[List[int]]
+                         enum_values=None,  # type: Optional[List[int]]
                          extensible=False,  # type: bool
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[int]
-        if uper_enum_values is not None:
+        if enum_values is not None:
             if extensible and dec.read_bit():
                 raise UPER_Decoding_Error(
                     "UPERcodec_ENUMERATED: extension additions are not "
                     "supported"
                 )
-            if not uper_enum_values:
+            if not enum_values:
                 raise UPER_Decoding_Error(
                     "UPERcodec_ENUMERATED: empty enumeration"
                 )
-            index = UPER_choice_index_dec(dec, len(uper_enum_values))
-            if index >= len(uper_enum_values):
+            index = UPER_choice_index_dec(dec, len(enum_values))
+            if index >= len(enum_values):
                 raise UPER_Decoding_Error(
                     "UPERcodec_ENUMERATED: index %i out of range" % index
                 )
-            return cls.asn1_object(uper_enum_values[index])
+            return cls.asn1_object(enum_values[index])
         lo, hi = cls._range(minimum, maximum, UPER_Decoding_Error)
         value = UPER_constrained_int_dec(dec, lo, hi)
         return cls.asn1_object(value)
@@ -1113,36 +1112,13 @@ ASN1_Class_UNIVERSAL.STRING.register(ASN1_Codecs.UPER, UPERcodec_STRING)
 ##############################
 
 
-def _uper_optionals(field):
-    # type: (Any) -> list
-    from scapy.asn1fields import ASN1F_optional
-    return [f for f in field.seq if isinstance(f, ASN1F_optional)]
-
-
 def _uper_canonical_choices(field):
-    # type: (Any) -> Tuple[list, Dict[Any, int]]
+    # type: (Any) -> list
     from scapy.asn1.ber import asn1_tag_parts
-    canon_items = sorted(
+    return sorted(
         field.choices.items(),
         key=lambda item: asn1_tag_parts(item[0])[:2],
     )
-    order = [alt for _tag, alt in canon_items]
-    index = {tag: i for i, (tag, _alt) in enumerate(canon_items)}
-    return order, index
-
-
-def _uper_schema_kwargs(field):
-    # type: (Any) -> Dict[str, Any]
-    kw = {
-        "minimum": field.minimum,
-        "maximum": field.maximum,
-        "extensible": field.extensible,
-        "unsigned": field.unsigned,
-    }  # type: Dict[str, Any]
-    i2s = getattr(field, "i2s", None)
-    if i2s is not None:
-        kw["uper_enum_values"] = sorted(i2s)
-    return kw
 
 
 def _uper_encode_leaf(bit_enc, field, pkt, value=None):
@@ -1167,13 +1143,13 @@ def _uper_encode_leaf(bit_enc, field, pkt, value=None):
         raw = value
     if isinstance(raw, str) and hasattr(field, "s2i"):
         raw = field.s2i[raw]
-    codec.encode_into(bit_enc, raw, **_uper_schema_kwargs(field))
+    codec.encode_into(bit_enc, raw, **field._codec_schema_kwargs())
 
 
 def _uper_decode_leaf(bit_dec, field, pkt):
     # type: (UPER_Decoder, Any, Any) -> Any
     codec = field.ASN1_tag.get_codec(ASN1_Codecs.UPER)
-    return codec.dec_from_decoder(bit_dec, **_uper_schema_kwargs(field))
+    return codec.dec_from_decoder(bit_dec, **field._codec_schema_kwargs())
 
 
 def _uper_encode_node(ctx, obj, pkt, value=None):
@@ -1227,7 +1203,6 @@ def _uper_decode_node(ctx, obj, pkt):
 
 class UPER_EncoderContext(object):
     """Bit-stream walker for UPER compound encode."""
-    codec = ASN1_Codecs.UPER
 
     def __init__(self):
         # type: () -> None
@@ -1246,7 +1221,7 @@ class UPER_EncoderContext(object):
         bit_enc = self.bit_encoder
         if field.extensible:
             bit_enc.append_bit(0)
-        optionals = _uper_optionals(field)
+        optionals = [f for f in field.seq if isinstance(f, ASN1F_optional)]
         for opt in optionals:
             bit_enc.append_bit(1 if opt.is_present(pkt) else 0)
         for obj in field.seq:
@@ -1322,11 +1297,13 @@ class UPER_EncoderContext(object):
             )
         if field.extensible:
             bit_enc.append_bit(0)
-        order, canon_index = _uper_canonical_choices(field)
-        canon_idx = canon_index[tag]
-        if len(order) > 1:
-            UPER_choice_index_enc(bit_enc, canon_idx, len(order))
-        choice = order[canon_idx]
+        choices = _uper_canonical_choices(field)
+        canon_idx = next(
+            i for i, (candidate, _) in enumerate(choices) if candidate == tag
+        )
+        if len(choices) > 1:
+            UPER_choice_index_enc(bit_enc, canon_idx, len(choices))
+        choice = choices[canon_idx][1]
         if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
             _uper_encode_node(self, value.ASN1_root, value)
         elif hasattr(choice, "cls"):
@@ -1349,7 +1326,6 @@ class UPER_EncoderContext(object):
 
 class UPER_DecoderContext(object):
     """Bit-stream walker for UPER compound decode."""
-    codec = ASN1_Codecs.UPER
 
     def __init__(self, data):
         # type: (bytes) -> None
@@ -1380,7 +1356,7 @@ class UPER_DecoderContext(object):
                 raise UPER_Decoding_Error(
                     "ASN1F_SEQUENCE: extension additions are not supported"
                 )
-        optionals = _uper_optionals(field)
+        optionals = [f for f in field.seq if isinstance(f, ASN1F_optional)]
         presence = [bit_dec.read_bit() for _ in optionals]
         opt_index = 0
         for obj in field.seq:
@@ -1448,17 +1424,17 @@ class UPER_DecoderContext(object):
                 raise UPER_Decoding_Error(
                     "ASN1F_CHOICE: extension additions are not supported"
                 )
-        order, _canon_index = _uper_canonical_choices(field)
-        if len(order) > 1:
-            index = UPER_choice_index_dec(bit_dec, len(order))
+        choices = _uper_canonical_choices(field)
+        if len(choices) > 1:
+            index = UPER_choice_index_dec(bit_dec, len(choices))
         else:
             index = 0
-        if index >= len(order):
+        if index >= len(choices):
             raise ASN1_Error(
                 "ASN1F_CHOICE: unexpected index %s in '%s'" %
                 (index, field.name)
             )
-        choice = order[index]
+        choice = choices[index][1]
         if isinstance(choice, type) and hasattr(choice, "ASN1_root"):
             p = choice()
             p.add_underlayer(pkt)

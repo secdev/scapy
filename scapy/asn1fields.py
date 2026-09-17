@@ -183,12 +183,16 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
     def _codec_schema_kwargs(self):
         # type: () -> Dict[str, Any]
         """Resolved schema parameters for OER/UPER primitive codecs."""
-        return {
+        kw = {
             "minimum": self.minimum,
             "maximum": self.maximum,
             "extensible": self.extensible,
             "unsigned": self.unsigned,
-        }
+        }  # type: Dict[str, Any]
+        i2s = getattr(self, "i2s", None)
+        if i2s is not None:
+            kw["enum_values"] = sorted(i2s)
+        return kw
 
     def m2i(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[_A, bytes]
@@ -208,18 +212,12 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
         decode = codec.safedec if self.flexible_tag else codec.dec
         if pkt.ASN1_codec is ASN1_Codecs.OER or pkt.ASN1_codec is ASN1_Codecs.UPER:
-            kw = self._codec_schema_kwargs()
-            if pkt.ASN1_codec is ASN1_Codecs.UPER:
-                i2s = getattr(self, "i2s", None)
-                if i2s is not None:
-                    kw = dict(kw)
-                    kw["uper_enum_values"] = sorted(i2s)
             return cast(
                 Tuple[_A, bytes],
                 decode(
                     s,
                     context=self.context,
-                    **kw,
+                    **self._codec_schema_kwargs(),
                 ),
             )
         return cast(
@@ -235,11 +233,6 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         item = x
         if pkt.ASN1_codec is ASN1_Codecs.OER or pkt.ASN1_codec is ASN1_Codecs.UPER:
             kw = self._codec_schema_kwargs()  # type: Dict[str, Any]
-            if pkt.ASN1_codec is ASN1_Codecs.UPER:
-                i2s = getattr(self, "i2s", None)
-                if i2s is not None:
-                    kw = dict(kw)
-                    kw["uper_enum_values"] = sorted(i2s)
         else:
             kw = {"size_len": self.size_len}
         if isinstance(item, ASN1_Object):
