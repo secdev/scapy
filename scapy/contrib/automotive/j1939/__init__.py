@@ -1,14 +1,30 @@
 # SPDX-License-Identifier: GPL-2.0-only
 # This file is part of Scapy
 # See https://scapy.net/ for more information
-# Copyright (C) 2026 Ben Gardiner <ben.l.gardiner@gmail.com>
+# Copyright (C) National Motor Freight Traffic Association Inc.
+#               <ben.l.gardiner@gmail.com>
 
-"""SAE J1939 Automotive Network Protocol Support.
+# scapy.contrib.description = SAE J1939 Transport Layer Socket & Diagnostics
+# scapy.contrib.status = loads
 
-This package provides protocol definitions, network discovery / scanner tools,
-diagnostic messaging (DM), and 64-bit NAME decoder for SAE J1939 heavy-duty
-commercial vehicle networks.
-"""
+from scapy.contrib.automotive.j1939.j1939_dm import (
+    J1939Dm1,
+    J1939Dm13,
+    J1939Dm14,
+    J1939Dm15,
+    J1939Dtc,
+    J1939_PGN_DM1,
+    J1939_PGN_DM13,
+    J1939_PGN_DM14,
+    J1939_PGN_DM15,
+)
+from scapy.contrib.automotive.j1939.j1939_dm_scanner import (
+    J1939PgnScanResult,
+    J1939_DM_PGNS,
+    J1939_PGN_VIN,
+    j1939_scan_dm,
+    j1939_scan_pgns,
+)
 from scapy.contrib.automotive.j1939.j1939_scanner import (
     J1939ScanResult,
     J1939_ACK_CTRL_ACCESS_DENIED,
@@ -43,6 +59,12 @@ from scapy.contrib.automotive.j1939.j1939_scanner import (
 )
 
 __all__ = [
+    "J1939Dm1",
+    "J1939Dm13",
+    "J1939Dm14",
+    "J1939Dm15",
+    "J1939Dtc",
+    "J1939PgnScanResult",
     "J1939ScanResult",
     "J1939_ACK_CTRL_ACCESS_DENIED",
     "J1939_ACK_CTRL_ACK",
@@ -51,7 +73,13 @@ __all__ = [
     "J1939_DEFAULT_BITRATE",
     "J1939_DEFAULT_BUSLOAD",
     "J1939_DIAGADAPTERS_ADDRESSES",
+    "J1939_DM_PGNS",
+    "J1939_PGN_DM1",
+    "J1939_PGN_DM13",
+    "J1939_PGN_DM14",
+    "J1939_PGN_DM15",
     "J1939_PGN_ECU_ID",
+    "J1939_PGN_VIN",
     "J1939_PGN_XCP",
     "J1939_SCAN_METHODS",
     "J1939_UDS_TESTER_PRESENT_REQS",
@@ -67,8 +95,10 @@ __all__ = [
     "j1939_sa_filter",
     "j1939_scan",
     "j1939_scan_addr_claim",
+    "j1939_scan_dm",
     "j1939_scan_ecu_id",
     "j1939_scan_passive",
+    "j1939_scan_pgns",
     "j1939_scan_rts_probe",
     "j1939_scan_uds",
     "j1939_scan_unicast",

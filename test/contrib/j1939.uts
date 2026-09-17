@@ -5302,22 +5302,22 @@ assert bam.answers(J1939(b'\xcb\xfe\x00', pgn=0xEA00)) == 0
 import struct
 import threading
 from scapy.layers.can import CAN
-from scapy.contrib.automotive.j1939 import (
+from scapy.contrib.automotive.j1939 import J1939Dm1
+from scapy.contrib.j1939 import (
     J1939,
     J1939Request,
     J1939Socket,
-    J1939_DM1,
-    J1939_TP_CM_PF,
     J1939_GLOBAL_ADDRESS,
-)
-from scapy.contrib.j1939 import (
+    J1939_PGN_TP_CM,
     J1939_TP_CTRL_ABORT,
     J1939_TP_CTRL_ACK,
     J1939_TP_CTRL_BAM,
     J1939_TP_CTRL_CTS,
     J1939_TP_CTRL_RTS,
+    j1939_to_can_id,
 )
-from scapy.contrib.j1939 import j1939_to_can_id
+
+J1939_TP_CM_PF = (J1939_PGN_TP_CM >> 8) & 0xFF
 
 def test_sr1_single_frame():
     with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor:
