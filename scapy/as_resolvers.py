@@ -38,7 +38,13 @@ class AS_resolver:
         self.s.connect((self.server, self.port))
         if self.options:
             self.s.send(self.options.encode("utf8") + b"\n")
-            self.s.recv(8192)
+            x = b""
+            while not (b"No entries found" in x or b"ERROR" in x or
+                       x.endswith(b"\n\n\n\n")):
+                d = self.s.recv(8192)
+                if not d:
+                    break
+                x += d
 
     def _stop(self):
         # type: () -> None

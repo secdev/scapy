@@ -10,7 +10,7 @@
 - Never declare a function that is only used once, unless it is meant to be a public API.
 - Avoid silent exception suppression (`try: ... except Exception: pass` or bare `except: pass`). Catch specific exception types (e.g., `(AttributeError, OSError)`). When the exception is unexpected, log the caught exception using `scapy.error.log_runtime.debug(...)` or the module's child logger (e.g., `protocol_log.debug(...)`), or document explicitly why suppression is necessary. Use WARNING or above only against bugs or unexpected behaviors.
 - Do not introduce backward-compatibility alias redefinitions for new or modified symbols introduced within the current branch or PR. Rename symbols directly at their original definition site and update all references across the codebase.
-- Adhere strictly to protocol prefix naming conventions: prefix lowercase functions and module-level variables with `<protocol>_` (e.g., `protocol_scan`, `protocol_log`), uppercase constants and registries with `<PROTOCOL>_` (e.g., `PROTOCOL_GLOBAL_ADDRESS`, `PROTOCOL_MANUFACTURERS`), and classes with `<Protocol>` (e.g., `ProtocolNativeSocket`).
+- Adhere strictly to protocol prefix naming conventions: prefix lowercase functions and module-level variables with `<protocol>_` (e.g., `protocol_scan`, `protocol_log`) with an exception for names of internal variables starting with an underscore, uppercase constants and registries with `<PROTOCOL>_` (e.g., `PROTOCOL_GLOBAL_ADDRESS`, `PROTOCOL_MANUFACTURERS`), and classes with `<Protocol>` (e.g., `ProtocolNativeSocket`).
 - Never import internal methods or constants (those starting with a leading underscore) across modules. If a function or constant is shared across multiple modules, make it public by removing the leading underscore and prefixing it with the protocol prefix.
 - Place all imports at the top of the file. Do not use local/deferred imports inside functions or methods unless strictly required to prevent circular import dependencies.
 - Keep all import blocks and `__all__` lists sorted alphabetically.
@@ -79,6 +79,9 @@ installed:
 Please note the following guidelines when adding tests:
 - Do not create a new `.uts` if there is already a file that contains tests for that layer. Only create a `.uts` file when no previous tests exist for that layer.
 - When adding tests to an existing `.uts` file, try to place the tests contextually close to tests that are related to the same or similar features.
+- When writing test reconnect or reset handlers that rebind socket variables in an enclosing scope, ensure `nonlocal` is declared to prevent `UnboundLocalError` inside exception-handling blocks from silently bypassing socket closure and unpairing.
+- When managing paired test sockets or simulated buses (`TestSocket`, `UnstableSocket`, `ObjectPipe`), explicitly close and unpair discarded sockets, and drain or clear reusable shared pipes (`pipe.clear()`) across reconnections to avoid socket leaks and duplicate frame deliveries.
+- Tests relying on external network services (e.g., `whois`) must allow for upstream rate limits and query quota errors (such as RIPE `%ERROR:` responses) to avoid intermittent failures on CI runners.
 
 ## Check source changes
 
