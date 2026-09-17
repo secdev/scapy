@@ -3421,7 +3421,7 @@ assert _dpf_pkts[0].pgn == _dpf_pgn, \
 
 = J1939SoftSocket – SlowTestSocket imports
 
-from test.testsocket import SlowTestSocket
+from test.testsocket import SlowTestSocket, TestSocket
 
 = J1939SoftSocket – BAM receive via SlowTestSocket (serial-buffer path)
 # J1939SoftSocket uses a SlowTestSocket as its CAN socket.  Frames injected
@@ -3483,6 +3483,77 @@ _slbt_reassembled = b''.join(
 )[:20]
 assert _slbt_reassembled == _slbt_payload, \
     "BAM TX SlowTestSocket payload mismatch: %r" % _slbt_reassembled
+
+= J1939SoftSocket – BAM transmit via SlowTestSocket under slcan-like backlog (race amplification)
+# Stress the close/send race window by repeatedly running BAM TX over a
+# slcan-like SlowTestSocket profile with background backlog queued ahead of
+# the J1939 socket receive loop.
+
+_slra_failures = []
+for _slra_iter in range(8):
+    with SlowTestSocket(
+            CAN,
+            frame_delay=0.0025,
+            mux_throttle=0.001,
+            serial_timeout=0.1,
+            read_time_limit=0.02,
+            interface_name="slcan",
+    ) as slow_cans, TestSocket(CAN) as peer:
+        slow_cans.pair(peer)
+        # Pre-fill the serial buffer with unrelated PDU1 traffic so can_recv
+        # must drain a realistic slcan backlog before and during shutdown.
+        for _slra_bg in range(200):
+            peer.send(J1939_CAN(priority=6, pdu_format=0x01,
+                                pdu_specific=0x99, src=0x50,
+                                data=bytes(8)))
+        with J1939SoftSocket(slow_cans, src_addr=0x31) as sock:
+            _slra_payload = bytes(range(20))
+            sock.send(J1939(_slra_payload, pgn=0xFECA,
+                            dst=_socket.J1939_NO_ADDR, priority=6))
+        _slra_pkts = peer.sniff(count=4, timeout=8)
+        if len(_slra_pkts) != 4:
+            _slra_failures.append((int(_slra_iter), int(len(_slra_pkts))))
+            continue
+        _slra_reassembled = b''.join(
+            J1939_TP_DT(J1939_CAN(bytes(p)).data).data
+            for p in _slra_pkts[1:]
+        )[:20]
+        if _slra_reassembled != _slra_payload:
+            _slra_failures.append((int(_slra_iter), -1))
+
+assert not _slra_failures, \
+    "slcan-like BAM TX race stress failures (iter, frames): %r" % _slra_failures
+
+= J1939SoftSocket – scheduler lifecycle under rapid close/reopen
+# Mirrors the ISO-TP close/reopen scheduler verification style: each cycle
+# closes one socket and immediately opens another on the same CAN adapter.
+# The second send must not be orphaned.
+
+import socket as _socket
+
+_sl_sched_failures = []
+for _sls_iter in range(1):
+    with SlowTestSocket(
+            CAN,
+            frame_delay=0.0025,
+            mux_throttle=0.001,
+            serial_timeout=0.1,
+            read_time_limit=0.02,
+            interface_name="slcan",
+    ) as slow_cans, TestSocket(CAN) as peer:
+        slow_cans.pair(peer)
+        with J1939SoftSocket(slow_cans, src_addr=0x32) as sock:
+            sock.send(J1939(bytes(range(20)), pgn=0xFECA,
+                            dst=_socket.J1939_NO_ADDR, priority=6))
+        with J1939SoftSocket(slow_cans, src_addr=0x33) as sock2:
+            sock2.send(J1939(bytes(range(20)), pgn=0xFECA,
+                             dst=_socket.J1939_NO_ADDR, priority=6))
+        _sls_pkts = peer.sniff(count=8, timeout=3.0)
+        if len(_sls_pkts) != 8:
+            _sl_sched_failures.append((int(_sls_iter), int(len(_sls_pkts))))
+
+assert not _sl_sched_failures, \
+    "close/reopen scheduler failures (iter, frames): %r" % _sl_sched_failures
 
 = J1939SoftSocket – BAM receive via SlowTestSocket with background CAN traffic
 # Background PDU1 frames (unicast to a different address) are injected into
