@@ -315,6 +315,7 @@ class Ecu(object):
         self.__supported_response_index = defaultdict(
             list
         )  # type: Dict[Tuple[Type[Packet], bytes], List[EcuResponse]]
+        self.__indexed_count = 0
         self.__unanswered_packets = PacketList()
 
     def reset(self):
@@ -393,11 +394,14 @@ class Ecu(object):
             if not self.store_supported_responses:
                 continue
 
-            if len(self.__supported_responses) <= 1:
-                known_responses = self.__supported_responses
-            else:
-                response_key = (resp.__class__, bytes(resp))
-                known_responses = self.__supported_response_index[response_key]
+            if len(self.__supported_responses) != self.__indexed_count:
+                self.__supported_response_index.clear()
+                for known in self.__supported_responses:
+                    key = (known.key_response.__class__, bytes(known.key_response))
+                    self.__supported_response_index[key].append(known)
+                self.__indexed_count = len(self.__supported_responses)
+            response_key = (resp.__class__, bytes(resp))
+            known_responses = self.__supported_response_index[response_key]
 
             for sup_resp in known_responses:
                 if resp != sup_resp.key_response or not sup_resp.answers(req):
@@ -411,13 +415,13 @@ class Ecu(object):
                 continue
 
             ecu_resp = EcuResponse(
-                current_state, responses=resp,
+                current_state, responses=resp.copy(),
                 security_key=_security_access_key(req))
-            response_key = (resp.__class__, bytes(resp))
             self.__supported_response_index[response_key].append(ecu_resp)
             if self.verbose:
                 print("[+] ", repr(ecu_resp))
             self.__supported_responses.append(ecu_resp)
+            self.__indexed_count = len(self.__supported_responses)
 
     @staticmethod
     def sort_key_func(resp):

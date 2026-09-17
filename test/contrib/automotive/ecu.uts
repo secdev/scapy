@@ -684,6 +684,45 @@ ecu.update(EcuLookupPacket(kind=0, identifier=32))
 ecu.update(EcuLookupPacket(kind=1, identifier=32))
 assert EcuLookupPacket.comparisons <= 1
 
+= Editing a packet returned by EcuSession does not duplicate a learned response
+
+session = EcuSession(logging=False, verbose=False, store_supported_responses=True)
+returned = []
+for identifier in [1, 2]:
+    returned.append(session.process(UDS(b"\x22\x00" + bytes([identifier]))))
+    returned.append(session.process(UDS(b"\x62\x00" + bytes([identifier]) + b"A")))
+
+assert len(session.ecu.supported_responses) == 2
+
+# learning the same exchange again must still deduplicate
+session.process(UDS(b"\x22\x00\x01"))
+session.process(UDS(b"\x62\x00\x01A"))
+assert len(session.ecu.supported_responses) == 2
+
+# the caller edits a packet EcuSession handed back to it
+returned[1].dataIdentifier = 0x270f
+session.process(UDS(b"\x22\x27\x0f"))
+session.process(UDS(b"\x62\x27\x0fA"))
+
+wire = [bytes(r.key_response) for r in session.ecu.supported_responses]
+assert len(wire) == len(set(wire)), wire
+
+= Removing a stored response keeps the lookup in step with the list
+
+ecu = Ecu(logging=False, verbose=False)
+for identifier in [1, 2, 3]:
+    ecu.update(UDS(b"\x22\x00" + bytes([identifier])))
+    ecu.update(UDS(b"\x62\x00" + bytes([identifier]) + b"A"))
+
+assert len(ecu.supported_responses) == 3
+ecu.supported_responses.pop(0)
+assert len(ecu.supported_responses) == 2
+
+# the removed response is seen again and must be learned afresh
+ecu.update(UDS(b"\x22\x00\x01"))
+ecu.update(UDS(b"\x62\x00\x01A"))
+assert len(ecu.supported_responses) == 3, [bytes(r.key_response) for r in ecu.supported_responses]
+
 + EcuSession tests
 
 = Unsupported UDS memory address length does not stop EcuSession
