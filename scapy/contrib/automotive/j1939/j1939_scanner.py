@@ -121,6 +121,7 @@ if TYPE_CHECKING:
     from threading import Event
 
 from scapy.contrib.automotive.ecu import EcuState
+from scapy.contrib.automotive.j1939.j1939_name import J1939Name
 from scapy.contrib.automotive.scanner.executor import AutomotiveTestCaseExecutor
 from scapy.contrib.automotive.scanner.test_case import (
     AutomotiveTestCase,
@@ -1700,6 +1701,133 @@ def j1939_scan(
         scanner.configuration.stop_event = stop_event
     scanner.scan()
     return scanner.get_results(verbose=verbose)
+
+
+def j1939_request_name(
+    sock,  # type: SuperSocket
+    target_da=J1939_GLOBAL_ADDRESS,  # type: int
+    src_addr=0xF1,  # type: int
+    sniff_time=0.3,  # type: float
+    bitrate=None,  # type: Optional[int]
+    busload=J1939_DEFAULT_BUSLOAD,  # type: float
+    reconnect_handler=None,  # type: Optional[Callable[[], SuperSocket]]
+):
+    # type: (...) -> Union[Optional[J1939Name], Dict[int, J1939Name]]
+    """Request and decode J1939 NAME for a given destination address (or broadcast).
+
+    Sends a Request (PGN 59904, 0xEA00) for Address Claimed (PGN 60928, 0xEE00)
+    to *target_da* using source address *src_addr*.
+
+    If *target_da* is a specific address (0x00..0xFD), waits for the Address
+    Claimed response from that address and returns a :class:`J1939Name` object
+    (or ``None`` if timed out).
+
+    If *target_da* is the broadcast address (:data:`J1939_GLOBAL_ADDRESS` = 0xFF),
+    sniffs for all responses and returns a dictionary ``{sa: J1939Name}``.
+    """
+    if bitrate is None:
+        bitrate = getattr(sock, "bitrate", None)
+        if bitrate is None:
+            can_bus = getattr(sock, "ins", None)
+            bitrate = getattr(can_bus, "bitrate", None)
+        if bitrate is None:
+            bitrate = J1939_DEFAULT_BITRATE
+
+    req = J1939(
+        pgn=J1939_PGN_REQUEST, dst=target_da, src=src_addr
+    ) / J1939Request(
+        req_pgn=J1939_PGN_ADDRESS_CLAIMED
+    )
+
+    if target_da == J1939_GLOBAL_ADDRESS:
+        # Broadcast request
+        found = {}  # type: Dict[int, J1939Name]
+        with j1939_get_sock(
+            sock, src_addr=src_addr, reconnect_handler=reconnect_handler
+        ) as j_sock:
+            log_j1939.debug(
+                "j1939_request_name: broadcast request sent (CAN-ID=0x%08X)",
+                req.to_can_id(),
+            )
+            ans, _ = j_sock.sr(req, multi=True, timeout=sniff_time, verbose=False)
+            for _, rcv in ans:
+                if rcv.pgn == J1939_PGN_ADDRESS_CLAIMED:
+                    if J1939Name in rcv and rcv.src not in found:
+                        found[rcv.src] = rcv[J1939Name]
+            return found
+    else:
+        # Unicast request to target_da
+        with j1939_get_sock(
+            sock,
+            src_addr=src_addr,
+            reconnect_handler=reconnect_handler,
+            target_sa=target_da,
+        ) as j_sock:
+            log_j1939.debug(
+                "j1939_request_name: unicast request sent to DA=0x%02X (CAN-ID=0x%08X)",
+                target_da,
+                req.to_can_id(),
+            )
+            rcv = j_sock.sr1(req, timeout=sniff_time, verbose=False)
+            if rcv is not None:
+                j1939_check_rx_filter_warning(rcv, target_da, [sock, j_sock])
+            _extra = j1939_inter_probe_delay(bitrate, busload, 3, 8, sniff_time)
+            if _extra > 0.0:
+                time.sleep(_extra)
+            if rcv is not None and J1939Name in rcv:
+                return rcv[J1939Name]
+            return None
+
+
+def j1939_request_names(
+    sock,  # type: SuperSocket
+    target_das=None,  # type: Optional[Iterable[int]]
+    src_addr=0xF1,  # type: int
+    sniff_time=0.3,  # type: float
+    bitrate=None,  # type: Optional[int]
+    busload=J1939_DEFAULT_BUSLOAD,  # type: float
+    reconnect_handler=None,  # type: Optional[Callable[[], SuperSocket]]
+):
+    # type: (...) -> Dict[int, Optional[J1939Name]]
+    """Request and decode J1939 NAMEs for multiple target Destination Addresses.
+
+    :param sock: raw CAN socket or socket factory
+    :param target_das: iterable of destination addresses to probe. If None,
+                       a single broadcast request is issued.
+    :param src_addr: scanner source address
+    :param sniff_time: timeout per probe
+    :param bitrate: bus bitrate in bit/s (optional, auto-detected from socket)
+    :param busload: max busload fraction
+    :param reconnect_handler: optional socket factory called per probe
+    :returns: mapping ``{da: J1939Name or None}``
+    """
+    if target_das is None:
+        broadcast_res = j1939_request_name(
+            sock,
+            target_da=J1939_GLOBAL_ADDRESS,
+            src_addr=src_addr,
+            sniff_time=sniff_time,
+            bitrate=bitrate,
+            busload=busload,
+            reconnect_handler=reconnect_handler,
+        )
+        return broadcast_res if isinstance(broadcast_res, dict) else {}
+
+    results = {}  # type: Dict[int, Optional[J1939Name]]
+    for da in target_das:
+        res = j1939_request_name(
+            sock,
+            target_da=da,
+            src_addr=src_addr,
+            sniff_time=sniff_time,
+            bitrate=bitrate,
+            busload=busload,
+            reconnect_handler=reconnect_handler,
+        )
+        results[da] = res if isinstance(res, J1939Name) else None
+    return results
+
+
 __all__ = [
     "J1939ScanResult",
     "J1939_ACK_CTRL_ACCESS_DENIED",
@@ -1730,6 +1858,8 @@ __all__ = [
     "j1939_get_sock",
     "j1939_inter_probe_delay",
     "j1939_reconnect_with_retry",
+    "j1939_request_name",
+    "j1939_request_names",
     "j1939_sa_filter",
     "j1939_scan",
     "j1939_scan_addr_claim",
