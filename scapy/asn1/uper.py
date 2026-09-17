@@ -944,7 +944,7 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
         return lo, maximum
 
 
-class UPERcodec_SEQUENCE(UPERcodec_Object[Union[bytes, List[Any]]]):
+class UPERcodec_SEQUENCE(UPERcodec_Object[bytes]):
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
 
     @classmethod
@@ -959,7 +959,7 @@ class UPERcodec_SEQUENCE(UPERcodec_Object[Union[bytes, List[Any]]]):
 
     @classmethod
     def enc(cls, _ll, **_kwargs):
-        # type: (Union[bytes, List[UPERcodec_Object[Any]]], **Any) -> bytes
+        # type: (bytes, **Any) -> bytes
         if isinstance(_ll, bytes):
             return _ll
         raise UPER_Encoding_Error(
@@ -968,7 +968,7 @@ class UPERcodec_SEQUENCE(UPERcodec_Object[Union[bytes, List[Any]]]):
 
     @classmethod
     def dec_from_decoder(cls, dec, **_kwargs):
-        # type: (UPER_Decoder, **Any) -> ASN1_Object[Union[bytes, List[Any]]]
+        # type: (UPER_Decoder, **Any) -> ASN1_Object[bytes]
         raise UPER_Decoding_Error(
             "UPERcodec_SEQUENCE: decoding requires schema-defined field order",
             remaining=dec.remaining()
@@ -1150,7 +1150,7 @@ def _uper_decode_leaf(bit_dec, field, pkt):
 
 
 def _uper_encode_node(ctx, obj, pkt, value=None):
-    # type: (UPER_EncoderContext, Any, Any, Any) -> None
+    # type: (_UPEREncoderContext, Any, Any, Any) -> None
     from scapy.asn1fields import (
         ASN1F_CHOICE,
         ASN1F_PACKET,
@@ -1175,7 +1175,7 @@ def _uper_encode_node(ctx, obj, pkt, value=None):
 
 
 def _uper_decode_node(ctx, obj, pkt):
-    # type: (UPER_DecoderContext, Any, Any) -> None
+    # type: (_UPERDecoderContext, Any, Any) -> None
     from scapy.asn1fields import (
         ASN1F_CHOICE,
         ASN1F_PACKET,
@@ -1198,7 +1198,7 @@ def _uper_decode_node(ctx, obj, pkt):
         obj.set_val(pkt, _uper_decode_leaf(ctx.bit_decoder, obj, pkt))
 
 
-class UPER_EncoderContext(object):
+class _UPEREncoderContext(object):
     """Bit-stream walker for UPER compound encode."""
 
     def __init__(self):
@@ -1321,7 +1321,7 @@ class UPER_EncoderContext(object):
         _uper_encode_node(self, value.ASN1_root, value)
 
 
-class UPER_DecoderContext(object):
+class _UPERDecoderContext(object):
     """Bit-stream walker for UPER compound decode."""
 
     def __init__(self, data):

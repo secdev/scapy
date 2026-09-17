@@ -9,7 +9,7 @@
 import scapy.asn1.uper
 
 from scapy.asn1.uper import *
-from scapy.asn1.uper import UPER_EncoderContext, UPER_DecoderContext
+from scapy.asn1.uper import _UPEREncoderContext, _UPERDecoderContext
 
 from scapy.packet import raw
 
@@ -2206,7 +2206,7 @@ assert decoded.id.val == 2
 
 assert decoded.extra.val == 3
 
-dec = UPER_DecoderContext(b"\x80")
+dec = _UPERDecoderContext(b"\x80")
 
 _raises(
     UPER_Decoding_Error,
@@ -2224,7 +2224,7 @@ choice = _ExtChoice(c=ASN1_INTEGER(4))
 
 assert raw(choice)
 
-dec = UPER_DecoderContext(b"\x80")
+dec = _UPERDecoderContext(b"\x80")
 
 _raises(
     UPER_Decoding_Error,
@@ -2321,7 +2321,7 @@ class _UperSeqOfSeq(ASN1_Packet):
 _raises(UPER_Encoding_Error, lambda: raw(_UperSeqOfSeq(items=[])))
 _raises(
     UPER_Decoding_Error,
-    lambda: UPER_DecoderContext(b"\x00").decode_sequence_of(
+    lambda: _UPERDecoderContext(b"\x00").decode_sequence_of(
         _UperSeqOfSeq.ASN1_root, _UperSeqOfSeq(),
     ),
 )
@@ -2422,7 +2422,7 @@ _raises(
 
 _raises(
     ASN1_Error,
-    lambda: UPER_EncoderContext().encode_choice(
+    lambda: _UPEREncoderContext().encode_choice(
         _PerChoice.ASN1_root, _PerChoice(), 42,
     ),
 )
@@ -2782,7 +2782,7 @@ class _ExtChoice(ASN1_Packet):
         extensible=True,
     )
 
-dec = UPER_DecoderContext(b"\x80")
+dec = _UPERDecoderContext(b"\x80")
 
 _raises(
     UPER_Decoding_Error,
@@ -2919,7 +2919,7 @@ True
 = uper field encode nesting
 built = UPERWrappedPacket(id=1, inner=UPERInnerPacket(x=7))
 
-enc = UPER_EncoderContext()
+enc = _UPEREncoderContext()
 
 enc.encode_sequence(UPERWrappedPacket.ASN1_root, built)
 
@@ -2927,7 +2927,7 @@ assert enc.finish() == raw(built)
 
 empty = UPERWrappedPacket()
 
-UPER_DecoderContext(raw(built)).decode_sequence(
+_UPERDecoderContext(raw(built)).decode_sequence(
     UPERWrappedPacket.ASN1_root, empty,
 )
 
@@ -3686,11 +3686,11 @@ _raises(UPER_Encoding_Error, lambda: UPERcodec_GENERALIZED_TIME.enc(
 
 = CHOICE encode_choice does not mutate packet fields
 import copy
-from scapy.asn1.uper import UPER_EncoderContext
+from scapy.asn1.uper import _UPEREncoderContext
 
 pkt = UPERChoiceField(c=ASN1_INTEGER(1))
 before = copy.copy(pkt.fields)
-enc = UPER_EncoderContext()
+enc = _UPEREncoderContext()
 enc.encode_choice(pkt.ASN1_root, pkt, value=ASN1_INTEGER(9))
 assert pkt.fields == before
 assert enc.finish() == bytes.fromhex("008480")

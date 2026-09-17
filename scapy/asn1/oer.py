@@ -45,7 +45,6 @@ from typing import (
     Any,
     AnyStr,
     Generic,
-    List,
     Optional,
     Tuple,
     Type,
@@ -107,32 +106,6 @@ def OER_len_dec(s):
         )
     ll = int.from_bytes(s[1:tmp_len + 1], "big")
     return ll, s[tmp_len + 1:]
-
-
-def _OER_signed_integer_enc(i):
-    # type: (int) -> bytes
-    from scapy.asn1.intutil import twos_complement_octets
-    number_of_bytes, value = twos_complement_octets(i)
-    return OER_len_enc(number_of_bytes) + value.to_bytes(number_of_bytes, "big")
-
-
-def _OER_signed_integer_dec(s):
-    # type: (bytes) -> Tuple[int, bytes]
-    from scapy.asn1.intutil import from_twos_complement
-    number_of_bytes, s = OER_len_dec(s)
-    if len(s) < number_of_bytes:
-        raise OER_Decoding_Error(
-            "_OER_signed_integer_dec: Got %i bytes while expecting %i" %
-            (len(s), number_of_bytes),
-            remaining=s
-        )
-    if number_of_bytes == 0:
-        raise OER_Decoding_Error(
-            "_OER_signed_integer_dec: got an empty length determinant",
-            remaining=s
-        )
-    value = int.from_bytes(s[:number_of_bytes], "big")
-    return from_twos_complement(value, number_of_bytes), s[number_of_bytes:]
 
 
 def OER_unsigned_integer_enc(i):
@@ -424,7 +397,9 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
                 )
         if unsigned_flag:
             return OER_unsigned_integer_enc(i)
-        return _OER_signed_integer_enc(i)
+        from scapy.asn1.intutil import twos_complement_octets
+        number_of_bytes, value = twos_complement_octets(i)
+        return OER_len_enc(number_of_bytes) + value.to_bytes(number_of_bytes, "big")
 
     @classmethod
     def do_dec(cls,
@@ -458,7 +433,22 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
         elif unsigned_flag:
             x, t = OER_unsigned_integer_dec(s)
         else:
-            x, t = _OER_signed_integer_dec(s)
+            from scapy.asn1.intutil import from_twos_complement
+            number_of_bytes, t = OER_len_dec(s)
+            if len(t) < number_of_bytes:
+                raise OER_Decoding_Error(
+                    "%s: Got %i bytes while expecting %i" %
+                    (cls.__name__, len(t), number_of_bytes),
+                    remaining=t,
+                )
+            if number_of_bytes == 0:
+                raise OER_Decoding_Error(
+                    "%s: got an empty length determinant" % cls.__name__,
+                    remaining=t,
+                )
+            value = int.from_bytes(t[:number_of_bytes], "big")
+            x = from_twos_complement(value, number_of_bytes)
+            t = t[number_of_bytes:]
         if minimum is not None and x < minimum:
             raise OER_Decoding_Error(
                 "%s: %i is below minimum %i" %
@@ -859,12 +849,12 @@ class OERcodec_BMP_STRING(OERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.BMP_STRING
 
 
-class OERcodec_SEQUENCE(OERcodec_Object[Union[bytes, List['OERcodec_Object[Any]']]]):
+class OERcodec_SEQUENCE(OERcodec_Object[bytes]):
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
 
     @classmethod
     def enc(cls, _ll, **_kwargs):
-        # type: (Union[bytes, List[OERcodec_Object[Any]]], **Any) -> bytes
+        # type: (bytes, **Any) -> bytes
         if isinstance(_ll, bytes):
             return _ll
         raise OER_Encoding_Error(
@@ -878,7 +868,7 @@ class OERcodec_SEQUENCE(OERcodec_Object[Union[bytes, List['OERcodec_Object[Any]'
                safe=False,  # type: bool
                **_kwargs  # type: Any
                ):
-        # type: (...) -> Tuple[ASN1_Object[Union[bytes, List[Any]]], bytes]
+        # type: (...) -> Tuple[ASN1_Object[bytes], bytes]
         raise OER_Decoding_Error(
             "OERcodec_SEQUENCE: decoding requires schema-defined field order",
             remaining=s

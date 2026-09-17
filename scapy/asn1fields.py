@@ -580,8 +580,8 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
     def m2i(self, pkt, s):
         # type: (Any, bytes) -> Tuple[Any, bytes]
         if pkt.ASN1_codec is ASN1_Codecs.UPER:
-            from scapy.asn1.uper import UPER_DecoderContext, UPER_Decoding_Error
-            dec = UPER_DecoderContext(s)
+            from scapy.asn1.uper import _UPERDecoderContext, UPER_Decoding_Error
+            dec = _UPERDecoderContext(s)
             dec.decode_sequence(self, pkt)
             remain = dec.remaining()
             if remain:
@@ -596,8 +596,8 @@ class ASN1F_SEQUENCE(ASN1F_field[List[Any], List[Any]]):
     def build(self, pkt):
         # type: (ASN1_Packet) -> bytes
         if pkt.ASN1_codec is ASN1_Codecs.UPER:
-            from scapy.asn1.uper import UPER_EncoderContext
-            enc = UPER_EncoderContext()
+            from scapy.asn1.uper import _UPEREncoderContext
+            enc = _UPEREncoderContext()
             enc.encode_sequence(self, pkt)
             return cast(bytes, enc.finish())
         if pkt.ASN1_codec is ASN1_Codecs.OER:
@@ -778,19 +778,27 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
     def m2i(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[List[Any], bytes]
         if pkt.ASN1_codec is ASN1_Codecs.UPER:
-            from scapy.asn1.uper import UPER_DecoderContext
-            dec = UPER_DecoderContext(s)
+            from scapy.asn1.uper import _UPERDecoderContext
+            dec = _UPERDecoderContext(s)
             dec.decode_sequence_of(self, pkt)
             return getattr(pkt, self.name), dec.remaining()
         if pkt.ASN1_codec is ASN1_Codecs.OER:
             return self._oer_m2i(pkt, s)
-        return self._ber_m2i(pkt, s)
+        s = self._apply_tagging_dec(s, pkt)
+        codec = self.ASN1_tag.get_codec(ASN1_Codecs.BER)
+        _i, s, remain = codec.check_type_check_len(s)
+        lst = []
+        while s:
+            c, s = self._extract_packet(s, pkt)  # type: ignore
+            if c:
+                lst.append(c)
+        return lst, remain
 
     def build(self, pkt):
         # type: (ASN1_Packet) -> bytes
         if pkt.ASN1_codec is ASN1_Codecs.UPER:
-            from scapy.asn1.uper import UPER_EncoderContext
-            enc = UPER_EncoderContext()
+            from scapy.asn1.uper import _UPEREncoderContext
+            enc = _UPEREncoderContext()
             enc.encode_sequence_of(self, pkt)
             return cast(bytes, enc.finish())
         if pkt.ASN1_codec is ASN1_Codecs.OER:
@@ -805,18 +813,6 @@ class ASN1F_SEQUENCE_OF(ASN1F_field[List[_SEQ_T],
         else:
             s = b"".join(self.fld.i2m(pkt, i) for i in val)
         return self.i2m(pkt, s)
-
-    def _ber_m2i(self, pkt, s):
-        # type: (ASN1_Packet, bytes) -> Tuple[List[Any], bytes]
-        s = self._apply_tagging_dec(s, pkt)
-        codec = self.ASN1_tag.get_codec(ASN1_Codecs.BER)
-        _i, s, remain = codec.check_type_check_len(s)
-        lst = []
-        while s:
-            c, s = self._extract_packet(s, pkt)  # type: ignore
-            if c:
-                lst.append(c)
-        return lst, remain
 
     def _oer_build(self, pkt):
         # type: (ASN1_Packet) -> bytes
@@ -1088,8 +1084,8 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         if len(s) == 0:
             raise ASN1_Error("ASN1F_CHOICE: got empty string")
         if pkt.ASN1_codec is ASN1_Codecs.UPER:
-            from scapy.asn1.uper import UPER_DecoderContext
-            dec = UPER_DecoderContext(s)
+            from scapy.asn1.uper import _UPERDecoderContext
+            dec = _UPERDecoderContext(s)
             dec.decode_choice(self, pkt)
             return getattr(pkt, self.name), dec.remaining()
         if pkt.ASN1_codec is ASN1_Codecs.OER:
@@ -1099,8 +1095,8 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
     def build(self, pkt):
         # type: (ASN1_Packet) -> bytes
         if pkt.ASN1_codec is ASN1_Codecs.UPER:
-            from scapy.asn1.uper import UPER_EncoderContext
-            enc = UPER_EncoderContext()
+            from scapy.asn1.uper import _UPEREncoderContext
+            enc = _UPEREncoderContext()
             enc.encode_choice(self, pkt)
             return cast(bytes, enc.finish())
         if pkt.ASN1_codec is ASN1_Codecs.OER:
@@ -1251,18 +1247,29 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
     def m2i(self, pkt, s):
         # type: (ASN1_Packet, bytes) -> Tuple[Any, bytes]
         if pkt.ASN1_codec is ASN1_Codecs.UPER:
-            from scapy.asn1.uper import UPER_DecoderContext
-            dec = UPER_DecoderContext(s)
+            from scapy.asn1.uper import _UPERDecoderContext
+            dec = _UPERDecoderContext(s)
             dec.decode_packet(self, pkt)
             return getattr(pkt, self.name), dec.remaining()
         # BER and OER share nested-packet tagging.
-        return self._nested_m2i(pkt, s)
+        from scapy.asn1packet import ASN1_Packet as _ASN1_Packet
+        cls = (self.next_cls_cb(pkt) or self.cls) if self.next_cls_cb else self.cls
+        if not issubclass(cls, _ASN1_Packet):
+            return self.extract_packet(cls, s, _underlayer=pkt, _parent=pkt)
+        s = self._apply_tagging_dec(
+            s, pkt,
+            hidden_tag=cls.ASN1_root.ASN1_tag,
+            _fname=self.name,
+        )
+        if not s:
+            return None, s
+        return self.extract_packet(cls, s, _underlayer=pkt, _parent=pkt)
 
     def build(self, pkt):
         # type: (ASN1_Packet) -> bytes
         if pkt.ASN1_codec is ASN1_Codecs.UPER:
-            from scapy.asn1.uper import UPER_EncoderContext
-            enc = UPER_EncoderContext()
+            from scapy.asn1.uper import _UPEREncoderContext
+            enc = _UPEREncoderContext()
             enc.encode_packet(self, pkt)
             return cast(bytes, enc.finish())
         value = getattr(pkt, self.name)
@@ -1279,21 +1286,6 @@ class ASN1F_PACKET(ASN1F_field['ASN1_Packet', Optional['ASN1_Packet']]):
                 return s
         imp, exp = self._tagging_tags(pkt)
         return self._tagging_enc(pkt, s, implicit_tag=imp, explicit_tag=exp)
-
-    def _nested_m2i(self, pkt, s):
-        # type: (ASN1_Packet, bytes) -> Tuple[Any, bytes]
-        from scapy.asn1packet import ASN1_Packet as _ASN1_Packet
-        cls = (self.next_cls_cb(pkt) or self.cls) if self.next_cls_cb else self.cls
-        if not issubclass(cls, _ASN1_Packet):
-            return self.extract_packet(cls, s, _underlayer=pkt, _parent=pkt)
-        s = self._apply_tagging_dec(
-            s, pkt,
-            hidden_tag=cls.ASN1_root.ASN1_tag,
-            _fname=self.name,
-        )
-        if not s:
-            return None, s
-        return self.extract_packet(cls, s, _underlayer=pkt, _parent=pkt)
 
     def any2i(self,
               pkt,  # type: ASN1_Packet
