@@ -153,7 +153,7 @@ class ASN1F_field(ASN1F_element, Generic[_I, _A]):
         # or add decode metadata such as _fname.
         if hidden_tag is None:
             hidden_tag = self.ASN1_tag
-        # Codec provides tagging_*; OER/UPER register identity helpers.
+        # Codec provides tagging_*; absent handlers are a no-op (OER/UPER).
         diff_tag, s = pkt.ASN1_codec.tagging_dec(
             s,
             hidden_tag=hidden_tag,
@@ -1045,7 +1045,6 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
         )
         self.default = default
         self.choices = {}  # type: Dict[int, _CHOICE_T]
-        self.pktchoices = {}  # type: Dict[type, Tuple[Optional[int], Optional[int]]]
         for p in args:
             if hasattr(p, "ASN1_root"):
                 p = cast('ASN1_Packet', p)
@@ -1064,7 +1063,6 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                 else:
                     # should be ASN1F_PACKET instance
                     self.choices[p.network_tag] = p
-                    self.pktchoices[p.cls] = (p.implicit_tag, p.explicit_tag)
             else:
                 raise ASN1_Error("ASN1F_CHOICE: no tag found for one field")
 
@@ -1119,9 +1117,15 @@ class ASN1F_CHOICE(ASN1F_field[_CHOICE_T, ASN1_Object[Any]]):
                 s = value.enc(pkt.ASN1_codec)
             else:
                 s = bytes(value)
-            if type(value) in self.pktchoices:
-                imp, exp = self.pktchoices[type(value)]
-                s = self._tagging_enc(pkt, s, implicit_tag=imp, explicit_tag=exp)
+            tag = self.alternative_tag(value)
+            if tag is not None:
+                choice = self.choices[tag]
+                if not isinstance(choice, type) and hasattr(choice, "cls"):
+                    s = self._tagging_enc(
+                        pkt, s,
+                        implicit_tag=choice.implicit_tag,
+                        explicit_tag=choice.explicit_tag,
+                    )
         _imp, exp = self._tagging_tags(pkt)
         return self._tagging_enc(pkt, s, explicit_tag=exp)
 

@@ -9,6 +9,10 @@
 import scapy.asn1.oer
 
 from scapy.asn1.oer import *
+from scapy.asn1.oer import (
+    _OER_signed_integer_dec,
+    _OER_signed_integer_enc,
+)
 
 from scapy.packet import raw
 
@@ -131,7 +135,7 @@ INTEGER_VECTORS = [
     ("B", 1, lambda v: OERcodec_INTEGER.enc(v, minimum=-128, maximum=127), b"\x01"),
     ("K", 1, lambda v: OER_unsigned_integer_enc(v), b"\x01\x01"),
     ("K", 128, lambda v: OER_unsigned_integer_enc(v), b"\x01\x80"),
-    ("L", -128, lambda v: OER_signed_integer_enc(v), b"\x01\x80"),
+    ("L", -128, lambda v: _OER_signed_integer_enc(v), b"\x01\x80"),
 ]
 
 BOOLEAN_VECTORS = [
@@ -393,13 +397,13 @@ True
 l, r = OER_len_dec(OER_len_enc(999))
 l == 999 and r == b""
 = OER signed integer zero
-OER_signed_integer_enc(0) == b"\x01\x00"
+_OER_signed_integer_enc(0) == b"\x01\x00"
 = OER signed integer negative
-OER_signed_integer_enc(-255) == b"\x02\xff\x01"
+_OER_signed_integer_enc(-255) == b"\x02\xff\x01"
 = OER signed integer large
-OER_signed_integer_enc(100000) == b"\x03\x01\x86\xa0"
+_OER_signed_integer_enc(100000) == b"\x03\x01\x86\xa0"
 = OER signed integer roundtrip
-v, r = OER_signed_integer_dec(OER_signed_integer_enc(-1234567))
+v, r = _OER_signed_integer_dec(_OER_signed_integer_enc(-1234567))
 v == -1234567 and r == b""
 = OER unsigned integer zero
 OER_unsigned_integer_enc(0) == b"\x01\x00"
@@ -461,8 +465,11 @@ OER_tag_enc(1, OER_CLASS_CONTEXT) == b"\x81"
 = OER tag roundtrip
 cls, num, r = OER_tag_dec(OER_tag_enc(1, OER_CLASS_CONTEXT))
 cls == OER_CLASS_CONTEXT and num == 1 and r == b""
-= OER sequence concat
-OERcodec_SEQUENCE.enc([ASN1_INTEGER(4), ASN1_INTEGER(5)]) == b"\x01\x04\x01\x05"
+= OER sequence rejects schema-less object lists
+_raises(
+    OER_Encoding_Error,
+    lambda: OERcodec_SEQUENCE.enc([ASN1_INTEGER(4), ASN1_INTEGER(5)]),
+)
 = OER ASN1 boolean object
 ASN1_BOOLEAN(1).enc(ASN1_Codecs.OER) == b"\xff"
 = OER ASN1 null object
@@ -710,7 +717,7 @@ for type_name, value, enc, expected in INTEGER_VECTORS:
         dec_val, remain = OER_unsigned_integer_dec(got)
         assert remain == b"" and dec_val == value
     elif type_name == "L":
-        dec_val, remain = OER_signed_integer_dec(got)
+        dec_val, remain = _OER_signed_integer_dec(got)
         assert remain == b"" and dec_val == value
     else:
         raise AssertionError("unknown integer vector type %r" % type_name)
@@ -1270,7 +1277,7 @@ for value, expected in [
 True
 
 = oer integer with an empty length determinant
-_raises(OER_Decoding_Error, lambda: OER_signed_integer_dec(b"\x00"))
+_raises(OER_Decoding_Error, lambda: _OER_signed_integer_dec(b"\x00"))
 
 True
 

@@ -1018,9 +1018,10 @@ class UPERcodec_TIME_TICKS(UPERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.TIME_TICKS
 
 
-class UPERcodec_KNOWN_MULTIPLIER_STRING(UPERcodec_STRING):
+class _UPERKnownMultiplierUnsupported(object):
     # X.691 §3.7.16 / §30: NumericString, PrintableString, VisibleString
     # (ISO646String), IA5String, BMPString, UniversalString.
+    # Plain mixin: must not inherit a registered codec tag.
     @classmethod
     def encode_into(cls, enc, s, **_kwargs):
         # type: (UPER_Encoder, Any, **Any) -> None
@@ -1038,7 +1039,8 @@ class UPERcodec_KNOWN_MULTIPLIER_STRING(UPERcodec_STRING):
         )
 
 
-class UPERcodec_UNSUPPORTED_TIME(UPERcodec_STRING):
+class _UPERUnsupportedTime(object):
+    # Plain mixin: must not inherit a registered codec tag.
     @classmethod
     def encode_into(cls, enc, s, **_kwargs):
         # type: (UPER_Encoder, Any, **Any) -> None
@@ -1058,11 +1060,11 @@ class UPERcodec_UTF8_STRING(UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.UTF8_STRING
 
 
-class UPERcodec_NUMERIC_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+class UPERcodec_NUMERIC_STRING(_UPERKnownMultiplierUnsupported, UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.NUMERIC_STRING
 
 
-class UPERcodec_PRINTABLE_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+class UPERcodec_PRINTABLE_STRING(_UPERKnownMultiplierUnsupported, UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.PRINTABLE_STRING
 
 
@@ -1074,7 +1076,7 @@ class UPERcodec_VIDEOTEX_STRING(UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.VIDEOTEX_STRING
 
 
-class UPERcodec_IA5_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+class UPERcodec_IA5_STRING(_UPERKnownMultiplierUnsupported, UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.IA5_STRING
 
 
@@ -1082,29 +1084,24 @@ class UPERcodec_GENERAL_STRING(UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.GENERAL_STRING
 
 
-class UPERcodec_UTC_TIME(UPERcodec_UNSUPPORTED_TIME):
+class UPERcodec_UTC_TIME(_UPERUnsupportedTime, UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.UTC_TIME
 
 
-class UPERcodec_GENERALIZED_TIME(UPERcodec_UNSUPPORTED_TIME):
+class UPERcodec_GENERALIZED_TIME(_UPERUnsupportedTime, UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.GENERALIZED_TIME
 
 
-class UPERcodec_ISO646_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+class UPERcodec_ISO646_STRING(_UPERKnownMultiplierUnsupported, UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.ISO646_STRING
 
 
-class UPERcodec_UNIVERSAL_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+class UPERcodec_UNIVERSAL_STRING(_UPERKnownMultiplierUnsupported, UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.UNIVERSAL_STRING
 
 
-class UPERcodec_BMP_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
+class UPERcodec_BMP_STRING(_UPERKnownMultiplierUnsupported, UPERcodec_STRING):
     tag = ASN1_Class_UNIVERSAL.BMP_STRING
-
-
-# KNOWN_MULTIPLIER inherits STRING's tag for registration; restore the
-# generic STRING codec used by ASN1F_STRING (octet-string UPER path).
-ASN1_Class_UNIVERSAL.STRING.register(ASN1_Codecs.UPER, UPERcodec_STRING)
 
 
 ##############################

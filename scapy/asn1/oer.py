@@ -109,26 +109,26 @@ def OER_len_dec(s):
     return ll, s[tmp_len + 1:]
 
 
-def OER_signed_integer_enc(i):
+def _OER_signed_integer_enc(i):
     # type: (int) -> bytes
     from scapy.asn1.intutil import twos_complement_octets
     number_of_bytes, value = twos_complement_octets(i)
     return OER_len_enc(number_of_bytes) + value.to_bytes(number_of_bytes, "big")
 
 
-def OER_signed_integer_dec(s):
+def _OER_signed_integer_dec(s):
     # type: (bytes) -> Tuple[int, bytes]
     from scapy.asn1.intutil import from_twos_complement
     number_of_bytes, s = OER_len_dec(s)
     if len(s) < number_of_bytes:
         raise OER_Decoding_Error(
-            "OER_signed_integer_dec: Got %i bytes while expecting %i" %
+            "_OER_signed_integer_dec: Got %i bytes while expecting %i" %
             (len(s), number_of_bytes),
             remaining=s
         )
     if number_of_bytes == 0:
         raise OER_Decoding_Error(
-            "OER_signed_integer_dec: got an empty length determinant",
+            "_OER_signed_integer_dec: got an empty length determinant",
             remaining=s
         )
     value = int.from_bytes(s[:number_of_bytes], "big")
@@ -221,10 +221,10 @@ def OER_tag_parts(identifier):
     return tag_class, tag_number
 
 
-def resolve_oer_size_bounds(minimum=None,  # type: Optional[int]
-                            maximum=None,  # type: Optional[int]
-                            extensible=False,  # type: bool
-                            ):
+def _resolve_oer_size_bounds(minimum=None,  # type: Optional[int]
+                             maximum=None,  # type: Optional[int]
+                             extensible=False,  # type: bool
+                             ):
     # type: (...) -> Tuple[Optional[int], Optional[int]]
     """Resolve OER SIZE bounds from schema parameters.
 
@@ -337,11 +337,11 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
     }
 
     @staticmethod
-    def wire_params(minimum=None,  # type: Optional[int]
-                    maximum=None,  # type: Optional[int]
-                    unsigned=False,  # type: bool
-                    extensible=False,  # type: bool
-                    ):
+    def _wire_params(minimum=None,  # type: Optional[int]
+                     maximum=None,  # type: Optional[int]
+                     unsigned=False,  # type: bool
+                     extensible=False,  # type: bool
+                     ):
         # type: (...) -> Tuple[Optional[int], bool, Optional[int], Optional[int]]
         """Derive OER INTEGER width and signedness from schema bounds.
 
@@ -389,7 +389,7 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
     def enc(cls, i, minimum=None, maximum=None, extensible=False,
             unsigned=False, **_kwargs):
         # type: (int, Optional[int], Optional[int], bool, bool, **Any) -> bytes
-        size_len, unsigned_flag, minimum, maximum = cls.wire_params(
+        size_len, unsigned_flag, minimum, maximum = cls._wire_params(
             minimum=minimum,
             maximum=maximum,
             unsigned=unsigned,
@@ -424,7 +424,7 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
                 )
         if unsigned_flag:
             return OER_unsigned_integer_enc(i)
-        return OER_signed_integer_enc(i)
+        return _OER_signed_integer_enc(i)
 
     @classmethod
     def do_dec(cls,
@@ -438,7 +438,7 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[int], bytes]
-        size_len, unsigned_flag, minimum, maximum = cls.wire_params(
+        size_len, unsigned_flag, minimum, maximum = cls._wire_params(
             minimum=minimum,
             maximum=maximum,
             unsigned=unsigned,
@@ -458,7 +458,7 @@ class OERcodec_INTEGER(OERcodec_Object[int]):
         elif unsigned_flag:
             x, t = OER_unsigned_integer_dec(s)
         else:
-            x, t = OER_signed_integer_dec(s)
+            x, t = _OER_signed_integer_dec(s)
         if minimum is not None and x < minimum:
             raise OER_Decoding_Error(
                 "%s: %i is below minimum %i" %
@@ -521,7 +521,7 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[str], bytes]
-        minimum, maximum = resolve_oer_size_bounds(
+        minimum, maximum = _resolve_oer_size_bounds(
             minimum=minimum, maximum=maximum, extensible=extensible,
         )
         if minimum is not None and maximum is not None and minimum == maximum:
@@ -594,7 +594,7 @@ class OERcodec_BIT_STRING(OERcodec_Object[str]):
     @classmethod
     def enc(cls, _s, minimum=None, maximum=None, extensible=False, **_kwargs):
         # type: (AnyStr, Optional[int], Optional[int], bool, **Any) -> bytes
-        minimum, maximum = resolve_oer_size_bounds(
+        minimum, maximum = _resolve_oer_size_bounds(
             minimum=minimum, maximum=maximum, extensible=extensible,
         )
         s = bytes_encode(_s)
@@ -631,7 +631,7 @@ class OERcodec_STRING(OERcodec_Object[str]):
     @classmethod
     def enc(cls, _s, minimum=None, maximum=None, extensible=False, **_kwargs):
         # type: (Union[str, bytes], Optional[int], Optional[int], bool, **Any) -> bytes
-        minimum, maximum = resolve_oer_size_bounds(
+        minimum, maximum = _resolve_oer_size_bounds(
             minimum=minimum, maximum=maximum, extensible=extensible,
         )
         s = bytes_encode(_s)
@@ -670,7 +670,7 @@ class OERcodec_STRING(OERcodec_Object[str]):
                **_kwargs  # type: Any
                ):
         # type: (...) -> Tuple[ASN1_Object[Any], bytes]
-        minimum, maximum = resolve_oer_size_bounds(
+        minimum, maximum = _resolve_oer_size_bounds(
             minimum=minimum, maximum=maximum, extensible=extensible,
         )
         if minimum is not None and maximum is not None and minimum == maximum:
@@ -867,7 +867,9 @@ class OERcodec_SEQUENCE(OERcodec_Object[Union[bytes, List['OERcodec_Object[Any]'
         # type: (Union[bytes, List[OERcodec_Object[Any]]], **Any) -> bytes
         if isinstance(_ll, bytes):
             return _ll
-        return b"".join(x.enc(cls.codec) for x in _ll)
+        raise OER_Encoding_Error(
+            "OERcodec_SEQUENCE: encoding requires schema-defined fields"
+        )
 
     @classmethod
     def do_dec(cls,
@@ -905,7 +907,7 @@ class OERcodec_IPADDRESS(OERcodec_STRING):
             s = inet_aton(ipaddr_ascii)
         except Exception:
             raise OER_Encoding_Error("IPv4 address could not be encoded")
-        minimum, maximum = resolve_oer_size_bounds(
+        minimum, maximum = _resolve_oer_size_bounds(
             minimum=minimum, maximum=maximum, extensible=extensible,
         )
         if minimum is not None and maximum is not None and minimum == maximum == len(s):
@@ -916,7 +918,7 @@ class OERcodec_IPADDRESS(OERcodec_STRING):
     def do_dec(cls, s, context=None, safe=False,
                minimum=None, maximum=None, extensible=False, **_kwargs):
         # type: (bytes, Optional[Any], bool, Optional[int], Optional[int], bool, **Any) -> Tuple[ASN1_Object[str], bytes]  # noqa: E501
-        minimum, maximum = resolve_oer_size_bounds(
+        minimum, maximum = _resolve_oer_size_bounds(
             minimum=minimum, maximum=maximum, extensible=extensible,
         )
         if minimum is not None and maximum is not None and minimum == maximum == 4:
