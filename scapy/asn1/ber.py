@@ -181,6 +181,24 @@ def BER_id_enc(n):
         tag |= 0x1f                 # pad with 1s every bit from 5 to 1
         return chb(tag) + s[1:]
 
+
+def asn1_tag_parts(identifier):
+    # type: (int) -> Tuple[int, int, bool]
+    """Return (tag_class, tag_number, constructed) for a Scapy tag integer."""
+    wire = BER_id_enc(identifier)
+    first = wire[0]
+    tag_class = first & 0xc0
+    constructed = bool(first & 0x20)
+    if (first & 0x1f) != 0x1f:
+        return tag_class, first & 0x1f, constructed
+    tag_number = 0
+    for c in wire[1:]:
+        tag_number <<= 7
+        tag_number |= c & 0x7f
+        if not (c & 0x80):
+            break
+    return tag_class, tag_number, constructed
+
 # The functions below provide implicit and explicit tagging support.
 
 

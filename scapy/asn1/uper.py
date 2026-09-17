@@ -7,13 +7,12 @@ Unaligned Packed Encoding Rules (UPER) for ASN.1
 
 As specified in ITU-T X.691 | ISO/IEC 8825-2.
 
-UPER is registered on ``ASN1_Codecs.PER``. Schema-driven encoding and decoding
+UPER is registered on ``ASN1_Codecs.UPER``. Schema-driven encoding and decoding
 (``ASN1F_SEQUENCE``, ``ASN1F_CHOICE``, ``ASN1F_SEQUENCE_OF``,
 ``ASN1F_ENUMERATED``) is supported for common field types. Value ranges and
 fixed SIZE constraints are declared with ``minimum=``/``maximum=``.
-``size_len=`` is a compatibility alias for ``SIZE(n)``. An extension marker
-uses ``extensible=True``. Content of 16K units or more is fragmented as
-required by 11.9.3.8.
+An extension marker uses ``extensible=True``. Content of 16K units or more is
+fragmented as required by 11.9.3.8.
 
 Not supported yet: extension additions (an encoding that carries them is
 refused rather than misparsed), SET, REAL, and the known-multiplier character
@@ -40,7 +39,7 @@ from scapy.asn1.asn1 import (
     ASN1_Object,
     _ASN1_ERROR,
 )
-# DEFAULT components are described by the sequence preamble in OER/PER.
+# DEFAULT components are described by the sequence preamble in OER/UPER.
 
 from typing import (
     Any,
@@ -81,32 +80,13 @@ def UPER_bits_for_range(size):
 UPER_FRAGMENT_SIZE = 16384
 
 
-def resolve_uper_size_bounds(field=None,  # type: Any
-                             size_len=None,  # type: Optional[int]
-                             minimum=None,  # type: Optional[int]
+def resolve_uper_size_bounds(minimum=None,  # type: Optional[int]
                              maximum=None,  # type: Optional[int]
-                             extensible=None  # type: Optional[bool]
+                             extensible=False,  # type: bool
                              ):
     # type: (...) -> Tuple[Optional[int], Optional[int], bool]
-    """Resolve UPER SIZE bounds.
-
-    ``size_len`` is a compatibility alias for equal bounds when ``minimum``
-    and ``maximum`` are unset.
-    """
-    if size_len is None and field is not None:
-        size_len = field.size_len
-    if minimum is None and field is not None:
-        minimum = field.constraints.minimum
-    if maximum is None and field is not None:
-        maximum = field.constraints.maximum
-    if extensible is None:
-        extensible = bool(field.constraints.extensible) if field is not None else False
-    if size_len:
-        if minimum is None:
-            minimum = size_len
-        if maximum is None:
-            maximum = size_len
-    return minimum, maximum, extensible
+    """Return UPER SIZE bounds as provided by the caller."""
+    return minimum, maximum, bool(extensible)
 
 
 def uper_uses_constrained_length(minimum, maximum):
@@ -490,7 +470,7 @@ _K = TypeVar('_K')
 
 
 class UPERcodec_Object(Generic[_K], metaclass=ASN1Codec_metaclass):
-    codec = ASN1_Codecs.PER
+    codec = ASN1_Codecs.UPER
     tag = ASN1_Class_UNIVERSAL.ANY
 
     @classmethod
@@ -557,7 +537,7 @@ class UPERcodec_Object(Generic[_K], metaclass=ASN1Codec_metaclass):
 
 # No field tagging on the wire for PER; identity tagging is the ASN1Codec
 # default when no tagging_enc/dec is registered.
-ASN1_Codecs.PER.register_stem(UPERcodec_Object)
+ASN1_Codecs.UPER.register_stem(UPERcodec_Object)
 
 
 #########################
@@ -569,33 +549,14 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
     tag = ASN1_Class_UNIVERSAL.INTEGER
 
     @staticmethod
-    def resolve_bounds(field=None,  # type: Any
-                       size_len=None,  # type: Optional[int]
-                       minimum=None,  # type: Optional[int]
+    def resolve_bounds(minimum=None,  # type: Optional[int]
                        maximum=None,  # type: Optional[int]
-                       unsigned=None,  # type: Optional[bool]
-                       extensible=None  # type: Optional[bool]
+                       extensible=False,  # type: bool
+                       **_ignored  # type: Any
                        ):
         # type: (...) -> Tuple[Optional[int], Optional[int], bool]
-        """Resolve UPER INTEGER root range and extensibility from field/kwargs.
-
-        When no explicit ``minimum``/``maximum`` is set, a fixed ``size_len`` of
-        1, 2, 4, or 8 with ``unsigned=True`` implies ``0 .. 256**n - 1``.
-        """
-        if size_len is None and field is not None:
-            size_len = field.size_len
-        if minimum is None and maximum is None and field is not None:
-            minimum, maximum = field.constraints.minimum, field.constraints.maximum
-        if unsigned is None:
-            unsigned = bool(field.constraints.unsigned) if field is not None else False
-        if extensible is None:
-            extensible = (
-                bool(field.constraints.extensible) if field is not None else False
-            )
-        if minimum is None and maximum is None:
-            if size_len in (1, 2, 4, 8) and unsigned:
-                minimum, maximum = 0, (256 ** size_len) - 1
-        return minimum, maximum, extensible
+        """Return UPER INTEGER root range as provided by the caller."""
+        return minimum, maximum, bool(extensible)
 
     @classmethod
     def encode_into(cls,
@@ -611,7 +572,7 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                     ):
         # type: (...) -> None
         minimum, maximum, extensible = cls.resolve_bounds(
-            field, size_len, minimum, maximum, unsigned, extensible,
+            minimum=minimum, maximum=maximum, extensible=extensible or False,
         )
         if extensible and minimum is not None and maximum is not None:
             if minimum <= i <= maximum:
@@ -652,7 +613,7 @@ class UPERcodec_INTEGER(UPERcodec_Object[int]):
                          ):
         # type: (...) -> ASN1_Object[int]
         minimum, maximum, extensible = cls.resolve_bounds(
-            field, size_len, minimum, maximum, unsigned, extensible,
+            minimum=minimum, maximum=maximum, extensible=extensible or False,
         )
         if extensible and minimum is not None and maximum is not None:
             if dec.read_bit():
@@ -725,7 +686,8 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
             s = bytes_encode(_s)
             nbits = 8 * len(s)
         minimum, maximum, extensible = resolve_uper_size_bounds(
-            field, size_len, minimum, maximum, extensible,
+            minimum=minimum, maximum=maximum,
+            extensible=extensible or False,
         )
 
         def append_bits_slice(offset, size):
@@ -770,7 +732,8 @@ class UPERcodec_BIT_STRING(UPERcodec_Object[str]):
                          ):
         # type: (...) -> ASN1_Object[str]
         minimum, maximum, extensible = resolve_uper_size_bounds(
-            field, size_len, minimum, maximum, extensible,
+            minimum=minimum, maximum=maximum,
+            extensible=extensible or False,
         )
 
         def _read_unconstrained():
@@ -873,7 +836,8 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
         # type: (...) -> None
         s = bytes_encode(_s)
         minimum, maximum, extensible = resolve_uper_size_bounds(
-            field, size_len, minimum, maximum, extensible,
+            minimum=minimum, maximum=maximum,
+            extensible=extensible or False,
         )
         cls._octet_string_enc(enc, s, minimum, maximum, extensible)
 
@@ -889,7 +853,8 @@ class UPERcodec_STRING(UPERcodec_Object[str]):
                          ):
         # type: (...) -> ASN1_Object[Any]
         minimum, maximum, extensible = resolve_uper_size_bounds(
-            field, size_len, minimum, maximum, extensible,
+            minimum=minimum, maximum=maximum,
+            extensible=extensible or False,
         )
         raw = cls._octet_string_dec(dec, minimum, maximum, extensible)
         return cls.asn1_object(raw)
@@ -954,31 +919,13 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
     def encode_into(cls,
                     enc,  # type: UPER_Encoder
                     i,  # type: int
-                    field=None,  # type: Any
-                    pkt=None,  # type: Any
-                    size_len=None,  # type: Optional[int]
                     minimum=None,  # type: Optional[int]
                     maximum=None,  # type: Optional[int]
                     uper_enum_values=None,  # type: Optional[List[int]]
-                    extensible=None,  # type: Optional[bool]
+                    extensible=False,  # type: bool
                     **_kwargs  # type: Any
                     ):
         # type: (...) -> None
-        if size_len is None and field is not None:
-            size_len = field.size_len
-        if minimum is None and maximum is None and field is not None:
-            minimum = field.constraints.minimum
-            maximum = field.constraints.maximum
-        if uper_enum_values is None and field is not None:
-            i2s = getattr(field, "i2s", None)
-            if i2s is not None:
-                uper_enum_values = sorted(i2s)
-        if isinstance(i, str) and field is not None:
-            i = field.s2i[i]
-        if extensible is None:
-            extensible = (
-                bool(field.constraints.extensible) if field is not None else False
-            )
         if uper_enum_values is not None:
             if extensible:
                 # X.691 14.3: a one bit prefix says whether the value is an
@@ -1001,37 +948,19 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                 )
             UPER_choice_index_enc(enc, index, len(uper_enum_values))
             return
-        lo, hi = cls._range(
-            size_len, minimum, maximum, UPER_Encoding_Error
-        )
+        lo, hi = cls._range(minimum, maximum, UPER_Encoding_Error)
         UPER_constrained_int_enc(enc, i, lo, hi)
 
     @classmethod
     def dec_from_decoder(cls,
                          dec,  # type: UPER_Decoder
-                         field=None,  # type: Any
-                         pkt=None,  # type: Any
-                         size_len=None,  # type: Optional[int]
                          minimum=None,  # type: Optional[int]
                          maximum=None,  # type: Optional[int]
                          uper_enum_values=None,  # type: Optional[List[int]]
-                         extensible=None,  # type: Optional[bool]
+                         extensible=False,  # type: bool
                          **_kwargs  # type: Any
                          ):
         # type: (...) -> ASN1_Object[int]
-        if size_len is None and field is not None:
-            size_len = field.size_len
-        if minimum is None and maximum is None and field is not None:
-            minimum = field.constraints.minimum
-            maximum = field.constraints.maximum
-        if uper_enum_values is None and field is not None:
-            i2s = getattr(field, "i2s", None)
-            if i2s is not None:
-                uper_enum_values = sorted(i2s)
-        if extensible is None:
-            extensible = (
-                bool(field.constraints.extensible) if field is not None else False
-            )
         if uper_enum_values is not None:
             if extensible and dec.read_bit():
                 raise UPER_Decoding_Error(
@@ -1048,26 +977,21 @@ class UPERcodec_ENUMERATED(UPERcodec_INTEGER):
                     "UPERcodec_ENUMERATED: index %i out of range" % index
                 )
             return cls.asn1_object(uper_enum_values[index])
-        lo, hi = cls._range(
-            size_len, minimum, maximum, UPER_Decoding_Error
-        )
-        value = dec.read_non_negative_binary_integer(
-            UPER_bits_for_range(hi - lo)
-        ) + lo
+        lo, hi = cls._range(minimum, maximum, UPER_Decoding_Error)
+        value = UPER_constrained_int_dec(dec, lo, hi)
         return cls.asn1_object(value)
 
     @staticmethod
-    def _range(size_len, minimum, maximum, error):
-        # type: (Optional[int], Optional[int], Optional[int], Any) -> Tuple[int, int]  # noqa: E501
+    def _range(minimum, maximum, error):
+        # type: (Optional[int], Optional[int], Any) -> Tuple[int, int]
         # Without the enumeration itself the index range has to come from
         # the declared bounds; deriving it from the value at hand would
         # make the width depend on the value, which the decoder cannot
         # reproduce.
         lo = minimum if minimum is not None else 0
-        hi = maximum if maximum is not None else (size_len or None)
-        if hi is None:
+        if maximum is None:
             raise error("UPERcodec_ENUMERATED: missing range")
-        return lo, hi
+        return lo, maximum
 
 
 class UPERcodec_SEQUENCE(UPERcodec_Object[Union[bytes, List[Any]]]):
@@ -1230,4 +1154,4 @@ class UPERcodec_BMP_STRING(UPERcodec_KNOWN_MULTIPLIER_STRING):
 
 # KNOWN_MULTIPLIER inherits STRING's tag for registration; restore the
 # generic STRING codec used by ASN1F_STRING (octet-string UPER path).
-ASN1_Class_UNIVERSAL.STRING.register(ASN1_Codecs.PER, UPERcodec_STRING)
+ASN1_Class_UNIVERSAL.STRING.register(ASN1_Codecs.UPER, UPERcodec_STRING)

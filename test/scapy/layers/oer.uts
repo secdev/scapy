@@ -19,8 +19,8 @@ class OERTaggedInteger(ASN1_Packet):
 class OERFixedFields(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("n", 0, size_len=1, unsigned=True),
-        ASN1F_STRING("s", "", size_len=3),
+        ASN1F_INTEGER("n", 0, minimum=0, maximum=255, unsigned=True),
+        ASN1F_STRING("s", "", minimum=3, maximum=3),
     )
 
 class OEROptionalField(ASN1_Packet):
@@ -87,13 +87,13 @@ INTEGER_VECTORS = [
     ("A", 100000, lambda v: OERcodec_INTEGER.enc(v), b"\x03\x01\x86\xa0"),
     ("A", -255, lambda v: OERcodec_INTEGER.enc(v), b"\x02\xff\x01"),
     ("A", -1234567, lambda v: OERcodec_INTEGER.enc(v), b"\x03\xed)y"),
-    ("B", -2, lambda v: OERcodec_INTEGER.enc(v, size_len=1), b"\xfe"),
-    ("C", -2, lambda v: OERcodec_INTEGER.enc(v, size_len=2), b"\xff\xfe"),
-    ("D", -2, lambda v: OERcodec_INTEGER.enc(v, size_len=4), b"\xff\xff\xff\xfe"),
+    ("B", -2, lambda v: OERcodec_INTEGER.enc(v, minimum=-128, maximum=127), b"\xfe"),
+    ("C", -2, lambda v: OERcodec_INTEGER.enc(v, minimum=-32768, maximum=32767), b"\xff\xfe"),
+    ("D", -2, lambda v: OERcodec_INTEGER.enc(v, minimum=-2147483648, maximum=2147483647), b"\xff\xff\xff\xfe"),
     (
         "E",
         -2,
-        lambda v: OERcodec_INTEGER.enc(v, size_len=8),
+        lambda v: OERcodec_INTEGER.enc(v, minimum=-9223372036854775808, maximum=9223372036854775807),
         b"\xff\xff\xff\xff\xff\xff\xff\xfe",
     ),
     # F to I have a lower bound of zero, so they are unsigned: the width and
@@ -101,34 +101,34 @@ INTEGER_VECTORS = [
     (
         "F",
         128,
-        lambda v: OERcodec_INTEGER.enc(v, size_len=1, oer_unsigned=True),
+        lambda v: OERcodec_INTEGER.enc(v, minimum=0, maximum=255, oer_unsigned=True),
         b"\x80",
     ),
     (
         "G",
         128,
-        lambda v: OERcodec_INTEGER.enc(v, size_len=2, oer_unsigned=True),
+        lambda v: OERcodec_INTEGER.enc(v, minimum=0, maximum=65535, oer_unsigned=True),
         b"\x00\x80",
     ),
     (
         "G",
         1000,
-        lambda v: OERcodec_INTEGER.enc(v, size_len=2, oer_unsigned=True),
+        lambda v: OERcodec_INTEGER.enc(v, minimum=0, maximum=65535, oer_unsigned=True),
         b"\x03\xe8",
     ),
     (
         "H",
         128,
-        lambda v: OERcodec_INTEGER.enc(v, size_len=4, oer_unsigned=True),
+        lambda v: OERcodec_INTEGER.enc(v, minimum=0, maximum=4294967295, oer_unsigned=True),
         b"\x00\x00\x00\x80",
     ),
     (
         "I",
         128,
-        lambda v: OERcodec_INTEGER.enc(v, size_len=8, oer_unsigned=True),
+        lambda v: OERcodec_INTEGER.enc(v, minimum=0, maximum=18446744073709551615, oer_unsigned=True),
         b"\x00\x00\x00\x00\x00\x00\x00\x80",
     ),
-    ("B", 1, lambda v: OERcodec_INTEGER.enc(v, size_len=1), b"\x01"),
+    ("B", 1, lambda v: OERcodec_INTEGER.enc(v, minimum=-128, maximum=127), b"\x01"),
     ("K", 1, lambda v: OER_unsigned_integer_enc(v), b"\x01\x01"),
     ("K", 128, lambda v: OER_unsigned_integer_enc(v), b"\x01\x80"),
     ("L", -128, lambda v: OER_signed_integer_enc(v), b"\x01\x80"),
@@ -300,7 +300,7 @@ class OERNullRecord(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_NULL("z", 0),
-        ASN1F_INTEGER("n", 0, size_len=1, unsigned=True),
+        ASN1F_INTEGER("n", 0, minimum=0, maximum=255, unsigned=True),
     )
 
 class OEROidField(ASN1_Packet):
@@ -310,7 +310,7 @@ class OEROidField(ASN1_Packet):
 class OERInnerSeq(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("x", 0, size_len=1, unsigned=True),
+        ASN1F_INTEGER("x", 0, minimum=0, maximum=255, unsigned=True),
     )
 
 class OERPacketChoice(ASN1_Packet):
@@ -342,7 +342,7 @@ class OERTaggedChoice(ASN1_Packet):
 class OERUnsignedField(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_INTEGER(
-        "n", 0, size_len=1, unsigned=True,
+        "n", 0, minimum=0, maximum=255, unsigned=True,
     )
 
 + ASN.1 OER codec
@@ -359,9 +359,9 @@ OERcodec_NULL.enc(None) == b""
 = OER unconstrained integer
 OERcodec_INTEGER.enc(4) == b"\x01\x04"
 = OER constrained unsigned integer
-OERcodec_INTEGER.enc(4, size_len=1) == b"\x04"
+OERcodec_INTEGER.enc(4, minimum=-128, maximum=127) == b"\x04"
 = OER constrained signed integer
-OERcodec_INTEGER.enc(4, size_len=2) == b"\x00\x04"
+OERcodec_INTEGER.enc(4, minimum=-32768, maximum=32767) == b"\x00\x04"
 = OER enumerated short form
 OERcodec_ENUMERATED.enc(6) == b"\x06"
 = OER octet string
@@ -410,11 +410,11 @@ v == 65535 and r == b""
 _raises(OER_Decoding_Error, lambda: OER_unsigned_integer_dec(b"\x00"))
 True
 = OER fixed unsigned 1 byte
-OERcodec_INTEGER.enc(255, size_len=1, oer_unsigned=True) == b"\xff"
+OERcodec_INTEGER.enc(255, minimum=0, maximum=255, oer_unsigned=True) == b"\xff"
 = OER fixed signed 2 bytes negative
-OERcodec_INTEGER.enc(-2, size_len=2) == b"\xff\xfe"
+OERcodec_INTEGER.enc(-2, minimum=-32768, maximum=32767) == b"\xff\xfe"
 = OER fixed signed 4 bytes
-OERcodec_INTEGER.enc(-2, size_len=4) == b"\xff\xff\xff\xfe"
+OERcodec_INTEGER.enc(-2, minimum=-2147483648, maximum=2147483647) == b"\xff\xff\xff\xfe"
 = OER enumerated long form
 OERcodec_ENUMERATED.enc(128) == b"\x82\x00\x80"
 = OER enumerated negative
@@ -440,7 +440,7 @@ x.val is None and r == b""
 = OER octet string empty
 OERcodec_STRING.enc(b"") == b"\x00"
 = OER octet string fixed size
-OERcodec_STRING.enc(b"\x12\x34\x56", size_len=3) == b"\x12\x34\x56"
+OERcodec_STRING.enc(b"\x12\x34\x56", minimum=3, maximum=3) == b"\x12\x34\x56"
 = OER octet string roundtrip
 x, r = OERcodec_STRING.do_dec(OERcodec_STRING.enc(b"\x12\x34"))
 x.val == b"\x12\x34" and r == b""
@@ -470,13 +470,13 @@ ASN1_NULL(None).enc(ASN1_Codecs.OER) == b""
 
 + ASN.1 OER review fixes
 = OER fixed integer decode roundtrip
-x, r = OERcodec_INTEGER.do_dec(OERcodec_INTEGER.enc(128, size_len=1, oer_unsigned=True), size_len=1, oer_unsigned=True)
+x, r = OERcodec_INTEGER.do_dec(OERcodec_INTEGER.enc(128, minimum=0, maximum=255, oer_unsigned=True), minimum=0, maximum=255, oer_unsigned=True)
 x.val == 128 and r == b""
 = OER fixed integer signed decode
-x, r = OERcodec_INTEGER.do_dec(OERcodec_INTEGER.enc(-2, size_len=2), size_len=2)
+x, r = OERcodec_INTEGER.do_dec(OERcodec_INTEGER.enc(-2, minimum=-32768, maximum=32767), minimum=-32768, maximum=32767)
 x.val == -2 and r == b""
 = OER fixed octet string decode
-x, r = OERcodec_STRING.do_dec(OERcodec_STRING.enc(b"\x12\x34\x56", size_len=3), size_len=3)
+x, r = OERcodec_STRING.do_dec(OERcodec_STRING.enc(b"\x12\x34\x56", minimum=3, maximum=3), minimum=3, maximum=3)
 x.val == b"\x12\x34\x56" and r == b""
 = OER does not encode the tag of a component
 # X.696 encodes none of the component tags; only CHOICE alternatives are tagged.
@@ -687,18 +687,24 @@ for type_name, value, enc, expected in INTEGER_VECTORS:
         assert remain == b"" and dec.val == value
     elif type_name == "F":
         dec, remain = OERcodec_INTEGER.do_dec(
-            got, size_len=1, oer_unsigned=True,
+            got, minimum=0, maximum=255, oer_unsigned=True,
         )
         assert remain == b"" and dec.val == value
     elif type_name in ("G", "H", "I"):
         size = {"G": 2, "H": 4, "I": 8}[type_name]
         dec, remain = OERcodec_INTEGER.do_dec(
-            got, size_len=size, oer_unsigned=True,
+            got, minimum=0, maximum=(256 ** size) - 1, oer_unsigned=True,
         )
         assert remain == b"" and dec.val == value
     elif type_name in ("B", "C", "D", "E"):
         size = {"B": 1, "C": 2, "D": 4, "E": 8}[type_name]
-        dec, remain = OERcodec_INTEGER.do_dec(got, size_len=size)
+        lo, hi = {
+            1: (-128, 127),
+            2: (-32768, 32767),
+            4: (-2147483648, 2147483647),
+            8: (-9223372036854775808, 9223372036854775807),
+        }[size]
+        dec, remain = OERcodec_INTEGER.do_dec(got, minimum=lo, maximum=hi)
         assert remain == b"" and dec.val == value
     elif type_name == "K":
         dec_val, remain = OER_unsigned_integer_dec(got)
@@ -732,9 +738,12 @@ for oid, enc, expected in OID_VECTORS:
     assert remain == b"" and dec.val == oid
 
 for data, fixed_size, expected in OCTET_STRING_VECTORS:
-    got = OERcodec_STRING.enc(data, size_len=fixed_size or 0)
+    kw = {}
+    if fixed_size:
+        kw = {"minimum": fixed_size, "maximum": fixed_size}
+    got = OERcodec_STRING.enc(data, **kw)
     assert got == expected
-    dec, remain = OERcodec_STRING.do_dec(got, size_len=fixed_size or 0)
+    dec, remain = OERcodec_STRING.do_dec(got, **kw)
     assert remain == b"" and dec.val == data
 
 for bitstr, expected in BIT_STRING_VECTORS:
@@ -749,10 +758,10 @@ for type_name, value, encoded in SCAPY_DECODE_VECTORS:
         dec, remain = OERcodec_INTEGER.do_dec(encoded)
     elif type_name == "F":
         dec, remain = OERcodec_INTEGER.do_dec(
-            encoded, size_len=1, oer_unsigned=True,
+            encoded, minimum=0, maximum=255, oer_unsigned=True,
         )
     else:
-        dec, remain = OERcodec_INTEGER.do_dec(encoded, size_len=1)
+        dec, remain = OERcodec_INTEGER.do_dec(encoded, minimum=-128, maximum=127)
     assert remain == b"" and dec.val == value
 
 True
@@ -896,9 +905,9 @@ assert obj.val == "127.0.0.1"
 
 assert remain == b""
 
-fixed = OERcodec_IPADDRESS.enc("127.0.0.1", size_len=4)
+fixed = OERcodec_IPADDRESS.enc("127.0.0.1", minimum=4, maximum=4)
 
-obj2, remain2 = OERcodec_IPADDRESS.do_dec(fixed, size_len=4)
+obj2, remain2 = OERcodec_IPADDRESS.do_dec(fixed, minimum=4, maximum=4)
 
 assert obj2.val == "127.0.0.1"
 
@@ -910,7 +919,7 @@ _raises(OER_Decoding_Error, lambda: OERcodec_IPADDRESS.do_dec(b"\x01"))
 
 assert OERcodec_SEQUENCE.enc(b"payload") == b"payload"
 
-assert OERcodec_SET.enc(b"payload") == b"payload"
+_raises(OER_Encoding_Error, lambda: OERcodec_SET.enc(b"payload"))
 
 _raises(OER_Decoding_Error, lambda: OERcodec_SEQUENCE.do_dec(b"\x00"))
 
@@ -927,7 +936,7 @@ True
 = oer constrained integer via constraints
 fld = OERUnsignedField.ASN1_root
 
-assert fld.constraints.unsigned is True
+assert fld.unsigned is True
 
 assert raw(OERUnsignedField(n=5)) == b"\x05"
 
@@ -1043,8 +1052,8 @@ True
 class OERPreambleOne(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("a", 0, size_len=1, unsigned=True),
-        ASN1F_optional(ASN1F_INTEGER("b", 0, size_len=1, unsigned=True)),
+        ASN1F_INTEGER("a", 0, minimum=0, maximum=255, unsigned=True),
+        ASN1F_optional(ASN1F_INTEGER("b", 0, minimum=0, maximum=255, unsigned=True)),
     )
 
 assert raw(OERPreambleOne(a=1, b=2)) == bytes.fromhex("800102")
@@ -1058,7 +1067,7 @@ assert _dissect(OERPreambleOne, "0001").b is None
 class OERPreambleTwo(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_optional(ASN1F_INTEGER("a", 0, size_len=1, unsigned=True)),
+        ASN1F_optional(ASN1F_INTEGER("a", 0, minimum=0, maximum=255, unsigned=True)),
         ASN1F_optional(ASN1F_BOOLEAN("b", False)),
     )
 
@@ -1070,7 +1079,7 @@ assert raw(OERPreambleTwo(a=None, b=True)) == bytes.fromhex("40ff")
 class OERPreambleNine(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(*[
-        ASN1F_optional(ASN1F_INTEGER(c, 0, size_len=1, unsigned=True))
+        ASN1F_optional(ASN1F_INTEGER(c, 0, minimum=0, maximum=255, unsigned=True))
         for c in "abcdefghi"
     ])
 
@@ -1085,7 +1094,7 @@ assert _roundtrip(OERPreambleNine, nine).i.val == 9
 class OERNoPreamble(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("a", 0, size_len=1, unsigned=True),
+        ASN1F_INTEGER("a", 0, minimum=0, maximum=255, unsigned=True),
     )
 
 assert raw(OERNoPreamble(a=1)) == bytes.fromhex("01")
@@ -1098,7 +1107,7 @@ class OERDefault(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_DEFAULT(
-            ASN1F_INTEGER("a", 7, size_len=1, unsigned=True), 7,
+            ASN1F_INTEGER("a", 7, minimum=0, maximum=255, unsigned=True), 7,
         ),
     )
 
@@ -1118,7 +1127,7 @@ True
 class OERExtSeq(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("a", 0, size_len=1, unsigned=True),
+        ASN1F_INTEGER("a", 0, minimum=0, maximum=255, unsigned=True),
         extensible=True,
     )
 
@@ -1129,7 +1138,7 @@ assert _dissect(OERExtSeq, "0001").a.val == 1
 class OERExtSeqOpt(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("a", 0, size_len=1, unsigned=True),
+        ASN1F_INTEGER("a", 0, minimum=0, maximum=255, unsigned=True),
         ASN1F_optional(ASN1F_BOOLEAN("b", False)),
         extensible=True,
     )
@@ -1147,7 +1156,7 @@ True
 # unused-bit count.
 class OERBits(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
-    ASN1_root = ASN1F_SEQUENCE(ASN1F_BIT_STRING("b", "", size_len=4))
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_BIT_STRING("b", "", minimum=4, maximum=4))
 
 assert raw(OERBits(b="1010")) == bytes.fromhex("a0")
 
@@ -1159,8 +1168,8 @@ for bits, size, expected in [
     ("101001010101", 12, "a550"),
     ("1010010101011010", 16, "a55a"),
 ]:
-    assert OERcodec_BIT_STRING.enc(bits, size_len=size) == bytes.fromhex(expected)
-    obj, remain = OERcodec_BIT_STRING.do_dec(bytes.fromhex(expected), size_len=size)
+    assert OERcodec_BIT_STRING.enc(bits, minimum=size, maximum=size) == bytes.fromhex(expected)
+    obj, remain = OERcodec_BIT_STRING.do_dec(bytes.fromhex(expected), minimum=size, maximum=size)
     assert obj.val == bits
     assert remain == b""
 
@@ -1168,14 +1177,14 @@ for bits, size, expected in [
 assert OERcodec_BIT_STRING.enc("101") == bytes.fromhex("0205a0")
 
 # A value that does not match the declared size is refused.
-_raises(OER_Encoding_Error, lambda: OERcodec_BIT_STRING.enc("101", size_len=4))
+_raises(OER_Encoding_Error, lambda: OERcodec_BIT_STRING.enc("101", minimum=4, maximum=4))
 
 # X.696 13.2-13.3: unused bits and empty encodings must be well-formed.
 _raises(OER_Decoding_Error, lambda: OERcodec_BIT_STRING.do_dec(b"\x00"))
 _raises(OER_Decoding_Error, lambda: OERcodec_BIT_STRING.do_dec(b"\x01\x05"))
 _raises(OER_Decoding_Error, lambda: OERcodec_BIT_STRING.do_dec(b"\x02\x08\x00"))
 _raises(OER_Decoding_Error, lambda: OERcodec_BIT_STRING.do_dec(b"\x02\x05\xaf"))
-_raises(OER_Decoding_Error, lambda: OERcodec_BIT_STRING.do_dec(b"\xaf", size_len=4))
+_raises(OER_Decoding_Error, lambda: OERcodec_BIT_STRING.do_dec(b"\xaf", minimum=4, maximum=4))
 
 True
 
@@ -1184,15 +1193,15 @@ True
 # used to encode without one but decode expecting one.
 for size in (1, 2, 3, 4, 8):
     value = b"x" * size
-    encoded = OERcodec_STRING.enc(value, size_len=size)
+    encoded = OERcodec_STRING.enc(value, minimum=size, maximum=size)
     assert encoded == value
-    obj, remain = OERcodec_STRING.do_dec(encoded, size_len=size)
+    obj, remain = OERcodec_STRING.do_dec(encoded, minimum=size, maximum=size)
     assert obj.val == value
     assert remain == b""
 
 class OERFixedOctets(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
-    ASN1_root = ASN1F_SEQUENCE(ASN1F_STRING("s", "", size_len=4))
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_STRING("s", "", minimum=4, maximum=4))
 
 pkt = OERFixedOctets(s="abcd")
 
@@ -1203,11 +1212,9 @@ assert _roundtrip(OERFixedOctets, pkt).s.val == b"abcd"
 # Unconstrained octet strings keep their length determinant.
 assert OERcodec_STRING.enc(b"abc") == bytes.fromhex("03616263")
 
-_raises(OER_Encoding_Error, lambda: OERcodec_STRING.enc(b"abc", size_len=4))
+_raises(OER_Encoding_Error, lambda: OERcodec_STRING.enc(b"abc", minimum=4, maximum=4))
 
-assert OERcodec_STRING.enc(
-    b"abc", field=ASN1F_STRING("s", "", minimum=3, maximum=3)
-) == OERcodec_STRING.enc(b"abc", size_len=3)
+assert OERcodec_STRING.enc(b"abc", minimum=3, maximum=3) == b"abc"
 
 True
 
@@ -1216,11 +1223,11 @@ True
 # value, or the decoder (which only knows the type) reads something else back.
 class OERSignedByte(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
-    ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("a", 0, size_len=1))
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("a", 0, minimum=-128, maximum=127))
 
 class OERUnsignedByte(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
-    ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("a", 0, size_len=1, unsigned=True))
+    ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("a", 0, minimum=0, maximum=255, unsigned=True))
 
 for cls, value, expected in [
     (OERSignedByte, 127, "7f"),
@@ -1301,7 +1308,7 @@ True
 class OEROnlyOptional(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_optional(ASN1F_INTEGER("a", 0, size_len=1, unsigned=True)),
+        ASN1F_optional(ASN1F_INTEGER("a", 0, minimum=0, maximum=255, unsigned=True)),
     )
 
 # One presence bit, absent -> 0x00 preamble, no component body.
@@ -1322,7 +1329,7 @@ class OERSetOfRecord(ASN1_Packet):
 _raises(OER_Encoding_Error, lambda: raw(OERSetRecord(n=1)))
 _raises(OER_Decoding_Error, lambda: OERSetRecord(b"\x01\x01"))
 _raises(OER_Encoding_Error, lambda: ASN1_SET([ASN1_INTEGER(1)]).enc(ASN1_Codecs.OER))
-assert OERcodec_SET.enc(b"raw") == b"raw"
+_raises(OER_Encoding_Error, lambda: OERcodec_SET.enc(b"raw"))
 pkt = OERSetOfRecord(items=[1, 2])
 decoded = OERSetOfRecord(raw(pkt))
 assert [x.val for x in decoded.items] == [1, 2]
@@ -1337,52 +1344,52 @@ assert raw(OERSequenceOfIntegers(values=raw_items)) == b"\x01\x01\x07"
 
 True
 
-% PR #5050 refactor characterization (OER)
-+ OER refactor contracts - field schema owns value constraints
+% OER field schema characterization
++ OER field schema owns value constraints
 = component tags do not alter OER component encoding
-class RefactorOERPlainInteger(ASN1_Packet):
+class OERPlainInteger(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_INTEGER("n", 0)
 
-class RefactorOERTaggedInteger(ASN1_Packet):
+class OERTaggedInteger(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_INTEGER("n", 0, explicit_tag=0xA0)
 
 all(
-    raw(RefactorOERPlainInteger(n=value)) == raw(
-        RefactorOERTaggedInteger(n=value)
+    raw(OERPlainInteger(n=value)) == raw(
+        OERTaggedInteger(n=value)
     )
     for value in [0, 1, 127, 128, 255, -1, -128]
 )
 
 = constrained OER integer plain value and ASN1_INTEGER encode identically
-class RefactorOERUnsignedByte(ASN1_Packet):
+class OERUnsignedByte(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
-    ASN1_root = ASN1F_INTEGER("n", 0, size_len=1, unsigned=True)
+    ASN1_root = ASN1F_INTEGER("n", 0, minimum=0, maximum=255, unsigned=True)
 
 all(
-    raw(RefactorOERUnsignedByte(n=value)) == bytes([value])
-    and raw(RefactorOERUnsignedByte(n=ASN1_INTEGER(value))) == bytes([value])
-    and _value(RefactorOERUnsignedByte(bytes([value])).n) == value
+    raw(OERUnsignedByte(n=value)) == bytes([value])
+    and raw(OERUnsignedByte(n=ASN1_INTEGER(value))) == bytes([value])
+    and _value(OERUnsignedByte(bytes([value])).n) == value
     for value in [0, 1, 127, 128, 254, 255]
 )
 
 = constrained OER unsigned integer rejects out-of-range values
-_raises(OER_Encoding_Error, lambda: raw(RefactorOERUnsignedByte(n=-1)))
-_raises(OER_Encoding_Error, lambda: raw(RefactorOERUnsignedByte(n=256)))
+_raises(OER_Encoding_Error, lambda: raw(OERUnsignedByte(n=-1)))
+_raises(OER_Encoding_Error, lambda: raw(OERUnsignedByte(n=256)))
 True
 
 + OER refactor contracts - OPTIONAL and DEFAULT
 = OPTIONAL and DEFAULT share the OER sequence preamble
-class RefactorOERPresence(ASN1_Packet):
+class OERPresence(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("id", 0, size_len=1, unsigned=True),
+        ASN1F_INTEGER("id", 0, minimum=0, maximum=255, unsigned=True),
         ASN1F_optional(
-            ASN1F_INTEGER("opt", 0, size_len=1, unsigned=True)
+            ASN1F_INTEGER("opt", 0, minimum=0, maximum=255, unsigned=True)
         ),
         ASN1F_DEFAULT(
-            ASN1F_INTEGER("mode", 3, size_len=1, unsigned=True),
+            ASN1F_INTEGER("mode", 3, minimum=0, maximum=255, unsigned=True),
             3,
         ),
     )
@@ -1394,44 +1401,44 @@ vectors = [
     (dict(id=1, opt=2, mode=4), bytes.fromhex("c0010204")),
 ]
 all(
-    raw(RefactorOERPresence(**values)) == expected
-    and _value(RefactorOERPresence(expected).id) == 1
-    and (_value(RefactorOERPresence(expected).opt)
-         if RefactorOERPresence(expected).opt is not None else None) == values["opt"]
-    and _value(RefactorOERPresence(expected).mode) == values["mode"]
+    raw(OERPresence(**values)) == expected
+    and _value(OERPresence(expected).id) == 1
+    and (_value(OERPresence(expected).opt)
+         if OERPresence(expected).opt is not None else None) == values["opt"]
+    and _value(OERPresence(expected).mode) == values["mode"]
     for values, expected in vectors
 )
 
 = OER DEFAULT wire encoding is independent of plain versus ASN1 object default
-plain = RefactorOERPresence(id=1, mode=3)
-asn1_object = RefactorOERPresence(id=1, mode=ASN1_INTEGER(3))
+plain = OERPresence(id=1, mode=3)
+asn1_object = OERPresence(id=1, mode=ASN1_INTEGER(3))
 assert raw(plain) == raw(asn1_object) == bytes.fromhex("0001")
 True
 
 + OER refactor contracts - nested packets and dynamic selection
 = nested ASN1F_PACKET retains Scapy underlayer semantics
-class RefactorOERInner(ASN1_Packet):
+class OERInner(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("x", 0, size_len=1, unsigned=True),
+        ASN1F_INTEGER("x", 0, minimum=0, maximum=255, unsigned=True),
         ASN1F_BOOLEAN("flag", False),
     )
 
-class RefactorOEROuter(ASN1_Packet):
+class OEROuter(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("id", 0, size_len=1, unsigned=True),
-        ASN1F_PACKET("inner", None, RefactorOERInner),
-        ASN1F_INTEGER("tail", 0, size_len=1, unsigned=True),
+        ASN1F_INTEGER("id", 0, minimum=0, maximum=255, unsigned=True),
+        ASN1F_PACKET("inner", None, OERInner),
+        ASN1F_INTEGER("tail", 0, minimum=0, maximum=255, unsigned=True),
     )
 
-pkt = RefactorOEROuter(
+pkt = OEROuter(
     id=1,
-    inner=RefactorOERInner(x=7, flag=True),
+    inner=OERInner(x=7, flag=True),
     tail=9,
 )
 assert raw(pkt) == bytes.fromhex("0107ff09")
-decoded = RefactorOEROuter(raw(pkt))
+decoded = OEROuter(raw(pkt))
 assert _value(decoded.id) == 1
 assert _value(decoded.inner.x) == 7
 assert _value(decoded.inner.flag) == 1
@@ -1441,13 +1448,13 @@ assert decoded.inner.underlayer is decoded
 True
 
 = OER ASN1F_PACKET next_cls_cb selects child class during decode
-class RefactorOERDynamicA(ASN1_Packet):
+class OERDynamicA(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("x", 0, size_len=1, unsigned=True),
+        ASN1F_INTEGER("x", 0, minimum=0, maximum=255, unsigned=True),
     )
 
-class RefactorOERDynamicB(ASN1_Packet):
+class OERDynamicB(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_BOOLEAN("flag", False),
@@ -1455,61 +1462,61 @@ class RefactorOERDynamicB(ASN1_Packet):
 
 
 def _oer_dynamic_cls(pkt):
-    return RefactorOERDynamicA if _value(pkt.kind) == 0 else RefactorOERDynamicB
+    return OERDynamicA if _value(pkt.kind) == 0 else OERDynamicB
 
 
-class RefactorOERDynamicOuter(ASN1_Packet):
+class OERDynamicOuter(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("kind", 0, size_len=1, unsigned=True),
+        ASN1F_INTEGER("kind", 0, minimum=0, maximum=255, unsigned=True),
         ASN1F_PACKET(
-            "inner", None, RefactorOERDynamicA,
+            "inner", None, OERDynamicA,
             next_cls_cb=_oer_dynamic_cls,
         ),
     )
 
-packet_a = RefactorOERDynamicOuter(kind=0, inner=RefactorOERDynamicA(x=5))
-packet_b = RefactorOERDynamicOuter(kind=1, inner=RefactorOERDynamicB(flag=True))
+packet_a = OERDynamicOuter(kind=0, inner=OERDynamicA(x=5))
+packet_b = OERDynamicOuter(kind=1, inner=OERDynamicB(flag=True))
 assert raw(packet_a) == bytes.fromhex("0005")
 assert raw(packet_b) == bytes.fromhex("01ff")
-decoded_a = RefactorOERDynamicOuter(raw(packet_a))
-decoded_b = RefactorOERDynamicOuter(raw(packet_b))
-assert isinstance(decoded_a.inner, RefactorOERDynamicA)
+decoded_a = OERDynamicOuter(raw(packet_a))
+decoded_b = OERDynamicOuter(raw(packet_b))
+assert isinstance(decoded_a.inner, OERDynamicA)
 assert _value(decoded_a.inner.x) == 5
 assert decoded_a.inner.parent is decoded_a
-assert isinstance(decoded_b.inner, RefactorOERDynamicB)
+assert isinstance(decoded_b.inner, OERDynamicB)
 assert _value(decoded_b.inner.flag) == 1
 assert decoded_b.inner.parent is decoded_b
 True
 
 
-% PR #5050 refactor targets (OER)
+% OER compound encoding targets
 + Finding - OER CHOICE must preserve semantic high tag numbers
 = OER CHOICE context-specific tag 100 uses high-tag-number form
 high_context_100, remain = BER_id_dec(b"\xbf\x64")
 assert remain == b""
 
-class RefactorOERHighContextAlt(ASN1_Packet):
+class OERHighContextAlt(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_BOOLEAN("flag", False),
     )
 
-class RefactorOERHighContextChoice(ASN1_Packet):
+class OERHighContextChoice(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_CHOICE(
         "c", None,
         ASN1F_PACKET(
-            "high", None, RefactorOERHighContextAlt,
+            "high", None, OERHighContextAlt,
             explicit_tag=high_context_100,
         ),
     )
 
 expected = b"\xbf\x64\xff"
-pkt = RefactorOERHighContextChoice(c=RefactorOERHighContextAlt(flag=True))
+pkt = OERHighContextChoice(c=OERHighContextAlt(flag=True))
 assert raw(pkt) == expected
-decoded = RefactorOERHighContextChoice(expected)
-assert isinstance(decoded.c, RefactorOERHighContextAlt)
+decoded = OERHighContextChoice(expected)
+assert isinstance(decoded.c, OERHighContextAlt)
 assert _value(decoded.c.flag) == 1
 True
 
@@ -1517,31 +1524,31 @@ True
 high_private_100, remain = BER_id_dec(b"\xff\x64")
 assert remain == b""
 
-class RefactorOERHighPrivateAlt(ASN1_Packet):
+class OERHighPrivateAlt(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_BOOLEAN("flag", False),
     )
 
-class RefactorOERHighPrivateChoice(ASN1_Packet):
+class OERHighPrivateChoice(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_CHOICE(
         "c", None,
         ASN1F_PACKET(
-            "high", None, RefactorOERHighPrivateAlt,
+            "high", None, OERHighPrivateAlt,
             explicit_tag=high_private_100,
         ),
     )
 
 expected = b"\xff\x64\x00"
-pkt = RefactorOERHighPrivateChoice(c=RefactorOERHighPrivateAlt(flag=False))
+pkt = OERHighPrivateChoice(c=OERHighPrivateAlt(flag=False))
 assert raw(pkt) == expected
-decoded = RefactorOERHighPrivateChoice(expected)
-assert isinstance(decoded.c, RefactorOERHighPrivateAlt)
+decoded = OERHighPrivateChoice(expected)
+assert isinstance(decoded.c, OERHighPrivateAlt)
 assert _value(decoded.c.flag) == 0
 True
 
-% PR #5050 review regressions
+% OER review regressions
 + OER review fixes
 = OER INTEGER (0..255) uses single octet width from bounds
 class OERBoundedByte(ASN1_Packet):

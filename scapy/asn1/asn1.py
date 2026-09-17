@@ -179,7 +179,7 @@ class ASN1Codec(EnumElement):
 
     def register_tagging(cls, enc, dec):
         # type: (Any, Any) -> None
-        # Codec-level implicit/explicit tagging (BER) or identity (OER/PER).
+        # Codec-level implicit/explicit tagging (BER) or identity (OER/UPER).
         cls._tagging_enc = enc
         cls._tagging_dec = dec
 
@@ -217,7 +217,7 @@ class ASN1_Codecs_metaclass(Enum_metaclass):
 class ASN1_Codecs(metaclass=ASN1_Codecs_metaclass):
     BER = cast(ASN1Codec, 1)
     DER = cast(ASN1Codec, 2)
-    PER = cast(ASN1Codec, 3)
+    UPER = cast(ASN1Codec, 3)
     CER = cast(ASN1Codec, 4)
     LWER = cast(ASN1Codec, 5)
     BACnet = cast(ASN1Codec, 6)

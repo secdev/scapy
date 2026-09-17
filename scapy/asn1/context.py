@@ -289,7 +289,7 @@ class OER_Encoder(ASN1Encoder):
 
         if isinstance(field, ASN1F_SET):
             raise OER_Encoding_Error("ASN1F_SET is not supported")
-        bits = [0] if field.constraints.extensible else []  # type: List[int]
+        bits = [0] if field.extensible else []  # type: List[int]
         bits += [1 if opt.is_present(pkt) else 0 for opt in field.optionals]
         if bits:
             number_of_bytes = (len(bits) + 7) // 8
@@ -317,7 +317,10 @@ class OER_Encoder(ASN1Encoder):
             bytes(item) if field.holds_packets else field.fld.i2m(pkt, item)
             for item in items
         )
-        self.write(field.i2m(pkt, b"".join(parts)))
+        # Write the assembled content directly. Going through the type codec
+        # would wrongly invoke OERcodec_SET for ASN1F_SET_OF (Basic-OER encodes
+        # SET OF like SEQUENCE OF, without a SET wire type).
+        self.write(b"".join(parts))
 
     def encode_choice(self, field, pkt, value=None):
         # type: (Any, Any, Any) -> None
@@ -395,7 +398,7 @@ class OER_Decoder(ASN1Decoder):
         s = field._apply_tagging_dec(s, pkt, _fname=pkt.name)
         number_of_optionals = len(field.optionals)
         number_of_bits = (
-            (1 if field.constraints.extensible else 0) + number_of_optionals
+            (1 if field.extensible else 0) + number_of_optionals
         )
         if number_of_bits == 0:
             presence = []  # type: List[bool]
@@ -412,7 +415,7 @@ class OER_Decoder(ASN1Decoder):
                 bool((value >> (8 * number_of_bytes - 1 - i)) & 1)
                 for i in range(number_of_bits)
             ]
-            if field.constraints.extensible:
+            if field.extensible:
                 if bits[0]:
                     raise OER_Decoding_Error(
                         "ASN1F_SEQUENCE: extension additions are not supported",
@@ -483,7 +486,7 @@ class OER_Decoder(ASN1Decoder):
 
 
 class UPER_EncoderContext(ASN1Encoder):
-    codec = ASN1_Codecs.PER
+    codec = ASN1_Codecs.UPER
 
     def __init__(self):
         # type: () -> None
@@ -503,7 +506,7 @@ class UPER_EncoderContext(ASN1Encoder):
         if isinstance(field, ASN1F_SET):
             raise UPER_Encoding_Error("ASN1F_SET is not supported")
         bit_enc = self.bit_encoder
-        if field.constraints.extensible:
+        if field.extensible:
             bit_enc.append_bit(0)
         for opt in field.optionals:
             bit_enc.append_bit(1 if opt.is_present(pkt) else 0)
@@ -553,8 +556,8 @@ class UPER_EncoderContext(ASN1Encoder):
                 else:
                     field.fld.encode_into(bit_enc, pkt, item)
 
-        uper_min, uper_max = field.constraints.minimum, field.constraints.maximum
-        if field.constraints.extensible:
+        uper_min, uper_max = field.minimum, field.maximum
+        if field.extensible:
             if (
                     uper_min is not None and uper_max is not None and
                     uper_min <= count <= uper_max
@@ -585,7 +588,7 @@ class UPER_EncoderContext(ASN1Encoder):
                 "ASN1F_CHOICE: cannot encode unknown alternative in '%s'" %
                 field.name
             )
-        if field.constraints.extensible:
+        if field.extensible:
             bit_enc.append_bit(0)
         order = field.canonical_order
         canon_idx = field.canonical_index[tag]
@@ -613,7 +616,7 @@ class UPER_EncoderContext(ASN1Encoder):
 
 
 class UPER_DecoderContext(ASN1Decoder):
-    codec = ASN1_Codecs.PER
+    codec = ASN1_Codecs.UPER
 
     def __init__(self, data):
         # type: (bytes) -> None
@@ -641,7 +644,7 @@ class UPER_DecoderContext(ASN1Decoder):
         if isinstance(field, ASN1F_SET):
             raise UPER_Decoding_Error("ASN1F_SET is not supported")
         bit_dec = self.bit_decoder
-        if field.constraints.extensible:
+        if field.extensible:
             if bit_dec.read_bit():
                 raise UPER_Decoding_Error(
                     "ASN1F_SEQUENCE: extension additions are not supported"
@@ -692,10 +695,10 @@ class UPER_DecoderContext(ASN1Decoder):
                 else:
                     lst.append(field.fld.m2i_from_decoder(pkt, bit_dec))
 
-        if field.constraints.extensible and bit_dec.read_bit():
+        if field.extensible and bit_dec.read_bit():
             bit_dec.read_fragmented(read_items)
         else:
-            uper_min, uper_max = field.constraints.minimum, field.constraints.maximum
+            uper_min, uper_max = field.minimum, field.maximum
             if uper_uses_constrained_length(uper_min, uper_max):
                 read_items(UPER_constrained_int_dec(bit_dec, uper_min, uper_max))
             else:
@@ -707,7 +710,7 @@ class UPER_DecoderContext(ASN1Decoder):
         from scapy.asn1.uper import UPER_Decoding_Error, UPER_choice_index_dec
 
         bit_dec = self.bit_decoder
-        if field.constraints.extensible:
+        if field.extensible:
             if bit_dec.read_bit():
                 raise UPER_Decoding_Error(
                     "ASN1F_CHOICE: extension additions are not supported"
@@ -747,7 +750,7 @@ class UPER_DecoderContext(ASN1Decoder):
 
 def new_encoder(codec):
     # type: (Any) -> ASN1Encoder
-    if codec is ASN1_Codecs.PER:
+    if codec is ASN1_Codecs.UPER:
         return UPER_EncoderContext()
     if codec is ASN1_Codecs.OER:
         return OER_Encoder()
@@ -756,7 +759,7 @@ def new_encoder(codec):
 
 def new_decoder(codec, data):
     # type: (Any, bytes) -> ASN1Decoder
-    if codec is ASN1_Codecs.PER:
+    if codec is ASN1_Codecs.UPER:
         return UPER_DecoderContext(data)
     if codec is ASN1_Codecs.OER:
         return OER_Decoder(data)

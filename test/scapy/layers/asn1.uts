@@ -129,8 +129,8 @@ class BERTaggedInteger(ASN1_Packet):
 class BERFixedFields(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("n", 0, size_len=1),
-        ASN1F_STRING("s", "", size_len=3),
+        ASN1F_INTEGER("n", 0, minimum=-128, maximum=127),
+        ASN1F_STRING("s", "", minimum=3, maximum=3),
     )
 
 class BEROptionalField(ASN1_Packet):
@@ -182,8 +182,8 @@ class OERTaggedInteger(ASN1_Packet):
 class OERFixedFields(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("n", 0, size_len=1, unsigned=True),
-        ASN1F_STRING("s", "", size_len=3),
+        ASN1F_INTEGER("n", 0, minimum=0, maximum=255, unsigned=True),
+        ASN1F_STRING("s", "", minimum=3, maximum=3),
     )
 
 class OEROptionalField(ASN1_Packet):
@@ -241,32 +241,32 @@ class OERSequenceOfWithTrailing(ASN1_Packet):
     )
 
 class UPERFixedFields(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_INTEGER("n", 0, size_len=1, unsigned=True),
-        ASN1F_STRING("s", "", size_len=3),
+        ASN1F_INTEGER("n", 0, minimum=0, maximum=255, unsigned=True),
+        ASN1F_STRING("s", "", minimum=3, maximum=3),
     )
 
 class UPERIntegerField(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_INTEGER("n", 0)
 
 class UPERBooleanField(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_BOOLEAN("b", False)
 
 class UPERStringField(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_STRING("s", "")
 
 class UPERConstrainedInteger(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_INTEGER(
-        "n", 0, size_len=1, unsigned=True,
+        "n", 0, minimum=0, maximum=255, unsigned=True,
     )
 
 class UPEROptionalField(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_INTEGER("id", 0),
         ASN1F_BOOLEAN("flag", False),
@@ -274,23 +274,23 @@ class UPEROptionalField(ASN1_Packet):
     )
 
 class UPERSequenceOfIntegers(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
 
 class UPERChoiceField(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_CHOICE(
         "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
     )
 
 class UPERChoiceStringFirst(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_CHOICE(
         "c", ASN1_STRING(b""), ASN1F_STRING, ASN1F_INTEGER,
     )
 
 class UPERRecord(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_INTEGER("id", 0),
         ASN1F_BOOLEAN("flag", False),
@@ -300,58 +300,58 @@ class UPERRecord(ASN1_Packet):
     )
 
 class UPEREnumeratedField(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_ENUMERATED(
         "state", 1, {1: "alpha", 200: "beta"},
     )
 
 class UPERBitStringField(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_BIT_STRING(
         "bits", "0", minimum=1, maximum=20,
     )
 
 class UPERMessagePrefix(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_INTEGER("msgId", 0),
         ASN1F_INTEGER("myflag", 0),
-        ASN1F_STRING("szDescription", "", size_len=10),
+        ASN1F_STRING("szDescription", "", minimum=10, maximum=10),
         ASN1F_BOOLEAN("isReady", False),
     )
 
 class UPERSequenceWithChoice(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_INTEGER("id", 0),
         ASN1F_CHOICE("c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING),
     )
 
 class UPERNullPacket(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_NULL("n", None)
 
 class UPERVariableOctetString(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_STRING("data", "", minimum=1, maximum=20)
 
 class UPERConstrainedRangeInt(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_INTEGER("n", 0, minimum=0, maximum=15)
 
 class UPERSequenceWithEnumerated(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_INTEGER("id", 0),
         ASN1F_ENUMERATED("state", 1, {1: "alpha", 200: "beta"}),
     )
 
 class UPERSequenceOfStrings(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_SEQUENCE_OF("items", [], ASN1F_STRING)
 
 class UPERNestedSequence(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_INTEGER("id", 0),
         ASN1F_SEQUENCE(
@@ -361,28 +361,28 @@ class UPERNestedSequence(ASN1_Packet):
     )
 
 class UPERSequenceWithNull(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_INTEGER("id", 0),
         ASN1F_NULL("n", None),
     )
 
 class UPERFixedBitString(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_BIT_STRING("b", "0", minimum=16, maximum=16)
 
 class UPERSequenceOfConstrainedInts(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_SEQUENCE_OF(
         "values", [], ASN1F_INTEGER("item", 0, minimum=0, maximum=255),
     )
 
 class UPERSignedInteger(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_INTEGER("n", 0, minimum=-128, maximum=127)
 
 class UPERMultiOptional(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_INTEGER("id", 0),
         ASN1F_optional(ASN1F_INTEGER("a", 0)),
@@ -403,7 +403,7 @@ class OERChoice(ASN1_Packet):
     )
 
 class PERChoice(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_CHOICE(
         "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
     )
@@ -448,7 +448,7 @@ for cls, data_hex in [
 
 True
 
-= ber oer per constrained integer constraints
+= ber oer uper constrained integer constraints
 class BERConstrained(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_INTEGER(
@@ -458,26 +458,26 @@ class BERConstrained(ASN1_Packet):
 class OERConstrained(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_INTEGER(
-        "n", 0, size_len=1, unsigned=True, minimum=0, maximum=255,
+        "n", 0, unsigned=True, minimum=0, maximum=255,
     )
 
-class PERConstrained(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+class UPERConstrained(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_INTEGER(
-        "n", 0, size_len=1, unsigned=True, minimum=0, maximum=255,
+        "n", 0, unsigned=True, minimum=0, maximum=255,
     )
 
 for cls, expected in (
     (BERConstrained, b"\x02\x81\x02\x00\xc8"),
     (OERConstrained, b"\xc8"),
-    (PERConstrained, b"\xc8"),
+    (UPERConstrained, b"\xc8"),
 ):
     pkt = cls(n=200)
     assert raw(pkt) == expected
     assert _roundtrip(cls, pkt).n.val == 200
-    assert cls.ASN1_root.constraints.unsigned is True
-    assert cls.ASN1_root.constraints.minimum == 0
-    assert cls.ASN1_root.constraints.maximum == 255
+    assert cls.ASN1_root.unsigned is True
+    assert cls.ASN1_root.minimum == 0
+    assert cls.ASN1_root.maximum == 255
 
 True
 
@@ -491,7 +491,7 @@ class OEREmptySeqOf(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE_OF("values", [], ASN1F_INTEGER)
 
 class PEREmptySeqOf(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_SEQUENCE_OF(
         "values",
         [],
@@ -524,7 +524,7 @@ class _OerDefault(ASN1_Packet):
     )
 
 class _PerDefault(ASN1_Packet):
-    ASN1_codec = ASN1_Codecs.PER
+    ASN1_codec = ASN1_Codecs.UPER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_INTEGER("a", 1),
         ASN1F_DEFAULT(ASN1F_INTEGER("b", 7), 7),
@@ -552,14 +552,14 @@ assert raw(_AsnObjectDefault(a=7)) == b"\x00"
 
 True
 
-% PR #5050 refactor targets (shared ASN.1)
+% Shared ASN.1 codec isolation
 
 def _value(obj):
     return getattr(obj, "val", obj)
 
 + Finding - flexible BER tags must not mutate shared field descriptors
 = flexible explicit tag decode keeps schema descriptor immutable
-class RefactorFlexibleExplicit(ASN1_Packet):
+class FlexibleExplicit(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_INTEGER(
         "n", 0,
@@ -567,21 +567,21 @@ class RefactorFlexibleExplicit(ASN1_Packet):
         flexible_tag=True,
     )
 
-field = RefactorFlexibleExplicit.ASN1_root
+field = FlexibleExplicit.ASN1_root
 original_tag = field.explicit_tag
-canonical = raw(RefactorFlexibleExplicit(n=5))
+canonical = raw(FlexibleExplicit(n=5))
 assert canonical[0] == 0xA0
 foreign = b"\xa1" + canonical[1:]
-decoded = RefactorFlexibleExplicit(foreign)
+decoded = FlexibleExplicit(foreign)
 assert _value(decoded.n) == 5
 # Packet-local tolerance must not rewrite the class-level schema.
 assert field.explicit_tag == original_tag == 0xA0
 # A later independent build must still use the declared tag.
-assert raw(RefactorFlexibleExplicit(n=5)) == canonical
+assert raw(FlexibleExplicit(n=5)) == canonical
 True
 
 = flexible implicit tag decode keeps schema descriptor immutable
-class RefactorFlexibleImplicit(ASN1_Packet):
+class FlexibleImplicit(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_INTEGER(
         "n", 0,
@@ -589,19 +589,19 @@ class RefactorFlexibleImplicit(ASN1_Packet):
         flexible_tag=True,
     )
 
-field = RefactorFlexibleImplicit.ASN1_root
+field = FlexibleImplicit.ASN1_root
 original_tag = field.implicit_tag
-canonical = raw(RefactorFlexibleImplicit(n=5))
+canonical = raw(FlexibleImplicit(n=5))
 assert canonical[0] == 0x80
 foreign = b"\x81" + canonical[1:]
-decoded = RefactorFlexibleImplicit(foreign)
+decoded = FlexibleImplicit(foreign)
 assert _value(decoded.n) == 5
 assert field.implicit_tag == original_tag == 0x80
-assert raw(RefactorFlexibleImplicit(n=5)) == canonical
+assert raw(FlexibleImplicit(n=5)) == canonical
 True
 
 = two flexible decodes with different observed tags do not influence each other
-class RefactorFlexibleSequence(ASN1_Packet):
+class FlexibleSequence(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_INTEGER(
@@ -611,80 +611,80 @@ class RefactorFlexibleSequence(ASN1_Packet):
         ),
     )
 
-field = RefactorFlexibleSequence.ASN1_root.seq[0]
-canonical = raw(RefactorFlexibleSequence(n=7))
+field = FlexibleSequence.ASN1_root.seq[0]
+canonical = raw(FlexibleSequence(n=7))
 # SEQUENCE wrapper is 0x30; component tag begins after the sequence length.
 # Locate the declared explicit tag instead of assuming a BER length width.
 pos = canonical.index(b"\xa0")
 all(
-    _value(RefactorFlexibleSequence(
+    _value(FlexibleSequence(
         canonical[:pos] + bytes([observed_tag]) + canonical[pos + 1:]
     ).n) == 7
     and field.explicit_tag == 0xA0
-    and raw(RefactorFlexibleSequence(n=7)) == canonical
+    and raw(FlexibleSequence(n=7)) == canonical
     for observed_tag in [0xA1, 0xA2, 0xA3]
 )
 
 
 + Finding - CHOICE packet classes must be dictionary keys, not hash(cls)
 = colliding class hashes do not corrupt BER CHOICE tagging
-class RefactorCollidingASN1Meta(ASN1Packet_metaclass):
+class CollidingASN1Meta(ASN1Packet_metaclass):
     def __hash__(cls):
         return 1
 
-class RefactorCollisionA(ASN1_Packet, metaclass=RefactorCollidingASN1Meta):
+class CollisionA(ASN1_Packet, metaclass=CollidingASN1Meta):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("x", 0))
 
-class RefactorCollisionB(ASN1_Packet, metaclass=RefactorCollidingASN1Meta):
+class CollisionB(ASN1_Packet, metaclass=CollidingASN1Meta):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(ASN1F_INTEGER("x", 0))
 
-assert hash(RefactorCollisionA) == hash(RefactorCollisionB)
+assert hash(CollisionA) == hash(CollisionB)
 
-class RefactorCollisionChoice(ASN1_Packet):
+class CollisionChoice(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_CHOICE(
         "c", None,
-        ASN1F_PACKET("a", None, RefactorCollisionA, explicit_tag=0xA0),
-        ASN1F_PACKET("b", None, RefactorCollisionB, explicit_tag=0xA1),
+        ASN1F_PACKET("a", None, CollisionA, explicit_tag=0xA0),
+        ASN1F_PACKET("b", None, CollisionB, explicit_tag=0xA1),
     )
 
-raw_a = raw(RefactorCollisionChoice(c=RefactorCollisionA(x=1)))
-raw_b = raw(RefactorCollisionChoice(c=RefactorCollisionB(x=2)))
+raw_a = raw(CollisionChoice(c=CollisionA(x=1)))
+raw_b = raw(CollisionChoice(c=CollisionB(x=2)))
 assert raw_a[0] == 0xA0
 assert raw_b[0] == 0xA1
-assert isinstance(RefactorCollisionChoice(raw_a).c, RefactorCollisionA)
-assert isinstance(RefactorCollisionChoice(raw_b).c, RefactorCollisionB)
+assert isinstance(CollisionChoice(raw_a).c, CollisionA)
+assert isinstance(CollisionChoice(raw_b).c, CollisionB)
 True
 
 
 + Cross-codec schema contracts
 = identical schema values can be assigned as Python values or ASN1 objects
-class RefactorBERInt(ASN1_Packet):
+class BERPlainInteger(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_INTEGER("n", 0)
 
-class RefactorOERPlainInteger(ASN1_Packet):
+class OERPlainInteger(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.OER
     ASN1_root = ASN1F_INTEGER("n", 0)
 
 all(
     raw(cls(n=value)) == raw(cls(n=ASN1_INTEGER(value)))
-    for cls in [RefactorBERInt, RefactorOERPlainInteger]
+    for cls in [BERPlainInteger, OERPlainInteger]
     for value in [-1, 0, 1, 127]
 )
 
 = importing OER and UPER leaves representative BER packet wire behavior intact
-ber_before = raw(RefactorBERInt(n=5))
+ber_before = raw(BERPlainInteger(n=5))
 import scapy.asn1.oer
 import scapy.asn1.uper
-ber_after = raw(RefactorBERInt(n=5))
+ber_after = raw(BERPlainInteger(n=5))
 assert ber_before == ber_after
-assert _value(RefactorBERInt(ber_after).n) == 5
+assert _value(BERPlainInteger(ber_after).n) == 5
 True
 
-% PR #5050 review regressions
+% OER review regressions
 + BER DEFAULT and X.509 extract_packet
 = BER DEFAULT-only empty SEQUENCE restores default value
 class _BerDefaultOnly(ASN1_Packet):

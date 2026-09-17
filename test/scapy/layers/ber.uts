@@ -496,25 +496,25 @@ class ConstrainedField(ASN1_Packet):
         "n", 0, size_len=1, unsigned=True, minimum=0, maximum=255,
     )
 
-# BER uses size_len from the field; OER/PER keys live in constraints only.
+# BER uses size_len from the field; OER/UPER use minimum/maximum/unsigned.
 assert raw(ConstrainedField(n=7)) == b"\x02\x81\x01\x07"
 ConstrainedField(raw(ConstrainedField(n=7))).n.val == 7
 
 = field constraints storage
 plain = ASN1F_INTEGER("n", 0)
 
-assert plain.constraints.unsigned is False
+assert plain.unsigned is False
 assert plain.size_len is None
 
 constrained = ASN1F_INTEGER(
     "n", 0, size_len=1, unsigned=True, minimum=0, maximum=255,
 )
 
-assert constrained.constraints.unsigned is True
-assert constrained.constraints.minimum == 0
-assert constrained.constraints.maximum == 255
+assert constrained.unsigned is True
+assert constrained.minimum == 0
+assert constrained.maximum == 255
 
-# Constraints must not become field attributes.
+# Constraints must not invent private codec kwargs.
 assert not hasattr(constrained, "oer_unsigned")
 
 assert not hasattr(constrained, "uper_min")
@@ -672,7 +672,7 @@ _assert_record_empty(empty)
 
 True
 
-% PR #5050 review regressions
+% OER review regressions
 + BER review fixes
 = field size_len is passed through to codecs
 class P(ASN1_Packet):
