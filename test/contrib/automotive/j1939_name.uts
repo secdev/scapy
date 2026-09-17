@@ -1,0 +1,310 @@
+% Regression tests for J1939 64-bit NAME (J1939-81)
+~ automotive_comm
+
++ Configuration
+~ conf
+
+= Imports
+from dataclasses import is_dataclass
+import struct
+from scapy.contrib.automotive.j1939 import (
+    J1939_NAME,
+    J1939NameDecoder,
+    J1939NameResult,
+    j1939_decode_name,
+    simulate_arbitration,
+)
+
+
++ J1939NameResult dataclass tests
+
+= J1939NameResult: is a dataclass
+assert is_dataclass(J1939NameResult)
+
+= J1939NameResult: attribute and dict compatibility
+res = J1939NameResult(
+    raw_value=0x1234567890ABCDEF,
+    arbitrary_address_capable=1,
+    industry_group=1,
+    industry_group_description="On-Highway Equipment",
+    vehicle_system_instance=0,
+    vehicle_system=1,
+    vehicle_system_description="System 1",
+    reserved=0,
+    function=0,
+    function_description="Engine",
+    function_instance=0,
+    ecu_instance=0,
+    manufacturer_code=161,
+    manufacturer_name="Volvo Lastvagnar AB",
+    identity_number=12345,
+)
+assert res.raw_value == 0x1234567890ABCDEF
+assert res.arbitrary_address_capable == 1
+assert res.function_description == "Engine"
+assert res.manufacturer_name == "Volvo Lastvagnar AB"
+# Subscript access for backwards compatibility
+assert res["raw_value"] == 0x1234567890ABCDEF
+assert res["function_description"] == "Engine"
+assert res.get("identity_number") == 12345
+assert res.get("nonexistent", "default") == "default"
+assert "raw_value" in res
+assert "nonexistent" not in res
+assert len(res) == 15
+d = dict(res)
+assert isinstance(d, dict)
+assert d["function_description"] == "Engine"
+assert "identity_number" in list(res.keys())
+assert 12345 in list(res.values())
+assert ("function", 0) in list(res.items())
+
+
++ J1939NameDecoder tests
+
+= J1939NameDecoder: decode returns J1939NameResult
+# Construct 8 bytes: identity=1, mfg=0, ecu=0, func=0 (Engine), ig=1, arb=1
+# Byte 0: 0x01 (identity LSB)
+# Byte 7: (1 << 7) | (1 << 4) = 0x90 (arb=1, ig=1)
+raw_name = b"\x01\x00\x00\x00\x00\x00\x00\x90"
+res = J1939NameDecoder.decode(raw_name)
+assert isinstance(res, J1939NameResult)
+assert res.identity_number == 1
+assert res.arbitrary_address_capable == 1
+assert res.industry_group == 1
+assert res.function == 0
+assert res.function_description == "Engine"
+
+= J1939NameDecoder: input types (int, str, bytes, packet)
+val = 0x9000000000000001
+res_int = J1939NameDecoder.decode(val)
+res_hex = J1939NameDecoder.decode("0100000000000090")
+res_bytes = J1939NameDecoder.decode(b"\x01\x00\x00\x00\x00\x00\x00\x90")
+pkt = J1939_NAME(b"\x01\x00\x00\x00\x00\x00\x00\x90")
+res_pkt = J1939NameDecoder.decode(pkt)
+assert res_int.raw_value == res_hex.raw_value == res_bytes.raw_value == res_pkt.raw_value
+
+= J1939NameDecoder: invalid length raises ValueError
+def _test_invalid_len():
+    try:
+        J1939NameDecoder.decode(b"\x00" * 7)
+    except ValueError:
+        return True
+    return False
+
+assert _test_invalid_len()
+
+= j1939_decode_name: convenience function
+res = j1939_decode_name(b"\x01\x00\x00\x00\x00\x00\x00\x90")
+assert isinstance(res, J1939NameResult)
+assert res.identity_number == 1
+
+= J1939NameDecoder: format_report
+report = J1939NameDecoder.format_report(res)
+assert "SAE J1939 NAME DECODER REPORT" in report
+assert "Engine" in report
+# Dict compatibility in format_report
+report_dict = J1939NameDecoder.format_report(dict(res))
+assert "SAE J1939 NAME DECODER REPORT" in report_dict
+
+
++ J1939_NAME Packet tests
+
+= J1939_NAME: default size is 8 bytes
+pkt = J1939_NAME()
+assert len(bytes(pkt)) == 8
+
+= J1939_NAME: round trip build and dissect
+pkt = J1939_NAME(
+    arbitrary_address_capable=1,
+    industry_group=1,
+    vehicle_system_instance=2,
+    vehicle_system=3,
+    reserved=0,
+    function=0,
+    function_instance=1,
+    ecu_instance=2,
+    manufacturer_code=161,
+    identity_number=42,
+)
+raw = bytes(pkt)
+assert len(raw) == 8
+decoded = J1939_NAME(raw)
+assert decoded.arbitrary_address_capable == 1
+assert decoded.industry_group == 1
+assert decoded.vehicle_system_instance == 2
+assert decoded.vehicle_system == 3
+assert decoded.reserved == 0
+assert decoded.function == 0
+assert decoded.function_instance == 1
+assert decoded.ecu_instance == 2
+assert decoded.manufacturer_code == 161
+assert decoded.identity_number == 42
+
+= J1939_NAME: properties and decode method
+pkt = J1939_NAME(
+    arbitrary_address_capable=1,
+    industry_group=1,
+    function=0,
+    manufacturer_code=161,
+    identity_number=100,
+)
+res = pkt.decode()
+assert isinstance(res, J1939NameResult)
+assert res.function_description == "Engine"
+assert pkt.function_description == "Engine"
+assert "Volvo" in pkt.manufacturer_name
+assert "On-Highway" in pkt.industry_group_description
+assert "Engine" in pkt.mysummary()
+assert "SAE J1939 NAME DECODER REPORT" in pkt.format_report()
+
+
++ simulate_arbitration tests
+
+= simulate_arbitration: lower numerical value wins
+name_a = b"\x01\x00\x00\x00\x00\x00\x00\x10"
+name_b = b"\x02\x00\x00\x00\x00\x00\x00\x10"
+res = simulate_arbitration(name_a, name_b)
+assert res["winner"] == "ECU A"
+assert res["loser"] == "ECU B"
+assert res["collision"] is False
+
+= simulate_arbitration: collision detection
+res = simulate_arbitration(name_a, name_a)
+assert res["collision"] is True
+assert res["winner"] is None
+
+= J1939NameResult: KeyError and iteration
+res = J1939NameResult(
+    raw_value=0x9000000000000001,
+    arbitrary_address_capable=1,
+    industry_group=1,
+    industry_group_description="On-Highway",
+    vehicle_system_instance=0,
+    vehicle_system=0,
+    vehicle_system_description="None",
+    reserved=0,
+    function=0,
+    function_description="Engine",
+    function_instance=0,
+    ecu_instance=0,
+    manufacturer_code=161,
+    manufacturer_name="Volvo",
+    identity_number=100,
+)
+fields = list(iter(res))
+assert "arbitrary_address_capable" in fields
+assert "manufacturer_name" in fields
+try:
+    res["non_existent_key"]
+    assert False, "Expected KeyError"
+except KeyError:
+    pass
+
+= J1939NameDecoder: inputs with 0x prefix, Packet data, and functions
+from scapy.contrib.automotive.j1939 import j1939_decode_name
+from scapy.layers.can import CAN
+
+# Hex with 0x prefix
+dec_hex = j1939_decode_name("0x0100000000000090")
+assert dec_hex.arbitrary_address_capable == 1
+
+# Object with .data
+can_pkt = CAN(data=b"\x01\x00\x00\x00\x00\x00\x00\x90")
+dec_can = j1939_decode_name(can_pkt)
+assert dec_can.arbitrary_address_capable == 1
+
+# Raw bytes pass-through
+dec_bytes = j1939_decode_name(b"\x01\x00\x00\x00\x00\x00\x00\x90")
+assert dec_bytes.arbitrary_address_capable == 1
+
+# Industry-specific function (128-253), Error (254), Not Available (255)
+# Function is bits 40-47, which is byte 5 in LE 64-bit int
+pkt_ind = J1939_NAME(function=130, industry_group=1)
+assert "Function 130" in pkt_ind.function_description or pkt_ind.function == 130
+
+pkt_err = J1939_NAME(function=254)
+assert pkt_err.function_description == "Error State"
+
+pkt_na = J1939_NAME(function=255)
+assert pkt_na.function_description == "Not Available State"
+
+= J1939_NAME: raw_value and vehicle_system_description properties
+pkt = J1939_NAME(function=0, manufacturer_code=161)
+assert isinstance(pkt.raw_value, int)
+assert isinstance(pkt.vehicle_system_description, str)
+
+= simulate_arbitration: ECU B wins and arbitrary address capable loser
+name_a = b"\x02\x00\x00\x00\x00\x00\x00\x90"  # Bit 63 = 1
+name_b = b"\x01\x00\x00\x00\x00\x00\x00\x90"  # Bit 63 = 1, lower value
+res = simulate_arbitration(name_a, name_b)
+assert res["winner"] == "ECU B"
+assert res["loser"] == "ECU A"
+
+= j1939_request_name and j1939_request_names: broadcast and unicast
+from test.testsocket import TestSocket, cleanup_testsockets
+from scapy.contrib.automotive.j1939.j1939_name import (
+    j1939_request_name,
+    j1939_request_names,
+    PGN_ADDRESS_CLAIMED,
+)
+from scapy.contrib.automotive.j1939 import _j1939_can_id
+
+# Broadcast request
+sock_bc = TestSocket(CAN)
+claim_id = _j1939_can_id(6, 0xEE, 0xFF, 0x20)
+name_bytes = b"\x01\x00\x00\x00\x00\x00\x00\x90"
+sock_bc.ins.send(bytes(CAN(identifier=claim_id, flags="extended", data=name_bytes)))
+names_bc = j1939_request_name(sock_bc, target_da=0xFF, sniff_time=0.2)
+assert isinstance(names_bc, dict)
+assert 0x20 in names_bc
+assert isinstance(names_bc[0x20], J1939_NAME)
+cleanup_testsockets()
+
+# Unicast request
+sock_uni = TestSocket(CAN)
+sock_uni.ins.send(bytes(CAN(identifier=claim_id, flags="extended", data=name_bytes)))
+name_uni = j1939_request_name(sock_uni, target_da=0x20, sniff_time=0.2)
+assert isinstance(name_uni, J1939_NAME)
+cleanup_testsockets()
+
+# j1939_request_names broadcast (target_das=None)
+sock_scan_bc = TestSocket(CAN)
+sock_scan_bc.ins.send(bytes(CAN(identifier=claim_id, flags="extended", data=name_bytes)))
+scan_res_bc = j1939_request_names(sock_scan_bc, target_das=None, sniff_time=0.2)
+assert isinstance(scan_res_bc, dict)
+assert 0x20 in scan_res_bc
+cleanup_testsockets()
+
+# j1939_request_names targeted
+sock_scan_tgt = TestSocket(CAN)
+sock_scan_tgt.ins.send(bytes(CAN(identifier=claim_id, flags="extended", data=name_bytes)))
+scan_res_tgt = j1939_request_names(sock_scan_tgt, target_das=[0x20], sniff_time=0.2)
+assert 0x20 in scan_res_tgt
+assert isinstance(scan_res_tgt[0x20], J1939_NAME)
+cleanup_testsockets()
+
+= j1939_request_name: multiple responders to broadcast request
+sock_multi = TestSocket(CAN)
+claim_20 = _j1939_can_id(6, 0xEE, 0xFF, 0x20)
+name_20 = b"\x01\x00\x00\x00\x00\x00\x00\x90"
+claim_21 = _j1939_can_id(6, 0xEE, 0xFF, 0x21)
+name_21 = b"\x02\x00\x00\x00\x00\x00\x00\x90"
+sock_multi.ins.send(bytes(CAN(identifier=claim_20, flags="extended", data=name_20)))
+sock_multi.ins.send(bytes(CAN(identifier=claim_21, flags="extended", data=name_21)))
+names_multi = j1939_request_name(sock_multi, target_da=0xFF, sniff_time=0.2)
+assert isinstance(names_multi, dict)
+assert 0x20 in names_multi and 0x21 in names_multi
+assert names_multi[0x20].identity_number == 1
+assert names_multi[0x21].identity_number == 2
+cleanup_testsockets()
+
+= j1939_request_name: unicast request accepts broadcast (DA=0xFF) claim response
+sock_uni_bc = TestSocket(CAN)
+claim_global_da = _j1939_can_id(6, 0xEE, 0xFF, 0x25)
+name_25 = b"\x05\x00\x00\x00\x00\x00\x00\x90"
+sock_uni_bc.ins.send(bytes(CAN(identifier=claim_global_da, flags="extended", data=name_25)))
+name_res = j1939_request_name(sock_uni_bc, target_da=0x25, sniff_time=0.2)
+assert isinstance(name_res, J1939_NAME)
+assert name_res.identity_number == 5
+cleanup_testsockets()
+

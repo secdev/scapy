@@ -2152,9 +2152,6 @@ def test_unicast_factory():
 test_unicast_factory()
 True
 
-True
-
-
 = dm_pgn: reconnect handler works for DM scanner
 def test_dm_pgn_factory():
     from scapy.contrib.automotive.j1939.j1939_dm_scanner import (
@@ -2165,7 +2162,7 @@ def test_dm_pgn_factory():
     dm1_ps = pgn & 0xFF
     sock = TestSocket(CAN)
     resp_id = _j1939_can_id(6, dm1_pf, dm1_ps, 0x42)
-    sock.ins.send(bytes(CAN(identifier=resp_id, flags="extended", data=b' ' * 8)))
+    sock.ins.send(bytes(CAN(identifier=resp_id, flags="extended", data=b'\x00' * 8)))
     def _factory():
         return sock
     dummy_sock = TestSocket(CAN)
@@ -2177,6 +2174,7 @@ def test_dm_pgn_factory():
 
 test_dm_pgn_factory()
 True
+
 = addr_claim: reconnect factory works for broadcast scan
 def test_addr_claim_factory():
     sock = TestSocket(CAN)

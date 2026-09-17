@@ -132,7 +132,37 @@ from scapy.contrib.automotive.j1939.j1939_dm_scanner import (
     j1939_scan_dm_pgn,
 )
 
+
+from scapy.contrib.automotive.j1939.j1939_name import (
+    INDUSTRY_GROUPS,
+    PRE_ASSIGNED_FUNCTIONS,
+    INDUSTRY_SPECIFIC_FUNCTIONS,
+    INDUSTRY_SPECIFIC_VEHICLE_SYSTEMS,
+    MANUFACTURERS,
+    J1939NameDecoder,
+    J1939NameResult,
+    J1939_NAME,
+    j1939_decode_name,
+    simulate_arbitration,
+    j1939_request_name,
+    j1939_request_names,
+)
+
+
 __all__ = [
+
+    'INDUSTRY_GROUPS',
+    'PRE_ASSIGNED_FUNCTIONS',
+    'INDUSTRY_SPECIFIC_FUNCTIONS',
+    'INDUSTRY_SPECIFIC_VEHICLE_SYSTEMS',
+    'MANUFACTURERS',
+    'J1939NameDecoder',
+    'J1939NameResult',
+    'J1939_NAME',
+    'j1939_decode_name',
+    'simulate_arbitration',
+    'j1939_request_name',
+    'j1939_request_names',
     'J1939',
     'J1939Request',
     'J1939_CAN',
