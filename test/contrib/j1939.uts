@@ -5023,11 +5023,41 @@ with USBTestSocket(CAN, hw_fifo_size=16) as usb_cans, TestSocket(CAN) as stim:
             "close drain must free adapter FIFO for next socket"
         assert _usb_pkts[0].data == _usb_cd_payload
 
+= J1939Socket – dynamic backend dispatch based on conf
+from unittest.mock import patch
+from scapy.config import conf
+from scapy.consts import LINUX
+from scapy.contrib.j1939 import J1939Socket, J1939SoftSocket
+from scapy.layers.can import CAN
+from test.testsocket import TestSocket, cleanup_testsockets
+
+# Default / False: dispatches to J1939SoftSocket
+with TestSocket(CAN) as s:
+    sock = J1939Socket(s, src_addr=0xF1)
+    assert isinstance(sock, J1939SoftSocket)
+    sock.close()
+
+cleanup_testsockets()
+
+# If configured after import, dispatches to NativeJ1939Socket (on Linux)
+if LINUX:
+    orig = conf.contribs.get('J1939', {}).copy()
+    try:
+        conf.contribs.setdefault('J1939', {})['use-can-j1939-kernel-module'] = True
+        with patch("scapy.contrib.j1939.NativeJ1939Socket") as mock_native:
+            mock_native.return_value = "mock_native"
+            res = J1939Socket("vcan0")
+            assert res == "mock_native"
+            mock_native.assert_called_once()
+    finally:
+        conf.contribs['J1939'] = orig
+
+True
+
 = J1939Socket – sr1 transmits correct CAN ID on underlying CAN socket
 import struct
 import threading
-from scapy.contrib.automotive.j1939 import J1939Socket, J1939
-from scapy.contrib.j1939 import can_id_to_j1939
+from scapy.contrib.j1939 import J1939, J1939Socket, can_id_to_j1939
 from scapy.layers.can import CAN
 from test.testsocket import TestSocket, cleanup_testsockets
 
@@ -5053,8 +5083,7 @@ assert ps == 0x01, "sr1 transmitted CAN frame with wrong PS (DA): 0x%02X != 0x01
 = J1939Socket – unicast request scan using sr1
 import struct
 import threading
-from scapy.contrib.automotive.j1939 import J1939Socket, J1939
-from scapy.contrib.j1939 import j1939_to_can_id
+from scapy.contrib.j1939 import J1939, J1939Socket, j1939_to_can_id
 from scapy.layers.can import CAN
 from test.testsocket import TestSocket, cleanup_testsockets
 
@@ -5631,6 +5660,148 @@ ack_with_raw = J1939Ack(ctrl=0, pgn=0xFECA) / Raw(b"extra_payload")
 assert ack_with_raw.haslayer(Raw)
 assert ack_with_raw[Raw].load == b"extra_payload"
 assert ack_with_raw.answers(req_wrap) == 1
+
+# J1939DiagA and J1939DiagB answers() and address verification
+from scapy.contrib.j1939 import (
+    J1939DiagA, J1939DiagB, J1939_PGN_DIAG_A, J1939_PGN_DIAG_B,
+)
+assert J1939DiagA.PGN == 0xDA00
+assert J1939DiagB.PGN == 0xDB00
+
+da_resp = J1939DiagA(data=b"\x02\x7e\x00")
+da_req = J1939DiagA(data=b"\x02\x3e\x00")
+db_req = J1939DiagB(data=b"\x02\x3e\x00")
+db_resp = J1939DiagB(data=b"\x02\x7e\x00")
+
+# Positive and negative UDS correlation for DiagA and DiagB
+assert da_resp.answers(db_req) == 1
+assert da_resp.answers(da_req) == 1
+assert da_resp.answers(da_resp) == 0
+assert db_resp.answers(db_req) == 1
+assert db_resp.answers(da_req) == 1
+assert db_resp.answers(db_resp) == 0
+assert db_req.answers(db_req) == 0
+assert db_req.answers(da_resp) == 0
+assert da_req.answers(da_req) == 0
+
+req_func = J1939(pgn=0xDB00, src=0x10, dst=0xFF) / J1939DiagB(data=b"\x02\x3e\x00")
+resp_phys = J1939(pgn=0xDA00, src=0x20, dst=0x10) / J1939DiagA(data=b"\x02\x7e\x00")
+assert resp_phys.answers(req_func) == 1
+assert resp_phys[J1939DiagA].answers(req_func) == 1
+assert resp_phys[J1939DiagA].answers(req_func[J1939DiagB]) == 1
+
+req_phys = J1939(pgn=0xDA00, src=0x10, dst=0x20) / J1939DiagA(data=b"\x02\x3e\x00")
+assert resp_phys.answers(req_phys) == 1
+assert resp_phys[J1939DiagA].answers(req_phys) == 1
+assert resp_phys[J1939DiagA].answers(req_phys[J1939DiagA]) == 1
+
+# Negative response matching on DiagA and DiagB
+resp_nr = J1939(pgn=0xDA00, src=0x20, dst=0x10) / J1939DiagA(data=b"\x03\x7f\x3e\x22")
+assert resp_nr.answers(req_phys) == 1
+assert resp_nr[J1939DiagA].answers(req_phys) == 1
+assert resp_nr[J1939DiagA].answers(da_req) == 1
+assert resp_nr[J1939DiagA].answers(db_req) == 1
+assert resp_nr[J1939DiagA].answers(resp_nr[J1939DiagA]) == 0
+
+db_nr = J1939DiagB(data=b"\x03\x7f\x3e\x22")
+assert db_nr.answers(db_req) == 1
+assert db_nr.answers(da_req) == 1
+assert db_nr.answers(db_nr) == 0
+
+# DiagnosticSessionControl (0x10) subfunction matching
+dsc_req = J1939DiagA(data=b"\x02\x10\x01")
+dsc_resp = J1939DiagA(data=b"\x06\x50\x01\x00\x32\x01\xf4")
+dsc_resp_bad = J1939DiagA(data=b"\x06\x50\x02\x00\x32\x01\xf4")
+dsc_nr = J1939DiagA(data=b"\x03\x7f\x10\x12")
+assert dsc_resp.answers(dsc_req) == 1
+assert dsc_resp_bad.answers(dsc_req) == 0
+assert dsc_nr.answers(dsc_req) == 1
+assert dsc_resp.answers(da_req) == 0
+
+# ReadDataByIdentifier (0x22) dataIdentifier matching
+rdbi_req = J1939DiagB(data=b"\x03\x22\x01\x00")
+rdbi_resp = J1939DiagA(data=b"\x05\x62\x01\x00\x12\x34")
+rdbi_resp_bad = J1939DiagA(data=b"\x05\x62\x02\x00\x12\x34")
+assert rdbi_resp.answers(rdbi_req) == 1
+assert rdbi_resp_bad.answers(rdbi_req) == 0
+assert rdbi_resp.answers(dsc_req) == 0
+
+# Direct UDS layer stacking
+from scapy.contrib.automotive.uds import UDS
+uds_stacked_req = J1939DiagA() / UDS(b"\x3e\x00")
+uds_stacked_resp = J1939DiagA() / UDS(b"\x7e\x00")
+uds_stacked_wrong = J1939DiagA() / UDS(b"\x62\x00\x00")
+assert uds_stacked_resp.answers(uds_stacked_req) == 1
+assert uds_stacked_wrong.answers(uds_stacked_req) == 0
+assert uds_stacked_resp.answers(uds_stacked_resp) == 0
+assert uds_stacked_resp.answers(da_req) == 1
+assert da_resp.answers(uds_stacked_req) == 1
+
+# Raw format without length prefix (padded)
+raw_req = J1939DiagA(data=b"\x3e\x00\xff\xff\xff\xff\xff\xff")
+raw_resp = J1939DiagA(data=b"\x7e\x00\xff\xff\xff\xff\xff\xff")
+assert raw_resp.answers(raw_req) == 1
+assert raw_resp.answers(da_req) == 1
+assert da_resp.answers(raw_req) == 1
+
+# Response Pending (NRC 0x78) configuration behavior
+from scapy.config import conf
+nr_pending = J1939DiagA(data=b"\x03\x7f\x3e\x78")
+assert nr_pending.answers(da_req) == 0
+conf.contribs.setdefault("UDS", {})["treat-response-pending-as-answer"] = True
+try:
+    assert nr_pending.answers(da_req) == 1
+finally:
+    conf.contribs["UDS"]["treat-response-pending-as-answer"] = False
+
+# Payload service identifier verification: mismatched positive response SID
+resp_wrong_sid = J1939(pgn=0xDA00, src=0x20, dst=0x10) / J1939DiagA(data=b"\x03\x62\x00\x00")
+assert resp_wrong_sid.answers(req_phys) == 0
+assert resp_wrong_sid[J1939DiagA].answers(req_phys) == 0
+
+# Payload service identifier verification: negative response to a different service
+resp_wrong_nr = J1939(pgn=0xDA00, src=0x20, dst=0x10) / J1939DiagA(data=b"\x03\x7f\x22\x22")
+assert resp_wrong_nr.answers(req_phys) == 0
+assert resp_wrong_nr[J1939DiagA].answers(req_phys) == 0
+
+# J1939Request matching
+req_pgn_da = J1939Request(req_pgn=0xDA00)
+resp_func = J1939(pgn=0xDB00, src=0x20, dst=0x10) / J1939DiagB(data=b"\x02\x7e\x00")
+assert resp_phys[J1939DiagA].answers(req_pgn_da) == 1
+assert resp_func[J1939DiagB].answers(req_pgn_da) == 0
+req_pgn_db = J1939Request(req_pgn=0xDB00)
+assert resp_func[J1939DiagB].answers(req_pgn_db) == 1
+
+# Address matching: unrelated traffic between other nodes must return 0
+unrelated = J1939(pgn=0xDA00, src=0x30, dst=0x40) / J1939DiagA(data=b"\x02\x7e\x00")
+assert resp_phys.answers(unrelated) == 0
+assert resp_phys[J1939DiagA].answers(unrelated) == 0
+assert unrelated.answers(req_phys) == 0
+assert unrelated[J1939DiagA].answers(req_phys) == 0
+
+# Wrong destination or wrong source
+wrong_sa = J1939(pgn=0xDA00, src=0x30, dst=0x10) / J1939DiagA(data=b"\x02\x7e\x00")
+assert wrong_sa.answers(req_phys) == 0
+assert wrong_sa[J1939DiagA].answers(req_phys) == 0
+echo_pkt = J1939(pgn=0xDA00, src=0x10, dst=0x20) / J1939DiagA(data=b"\x02\x7e\x00")
+assert echo_pkt.answers(req_phys) == 0
+assert echo_pkt[J1939DiagA].answers(req_phys) == 0
+# Payload chaining and layer dissection
+da_chained = J1939DiagA() / Raw(b"test_payload")
+assert bytes(da_chained) == b"test_payload"
+assert da_chained[Raw].load == b"test_payload"
+
+da_dissected = J1939DiagA(b"dissect_payload")
+assert da_dissected.data == b"dissect_payload"
+assert bytes(da_dissected) == b"dissect_payload"
+
+db_chained = J1939DiagB() / Raw(b"test_payload_b")
+assert bytes(db_chained) == b"test_payload_b"
+assert db_chained[Raw].load == b"test_payload_b"
+
+db_dissected = J1939DiagB(b"dissect_payload_b")
+assert db_dissected.data == b"dissect_payload_b"
+assert bytes(db_dissected) == b"dissect_payload_b"
 = J1939SoftSocket edge branches (closed, basecls, invalid src)
 from scapy.packet import Raw
 from scapy.contrib.j1939 import J1939, J1939SoftSocket
