@@ -134,7 +134,7 @@ class StringBuffer(object):
         if seq < 0:
             # Data is located before the start of the current buffer
             # (e.g. the first fragment was missing)
-            if -seq > self.max_gap:
+            if -seq - data_len > self.max_gap:
                 log_runtime.warning(
                     "Dropped data further than allowed per 'max_gap'."
                 )
