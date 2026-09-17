@@ -2879,6 +2879,87 @@ assert len(res_stop) == 0
 cleanup_testsockets()
 
 
++ j1939_request_name and j1939_request_names
+
+= j1939_request_name and j1939_request_names: broadcast and unicast
+from scapy.layers.can import CAN
+from test.testsocket import TestSocket, cleanup_testsockets
+from scapy.contrib.automotive.j1939.j1939_scanner import (
+    j1939_check_rx_filter_warning,
+    j1939_request_name,
+    j1939_request_names,
+)
+from scapy.contrib.automotive.j1939.j1939_name import J1939Name
+from scapy.contrib.j1939 import j1939_to_can_id
+
+# Broadcast request
+sock_bc = TestSocket(CAN)
+claim_id = j1939_to_can_id(6, 0, 0, 0xEE, 0xFF, 0x20)
+name_bytes = b"\x01\x00\x00\x00\x00\x00\x00\x90"
+sock_bc.ins.send(bytes(CAN(identifier=claim_id, flags="extended", data=name_bytes)))
+names_bc = j1939_request_name(sock_bc, target_da=0xFF, sniff_time=0.05)
+assert isinstance(names_bc, dict)
+assert 0x20 in names_bc
+assert isinstance(names_bc[0x20], J1939Name)
+cleanup_testsockets()
+
+# Unicast request
+sock_uni = TestSocket(CAN)
+sock_uni.ins.send(bytes(CAN(identifier=claim_id, flags="extended", data=name_bytes)))
+name_uni = j1939_request_name(sock_uni, target_da=0x20, sniff_time=0.05)
+assert isinstance(name_uni, J1939Name)
+cleanup_testsockets()
+
+# j1939_request_names broadcast (target_das=None)
+sock_scan_bc = TestSocket(CAN)
+sock_scan_bc.ins.send(bytes(CAN(identifier=claim_id, flags="extended", data=name_bytes)))
+scan_res_bc = j1939_request_names(sock_scan_bc, target_das=None, sniff_time=0.05)
+assert isinstance(scan_res_bc, dict)
+assert 0x20 in scan_res_bc
+cleanup_testsockets()
+
+# j1939_request_names targeted
+sock_scan_tgt = TestSocket(CAN)
+sock_scan_tgt.ins.send(bytes(CAN(identifier=claim_id, flags="extended", data=name_bytes)))
+scan_res_tgt = j1939_request_names(sock_scan_tgt, target_das=[0x20], sniff_time=0.05)
+assert 0x20 in scan_res_tgt
+assert isinstance(scan_res_tgt[0x20], J1939Name)
+cleanup_testsockets()
+
+= j1939_request_name: multiple responders to broadcast request
+from scapy.layers.can import CAN
+from test.testsocket import TestSocket, cleanup_testsockets
+from scapy.contrib.automotive.j1939.j1939_scanner import j1939_request_name
+from scapy.contrib.j1939 import j1939_to_can_id
+sock_multi = TestSocket(CAN)
+claim_20 = j1939_to_can_id(6, 0, 0, 0xEE, 0xFF, 0x20)
+name_20 = b"\x01\x00\x00\x00\x00\x00\x00\x90"
+claim_21 = j1939_to_can_id(6, 0, 0, 0xEE, 0xFF, 0x21)
+name_21 = b"\x02\x00\x00\x00\x00\x00\x00\x90"
+sock_multi.ins.send(bytes(CAN(identifier=claim_20, flags="extended", data=name_20)))
+sock_multi.ins.send(bytes(CAN(identifier=claim_21, flags="extended", data=name_21)))
+names_multi = j1939_request_name(sock_multi, target_da=0xFF, sniff_time=0.05)
+assert isinstance(names_multi, dict)
+assert 0x20 in names_multi and 0x21 in names_multi
+assert names_multi[0x20].identity_number == 1
+assert names_multi[0x21].identity_number == 2
+cleanup_testsockets()
+
+= j1939_request_name: unicast request accepts broadcast (DA=0xFF) claim response
+from scapy.layers.can import CAN
+from test.testsocket import TestSocket, cleanup_testsockets
+from scapy.contrib.automotive.j1939.j1939_name import J1939Name
+from scapy.contrib.automotive.j1939.j1939_scanner import j1939_request_name
+from scapy.contrib.j1939 import j1939_to_can_id
+sock_uni_bc = TestSocket(CAN)
+claim_global_da = j1939_to_can_id(6, 0, 0, 0xEE, 0xFF, 0x25)
+name_25 = b"\x05\x00\x00\x00\x00\x00\x00\x90"
+sock_uni_bc.ins.send(bytes(CAN(identifier=claim_global_da, flags="extended", data=name_25)))
+name_res = j1939_request_name(sock_uni_bc, target_da=0x25, sniff_time=0.05)
+assert isinstance(name_res, J1939Name)
+assert name_res.identity_number == 5
+cleanup_testsockets()
+
 = j1939_check_rx_filter_warning detects mismatched SA
 from unittest.mock import patch
 from scapy.layers.can import CAN
