@@ -251,21 +251,46 @@ class IPOption_Traceroute(IPOption):
                    IPField("originator_ip", "0.0.0.0")]
 
 
+class IPOption_Timestamp_Pair(Packet):
+    """An internet address / timestamp pair of an IP timestamp option.
+
+    Used when the option's flg field asks for addresses next to the
+    timestamps, i.e. flg 1 (timestamp_and_ip_addr) and 3
+    (prespecified_ip_addr).
+    """
+    name = "IP Option Timestamp Pair"
+    fields_desc = [IPField("internet_address", "0.0.0.0"),
+                   IntField("timestamp", 0)]
+
+    def extract_padding(self, s):
+        return b"", s
+
+
 class IPOption_Timestamp(IPOption):
     name = "IP Option Timestamp"
     optclass = 2
     option = 4
+    # RFC 791 requires the originating host to compose the option with a data
+    # area large enough to hold every timestamp it expects back, so the data
+    # area is a list: bare timestamps for flg 0 (`timestamp`), and internet
+    # address / timestamp pairs otherwise (`ip_timestamp_pairs`).
     fields_desc = [_IPOption_HDR,
                    ByteField("length", None),
-                   ByteField("pointer", 9),
+                   ByteField("pointer", 5),
                    BitField("oflw", 0, 4),
                    BitEnumField("flg", 1, 4,
                                 {0: "timestamp_only",
                                  1: "timestamp_and_ip_addr",
                                  3: "prespecified_ip_addr"}),
-                   ConditionalField(IPField("internet_address", "0.0.0.0"),
-                                    lambda pkt: pkt.flg != 0),
-                   IntField('timestamp', 0)]
+                   ConditionalField(
+                       FieldListField("timestamp", [], IntField("", 0),
+                                      length_from=lambda pkt: pkt.length - 4),
+                       lambda pkt: pkt.flg == 0),
+                   ConditionalField(
+                       PacketListField("ip_timestamp_pairs", [],
+                                       IPOption_Timestamp_Pair,
+                                       length_from=lambda pkt: pkt.length - 4),
+                       lambda pkt: pkt.flg != 0)]
 
     def post_build(self, p, pay):
         if self.length is None:
