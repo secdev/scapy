@@ -47,6 +47,7 @@ from scapy.automaton import ATMT, select_objects
 from scapy.error import warning
 from scapy.layers.tls.automaton import _TLSAutomaton
 from scapy.layers.tls.basefields import _tls_version, _tls_version_options
+from scapy.layers.tls.cert import CertList, CertTree
 from scapy.layers.tls.session import tlsSession
 from scapy.layers.tls.extensions import (
     ServerName,
@@ -86,6 +87,33 @@ from typing import (
 )
 
 
+def _verify_server_certificate(certificates, trusted_certs, hostname):
+    """
+    Whether the server's certificate chains to a trusted CA and names the host.
+
+    :param certificates: the chain the server sent, leaf first
+    :param trusted_certs: the CAs to trust, or None to use the system store
+    :param hostname: the name the client asked for
+    :return: True if the server is authenticated
+    """
+    # None means "use the system store". An empty list is not the same thing and
+    # must fail closed: CertTree reads no roots as "trust any self-signed
+    # certificate in the list", and that list is the one the peer just sent.
+    if not certificates or (trusted_certs is not None and not trusted_certs):
+        return False
+    try:
+        CertTree(
+            list(certificates),
+            trusted_certs,
+            load_system_store=trusted_certs is None,
+        ).verify(
+            certificates[0], hostname=hostname
+        )
+    except Exception:
+        return False
+    return True
+
+
 class TLSClientAutomaton(_TLSAutomaton):
     """
     A simple TLS test client automaton. Try to overload some states or
@@ -97,6 +125,9 @@ class TLSClientAutomaton(_TLSAutomaton):
     :param server: the server IP or hostname. defaults to 127.0.0.1
     :param dport: the server port. defaults to 4433
     :param server_name: the SNI to use. It does not need to be set
+    :param cafile: optional CA certificate bundle used to authenticate the server.
+        By default, the system trust store is used.
+    :param verify: whether to authenticate the server certificate. Defaults to True.
     :param mycert:
     :param mykey: may be provided as filenames. They will be used in the (or post)
         handshake, should the server ask for client authentication.
@@ -116,6 +147,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     """
 
     def parse_args(self, server="127.0.0.1", dport=4433, server_name=None,
+                   cafile=None, verify=True,
                    mycert=None, mykey=None,
                    client_hello=None, version=None,
                    resumption_master_secret=None,
@@ -137,6 +169,14 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.remote_ip = tmp[0][4][0]
         self.remote_port = dport
         self.server_name = server_name
+        self.expected_server_name = server_name or server
+        self.verify_server = verify
+        if verify and cafile:
+            self.server_trust_anchors = CertList(cafile)
+        elif verify:
+            self.server_trust_anchors = None
+        else:
+            self.server_trust_anchors = []
         self.local_ip = None
         self.local_port = None
         self.socket = None
@@ -402,7 +442,22 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_SERVERCERTIFICATE(self):
-        pass
+        if self.verify_server:
+            self.cur_session.server_cert_valid = _verify_server_certificate(
+                self.cur_session.server_certs,
+                self.server_trust_anchors,
+                self.expected_server_name,
+            )
+            if not self.cur_session.server_cert_valid:
+                raise self.INVALID_SERVER_CERTIFICATE()
+
+    @ATMT.state()
+    def INVALID_SERVER_CERTIFICATE(self):
+        self.vprint("Server certificate verification failed!")
+        self.add_record()
+        self.add_msg(TLSAlert(level=2, descr=46))
+        self.flush_records()
+        raise self.FINAL()
 
     @ATMT.condition(HANDLED_SERVERHELLO, prio=2)
     def missing_ServerCertificate(self):
@@ -842,7 +897,14 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_HANDLED_SERVERHELLO(self):
-        pass
+        if self.verify_server:
+            self.cur_session.server_cert_valid = _verify_server_certificate(
+                self.cur_session.server_certs,
+                self.server_trust_anchors,
+                self.expected_server_name,
+            )
+            if not self.cur_session.server_cert_valid:
+                raise self.SSLv2_CLOSE_NOTIFY()
 
     @ATMT.condition(SSLv2_RECEIVED_SERVERHELLO, prio=2)
     def sslv2_missing_ServerHello(self):
@@ -1341,7 +1403,14 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def TLS13_HANDLED_CERTIFICATE(self):
-        pass
+        if self.verify_server:
+            self.cur_session.server_cert_valid = _verify_server_certificate(
+                self.cur_session.server_certs,
+                self.server_trust_anchors,
+                self.expected_server_name,
+            )
+            if not self.cur_session.server_cert_valid:
+                raise self.INVALID_SERVER_CERTIFICATE()
 
     @ATMT.condition(TLS13_HANDLED_CERTIFICATE, prio=1)
     def tls13_should_handle_CertificateVerify(self):
