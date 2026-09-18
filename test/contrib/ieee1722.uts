@@ -1,0 +1,390 @@
+% IEEE 1722 test campaign
+
+# SPDX-License-Identifier: GPL-2.0-only
+# This file is part of Scapy
+# See https://scapy.net/ for more information
+# Copyright (C) Naresh Nayak <Naresh.Nayak@hs-furtwangen.de>
+
++ Load tests
+= Load module
+load_contrib("ieee1722", globals_dict=globals())
+AvtpAcfFlexrayHeader()
+assert AvtpAcfHeader.acf_variants[0] is AvtpAcfFlexrayHeader
+
++ AvtpAcfCan Tests
+= Build packet
+acf_pkt = AvtpAcfCanHeader()
+assert acf_pkt.acf_msg_type == 1
+assert hasattr(acf_pkt, "acf_msg_length")
+assert acf_pkt.acf_msg_length is None
+
+= Set invalid length
+acf_pkt = AvtpAcfCanHeader(acf_msg_length= 0x1, can_bus_id=0x14, can_identifier=0x45) / Raw(load="\x01\x02\x03")
+pktstr = bytes(acf_pkt)
+binstr = b"\x02\x01\x40\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x45\x01\x02\x03\x00"
+assert pktstr == binstr
+assert acf_pkt.acf_msg_type == 1
+assert acf_pkt.acf_msg_length == 1
+assert acf_pkt.can_identifier == 0x45
+assert acf_pkt.can_bus_id == 0x14
+
+= Dont set any length
+acf_pkt = AvtpAcfCanHeader(can_identifier=0x45) / Raw(load="\x01\x02\x03")
+pktstr = bytes(acf_pkt)
+binstr = b"\x02\x05\x40\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x45\x01\x02\x03\x00"
+assert pktstr == binstr
+acf_pkt_recv = AvtpAcfCanHeader(binstr)
+assert acf_pkt_recv.acf_msg_type == 1
+assert acf_pkt_recv.acf_msg_length == 5
+assert acf_pkt_recv.padlength == 1
+
+= Encapsulations with version 0
+acf_can_pkt = AvtpAcfCanHeader() / Raw(
+    load="\x01\x02\x03"
+)
+cf_pkt = AvtpNtscfHeader(acf_tlv=[acf_can_pkt])
+pkt = Ether()/cf_pkt
+assert pkt.encapsulation_sequence_num == None
+assert len(pkt.layers()) == 2 
+assert type(pkt.layers()[0]()) == Ether
+assert type(pkt.layers()[1]()) == type(AvtpNtscfHeader())
+
+pkt = Ether()/IP()/UDP()/cf_pkt
+assert pkt.encapsulation_sequence_num == 0
+assert len(pkt.layers()) == 4 
+assert pkt.layers()[0] == Ether
+assert pkt.layers()[1] == IP
+assert pkt.layers()[2] == UDP
+assert type(pkt.layers()[3]()) == type(AvtpNtscfHeader())
+
+= Encapsulations with version 1
+acf_can_pkt = AvtpAcfCanHeader() / Raw(
+    load="\x01\x02\x03"
+)
+cf_pkt = AvtpNtscfHeader(version=1, acf_tlv=[acf_can_pkt])
+pkt = Ether()/cf_pkt
+assert pkt.encapsulation_sequence_num == None
+assert len(pkt.layers()) == 2 
+assert type(pkt.layers()[0]()) == Ether
+assert type(pkt.layers()[1]()) == type(AvtpNtscfHeader(version=1))
+
++ Common header tests
+= Stream header versions
+stream_v0 = AvtpCommonStreamHeader(version=0)
+stream_v1 = AvtpCommonStreamHeader(version=1)
+assert type(stream_v0).__name__ == "_CommonStreamHeaderV0"
+assert type(stream_v1).__name__ == "_CommonStreamHeaderV1"
+assert stream_v0.version == 0
+assert stream_v1.version == 1
+assert len(stream_v0.fields_desc) == 12
+assert len(stream_v1.fields_desc) == 17
+
+= Control and alternative header versions
+control = AvtpCommonControlHeader(
+    subtype=AvtpStreamType.AECP.value, stream_id=0x0102030405060708
+) / Raw(load="abc")
+assert control.control_data_length == None
+assert control.subtype == AvtpStreamType.AECP.value
+assert control.stream_id == 0x0102030405060708
+alternative_v0 = AvtpAlternativeHeader(version=0)
+alternative_v1 = AvtpAlternativeHeader(version=1)
+assert type(alternative_v0).__name__ == "_AlternativeHeaderV0"
+assert type(alternative_v1).__name__ == "_AlternativeHeaderV1"
+assert len(alternative_v0.fields_desc) == 4
+assert len(alternative_v1.fields_desc) == 8
+
++ ACF header tests
+= ACF variant defaults
+acf_headers = [
+    (AvtpAcfFlexrayHeader, AvtpAcfType.ACF_FLEXRAY.value),
+    (AvtpAcfCanHeader, AvtpAcfType.ACF_CAN.value),
+    (AvtpAcfCanV2Header, AvtpAcfType.ACF_CAN_V2.value),
+    (AvtpAcfCanBriefHeader, AvtpAcfType.ACF_CAN_BRIEF.value),
+    (AvtpAcfCanBriefV2Header, AvtpAcfType.ACF_CAN_BRIEF_V2.value),
+    (AvtpAcfLinHeader, AvtpAcfType.ACF_LIN.value),
+    (AvtpAcfLinV2Header, AvtpAcfType.ACF_LIN_V2.value),
+    (AvtpAcfMostHeader, AvtpAcfType.ACF_MOST.value),
+    (AvtpAcfGpcHeader, AvtpAcfType.ACF_GPC.value),
+    (AvtpAcfSerialHeader, AvtpAcfType.ACF_SERIAL.value),
+    (AvtpAcfParallelHeader, AvtpAcfType.ACF_PARALLEL.value),
+]
+for acf_class, acf_type in acf_headers:
+    acf_pkt = acf_class()
+    assert acf_pkt.acf_msg_type == acf_type
+    assert acf_pkt.acf_msg_length is None
+
+= ACF payload lengths and padding
+can_v2 = AvtpAcfCanV2Header(
+    can_bus_id=0x123, can_identifier=0x12345, message_timestamp=0x10203040
+) / Raw(load="abc")
+can_v2_bytes = bytes(can_v2)
+assert len(can_v2_bytes) == 20
+can_v2_decoded = AvtpAcfCanV2Header(can_v2_bytes)
+assert can_v2_decoded.acf_msg_length == 5
+assert can_v2_decoded.padlength == 1
+
+lin_v2 = AvtpAcfLinV2Header(
+    lin_bus_id=0x123, lin_identifier=0x22, reserved=b"abc"
+) / Raw(load="abc")
+assert len(bytes(lin_v2)) == 20
+lin_v2_decoded = AvtpAcfLinV2Header(bytes(lin_v2))
+assert lin_v2_decoded.acf_msg_length == 5
+assert lin_v2_decoded.padlength == 1
+
+gpc = AvtpAcfGpcHeader(gpc_msgid=0x010203040506) / Raw(load="abc")
+gpc_decoded = AvtpAcfGpcHeader(bytes(gpc))
+assert len(bytes(gpc)) == 12
+assert gpc_decoded.acf_msg_length == 3
+
+parallel = AvtpAcfParallelHeader(bit_width=8) / Raw(load="abc")
+parallel_decoded = AvtpAcfParallelHeader(bytes(parallel))
+assert len(bytes(parallel)) == 8
+assert parallel_decoded.acf_msg_length == 2
+
+= ACF message lengths beyond 8 bits
+can_length_256 = AvtpAcfCanHeader() / Raw(load=b"x" * (256 * 4 - 16))
+can_length_256_bytes = bytes(can_length_256)
+assert len(can_length_256_bytes) == 256 * 4
+assert can_length_256_bytes[:2] == b"\x03\x00"
+can_length_256_decoded = AvtpAcfCanHeader(can_length_256_bytes)
+assert can_length_256_decoded.acf_msg_length == 256
+
+can_length_257 = AvtpAcfCanHeader() / Raw(load=b"x" * (257 * 4 - 16))
+can_length_257_bytes = bytes(can_length_257)
+assert len(can_length_257_bytes) == 257 * 4
+assert can_length_257_bytes[:2] == b"\x03\x01"
+can_length_257_decoded = AvtpAcfCanHeader(can_length_257_bytes)
+assert can_length_257_decoded.acf_msg_length == 257
+
+= ACF field values
+flexray = AvtpAcfFlexrayHeader(
+    fr_bus_id=3, fr_frame_id=0x123, cycle=0x12
+)
+assert flexray.fr_bus_id == 3
+assert flexray.fr_frame_id == 0x123
+assert flexray.cycle == 0x12
+
+can_brief = AvtpAcfCanBriefHeader(
+    can_bus_id=4, can_identifier=0x12345, brs=1, fdf=1
+)
+assert can_brief.can_bus_id == 4
+assert can_brief.can_identifier == 0x12345
+assert can_brief.brs == 1
+assert can_brief.fdf == 1
+
+most = AvtpAcfMostHeader(
+    most_net_id=2, device_id=0x1234, fblock_id=3, inst_id=4, func_id=5
+)
+assert most.most_net_id == 2
+assert most.device_id == 0x1234
+assert most.fblock_id == 3
+assert most.inst_id == 4
+assert most.func_id == 5
+
+serial = AvtpAcfSerialHeader(dcd=1, dtr=1, dsr=1, rts=1, cts=1, ri=1)
+assert serial.dcd == 1
+assert serial.dtr == 1
+assert serial.dsr == 1
+assert serial.rts == 1
+assert serial.cts == 1
+assert serial.ri == 1
+
+= ACF Serial header serialization
+serial_pkt = AvtpAcfSerialHeader(dcd=1, dtr=1, dsr=1, rts=1, cts=1, ri=1)
+serial_bytes = bytes(serial_pkt)
+serial_decoded = AvtpAcfSerialHeader(serial_bytes)
+assert serial_decoded.dcd == 1
+assert serial_decoded.dtr == 1
+assert serial_decoded.dsr == 1
+assert serial_decoded.rts == 1
+assert serial_decoded.cts == 1
+assert serial_decoded.ri == 1
+
+serial_pkt_with_payload = AvtpAcfSerialHeader() / Raw(load="abc")
+serial_with_payload_bytes = bytes(serial_pkt_with_payload)
+serial_with_payload_decoded = AvtpAcfSerialHeader(serial_with_payload_bytes)
+assert bytes(serial_with_payload_decoded.payload) == b"abc"
+
+= ACF do_dissect_payload drops payload when padlength is 0 
+padlength_zero_classes = [
+    AvtpAcfFlexrayHeader,
+    AvtpAcfCanHeader,
+    AvtpAcfCanV2Header,
+    AvtpAcfCanBriefHeader,
+    AvtpAcfCanBriefV2Header,
+    AvtpAcfLinHeader,
+    AvtpAcfLinV2Header,
+    AvtpAcfMostHeader,
+    AvtpAcfSerialHeader,
+]
+
+for acf_class in padlength_zero_classes:
+    built = acf_class() / Raw(load=b"WXYZ")
+    decoded = acf_class(bytes(built))
+    assert decoded.padlength == 0
+    assert bytes(decoded.payload) == b"WXYZ"
+
+for acf_class in padlength_zero_classes:
+    built = acf_class() / Raw(load=b"WXY")
+    decoded = acf_class(bytes(built))
+    assert decoded.padlength == 1
+    assert bytes(decoded.payload) == b"WXY"
+
+for acf_class in padlength_zero_classes:
+    built = acf_class() / Raw(load=b"WX")
+    decoded = acf_class(bytes(built))
+    assert decoded.padlength == 2
+    assert bytes(decoded.payload) == b"WX"
+
+for acf_class in padlength_zero_classes:
+    built = acf_class() / Raw(load=b"W")
+    decoded = acf_class(bytes(built))
+    assert decoded.padlength == 3
+    assert bytes(decoded.payload) == b"W"
+
+= Versioned NTSCF and TSCF headers
+acf_tlv = [AvtpAcfCanHeader(can_identifier=0x123) / Raw(load="abc")]
+ntscf_v0 = AvtpNtscfHeader(version=0, acf_tlv=acf_tlv)
+ntscf_v1 = AvtpNtscfHeader(version=1, acf_tlv=acf_tlv)
+assert ntscf_v0.subtype == AvtpStreamType.NTSCF.value
+assert ntscf_v1.subtype == AvtpStreamType.NTSCF.value
+assert len(bytes(ntscf_v0)) == 32
+assert len(bytes(ntscf_v1)) == 48
+assert len(ntscf_v0.acf_tlv) == 1
+assert len(ntscf_v1.acf_tlv) == 1
+
+tscf_v0 = AvtpTscfHeader(version=0, acf_tlv=acf_tlv)
+tscf_v1 = AvtpTscfHeader(version=1, acf_tlv=acf_tlv)
+assert tscf_v0.subtype == AvtpStreamType.TSCF.value
+assert tscf_v1.subtype == AvtpStreamType.TSCF.value
+assert len(bytes(tscf_v0)) == 44
+assert len(bytes(tscf_v1)) == 60
+assert len(tscf_v0.acf_tlv) == 1
+assert len(tscf_v1.acf_tlv) == 1
+
+= Additional ACF class defaults
+acf_headers += [
+    (AvtpAcfSensorHeader, AvtpAcfType.ACF_SENSOR.value),
+    (AvtpAcfSensorBriefHeader, AvtpAcfType.ACF_SENSOR_BRIEF.value),
+    (AvtpAcfAecpHeader, AvtpAcfType.ACF_AECP.value),
+    (AvtpAcfAncillaryHeader, AvtpAcfType.ACF_ANCILLARY.value),
+    (AvtpAcfGenericByteBusHeader, AvtpAcfType.ACF_GBB.value),
+    (AvtpAcfAbbreviatedByteBusHeader, AvtpAcfType.ACF_ABB.value),
+    (AvtpAcfCanXlHeader, AvtpAcfType.ACF_CAN_XL.value),
+    (AvtpAcfCanXlBriefHeader, AvtpAcfType.ACF_CAN_XL_BRIEF.value),
+    (AvtpAcfCrcHeader, AvtpAcfType.ACF_CRC.value),
+    (AvtpAcfI2CHeader, AvtpAcfType.ACF_I2C.value),
+    (AvtpAcfI2CBriefHeader, AvtpAcfType.ACF_I2C_BRIEF.value),
+    (AvtpAcfGisfHeader, AvtpAcfType.ACF_GISF.value)
+]
+for acf_class, acf_type in acf_headers:
+    acf_pkt = acf_class()
+    assert acf_pkt.acf_msg_type == acf_type
+    assert acf_pkt.acf_msg_length is None
+
+= ACF dispatch variants
+for acf_class in [
+    AvtpAcfFlexrayHeader,
+    AvtpAcfCanHeader,
+    AvtpAcfCanBriefHeader,
+    AvtpAcfLinHeader,
+    AvtpAcfMostHeader,
+    AvtpAcfGpcHeader,
+    AvtpAcfSerialHeader,
+    AvtpAcfParallelHeader,
+    AvtpAcfSensorHeader,
+    AvtpAcfSensorBriefHeader,
+    AvtpAcfAecpHeader,
+    AvtpAcfAncillaryHeader,
+    AvtpAcfGenericByteBusHeader,
+    AvtpAcfAbbreviatedByteBusHeader,
+    AvtpAcfI2CHeader,
+    AvtpAcfI2CBriefHeader,
+    AvtpAcfCanXlHeader,
+    AvtpAcfCanXlBriefHeader,
+    AvtpAcfGisfHeader
+]:
+    acf_pkt = acf_class()
+    decoded = AvtpAcfHeader(bytes(acf_pkt))
+    assert type(decoded) is acf_class
+
+= ACF Message Length defaults for fixed length padlength_zero_classes
+acf_pkt = AvtpAcfChecksumHeader()
+assert acf_pkt.acf_msg_type == AvtpAcfType.ACF_CHECKSUM.value
+assert acf_pkt.acf_msg_length == 1
+
+= Additional payload handling tests
+can_xl = AvtpAcfCanXlHeader(
+    can_bus_id=0x123, priority_id=0x456, acceptance_field=0x12345678
+) / Raw(load="abc")
+can_xl_decoded = AvtpAcfCanXlHeader(bytes(can_xl))
+assert len(bytes(can_xl)) == 28
+assert can_xl_decoded.acf_msg_length == 7
+assert can_xl_decoded.padlength == 1
+
+can_xl_brief = AvtpAcfCanXlBriefHeader(
+    can_bus_id=0x123, priority_id=0x456, acceptance_field=0x12345678
+) / Raw(load="abc")
+can_xl_brief_decoded = AvtpAcfCanXlBriefHeader(bytes(can_xl_brief))
+assert len(bytes(can_xl_brief)) == 20
+assert can_xl_brief_decoded.acf_msg_length == 5
+assert can_xl_brief_decoded.padlength == 1
+
+checksum = AvtpAcfChecksumHeader(checksum=0xABCD)
+assert checksum.checksum == 0xABCD
+assert checksum.acf_msg_type == AvtpAcfType.ACF_CHECKSUM.value
+
+crc = AvtpAcfCrcHeader(crc_type=0x3)
+assert crc.crc_type == 0x3
+assert crc.acf_msg_type == AvtpAcfType.ACF_CRC.value
+
+gisf = AvtpAcfGisfHeader(
+    image_sensor_id=0x123, line_number=0x456
+) / Raw(load="abc")
+gisf_decoded = AvtpAcfGisfHeader(bytes(gisf))
+assert len(bytes(gisf)) == 24
+assert gisf_decoded.acf_msg_type == AvtpAcfType.ACF_GISF.value
+assert gisf_decoded.image_sensor_id == 0x123
+assert gisf_decoded.line_number == 0x456
+assert gisf_decoded.acf_msg_length == 6
+assert gisf_decoded.padlength == 1
+assert bytes(gisf_decoded.payload) == b"abc"
+
+= Ethernet and UDP bindings
+ether_pkt = Ether(type=0x22F0) / AvtpTscfHeader()
+assert type(ether_pkt.payload).__name__ == "_AvtpTscfHeaderV0"
+ether_pkt = Ether(type=0x22F0) / AvtpTscfHeader(version=1)
+assert type(ether_pkt.payload).__name__ == "_AvtpTscfHeaderV1"
+ether_pkt_bytes = bytes(ether_pkt)
+ether_pkt_recd = Ether(ether_pkt_bytes)
+assert type(ether_pkt_recd.payload).__name__ == "_AvtpTscfHeaderV1"
+
+ether_pkt = Ether(type=0x22F0) / AvtpNtscfHeader()
+assert type(ether_pkt.payload).__name__ == "_AvtpNtscfHeaderV0"
+ether_pkt = Ether(type=0x22F0) / AvtpNtscfHeader(version=1)
+assert type(ether_pkt.payload).__name__ == "_AvtpNtscfHeaderV1"
+ether_pkt_bytes = bytes(ether_pkt)
+ether_pkt_recd = Ether(ether_pkt_bytes)
+assert type(ether_pkt_recd.payload).__name__ == "_AvtpNtscfHeaderV1"
+
+udp_pkt = IP() / UDP(dport=17220) / AvtpNtscfHeader()
+assert udp_pkt.payload.payload.encapsulation_sequence_num == 0
+assert type(udp_pkt.payload.payload).__name__ == "_AvtpNtscfHeaderV0"
+udp_pkt = IP() / UDP(dport=17220) / AvtpNtscfHeader(version=1)
+assert udp_pkt.payload.payload.encapsulation_sequence_num == 0
+assert type(udp_pkt.payload.payload).__name__ == "_AvtpNtscfHeaderV1"
+
+= TSCF & NTSCF parsing
+wire = bytes(AvtpNtscfHeader(version=1))
+decoded = AvtpNtscfHeader(wire)
+assert type(decoded).__name__ == "_AvtpNtscfHeaderV1"
+wire = bytes(AvtpNtscfHeader())
+decoded = AvtpNtscfHeader(wire)
+assert type(decoded).__name__ == "_AvtpNtscfHeaderV0"
+
+wire = bytes(AvtpTscfHeader(version=1))
+decoded = AvtpTscfHeader(wire)
+assert type(decoded).__name__ == "_AvtpTscfHeaderV1"
+wire = bytes(AvtpTscfHeader())
+decoded = AvtpTscfHeader(wire)
+assert type(decoded).__name__ == "_AvtpTscfHeaderV0"
