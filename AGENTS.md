@@ -8,7 +8,7 @@
 - Follow the code patterns that already exist in the file you are editing, in similar layers when editing a layer (in both `layers/` or `contrib/`) or in the rest of the project. Some of those guidelines are detailed below.
 - Do not declare functions for very simple checks or operations. Prefer code readability over trying to reduce code duplication.
 - Never declare a function that is only used once, unless it is meant to be a public API.
-- Avoid silent exception suppression (`try: ... except Exception: pass` or bare `except: pass`). Catch specific exception types (e.g., `(AttributeError, OSError)`), and log the caught exception at `logging.DEBUG` level using `scapy.error.log_runtime.debug(...)` or the module's child logger (e.g., `log_j1939.debug(...)`), or document explicitly why suppression is necessary.
+- Avoid silent exception suppression (`try: ... except Exception: pass` or bare `except: pass`). Catch specific exception types (e.g., `(AttributeError, OSError)`). When the exception is unexpected, log the caught exception using `scapy.error.log_runtime.debug(...)` or the module's child logger (e.g., `log_j1939.debug(...)`), or document explicitly why suppression is necessary. Use WARNING or above only against bugs or unexpected behaviors.
 
 ## Put code in the right place
 
