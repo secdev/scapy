@@ -126,6 +126,30 @@ assert sum(materialized_lengths) <= len(stream) * 3, (
     sum(materialized_lengths), len(stream)
 )
 
+= Late TCP prefix invalidates LDAP minimum length
+
+from scapy.layers.inet import IP, TCP
+from scapy.sessions import TCPSession
+
+def segment(seq, payload):
+    packet = IP()/TCP(sport=12345, dport=389, seq=seq)/Raw(payload)
+    return IP(raw(packet))
+
+bind = raw(LDAP(
+    messageID=1,
+    protocolOp=LDAP_BindRequest(
+        bind_name=b"user",
+        authentication=LDAP_Authentication_simple(b"pass"),
+    ),
+))
+split = 4
+session = TCPSession()
+assert session.process(segment(1000 + split, bind[split:-1])) is None
+assert session.process(segment(1000, bind[:split])) is None
+response = session.process(segment(1000 + len(bind) - 1, bind[-1:]))
+assert response is not None
+assert LDAP_BindRequest in response
+
 + CLDAP tests
 
 = Basic CLDAP dissection & build test
