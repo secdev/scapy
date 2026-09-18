@@ -2,6 +2,9 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
+# 
+# The CAN XL parts are created by Friedrich Wiemer
+# Copyright (C) 2026, Robert Bosch GmbH
 
 # scapy.contrib.description = Native CANSocket
 # scapy.contrib.status = loads
@@ -19,7 +22,7 @@ from scapy.data import SO_TIMESTAMPNS
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, warning, log_runtime
 from scapy.packet import Packet
-from scapy.layers.can import CAN, CAN_MTU, CAN_FD_MTU
+from scapy.layers.can import CAN, CANFD, CANXL, CAN_MTU, CAN_FD_MTU, CANXL_MTU
 from scapy.compat import raw
 
 from typing import (
@@ -51,11 +54,21 @@ class NativeCANSocket(SuperSocket):
     """  # noqa: E501
     desc = "read/write packets at a given CAN interface using PF_CAN sockets"
 
+    # Socket option constants for CAN XL (not yet in Python's socket module)
+    CAN_RAW_XL_FRAMES = 7     # enable CAN XL frames    (kernel >= 6.2)
+    CAN_RAW_XL_VCID_OPTS = 8  # VCID pass-through opts  (kernel >= 6.11)
+
+    # can_raw_vcid_options.flags bits
+    CAN_RAW_XL_VCID_TX_SET = 0x01
+    CAN_RAW_XL_VCID_TX_PASS = 0x02
+    CAN_RAW_XL_VCID_RX_FILTER = 0x04
+
     def __init__(self,
                  channel=None,  # type: Optional[str]
                  receive_own_messages=False,  # type: bool
                  can_filters=None,  # type: Optional[List[Dict[str, int]]]
                  fd=False,  # type: bool
+                 xl=False,  # type: bool
                  basecls=CAN,  # type: Type[Packet]
                  **kwargs  # type: Dict[str, Any]
                  ):
@@ -67,8 +80,12 @@ class NativeCANSocket(SuperSocket):
                     "the correct one to achieve compatibility with python-can"
                     "/PythonCANSocket. \n'bustype=socketcan'")
 
+        if fd and xl:
+            raise Scapy_Exception("fd and xl are mutually exclusive")
+
         self.MTU = CAN_MTU
         self.fd = fd
+        self.xl = xl
         self.basecls = basecls
         self.channel = conf.contribs['NativeCANSocket']['channel'] if \
             channel is None else channel
@@ -109,6 +126,34 @@ class NativeCANSocket(SuperSocket):
                     "Could not enable CAN FD support (%s)", exception
                 )
 
+        if self.xl:
+            # CAN_RAW_XL_FRAMES - required, kernel >= 6.2
+            try:
+                self.ins.setsockopt(socket.SOL_CAN_RAW,
+                                    self.CAN_RAW_XL_FRAMES,
+                                    struct.pack("i", 1))
+                self.MTU = CANXL_MTU
+            except OSError as exc:
+                raise Scapy_Exception(
+                    "Could not enable CAN XL frames "
+                    "(kernel >= 6.2 required): %s" % exc
+                )
+
+            # CAN_RAW_XL_VCID_OPTS - optional, kernel >= 6.11
+            # RX_FILTER with mask=0 passes all VCIDs; TX_PASS forwards
+            # the VCID from the frame to the bus.
+            vcid_flags = (self.CAN_RAW_XL_VCID_RX_FILTER |
+                          self.CAN_RAW_XL_VCID_TX_PASS)
+            try:
+                vcid_opts = struct.pack("BBBB", vcid_flags, 0, 0, 0)
+                self.ins.setsockopt(socket.SOL_CAN_RAW,
+                                    self.CAN_RAW_XL_VCID_OPTS,
+                                    vcid_opts)
+            except OSError:
+                warning("CAN_RAW_XL_VCID_OPTS not available "
+                        "(kernel >= 6.11 required). "
+                        "Frames with non-zero VCID may not be received.")
+
         if can_filters is None:
             can_filters = [{
                 "can_id": 0,
@@ -128,6 +173,11 @@ class NativeCANSocket(SuperSocket):
         self.ins.bind((self.channel,))
         self.outs = self.ins
 
+    @staticmethod
+    def _is_canxl(pkt):
+        # type: (bytes) -> bool
+        return CANXL.is_canxl_frame(pkt)
+
     def recv_raw(self, x=CAN_MTU):
         # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
         """Returns a tuple containing (cls, pkt_data, time)"""
@@ -143,9 +193,11 @@ class NativeCANSocket(SuperSocket):
             # something bad happened (e.g. the interface went down)
             warning("Captured no data.")
 
-        # need to change the byte order of the first four bytes,
-        # required by the underlying Linux SocketCAN frame format
-        if not conf.contribs['CAN']['swap-bytes'] and pkt:
+        # CAN XL frames handle their own byte swapping in
+        # CANXL.pre_dissect - skip the first-4-byte swap here.
+        # CAN/CANFD still need the first-4-byte swap.
+        if not conf.contribs['CAN']['swap-bytes'] and pkt \
+                and not self._is_canxl(pkt):
             pack_fmt = "<I%ds" % (len(pkt) - 4)
             unpack_fmt = ">I%ds" % (len(pkt) - 4)
             pkt = struct.pack(pack_fmt, *struct.unpack(unpack_fmt, pkt))
@@ -166,15 +218,21 @@ class NativeCANSocket(SuperSocket):
         except AttributeError:
             pass
 
-        # need to change the byte order of the first four bytes,
-        # required by the underlying Linux SocketCAN frame format
         bs = raw(x)
-        if not conf.contribs['CAN']['swap-bytes']:
-            pack_fmt = "<I%ds" % (len(bs) - 4)
-            unpack_fmt = ">I%ds" % (len(bs) - 4)
-            bs = struct.pack(pack_fmt, *struct.unpack(unpack_fmt, bs))
 
-        bs = bs + b"\x00" * (self.MTU - len(bs))
+        if isinstance(x, CANXL):
+            # CANXL.post_build already produces little endian wire bytes.
+            # No MTU padding - kernel expects exact HDR_SIZE + len.
+            pass
+        else:
+            # CAN/CANFD: swap first 4 bytes (CAN ID) big endian to litte endian
+            if not conf.contribs['CAN']['swap-bytes']:
+                pack_fmt = "<I%ds" % (len(bs) - 4)
+                unpack_fmt = ">I%ds" % (len(bs) - 4)
+                bs = struct.pack(pack_fmt, *struct.unpack(unpack_fmt, bs))
+            # CAN/CANFD: pad to correct MTU per frame type
+            mtu = CAN_FD_MTU if isinstance(x, CANFD) else CAN_MTU
+            bs = bs + b"\x00" * (mtu - len(bs))
 
         return super(NativeCANSocket, self).send(bs)  # type: ignore
 

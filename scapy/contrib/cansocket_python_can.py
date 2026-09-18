@@ -2,6 +2,9 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
+# 
+# The CAN XL parts are created by Friedrich Wiemer
+# Copyright (C) 2026, Robert Bosch GmbH
 
 # scapy.contrib.description = python-can CANSocket
 # scapy.contrib.status = loads
@@ -21,9 +24,9 @@ from collections import deque
 
 from scapy.config import conf
 from scapy.supersocket import SuperSocket
-from scapy.layers.can import CAN
+from scapy.layers.can import CAN, CANXL
 from scapy.packet import Packet
-from scapy.error import warning, log_runtime
+from scapy.error import Scapy_Exception, warning, log_runtime
 from typing import (
     List,
     Type,
@@ -433,6 +436,9 @@ class PythonCANSocket(SuperSocket):
 
     def send(self, x):
         # type: (Packet) -> int
+        if isinstance(x, CANXL):
+            raise Scapy_Exception(
+                "PythonCANSocket does not support CAN XL frames")
         bx = bytes(x)
         msg = can_Message(is_remote_frame=x.flags == 0x2,
                           is_extended_id=x.flags == 0x4,

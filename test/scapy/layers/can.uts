@@ -1541,3 +1541,310 @@ remote = CandumpReader(BytesIO(b"(1.000000) vcan0 123#R8\n")).read_packet()
 assert "remote_transmission_request" in remote.flags
 assert remote.length == 8
 assert remote.data == b""
+
+############
+############
+
++ CAN XL basic operations
+
+= CAN XL constants
+
+from scapy.layers.can import CANXL, CANXL_MTU, CANXL_HDR_SIZE, \
+    CANXL_MAX_DLEN, CANXL_MIN_DLEN, CANXL_XLF, CANXL_FDF, CANXL_IDE, \
+    CANXL_SEC, CANXL_RRS
+
+assert CANXL_HDR_SIZE == 12
+assert CANXL_MTU == 2060
+assert CANXL_XLF == 0x80
+assert CANXL_FDF == 0x40
+assert CANXL_IDE == 0x20
+assert CANXL_SEC == 0x01
+assert CANXL_RRS == 0x02
+assert CANXL_MIN_DLEN == 1
+assert CANXL_MAX_DLEN == 2048
+
+= CAN XL default field values
+
+pkt = CANXL()
+assert pkt.priority == 0
+assert pkt.vcid == 0
+assert pkt.reserved1 == 0
+assert pkt.reserved2 == 0
+assert pkt.sdt == 0
+assert pkt.af == 0
+assert int(pkt.flags) == 0xC0   # XLF+FDF set by default (ISO 11898-1)
+assert pkt.flags.xlf == 1
+assert pkt.flags.fdf == 1
+assert pkt.flags.ide == 0
+assert pkt.length == 0
+
+= CAN XL build with default ISO flags (XLF+FDF, IDE=0)
+
+pkt = CANXL() / b'\xde'
+wire = raw(pkt)
+assert wire[4] & CANXL_XLF        # XLF must be set
+assert wire[4] & CANXL_FDF        # FDF must be set
+assert not (wire[4] & CANXL_IDE)  # IDE must be clear
+
+= CAN XL TV1: minimal frame wire format
+# priority=0x042, flags=0xC0 (XLF+FDF), sdt=0x00, af=0, payload=b'\xde'
+# Expected wire bytes (LE):
+#   prio LE : 42 00 00 00
+#   flags   : c0
+#   sdt     : 00
+#   len  LE : 01 00
+#   af   LE : 00 00 00 00
+#   data    : de
+
+pkt = CANXL(priority=0x042) / b'\xde'
+wire = raw(pkt)
+assert wire == bytes.fromhex('42000000' 'c0' '00' '0100' '00000000' 'de'), wire.hex()
+
+= CAN XL TV2: all fields set
+
+pkt = CANXL(priority=0x123, vcid=0x45, sdt=0x07, af=0x12345678) / \
+    b'\xde\xad\xbe\xef'
+wire = raw(pkt)
+assert wire == bytes.fromhex('23014500' 'c0' '07' '0400' '78563412' 'deadbeef'), wire.hex()
+
+= CAN XL TV3: SEC flag set
+
+pkt = CANXL(priority=0x000, flags=0xC1, sdt=0x00, af=0) / b'\x11\x22'
+wire = raw(pkt)
+assert wire == bytes.fromhex('00000000' 'c1' '00' '0200' '00000000' '1122'), wire.hex()
+
+= CAN XL TV4: RRS flag and max identifier + vcid
+
+pkt = CANXL(priority=0x7ff, vcid=0xff, flags=0xC2, sdt=0xff,
+            af=0xffffffff) / b'\xff'
+wire = raw(pkt)
+# prio = 0x00ff07ff -> LE: ff 07 ff 00
+assert wire == bytes.fromhex('ff07ff00' 'c2' 'ff' '0100' 'ffffffff' 'ff'), wire.hex()
+
+= CAN XL TV5: 2048-byte payload (max)
+
+payload = bytes(range(256)) * 8
+pkt = CANXL(priority=0x001) / payload
+wire = raw(pkt)
+assert len(wire) == CANXL_HDR_SIZE + 2048
+# len field LE at bytes 6-7 = 0x0800  (len=2048)
+assert wire[6:8] == b'\x00\x08', wire[6:8].hex()
+
+= CAN XL ISO flags enforced even when cleared or wrong
+
+pkt = CANXL(flags=0x00) / b'\xaa'
+wire = raw(pkt)
+assert wire[4] & CANXL_XLF        # post_build must set XLF
+assert wire[4] & CANXL_FDF        # post_build must set FDF
+assert not (wire[4] & CANXL_IDE)  # post_build must clear IDE
+
+# Even if IDE is explicitly set, post_build clears it
+pkt = CANXL(flags=0xE0) / b'\xaa'
+wire = raw(pkt)
+assert not (wire[4] & CANXL_IDE)  # IDE forced clear
+
+############
+############
+
++ CAN XL dispatch_hook
+
+= dispatch_hook returns CANXL for XL frame bytes
+
+# Byte 4 has bit 7 set (flags=0xC0) -> CANXL
+xl_bytes = bytes.fromhex('42000000' 'c0' '00' '0100' '00000000' 'de')
+assert CAN.dispatch_hook(_pkt=xl_bytes) == CANXL
+
+= dispatch_hook still returns CAN for classic CAN
+
+can_bytes = bytes(16)  # All zeros, length byte (byte 4) = 0
+assert CAN.dispatch_hook(_pkt=can_bytes) == CAN
+
+= dispatch_hook still returns CANFD for FD frames
+
+# CANFD: byte 4 = 12 (length > 8), byte 5 = 0x04 (fd_frame flag)
+canfd_bytes = b'\x00\x00\x00\x00\x0c\x04\x00\x00' + b'\x00' * 12
+assert CAN.dispatch_hook(_pkt=canfd_bytes) == CANFD
+
+############
+############
+
++ CAN XL dissection
+
+= CAN XL TV1 dissect
+
+wire = bytes.fromhex('42000000' 'c0' '00' '0100' '00000000' 'de')
+pkt = CANXL(wire)
+assert pkt.priority == 0x042
+assert pkt.vcid == 0x00
+assert pkt.sdt == 0x00
+assert pkt.af == 0x00000000
+assert pkt.length == 1
+assert bytes(pkt.payload) == b'\xde'
+assert pkt.flags.xlf == 1
+assert pkt.flags.fdf == 1
+assert pkt.flags.ide == 0
+
+= CAN XL TV2 dissect
+
+wire = bytes.fromhex('23014500' 'c0' '07' '0400' '78563412' 'deadbeef')
+pkt = CANXL(wire)
+assert pkt.priority == 0x123
+assert pkt.vcid == 0x45
+assert pkt.sdt == 0x07
+assert pkt.af == 0x12345678
+assert pkt.length == 4
+assert bytes(pkt.payload) == b'\xde\xad\xbe\xef'
+
+= CAN XL TV3 dissect (SEC flag)
+
+wire = bytes.fromhex('00000000' 'c1' '00' '0200' '00000000' '1122')
+pkt = CANXL(wire)
+assert pkt.flags.sec == 1
+assert pkt.flags.xlf == 1
+assert pkt.flags.fdf == 1
+assert pkt.flags.rrs == 0
+
+= CAN XL TV4 dissect (RRS + max fields)
+
+wire = bytes.fromhex('ff07ff00' 'c2' 'ff' '0100' 'ffffffff' 'ff')
+pkt = CANXL(wire)
+assert pkt.priority == 0x7ff
+assert pkt.vcid == 0xff
+assert pkt.sdt == 0xff
+assert pkt.af == 0xffffffff
+assert pkt.flags.rrs == 1
+assert pkt.flags.fdf == 1
+assert pkt.flags.sec == 0
+
+############
+############
+
++ CAN XL round-trip tests
+
+= CAN XL round-trip: simple frame
+
+orig = CANXL(priority=0x1ab, vcid=0xcc, sdt=0x05, af=0xdeadbeef) / \
+    b'round-trip'
+rx = CANXL(raw(orig))
+assert rx.priority == orig.priority
+assert rx.vcid == orig.vcid
+assert rx.sdt == orig.sdt
+assert rx.af == orig.af
+assert bytes(rx.payload) == b'round-trip'
+
+= CAN XL round-trip: auto-computed length from payload
+
+pkt = CANXL(priority=0x042) / b'\x01\x02\x03'
+rx = CANXL(raw(pkt))
+assert rx.length == 3
+assert bytes(rx.payload) == b'\x01\x02\x03'
+
+= CAN XL round-trip: 1-byte payload (minimum)
+
+pkt = CANXL() / b'\xaa'
+rx = CANXL(raw(pkt))
+assert rx.length == 1
+assert bytes(rx.payload) == b'\xaa'
+
+= CAN XL round-trip: 2048-byte payload (maximum)
+
+payload = bytes(range(256)) * 8
+pkt = CANXL() / payload
+rx = CANXL(raw(pkt))
+assert rx.length == 2048
+assert bytes(rx.payload) == payload
+
+############
+############
+
++ CAN XL ISO 11898-1 property accessors
+
+= CAN XL dlc property
+
+pkt = CANXL() / b'\x01\x02\x03'
+rx = CANXL(raw(pkt))
+assert rx.dlc == 2  # length=3 -> dlc=2
+
+pkt = CANXL() / b'\xaa'
+rx = CANXL(raw(pkt))
+assert rx.dlc == 0  # length=1 -> dlc=0
+
+payload = bytes(range(256)) * 8
+pkt = CANXL() / payload
+rx = CANXL(raw(pkt))
+assert rx.dlc == 2047  # length=2048 -> dlc=2047
+
+= CAN XL xlf property
+
+pkt = CANXL() / b'\x01'
+assert pkt.xlf == True
+
+= CAN XL fdf property
+
+pkt = CANXL() / b'\x01'
+assert pkt.fdf == True
+
+= CAN XL ide property
+
+pkt = CANXL() / b'\x01'
+assert pkt.ide == False
+
+# Even when explicitly set at field level, ide reads from flags
+pkt = CANXL(flags=0xE0) / b'\x01'
+assert pkt.ide == True
+
+= CAN XL sec property
+
+pkt = CANXL(flags=0xC1) / b'\x01'
+assert pkt.sec == True
+pkt = CANXL(flags=0xC0) / b'\x01'
+assert pkt.sec == False
+
+= CAN XL ftype property
+
+pkt = CANXL(flags=0xC2) / b'\x01'
+assert pkt.ftype == True
+pkt = CANXL(flags=0xC0) / b'\x01'
+assert pkt.ftype == False
+
+= CAN XL frame_format property
+
+# Default CAN XL: XLF+FDF = 0b110 = 6
+pkt = CANXL() / b'\x01'
+assert pkt.frame_format == 6  # XLF+FDF: 0b110
+
+# Explicit flags (pre-enforcement, at field level)
+pkt = CANXL(flags=0xC0) / b'\x01'
+assert pkt.frame_format == 6  # XLF+FDF: 0b110
+
+pkt = CANXL(flags=0xE0) / b'\x01'
+assert pkt.frame_format == 7  # XLF+FDF+IDE: 0b111
+
+############
+############
+
++ CAN XL show(style="11898-1")
+
+= CAN XL show ISO style contains expected field names
+
+pkt = CANXL(priority=0x123, vcid=0x45, sdt=0x07,
+            af=0x12345678) / b'\xde\xad\xbe\xef'
+output = pkt.show(dump=True, style="11898-1")
+assert "Priority" in output
+assert "VCID" in output
+assert "Format" in output
+assert "SEC" in output
+assert "FTYPE" in output
+assert "SDT" in output
+assert "DLC" in output
+assert "AF" in output
+assert "Data" in output
+assert "ISO 11898-1" in output
+
+= CAN XL show default style works
+
+pkt = CANXL(priority=0x42) / b'\x01'
+output = pkt.show(dump=True)
+assert "CAN XL" in output
+assert "priority" in output
+assert "flags" in output

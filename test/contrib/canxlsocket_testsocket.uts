@@ -1,0 +1,250 @@
+% Regression tests for CAN XL via TestSocket
+% Tests CAN XL frame send/recv through scapy's in-memory TestSocket,
+% Created by Friedrich Wiemer
+# Copyright (C) 2026, Robert Bosch GmbH
+
+############
+############
++ Configuration
+
+= Imports
+
+conf.contribs['CAN'] = {'swap-bytes': False, 'remove-padding': True}
+load_layer("can", globals_dict=globals())
+from scapy.layers.can import CANXL, CANXL_MTU, CANXL_HDR_SIZE, \
+    CANXL_MAX_DLEN, CANXL_MIN_DLEN, CANXL_XLF, CANXL_FDF, CANXL_SEC, \
+    CANXL_RRS
+from test.testsocket import TestSocket, cleanup_testsockets
+
+############
+############
++ Basic CAN XL send/recv via TestSocket
+
+= CAN XL minimal frame send and recv
+
+with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
+    s1.pair(s2)
+    s1.send(CANXL(priority=0x042, sdt=3, af=0xDEAD) / b'\x01\x02')
+    rx = s2.recv()
+    assert isinstance(rx, CANXL)
+    assert rx.priority == 0x042
+    assert rx.sdt == 3
+    assert rx.af == 0xDEAD
+    assert rx.length == 2
+    assert bytes(rx.payload) == b'\x01\x02'
+    assert rx.flags.xlf == 1
+    assert rx.flags.fdf == 1
+    assert rx.flags.ide == 0
+
+= CAN XL all fields set
+
+with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
+    s1.pair(s2)
+    tx = CANXL(priority=0x7FF, vcid=0xFF, flags=0xC3, sdt=0xFF,
+               af=0xFFFFFFFF) / b'\xCA\xFE'
+    s1.send(tx)
+    rx = s2.recv()
+    assert isinstance(rx, CANXL)
+    assert rx.priority == 0x7FF
+    assert rx.vcid == 0xFF
+    assert rx.sdt == 0xFF
+    assert rx.af == 0xFFFFFFFF
+    assert rx.flags.sec == 1
+    assert rx.flags.rrs == 1
+    assert rx.flags.xlf == 1
+    assert rx.flags.fdf == 1
+    assert rx.flags.ide == 0
+    assert bytes(rx.payload) == b'\xCA\xFE'
+
+= CAN XL minimum payload (1 byte)
+
+with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
+    s1.pair(s2)
+    s1.send(CANXL(priority=0x001) / b'\xAA')
+    rx = s2.recv()
+    assert isinstance(rx, CANXL)
+    assert rx.length == 1
+    assert bytes(rx.payload) == b'\xAA'
+
+= CAN XL maximum payload (2048 bytes)
+
+with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
+    s1.pair(s2)
+    payload = bytes(range(256)) * 8
+    assert len(payload) == CANXL_MAX_DLEN
+    s1.send(CANXL(priority=0x100, vcid=0x10, sdt=0x07,
+                  af=0x12345678) / payload)
+    rx = s2.recv()
+    assert isinstance(rx, CANXL)
+    assert rx.length == 2048
+    assert bytes(rx.payload) == payload
+    assert rx.priority == 0x100
+    assert rx.vcid == 0x10
+
+= CAN XL round-trip field equality
+
+with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
+    s1.pair(s2)
+    orig = CANXL(priority=0x1AB, vcid=0xCC, sdt=0x05,
+                 af=0xDEADBEEF) / b'round-trip'
+    s1.send(orig)
+    rx = s2.recv()
+    assert isinstance(rx, CANXL)
+    assert rx.priority == orig.priority
+    assert rx.vcid == orig.vcid
+    assert rx.sdt == orig.sdt
+    assert rx.af == orig.af
+    assert rx.length == len(b'round-trip')
+    assert bytes(rx.payload) == b'round-trip'
+
+############
+############
++ ISO flag enforcement through TestSocket
+
+= CAN XL flags enforced after send/recv (XLF+FDF set, IDE cleared)
+
+with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
+    s1.pair(s2)
+    # Intentionally set wrong flags: IDE on, XLF/FDF off
+    s1.send(CANXL(flags=0x20) / b'\xBB')
+    rx = s2.recv()
+    assert isinstance(rx, CANXL)
+    # post_build enforces correct flags
+    assert rx.flags.xlf == 1
+    assert rx.flags.fdf == 1
+    assert rx.flags.ide == 0
+
+############
+############
++ dispatch_hook differentiation via TestSocket
+
+= Mixed CAN, CANFD, CANXL on same paired sockets
+
+with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
+    s1.pair(s2)
+    # Send one of each type
+    s1.send(CAN(identifier=0x100, length=3, data=b'\x01\x02\x03'))
+    s1.send(CANFD(identifier=0x200, length=12,
+                  data=b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C'))
+    s1.send(CANXL(priority=0x042, sdt=1, af=0xBEEF) / b'\xDE\xAD')
+
+    rx1 = s2.recv()
+    rx2 = s2.recv()
+    rx3 = s2.recv()
+
+    # dispatch_hook must route each to the correct class
+    assert type(rx1) == CAN, "Expected CAN, got %s" % type(rx1).__name__
+    assert type(rx2) == CANFD, "Expected CANFD, got %s" % type(rx2).__name__
+    assert type(rx3) == CANXL, "Expected CANXL, got %s" % type(rx3).__name__
+
+    # Verify fields survived
+    assert rx1.identifier == 0x100
+    assert rx1.length == 3
+    assert rx2.identifier == 0x200
+    assert rx2.length == 12
+    assert rx3.priority == 0x042
+    assert rx3.af == 0xBEEF
+
+############
+############
++ ISO 11898-1 properties after send/recv
+
+= CAN XL ISO properties on received frame
+
+with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
+    s1.pair(s2)
+    s1.send(CANXL(priority=0x042, flags=0xC1, sdt=3,
+                  af=0xDEAD) / b'\x01\x02\x03')
+    rx = s2.recv()
+    assert isinstance(rx, CANXL)
+    # dlc = length - 1
+    assert rx.dlc == 2
+    # Flag properties
+    assert rx.xlf == True
+    assert rx.fdf == True
+    assert rx.ide == False
+    assert rx.sec == True
+    assert rx.ftype == False
+    # frame_format: XLF+FDF = 0b110 = 6
+    assert rx.frame_format == 6
+
+= CAN XL dlc edge cases via TestSocket
+
+with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
+    s1.pair(s2)
+    # 1-byte payload -> dlc = 0
+    s1.send(CANXL() / b'\xAA')
+    rx = s2.recv()
+    assert rx.dlc == 0
+
+with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
+    s1.pair(s2)
+    # 2048-byte payload -> dlc = 2047
+    s1.send(CANXL() / (b'\xBB' * 2048))
+    rx = s2.recv()
+    assert rx.dlc == 2047
+
+############
+############
++ CAN XL SEC and RRS flags via TestSocket
+
+= CAN XL SEC flag round-trip
+
+with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
+    s1.pair(s2)
+    s1.send(CANXL(flags=0xC1) / b'\x11\x22')
+    rx = s2.recv()
+    assert isinstance(rx, CANXL)
+    assert rx.flags.sec == 1
+    assert rx.sec == True
+    assert rx.flags.rrs == 0
+
+= CAN XL RRS flag round-trip
+
+with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
+    s1.pair(s2)
+    s1.send(CANXL(flags=0xC2) / b'\x33\x44')
+    rx = s2.recv()
+    assert isinstance(rx, CANXL)
+    assert rx.flags.rrs == 1
+    assert rx.ftype == True
+    assert rx.flags.sec == 0
+
+= CAN XL SEC+RRS flags together
+
+with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
+    s1.pair(s2)
+    s1.send(CANXL(flags=0xC3) / b'\x55')
+    rx = s2.recv()
+    assert isinstance(rx, CANXL)
+    assert rx.flags.sec == 1
+    assert rx.flags.rrs == 1
+
+############
+############
++ Bidirectional CAN XL communication
+
+= CAN XL send in both directions
+
+with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
+    s1.pair(s2)
+    # s1 -> s2
+    s1.send(CANXL(priority=0x001, af=0x11111111) / b'\xAA')
+    rx_at_s2 = s2.recv()
+    assert isinstance(rx_at_s2, CANXL)
+    assert rx_at_s2.priority == 0x001
+    assert rx_at_s2.af == 0x11111111
+    # s2 -> s1
+    s2.send(CANXL(priority=0x002, af=0x22222222) / b'\xBB')
+    rx_at_s1 = s1.recv()
+    assert isinstance(rx_at_s1, CANXL)
+    assert rx_at_s1.priority == 0x002
+    assert rx_at_s1.af == 0x22222222
+
+############
+############
++ Cleanup
+
+= Close all test sockets
+
+cleanup_testsockets()
