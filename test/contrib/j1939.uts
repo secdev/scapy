@@ -510,6 +510,34 @@ assert p.src == 0x00
 assert p.pgn == 0x0000
 assert p.dst == 0xFF
 
+= J1939_CAN identifier property returns 29-bit CAN ID
+p = J1939_CAN(priority=6, pdu_format=0xFE, pdu_specific=0xCA, src=0x00)
+assert p.identifier == 0x18FECA00
+assert p.identifier == j1939_to_can_id(6, 0, 0, 0xFE, 0xCA, 0x00)
+
+= J1939_CAN identifier setter updates sub-fields
+p = J1939_CAN()
+p.identifier = 0x18EA01F1
+assert p.priority == 6
+assert p.reserved == 0
+assert p.data_page == 0
+assert p.pdu_format == 0xEA
+assert p.pdu_specific == 0x01
+assert p.src == 0xF1
+assert p.identifier == 0x18EA01F1
+
+= J1939_CAN compatible with cansocket_python_can.CANSocket.send
+from unittest.mock import MagicMock
+from scapy.contrib.cansocket_python_can import CANSocket
+mock_sock = CANSocket.__new__(CANSocket)
+mock_sock.can_iface = MagicMock()
+pkt = J1939_CAN(priority=6, pdu_format=0xEA, pdu_specific=0x01, src=0xF1, data=b'\x01')
+mock_sock.send(pkt)
+assert mock_sock.can_iface.send.called
+msg = mock_sock.can_iface.send.call_args[0][0]
+assert msg.arbitration_id == 0x18EA01F1
+
+
 
 ############
 ############
@@ -3421,7 +3449,7 @@ assert _dpf_pkts[0].pgn == _dpf_pgn, \
 
 = J1939SoftSocket – SlowTestSocket imports
 
-from test.testsocket import SlowTestSocket
+from test.testsocket import SlowTestSocket, TestSocket
 
 = J1939SoftSocket – BAM receive via SlowTestSocket (serial-buffer path)
 # J1939SoftSocket uses a SlowTestSocket as its CAN socket.  Frames injected
@@ -3483,6 +3511,77 @@ _slbt_reassembled = b''.join(
 )[:20]
 assert _slbt_reassembled == _slbt_payload, \
     "BAM TX SlowTestSocket payload mismatch: %r" % _slbt_reassembled
+
+= J1939SoftSocket – BAM transmit via SlowTestSocket under slcan-like backlog (race amplification)
+# Stress the close/send race window by repeatedly running BAM TX over a
+# slcan-like SlowTestSocket profile with background backlog queued ahead of
+# the J1939 socket receive loop.
+
+_slra_failures = []
+for _slra_iter in range(8):
+    with SlowTestSocket(
+            CAN,
+            frame_delay=0.0025,
+            mux_throttle=0.001,
+            serial_timeout=0.1,
+            read_time_limit=0.02,
+            interface_name="slcan",
+    ) as slow_cans, TestSocket(CAN) as peer:
+        slow_cans.pair(peer)
+        # Pre-fill the serial buffer with unrelated PDU1 traffic so can_recv
+        # must drain a realistic slcan backlog before and during shutdown.
+        for _slra_bg in range(200):
+            peer.send(J1939_CAN(priority=6, pdu_format=0x01,
+                                pdu_specific=0x99, src=0x50,
+                                data=bytes(8)))
+        with J1939SoftSocket(slow_cans, src_addr=0x31) as sock:
+            _slra_payload = bytes(range(20))
+            sock.send(J1939(_slra_payload, pgn=0xFECA,
+                            dst=_socket.J1939_NO_ADDR, priority=6))
+        _slra_pkts = peer.sniff(count=4, timeout=8)
+        if len(_slra_pkts) != 4:
+            _slra_failures.append((int(_slra_iter), int(len(_slra_pkts))))
+            continue
+        _slra_reassembled = b''.join(
+            J1939_TP_DT(J1939_CAN(bytes(p)).data).data
+            for p in _slra_pkts[1:]
+        )[:20]
+        if _slra_reassembled != _slra_payload:
+            _slra_failures.append((int(_slra_iter), -1))
+
+assert not _slra_failures, \
+    "slcan-like BAM TX race stress failures (iter, frames): %r" % _slra_failures
+
+= J1939SoftSocket – scheduler lifecycle under rapid close/reopen
+# Mirrors the ISO-TP close/reopen scheduler verification style: each cycle
+# closes one socket and immediately opens another on the same CAN adapter.
+# The second send must not be orphaned.
+
+import socket as _socket
+
+_sl_sched_failures = []
+for _sls_iter in range(1):
+    with SlowTestSocket(
+            CAN,
+            frame_delay=0.0025,
+            mux_throttle=0.001,
+            serial_timeout=0.1,
+            read_time_limit=0.02,
+            interface_name="slcan",
+    ) as slow_cans, TestSocket(CAN) as peer:
+        slow_cans.pair(peer)
+        with J1939SoftSocket(slow_cans, src_addr=0x32) as sock:
+            sock.send(J1939(bytes(range(20)), pgn=0xFECA,
+                            dst=_socket.J1939_NO_ADDR, priority=6))
+        with J1939SoftSocket(slow_cans, src_addr=0x33) as sock2:
+            sock2.send(J1939(bytes(range(20)), pgn=0xFECA,
+                             dst=_socket.J1939_NO_ADDR, priority=6))
+        _sls_pkts = peer.sniff(count=8, timeout=3.0)
+        if len(_sls_pkts) != 8:
+            _sl_sched_failures.append((int(_sls_iter), int(len(_sls_pkts))))
+
+assert not _sl_sched_failures, \
+    "close/reopen scheduler failures (iter, frames): %r" % _sl_sched_failures
 
 = J1939SoftSocket – BAM receive via SlowTestSocket with background CAN traffic
 # Background PDU1 frames (unicast to a different address) are injected into
@@ -4877,6 +4976,394 @@ with USBTestSocket(CAN, hw_fifo_size=16) as usb_cans, TestSocket(CAN) as stim:
         assert len(_usb_pkts) == 1, \
             "close drain must free adapter FIFO for next socket"
         assert _usb_pkts[0].data == _usb_cd_payload
+
+= J1939Socket – sr1 transmits correct CAN ID on underlying CAN socket
+import struct
+import threading
+from scapy.contrib.automotive.j1939 import J1939Socket, J1939
+from scapy.contrib.automotive.j1939.j1939_scanner import _j1939_decode_can_id
+from scapy.layers.can import CAN
+from test.testsocket import TestSocket, cleanup_testsockets
+
+with TestSocket(CAN) as s, TestSocket(CAN) as peer:
+    s.pair(peer)
+    with J1939Socket(s, src_addr=0xF1) as sock:
+        req_data = struct.pack("<I", 0xEE00)[:3]
+        req = J1939(req_data, pgn=0xEA00, dst=0x01)
+        def _sr1_call():
+            sock.sr1(req, timeout=0.1, verbose=False)
+        t = threading.Thread(target=_sr1_call)
+        t.start()
+        pkts = peer.sniff(count=1, timeout=1)
+        t.join(timeout=1)
+    cleanup_testsockets()
+
+assert len(pkts) == 1, "No CAN frame transmitted by sr1"
+_, pf, ps, sa = _j1939_decode_can_id(pkts[0].identifier)
+assert pf == 0xEA, "sr1 transmitted CAN frame with wrong PF (PGN): 0x%02X != 0xEA" % pf
+assert ps == 0x01, "sr1 transmitted CAN frame with wrong PS (DA): 0x%02X != 0x01" % ps
+
+= J1939Socket – unicast request scan using sr1
+import struct
+import threading
+from scapy.contrib.automotive.j1939 import J1939Socket, J1939
+from scapy.contrib.automotive.j1939.j1939_scanner import _j1939_can_id
+from scapy.layers.can import CAN
+from test.testsocket import TestSocket, cleanup_testsockets
+
+with TestSocket(CAN) as s, TestSocket(CAN) as peer:
+    s.pair(peer)
+    def _responder():
+        pkts = peer.sniff(count=1, timeout=1)
+        if pkts:
+            claim_id = _j1939_can_id(6, 0xEE, 0xFF, 0x01)
+            name_data = b'\x01\x02\x03\x04\x05\x06\x07\x08'
+            peer.send(CAN(identifier=claim_id, flags='extended', data=name_data))
+    t = threading.Thread(target=_responder)
+    t.start()
+    resps = {}
+    with J1939Socket(s, src_addr=0xF1) as sock:
+        req_data = struct.pack("<I", 0xEE00)[:3]
+        for target_da in range(1, 254):
+            req = J1939(req_data, pgn=0xEA00, dst=target_da)
+            resp = sock.sr1(req, timeout=0.15, verbose=False)
+            if target_da == 1:
+                assert resp is not None, "sr1() did not receive response from DA 1"
+                resps[target_da] = resp
+                break
+    t.join(timeout=2)
+    cleanup_testsockets()
+
+assert 1 in resps
+
+
+= J1939 – clone_with and copy preserve addressing attributes
+from scapy.contrib.j1939 import J1939
+import socket
+
+p = J1939(b'test_payload', pgn=0xFECA, src=0x01, dst=0x02, priority=3)
+clone = p.copy()
+assert clone.data == b'test_payload'
+assert clone.pgn == 0xFECA
+assert clone.src == 0x01
+assert clone.dst == 0x02
+assert clone.priority == 3
+
+# clone_with without overrides
+c2 = p.clone_with()
+assert c2.pgn == 0xFECA and c2.src == 0x01 and c2.dst == 0x02 and c2.priority == 3
+
+# clone_with with overrides
+c3 = p.clone_with(pgn=0x1234, src=0x10)
+assert c3.pgn == 0x1234 and c3.src == 0x10 and c3.dst == 0x02 and c3.priority == 3
+
+# Iteration uses clone_with under the hood
+pkts = [x for x in p]
+assert len(pkts) == 1
+assert pkts[0].pgn == 0xFECA and pkts[0].src == 0x01 and pkts[0].dst == 0x02
+
+= J1939.answers() – addressing and non-J1939 validation
+import socket
+from scapy.contrib.j1939 import J1939
+from scapy.layers.inet import IP
+
+req = J1939(b'\x00\xee\x00', pgn=0xEA00, src=0x10, dst=0x20)
+resp = J1939(b'\x01\x02\x03\x04\x05\x06\x07\x08', pgn=0xEE00, src=0x20, dst=0x10)
+
+# Non-J1939 other packet
+assert resp.answers(IP()) == 0
+
+# Directed request with mismatched responder source address
+bad_src = J1939(b'\x01\x02\x03\x04\x05\x06\x07\x08', pgn=0xEE00, src=0x30, dst=0x10)
+assert bad_src.answers(req) == 0
+
+# Unicast response directed to a different destination address
+bad_dst = J1939(b'\x01\x02\x03\x04\x05\x06\x07\x08', pgn=0xEE00, src=0x20, dst=0x30)
+assert bad_dst.answers(req) == 0
+
+# Broadcast response (DA=0xFF) to directed request is allowed
+bcast_resp = J1939(b'\x01\x02\x03\x04\x05\x06\x07\x08', pgn=0xEE00, src=0x20, dst=0xFF)
+assert bcast_resp.answers(req) == 1
+
+# Broadcast request allows response from any source address
+bcast_req = J1939(b'\x00\xee\x00', pgn=0xEA00, src=0x10, dst=0xFF)
+assert bad_src.answers(bcast_req) == 1
+
+= J1939.answers() – Request PGN (0xEA00) matching
+import struct
+from scapy.contrib.j1939 import J1939
+
+req = J1939(struct.pack("<I", 0xEE00)[:3], pgn=0xEA00, src=0x10, dst=0x20)
+
+# Direct response with requested PGN
+resp_direct = J1939(b'name_data', pgn=0xEE00, src=0x20, dst=0x10)
+assert resp_direct.answers(req) == 1
+
+# Stacked J1939(pgn=0xEA00) / Raw(pgn_bytes)
+from scapy.packet import Raw
+req_raw = J1939(pgn=0xEA00, src=0x10, dst=0x20) / Raw(struct.pack("<I", 0xEE00)[:3])
+assert bytes(req_raw) == struct.pack("<I", 0xEE00)[:3]
+assert resp_direct.answers(req_raw) == 1
+
+# Stacked J1939(pgn=0xEA00) / layer with PGN attribute
+from scapy.contrib.automotive.j1939 import J1939_DM1
+req_dm1 = J1939(pgn=0xEA00, src=0x10, dst=0x20) / J1939_DM1()
+assert bytes(req_dm1) == struct.pack("<I", 0xFECA)[:3]
+resp_dm1 = J1939(b'\x00\x00', pgn=0xFECA, src=0x20, dst=0x10)
+assert resp_dm1.answers(req_dm1) == 1
+
+# J1939Request class with req_pgn, Raw, and stacked layer
+from scapy.contrib.j1939 import J1939Request
+r_direct = J1939Request(req_pgn=0xFECA, src=0x10, dst=0x20)
+assert bytes(r_direct) == struct.pack("<I", 0xFECA)[:3]
+assert resp_dm1.answers(r_direct) == 1
+
+r_raw = J1939Request(src=0x10, dst=0x20) / Raw(struct.pack("<I", 0xFECA)[:3])
+assert bytes(r_raw) == struct.pack("<I", 0xFECA)[:3]
+assert resp_dm1.answers(r_raw) == 1
+
+r_stacked = J1939Request(src=0x10, dst=0x20) / J1939_DM1()
+assert bytes(r_stacked) == struct.pack("<I", 0xFECA)[:3]
+assert resp_dm1.answers(r_stacked) == 1
+
+# Mismatched PGN for J1939Request
+resp_dm2 = J1939(b'\x00\x00', pgn=0xFECB, src=0x20, dst=0x10)
+assert resp_dm2.answers(r_stacked) == 0
+
+# Paired DM14 -> DM15 matching
+req_dm14 = J1939(b'\x01\x02\x03\x04\x05\x06\x07\x08', pgn=0xD900, src=0x10, dst=0x20)
+resp_dm15 = J1939(b'\x11\x22\x33\x44\x55\x66\x77\x88', pgn=0xD800, src=0x20, dst=0x10)
+assert resp_dm15.answers(req_dm14) == 1
+assert resp_dm1.answers(req_dm14) == 0
+
+# 8-byte Acknowledgment (PGN 0xE800) with matching PGN at bytes 5:8
+ack_data = b'\x00\xff\xff\xff\xff' + struct.pack("<I", 0xEE00)[:3]
+resp_ack = J1939(ack_data, pgn=0xE800, src=0x20, dst=0x10)
+assert resp_ack.answers(req) == 1
+assert resp_ack.answers(req_raw) == 1
+
+# 8-byte Acknowledgment with non-matching PGN
+nack_data = b'\x01\xff\xff\xff\xff' + struct.pack("<I", 0x1234)[:3]
+resp_nack_wrong = J1939(nack_data, pgn=0xE800, src=0x20, dst=0x10)
+assert resp_nack_wrong.answers(req) == 0
+assert resp_nack_wrong.answers(req_raw) == 0
+
+# 4-byte short Acknowledgment with matching PGN at bytes 1:4
+short_ack = b'\x00' + struct.pack("<I", 0xEE00)[:3]
+resp_short_ack = J1939(short_ack, pgn=0xE800, src=0x20, dst=0x10)
+assert resp_short_ack.answers(req) == 1
+assert resp_short_ack.answers(req_raw) == 1
+
+# 4-byte short Acknowledgment with non-matching PGN
+short_nack_wrong = b'\x01' + struct.pack("<I", 0x1234)[:3]
+resp_short_wrong = J1939(short_nack_wrong, pgn=0xE800, src=0x20, dst=0x10)
+assert resp_short_wrong.answers(req) == 0
+assert resp_short_wrong.answers(req_raw) == 0
+
+# Truncated Acknowledgment (< 4 bytes)
+assert J1939(b'\x01', pgn=0xE800, src=0x20, dst=0x10).answers(req) == 0
+
+# Unrelated PGN response
+resp_other = J1939(b'data', pgn=0x1234, src=0x20, dst=0x10)
+assert resp_other.answers(req) == 0
+
+# Short request data (< 3 bytes) falls through
+req_short = J1939(b'\x00', pgn=0xEA00, src=0x10, dst=0x20)
+assert resp_direct.answers(req_short) == 0
+
+= J1939Socket.sr1() – Single-frame and multi-packet TP request/response
+import struct
+import threading
+from scapy.layers.can import CAN
+from scapy.contrib.automotive.j1939 import (
+    J1939,
+    J1939Request,
+    J1939Socket,
+    J1939_DM1,
+    TP_CM_BAM,
+    TP_CM_RTS,
+    TP_CM_CTS,
+    TP_CM_EndOfMsgACK,
+    J1939_TP_CM_PF,
+    J1939_GLOBAL_ADDRESS,
+)
+from scapy.contrib.automotive.j1939.j1939_scanner import _j1939_can_id, _j1939_decode_can_id
+
+def test_sr1_single_frame():
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor:
+        can_sock.pair(monitor)
+        def responder():
+            pkts = monitor.sniff(count=1, timeout=1.0)
+            if pkts:
+                resp_id = _j1939_can_id(6, 0xFE, 0xCA, 0x10)
+                monitor.send(CAN(identifier=resp_id, flags='extended', data=b'\x00\x00\x11\x22\x33\x44'))
+        t = threading.Thread(target=responder)
+        t.start()
+        with J1939Socket(can_sock, src_addr=0xF9) as s:
+            req = J1939Request(dst=0x10) / J1939_DM1()
+            ans = s.sr1(req, timeout=1.0)
+            assert ans is not None
+            assert ans.pgn == 0xFECA
+        t.join()
+    cleanup_testsockets()
+
+def test_sr1_multi_packet_bam():
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor:
+        can_sock.pair(monitor)
+        def responder():
+            pkts = monitor.sniff(count=1, timeout=1.0)
+            if pkts:
+                bam_id = _j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x10)
+                bam_d = bytes([TP_CM_BAM, 10, 0, 2, 0xFF]) + struct.pack('<I', 0xFECA)[:3]
+                monitor.send(CAN(identifier=bam_id, flags='extended', data=bam_d))
+                dt_id = _j1939_can_id(7, 0xEB, J1939_GLOBAL_ADDRESS, 0x10)
+                monitor.send(CAN(identifier=dt_id, flags='extended', data=bytes([1]) + b'\x11\x22\x33\x44\x55\x66\x77'))
+                monitor.send(CAN(identifier=dt_id, flags='extended', data=bytes([2]) + b'\x88\x99\xaa' + b'\xff'*4))
+        t = threading.Thread(target=responder)
+        t.start()
+        with J1939Socket(can_sock, src_addr=0xF9) as s:
+            req = J1939Request(dst=0x10) / J1939_DM1()
+            ans = s.sr1(req, timeout=1.0)
+            assert ans is not None
+            assert ans.pgn == 0xFECA
+            assert len(ans.data) == 10
+            assert ans.data == b'\x11\x22\x33\x44\x55\x66\x77\x88\x99\xaa'
+        t.join()
+    cleanup_testsockets()
+
+def test_sr1_multi_packet_rts():
+    with TestSocket(CAN) as can_sock, TestSocket(CAN) as monitor:
+        can_sock.pair(monitor)
+        def responder():
+            pkts = monitor.sniff(count=1, timeout=1.0)
+            if not pkts:
+                return
+            rts_id = _j1939_can_id(7, J1939_TP_CM_PF, 0xF9, 0x10)
+            rts_d = bytes([TP_CM_RTS, 10, 0, 2, 0xFF]) + struct.pack('<I', 0xFECA)[:3]
+            monitor.send(CAN(identifier=rts_id, flags='extended', data=rts_d))
+            cts_pkts = monitor.sniff(count=1, timeout=1.0)
+            if not cts_pkts:
+                return
+            dt_id = _j1939_can_id(7, 0xEB, 0xF9, 0x10)
+            monitor.send(CAN(identifier=dt_id, flags='extended', data=bytes([1]) + b'\x11\x22\x33\x44\x55\x66\x77'))
+            monitor.send(CAN(identifier=dt_id, flags='extended', data=bytes([2]) + b'\x88\x99\xaa' + b'\xff'*4))
+            ack_pkts = monitor.sniff(count=1, timeout=1.0)
+        t = threading.Thread(target=responder)
+        t.start()
+        with J1939Socket(can_sock, src_addr=0xF9) as s:
+            req = J1939(pgn=0xEA00, dst=0x10) / Raw(struct.pack('<I', 0xFECA)[:3])
+            ans = s.sr1(req, timeout=1.0)
+            assert ans is not None
+            assert ans.pgn == 0xFECA
+            assert len(ans.data) == 10
+            assert ans.data == b'\x11\x22\x33\x44\x55\x66\x77\x88\x99\xaa'
+        t.join()
+    cleanup_testsockets()
+
+test_sr1_single_frame()
+test_sr1_multi_packet_bam()
+test_sr1_multi_packet_rts()
+
+= J1939.answers() – Command Acknowledgment (PGN 0xE800) matching
+import struct
+from scapy.contrib.j1939 import J1939
+
+# Diagnostic command request (e.g. DM11 Clear DTCs, PGN 0xFED3)
+cmd = J1939(b'', pgn=0xFED3, src=0x10, dst=0x20)
+
+# 8-byte Acknowledgment matching command PGN
+ack_8b = b'\x00\xff\xff\xff\xff' + struct.pack("<I", 0xFED3)[:3]
+assert J1939(ack_8b, pgn=0xE800, src=0x20, dst=0x10).answers(cmd) == 1
+
+# 8-byte Acknowledgment for different PGN
+ack_8b_wrong = b'\x00\xff\xff\xff\xff' + struct.pack("<I", 0x9999)[:3]
+assert J1939(ack_8b_wrong, pgn=0xE800, src=0x20, dst=0x10).answers(cmd) == 0
+
+# 4-byte short Acknowledgment matching command PGN
+ack_4b = b'\x00' + struct.pack("<I", 0xFED3)[:3]
+assert J1939(ack_4b, pgn=0xE800, src=0x20, dst=0x10).answers(cmd) == 1
+
+# 4-byte short Acknowledgment for different PGN
+ack_4b_wrong = b'\x00' + struct.pack("<I", 0x9999)[:3]
+assert J1939(ack_4b_wrong, pgn=0xE800, src=0x20, dst=0x10).answers(cmd) == 0
+
+= J1939.answers() – Generic fallback heuristic (same PGN, swapped DA/SA)
+from scapy.config import conf
+from scapy.contrib.j1939 import J1939
+
+req = J1939(b'request_bytes', pgn=0xEF00, src=0x10, dst=0x20)
+resp = J1939(b'response_bytes', pgn=0xEF00, src=0x20, dst=0x10)
+
+# 1. Fallback heuristic is enabled by default
+assert conf.contribs['J1939']['generic-answers-fallback'] is True
+assert resp.answers(req) == 1
+
+# 2. Disable fallback heuristic
+conf.contribs['J1939']['generic-answers-fallback'] = False
+assert resp.answers(req) == 0
+
+# When disabled, identical payload still answers via data equality fallback
+identical_resp = J1939(b'request_bytes', pgn=0xEF00, src=0x20, dst=0x10)
+assert identical_resp.answers(req) == 1
+
+# 3. Re-enable fallback heuristic
+conf.contribs['J1939']['generic-answers-fallback'] = True
+assert resp.answers(req) == 1
+
+# Different PGN with swapped DA/SA does not match
+diff_pgn = J1939(b'response_bytes', pgn=0xEF01, src=0x20, dst=0x10)
+assert diff_pgn.answers(req) == 0
+
+# Same PGN but addresses not swapped does not match
+not_swapped = J1939(b'response_bytes', pgn=0xEF00, src=0x10, dst=0x20)
+assert not_swapped.answers(req) == 0
+
+= J1939.answers() – Payload equality fallback
+from scapy.contrib.j1939 import J1939
+
+p1 = J1939(b'identical')
+p2 = J1939(b'identical')
+p3 = J1939(b'different')
+assert p2.answers(p1) == 1
+assert p3.answers(p1) == 0
+
+= J1939 configuration defaults and fallback setdefault
+from scapy.config import conf
+# Test fallback when J1939 config dict already exists
+old_cfg = conf.contribs.get("J1939", None)
+try:
+    conf.contribs["J1939"] = {"channel": "can0"}
+    conf.contribs["J1939"].setdefault("generic-answers-fallback", True)
+    assert conf.contribs["J1939"]["generic-answers-fallback"] is True
+finally:
+    if old_cfg is not None:
+        conf.contribs["J1939"] = old_cfg
+    else:
+        conf.contribs.pop("J1939", None)
+
+= J1939_CAN._can_send AttributeError fallback to to_can
+from scapy.contrib.j1939 import J1939_CAN, J1939SoftSocket
+from scapy.layers.can import CAN
+from test.testsocket import TestSocket
+
+class MockCanOnlySocket(TestSocket):
+    def __init__(self):
+        super(MockCanOnlySocket, self).__init__(CAN)
+        self.sent_pkts = []
+    def send(self, pkt):
+        if not isinstance(pkt, CAN):
+            raise AttributeError("only CAN supported")
+        self.sent_pkts.append(pkt)
+
+mock_can_sock = MockCanOnlySocket()
+soft = J1939SoftSocket(mock_can_sock, src_addr=0x10)
+try:
+    jframe = J1939_CAN(priority=6, pdu_format=0xFE, pdu_specific=0xCA, src=0x10, data=b"\x01\x02\x03\x04\x05\x06\x07\x08")
+    soft.impl._can_send(jframe)
+    assert len(mock_can_sock.sent_pkts) == 1
+    assert isinstance(mock_can_sock.sent_pkts[0], CAN)
+finally:
+    soft.close()
 
 = Scheduler teardown
 
