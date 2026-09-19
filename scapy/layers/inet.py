@@ -724,15 +724,33 @@ def tcp_pseudoheader(tcp):
 
 def calc_tcp_md5_hash(tcp, key):
     # type: (TCP, bytes) -> bytes
-    """Calculate TCP-MD5 hash from packet and return a 16-byte string"""
+    """Calculate TCP-MD5 hash from packet and return a 16-byte string
+
+    Per RFC 2385 section 2.0, the hash input is:
+    1. the TCP pseudo-header
+    2. the TCP header, excluding options, with checksum zeroed
+    3. the TCP segment data
+    4. the key
+    """
     import hashlib
 
     h = hashlib.md5()  # nosec
     tcp_bytes = bytes(tcp)
+
+    # The TCP Data Offset field (high nibble of byte 12) indicates the
+    # total header length in 32-bit words; multiply by 4 for bytes.
+    # Options occupy bytes 20..(dataofs*4), payload starts at dataofs*4.
+    dataofs = (tcp_bytes[12] >> 4) * 4
+
     h.update(tcp_pseudoheader(tcp))
+    # Fixed 20-byte TCP header: bytes 0-15 (up to and including window)
     h.update(tcp_bytes[:16])
+    # Zeroed checksum (bytes 16-17)
     h.update(b"\x00\x00")
-    h.update(tcp_bytes[18:])
+    # Urgent pointer (bytes 18-19) — options are intentionally skipped
+    h.update(tcp_bytes[18:20])
+    # TCP segment data only (options excluded per RFC 2385)
+    h.update(tcp_bytes[dataofs:])
     h.update(key)
 
     return h.digest()
