@@ -105,7 +105,7 @@ class Packet(
         "process_information"
     ]
     name = None
-    fields_desc = []  # type: ClassVar[List[AnyField]]
+    fields_desc = []  # type: ClassVar[List[Union[AnyField, Packet_metaclass]]]
     deprecated_fields = {}  # type: Dict[str, Tuple[str, str]]
     overload_fields = {}  # type: Dict[Type[Packet], Dict[str, Any]]
     payload_guess = []  # type: List[Tuple[Dict[str, Any], Type[Packet]]]
@@ -327,7 +327,7 @@ class Packet(
             self.do_init_cached_fields(for_dissect_only=for_dissect_only)
 
     def do_init_fields(self,
-                       flist,  # type: Sequence[AnyField]
+                       flist,  # type: Sequence[Union[AnyField, Packet_metaclass]]  # noqa: E501
                        ):
         # type: (...) -> None
         """
@@ -335,6 +335,9 @@ class Packet(
         """
         default_fields = {}
         for f in flist:
+            # The metaclass resolves Packet entries in fields_desc to Field
+            # instances, so f is always a Field here.
+            f = cast(AnyField, f)
             default_fields[f.name] = copy.deepcopy(f.default)
             self.fieldtype[f.name] = f
             if f.holds_packets:
@@ -377,7 +380,7 @@ class Packet(
                     self.fields[fname] = value[:]
 
     def prepare_cached_fields(self, flist):
-        # type: (Sequence[AnyField]) -> None
+        # type: (Sequence[Union[AnyField, Packet_metaclass]]) -> None  # noqa: E501
         """
         Prepare the cached fields of the fields_desc dict
         """
@@ -395,6 +398,9 @@ class Packet(
 
         # Fields initialization
         for f in flist:
+            # The metaclass resolves Packet entries in fields_desc to Field
+            # instances, so f is always a Field here.
+            f = cast(AnyField, f)
             if isinstance(f, MultipleTypeField):
                 # Abort
                 self.class_dont_cache[cls_name] = True
@@ -730,7 +736,7 @@ class Packet(
                 for fname, fval in fields.items()}
 
     def _raw_packet_cache_field_value(self, fld, val, copy=False):
-        # type: (AnyField, Any, bool) -> Optional[Any]
+        # type: (Union[AnyField, Packet_metaclass], Any, bool) -> Optional[Any]  # noqa: E501
         """Get a value representative of a mutable field to detect changes"""
         if fld.holds_packets:
             # avoid copying whole packets (perf: #GH3894)
@@ -2425,7 +2431,7 @@ def explore(layer=None):
 def _pkt_ls(obj,  # type: Union[Packet, Type[Packet]]
             verbose=False,  # type: bool
             ):
-    # type: (...) -> List[Tuple[str, Type[AnyField], str, str, List[str]]]  # noqa: E501
+    # type: (...) -> List[Tuple[str, Type[Union[AnyField, Packet_metaclass]], str, str, List[str]]]  # noqa: E501
     """Internal function used to resolve `fields_desc` to display it.
 
     :param obj: a packet object or class
