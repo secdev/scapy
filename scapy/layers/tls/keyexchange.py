@@ -10,6 +10,7 @@ TLS key exchange logic.
 """
 
 import math
+import os
 import struct
 import warnings
 
@@ -935,13 +936,15 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
                 warning(err)
             else:
                 tbd = m[2:]
-        if s.server_tmp_rsa_key is not None:
-            # priority is given to the tmp_key, if there is one
-            decrypted = s.server_tmp_rsa_key.decrypt(tbd)
-            pms = decrypted[-48:]
-        elif s.server_rsa_key is not None:
-            decrypted = s.server_rsa_key.decrypt(tbd)
-            pms = decrypted[-48:]
+        key = s.server_tmp_rsa_key or s.server_rsa_key
+        if key is not None:
+            try:
+                pms = key.decrypt(tbd)
+                if len(pms) != 48:
+                    raise ValueError
+            except ValueError:
+                pms = os.urandom(48)
+                warning("Server RSA key looks invalid.")
         else:
             # the dispatch_hook is supposed to prevent this case
             pms = b"\x00" * 48
