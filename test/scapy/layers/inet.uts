@@ -849,6 +849,13 @@ tr.graphdef.startswith("digraph trace {") == True
 assert ('"192.168.0.9" ->' in tr.graphdef) == True
 conf.AS_resolver = conf.AS_resolver
 
+class InjectedDescriptionResolver:
+    def resolve(self, *ips):
+        return [(ip, 64500, 'ok"; injected [image="secret.eps"]; //') for ip in ips]
+
+tr.make_graph(InjectedDescriptionResolver())
+assert 'ok\\"; injected [image=\\"secret.eps\\"]' in tr.graphdef
+
 pl = PacketList(list([Ether()/x for x in itertools.chain(*tr_packets)]))
 srl, ul = pl.sr()
 assert len(srl) == 9 and len(ul) == 0

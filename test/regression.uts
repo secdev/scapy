@@ -1151,6 +1151,13 @@ ret = autorun_get_html_interactive_session("IP().src")
 ret
 assert ret == ("<span class=prompt>&gt;&gt;&gt; </span>IP().src\n'127.0.0.1'\n", '127.0.0.1')
 
+ret = autorun_get_html_interactive_session(
+    "print(value)",
+    my_globals={"value": "#[#img src=x onerror=alert(1)#]#"},
+)
+assert "<img" not in ret[0]
+assert "#[#img src=x onerror=alert(1)#]#" in ret[0]
+
 ret = autorun_get_latex_interactive_session("IP().src")
 ret
 assert ret == ("\\textcolor{blue}{{\\tt\\char62}{\\tt\\char62}{\\tt\\char62} }IP().src\n'127.0.0.1'\n", '127.0.0.1')
@@ -2034,6 +2041,17 @@ for i in a:
     i.sent_time = 1
 
 assert a.sent_time is None
+
+= make_tex_table escapes packet-derived LaTeX control sequences
+
+value = r"\input{secret.txt}&%$#_{}~^"
+table = make_tex_table(
+    [(value,)],
+    lambda item: ("field", "value", item),
+    dump=True,
+)
+assert value not in table
+assert tex_escape(value) in table
 
 
 ############
@@ -5214,6 +5232,15 @@ def test_conversations(mock_do_graph):
     assert result_conversations.startswith('digraph "conv" {')
     assert "127.0.0.1" in result_conversations
     assert "::1" in result_conversations
+    injected = b'a" [image="/tmp/secret.eps"]; //'
+    packet = Ether() / ARP(
+        ptype=0x1234,
+        plen=len(injected),
+        psrc=injected,
+        pdst=b"d" * len(injected),
+    )
+    result_conversations = PacketList([Ether(raw(packet))]).conversations()
+    assert '\\" [image=\\"' in result_conversations
 
 test_conversations()
 
