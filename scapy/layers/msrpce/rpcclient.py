@@ -814,7 +814,8 @@ class DCERPC_Client(object):
         )
 
         # Bind in RPC
-        self.bind(interface)
+        if not self.bind(interface):
+            raise ValueError("DCE/RPC bind failed")
 
     def epm_map(self, interface):
         """
