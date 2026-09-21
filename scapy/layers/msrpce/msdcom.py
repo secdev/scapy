@@ -724,7 +724,6 @@ class Resolver_Entry:
         self.binds: List[STRINGBINDING] = []
         self.secs: List[SECURITYBINDING] = []
         self.setid: Optional[int] = None
-        self.client: Optional[DCERPC_Client] = None
 
 
 class SETID_Entry:
@@ -752,6 +751,7 @@ class OXID_Entry:
         self.authnHint: DCE_C_AUTHN_LEVEL = DCE_C_AUTHN_LEVEL.CONNECT
         self.version: Optional[COMVERSION] = None
         self.ipid_IRemUnknown: Optional[uuid.UUID] = None
+        self.client: Optional[DCERPC_Client] = None
 
     def __repr__(self):
         return f"<OXID_Entry {hex(self.oxid)}>"
@@ -1421,8 +1421,6 @@ class DCOM_Client(DCERPC_Client):
 
         # "The client MUST then look up the OXID entry"
         oxid_entry = self.OXID_table[ipid_entry.oxid]
-        oid_entry = self.OID_table[ipid_entry.oid]
-        resolver_entry = self.Resolver_table[oid_entry.hash]
 
         # Get opnum
         try:
@@ -1432,9 +1430,9 @@ class DCOM_Client(DCERPC_Client):
 
         # Build ORPC request
 
-        if resolver_entry.client is None:
+        if oxid_entry.client is None:
             # We don't have a client ready, make one.
-            resolver_entry.client = DCERPC_Client(
+            oxid_entry.client = DCERPC_Client(
                 DCERPC_Transport.NCACN_IP_TCP,
                 ssp=ssp or self.ssp,
                 auth_level=auth_level or oxid_entry.authnHint,
@@ -1442,20 +1440,20 @@ class DCOM_Client(DCERPC_Client):
                 verb=self.verb,
             )
 
-            resolver_entry.client.connect(
+            oxid_entry.client.connect(
                 host=oxid_entry.bindingInfo[0],
                 port=oxid_entry.bindingInfo[1],
                 timeout=timeout,
             )
 
         # Bind the COM interface
-        resolver_entry.client.bind_or_alter(
+        oxid_entry.client.bind_or_alter(
             ipid_entry.iface,
             target_name=oxid_entry.target_name,
         )
 
         # We need to set the NDR very late, after the bind
-        pkt.ndr64 = resolver_entry.client.ndr64
+        pkt.ndr64 = oxid_entry.client.ndr64
 
         # "The ORPCTHIS and ORPCTHAT structures MUST be marshaled using
         # the NDR [2.0] Transfer Syntax"
@@ -1469,7 +1467,7 @@ class DCOM_Client(DCERPC_Client):
         )
 
         # Send/Receive !
-        resp = resolver_entry.client.sr1_req(
+        resp = oxid_entry.client.sr1_req(
             pkt,
             opnum=opnum,
             objectuuid=ipid,
