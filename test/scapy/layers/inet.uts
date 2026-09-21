@@ -143,7 +143,14 @@ buffer.append(b"A", 1)
 buffer.append(b"B", MTU + 3)
 assert bytes(buffer) == b"A"
 
+buffer = StringBuffer()
+buffer.append(b"A", 1)
 buffer.append(b"C", -MTU)
+assert bytes(buffer) == b"C" + b"\x00" * MTU + b"A"
+
+buffer = StringBuffer()
+buffer.append(b"A", 1)
+buffer.append(b"C", -MTU - 1)
 assert bytes(buffer) == b"A"
 
 = StringBuffer max_gap is configurable
