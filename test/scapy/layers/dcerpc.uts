@@ -680,6 +680,26 @@ class MyRPCServer(DCERPC_Server):
             ndr64=self.ndr64,
         )
 
+= Runtime DCE/RPC server extensions are local to one instance
+
+def runtime_server_extensions_are_instance_local():
+    class SharedServer(DCERPC_Server):
+        pass
+    class PrivateCallbacks(DCERPC_Server):
+        @DCERPC_Server.answer(NetrWkstaGetInfo_Request)
+        def private_wksta(self, req):
+            pass
+    public_server = SharedServer(DCERPC_Transport.NCACN_IP_TCP, verb=False)
+    private_server = SharedServer(DCERPC_Transport.NCACN_IP_TCP, verb=False)
+    private_server.extend(PrivateCallbacks)
+    command = next(iter(PrivateCallbacks.dcerpc_commands))
+    return (
+        command not in public_server.dcerpc_commands
+        and command in private_server.dcerpc_commands
+    )
+
+assert runtime_server_extensions_are_instance_local()
+
 = Functional: Define wrapper over samba's rpcclient
 ~ linux samba
 

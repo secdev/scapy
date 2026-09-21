@@ -85,6 +85,7 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
         self.transport = transport
         self.session = DceRpcSession(**kwargs)
         self.queue = deque()
+        self.dcerpc_commands = self.dcerpc_commands.copy()
         if ndr64 is None:
             ndr64 = conf.ndr64
         self.ndr64 = ndr64
