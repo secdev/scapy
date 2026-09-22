@@ -433,7 +433,7 @@ class ForwardMachine:
                     password = self.keyfilepwd
                     certfile = self.crtfile
                     keyfile = self.keyfile
-                sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+                sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
                 sslcontext.check_hostname = False
                 sslcontext.verify_mode = ssl.CERT_NONE  # note: server side
                 sslcontext.load_cert_chain(certfile, keyfile, password=password)
@@ -443,7 +443,7 @@ class ForwardMachine:
                 return None  # Continue
 
             # Server SSL context
-            sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+            sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             sslcontext.sni_callback = cb_sni
             try:
                 sock = sslcontext.wrap_socket(sock, server_side=True)

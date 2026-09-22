@@ -1026,12 +1026,13 @@ class SPNEGOSSP(SSP):
             ssps=list(self.ssps),
             late_fallback_supported=self.SUPPORT_LATE_FALLBACK,
         )
+        Context.server_mechtypes = Context.get_supported_mechtypes()
         return (
             Context,
             GSSAPI_BLOB(
                 innerToken=SPNEGO_negToken(
                     token=SPNEGO_negTokenInit(
-                        mechTypes=Context.get_supported_mechtypes(),
+                        mechTypes=Context.server_mechtypes,
                         negHints=SPNEGO_negHints(
                             hintName=ASN1_GENERAL_STRING(
                                 "not_defined_in_RFC4178@please_ignore"
@@ -1157,6 +1158,11 @@ class SPNEGOSSP(SSP):
                         Context.ssp = None
             else:
                 # The blob is a raw token. We aren't using SPNEGO here.
+                if not Context.raw and (
+                    Context.client_mechtypes is not None
+                    or Context.server_mechtypes is not None
+                ):
+                    return Context, None, GSS_S_BAD_MIC
                 Context.raw = True
                 input_token_inner = input_token
                 self.GuessOtherMechtypes(Context, input_token)
@@ -1325,6 +1331,11 @@ class SPNEGOSSP(SSP):
             _mechListMIC = input_token.mechListMIC
         else:
             # The blob is a raw token. We aren't using SPNEGO here.
+            if not Context.raw and (
+                Context.client_mechtypes is not None
+                or Context.server_mechtypes is not None
+            ):
+                return Context, None, GSS_S_BAD_MIC
             Context.raw = True
             input_token_inner = input_token
             self.GuessOtherMechtypes(Context, input_token)

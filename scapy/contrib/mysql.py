@@ -39,6 +39,7 @@ resultset metadata/rows, or full command/authentication coverage.
 import struct
 from typing import Any, Optional, Tuple
 
+from scapy.config import conf
 from scapy.fields import (
     ByteEnumField,
     ByteField,
@@ -671,6 +672,7 @@ class _MySQLStream(Packet, TCPSession):
         session: Any = None,
     ) -> Optional[Packet]:
         offset = 0
+        packet_count = 0
         while offset < len(data):
             if len(data) - offset < 4:
                 return None
@@ -682,6 +684,9 @@ class _MySQLStream(Packet, TCPSession):
             if len(data) - offset < payload_length:
                 return None
             offset += payload_length
+            packet_count += 1
+            if packet_count == conf.max_list_count and offset < len(data):
+                return cls(data[:offset]) / conf.padding_layer(data[offset:])
         if data:
             return cls(data)
         return None

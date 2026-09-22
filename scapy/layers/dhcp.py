@@ -853,6 +853,8 @@ class BOOTP_am(AnsweringMachine):
         mac = req[Ether].src
         if isinstance(self.pool, list):
             if mac not in self.leases:
+                if not self.pool:
+                    return None
                 self.leases[mac] = self.pool.pop()
             ip = self.leases[mac]
         else:

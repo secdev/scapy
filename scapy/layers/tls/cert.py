@@ -108,6 +108,7 @@ from scapy.asn1.asn1 import (
     ASN1_STRING,
 )
 from scapy.asn1.mib import hash_by_oid
+from scapy.layers.tls.crypto.hash import _tls_hash_algs
 from scapy.packet import Packet
 from scapy.layers.x509 import (
     CMS_CertificateChoices,
@@ -251,9 +252,11 @@ class _PKIObjMaker(type):
 
         if obj_path is None:
             raise Exception(error_msg)
+        # Make sure that only a str object can store a path to read a certificate
+        is_file = isinstance(obj_path, str) and os.path.isfile(obj_path)
         obj_path = bytes_encode(obj_path)
 
-        if (b"\x00" not in obj_path) and os.path.isfile(obj_path):
+        if is_file:
             _size = os.path.getsize(obj_path)
             if _size > obj_max_size:
                 raise Exception(error_msg)
@@ -1919,7 +1922,11 @@ class CMS_Engine:
 
         # Check all signatures
         for signerInfo in signeddata.signerInfos:
-            sigh = hash_by_oid[signerInfo.signatureAlgorithm.algorithm.val]
+            # RFC 5652 sect 5.4: the digest is the one named by
+            # digestAlgorithm, not by signatureAlgorithm.
+            sigh = signerInfo.digestAlgorithm.algorithm.oidname
+            if sigh not in _tls_hash_algs:
+                sigh = hash_by_oid[signerInfo.signatureAlgorithm.algorithm.val]
 
             # Find certificate in the chain that did this
             cert: Cert = certTree.findCertBySid(signerInfo.sid)
@@ -1980,7 +1987,7 @@ class CMS_Engine:
                     raise ValueError("Missing messageDigest in signedAttrs !")
 
                 # Verify the signature
-                cert.verify(
+                if not cert.verify(
                     msg=bytes(
                         CMS_SignedAttrsForSignature(
                             signedAttrs=signerInfo.signedAttrs,
@@ -1988,13 +1995,15 @@ class CMS_Engine:
                     ),
                     sig=signerInfo.signature.val,
                     h=sigh,
-                )
+                ):
+                    raise ValueError("Invalid signature !")
             else:
-                cert.verify(
+                if not cert.verify(
                     msg=bytes(signeddata.encapContentInfo),
                     sig=signerInfo.signature.val,
                     h=sigh,
-                )
+                ):
+                    raise ValueError("Invalid signature !")
 
         # Return the content
         return signeddata.encapContentInfo.eContent

@@ -1339,3 +1339,19 @@ try:
     assert False, "QUIC cannot decode integers with more than 62 bits"
 except struct.error:
     pass
+
++ FFDHE key shares
+
+= Reject FFDHE public values outside the protocol range
+
+from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_CH
+from scapy.layers.tls.session import tlsSession
+
+def parses_share(value):
+    raw = bytes.fromhex("00330106010401000100") + b"\x00" * 255 + bytes([value])
+    session = tlsSession(connection_end="server")
+    TLS_Ext_KeyShare_CH(raw, tls_session=session)
+    return "ffdhe2048" in session.tls13_client_pubshares
+
+assert not parses_share(1)
+assert parses_share(2)

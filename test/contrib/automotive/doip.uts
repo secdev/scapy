@@ -408,6 +408,23 @@ assert pkts[0][DoIP].payload_length == 2
 assert pkts[0][DoIP:2].payload_length == 7
 assert pkts[1][DoIP].payload_length == 103
 
+= TCPSession short DoIP header does not close the packet source
+
+load_contrib("automotive.doip", globals_dict=globals())
+
+tmp_file = get_temp_file()
+
+wrpcap(tmp_file, [
+    IP(src="10.10.10.10", dst="10.10.10.11") /
+        TCP(sport=61000, dport=13400, flags="PA", seq=1) / Raw(b"\x02"),
+    IP(src="10.10.10.12", dst="10.10.10.13") /
+        UDP(sport=1111, dport=2222) / Raw(b"ok"),
+])
+
+pkts = sniff(offline=tmp_file, session=TCPSession)
+assert len(pkts) == 1
+assert pkts[0].haslayer(UDP)
+
 = Doip logical addressing
 
 filename = scapy_path("/test/pcaps/doip_functional_request.pcap.gz")

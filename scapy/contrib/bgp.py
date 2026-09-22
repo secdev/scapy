@@ -476,6 +476,8 @@ class BGPHeader(Packet):
             return None
         if data[:16] == _BGP_HEADER_MARKER:
             length = struct.unpack("!H", data[16:18])[0]
+            if length < _BGP_HEADER_SIZE:
+                return conf.raw_layer(data)
             if len(data) >= length:
                 return cls(data[:length]) / conf.padding_layer(data[length:])
         else:

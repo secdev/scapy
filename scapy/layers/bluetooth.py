@@ -297,9 +297,10 @@ class HCI_Hdr(Packet):
 
 class HCI_ACL_Hdr(Packet):
     name = "HCI ACL header"
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
     fields_desc = [BitField("BC", 0, 2, tot_size=-2),
                    BitField("PB", 0, 2),
-                   BitField("handle", 0, 12, end_tot_size=-2),
+                   BitField("connection_handle", 0, 12, end_tot_size=-2),
                    LEShortField("len", None), ]
 
     def post_build(self, p, pay):
@@ -970,10 +971,11 @@ class SM_Identity_Information(Packet):
 class SM_Identity_Address_Information(Packet):
     name = "Identity Address Information"
     fields_desc = [ByteEnumField("addr_type", 0, {0: "public"}),
-                   LEMACField("addr", None), ]
+                   LEMACField("bd_addr", None), ]
     deprecated_fields = {
         "atype": ("addr_type", "2.7.0"),
-        "address": ("addr", "2.7.0"),
+        "address": ("bd_addr", "2.7.0"),
+        "addr": ("bd_addr", "2.8.0"),
     }
 
 
@@ -1804,7 +1806,8 @@ class HCI_Cmd_Disconnect(Packet):
     7.1.6 Disconnect command
     """
     name = "HCI_Disconnect"
-    fields_desc = [XLEShortField("handle", 0),
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
+    fields_desc = [XLEShortField("connection_handle", 0),
                    ByteField("reason", 0x13), ]
 
 
@@ -1883,7 +1886,8 @@ class HCI_Cmd_Authentication_Requested(Packet):
     7.1.15 Authentication Requested command
     """
     name = "HCI_Authentication_Requested"
-    fields_desc = [LEShortField("handle", 0)]
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
+    fields_desc = [LEShortField("connection_handle", 0)]
 
 
 class HCI_Cmd_Set_Connection_Encryption(Packet):
@@ -1891,7 +1895,9 @@ class HCI_Cmd_Set_Connection_Encryption(Packet):
     7.1.16 Set Connection Encryption command
     """
     name = "HCI_Set_Connection_Encryption"
-    fields_desc = [LEShortField("handle", 0), ByteField("encryption_enable", 0)]
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
+    fields_desc = [LEShortField("connection_handle", 0),
+                   ByteField("encryption_enable", 0)]
 
 
 class HCI_Cmd_Change_Connection_Link_Key(Packet):
@@ -1899,7 +1905,8 @@ class HCI_Cmd_Change_Connection_Link_Key(Packet):
     7.1.17 Change Connection Link Key command
     """
     name = "HCI_Change_Connection_Link_Key"
-    fields_desc = [LEShortField("handle", 0), ]
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
+    fields_desc = [LEShortField("connection_handle", 0), ]
 
 
 class HCI_Cmd_Link_Key_Selection(Packet):
@@ -2119,12 +2126,14 @@ class HCI_Cmd_Read_BD_Addr(Packet):
 
 class HCI_Cmd_Read_Link_Quality(Packet):
     name = "HCI_Read_Link_Quality"
-    fields_desc = [LEShortField("handle", 0)]
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
+    fields_desc = [LEShortField("connection_handle", 0)]
 
 
 class HCI_Cmd_Read_RSSI(Packet):
     name = "HCI_Read_RSSI"
-    fields_desc = [LEShortField("handle", 0)]
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
+    fields_desc = [LEShortField("connection_handle", 0)]
 
 
 # 7.6 TESTING COMMANDS, the OGF is defined as 0x06
@@ -2463,7 +2472,8 @@ class HCI_Cmd_LE_Remove_Device_From_Filter_Accept_List(HCI_Cmd_LE_Add_Device_To_
 
 class HCI_Cmd_LE_Connection_Update(Packet):
     name = "HCI_LE_Connection_Update"
-    fields_desc = [XLEShortField("handle", 0),
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
+    fields_desc = [XLEShortField("connection_handle", 0),
                    XLEShortField("min_interval", 0),
                    XLEShortField("max_interval", 0),
                    XLEShortField("latency", 0),
@@ -2474,12 +2484,14 @@ class HCI_Cmd_LE_Connection_Update(Packet):
 
 class HCI_Cmd_LE_Read_Remote_Features(Packet):
     name = "HCI_LE_Read_Remote_Features"
-    fields_desc = [LEShortField("handle", 64)]
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
+    fields_desc = [LEShortField("connection_handle", 64)]
 
 
 class HCI_Cmd_LE_Enable_Encryption(Packet):
     name = "HCI_LE_Enable_Encryption"
-    fields_desc = [LEShortField("handle", 0),
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
+    fields_desc = [LEShortField("connection_handle", 0),
                    StrFixedLenField("rand", None, 8),
                    XLEShortField("ediv", 0),
                    StrFixedLenField("ltk", b'\x00' * 16, 16), ]
@@ -2487,13 +2499,15 @@ class HCI_Cmd_LE_Enable_Encryption(Packet):
 
 class HCI_Cmd_LE_Long_Term_Key_Request_Reply(Packet):
     name = "HCI_LE_Long_Term_Key_Request_Reply"
-    fields_desc = [LEShortField("handle", 0),
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
+    fields_desc = [LEShortField("connection_handle", 0),
                    StrFixedLenField("ltk", b'\x00' * 16, 16), ]
 
 
 class HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply(Packet):
     name = "HCI_LE_Long_Term_Key_Request _Negative_Reply"
-    fields_desc = [LEShortField("handle", 0), ]
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
+    fields_desc = [LEShortField("connection_handle", 0), ]
 
 
 class HCI_Event_Hdr(Packet):
@@ -2526,7 +2540,7 @@ class HCI_Event_Inquiry_Result(Packet):
     name = "HCI_Inquiry_Result"
     fields_desc = [
         ByteField("num_response", 0x00),
-        FieldListField("addr", None, LEMACField("addr", None),
+        FieldListField("bd_addr", None, LEMACField("", None),
                        count_from=lambda p: p.num_response),
         FieldListField("page_scan_repetition_mode", None,
                        ByteField("page_scan_repetition_mode", 0),
@@ -2538,6 +2552,7 @@ class HCI_Event_Inquiry_Result(Packet):
         FieldListField("clock_offset", None, LEShortField("clock_offset", 0),
                        count_from=lambda p: p.num_response)
     ]
+    deprecated_fields = {"addr": ("bd_addr", "2.8.0")}
 
 
 class HCI_Event_Connection_Complete(Packet):
@@ -2545,8 +2560,9 @@ class HCI_Event_Connection_Complete(Packet):
     7.7.3 Connection Complete event
     """
     name = "HCI_Connection_Complete"
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
     fields_desc = [ByteEnumField('status', 0, _bluetooth_error_codes),
-                   LEShortField("handle", 0x0100),
+                   LEShortField("connection_handle", 0x0100),
                    LEMACField("bd_addr", None),
                    ByteEnumField("link_type", 0, {0: "SCO connection",
                                                   1: "ACL connection", }),
@@ -2572,8 +2588,9 @@ class HCI_Event_Disconnection_Complete(Packet):
     7.7.5 Disconnection Complete event
     """
     name = "HCI_Disconnection_Complete"
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
     fields_desc = [ByteEnumField("status", 0, _bluetooth_error_codes),
-                   LEShortField("handle", 0),
+                   LEShortField("connection_handle", 0),
                    XByteField("reason", 0), ]
 
 
@@ -2592,8 +2609,9 @@ class HCI_Event_Encryption_Change(Packet):
     7.7.8 Encryption Change event
     """
     name = "HCI_Encryption_Change"
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
     fields_desc = [ByteEnumField("status", 0, {0: "change has occurred"}),
-                   LEShortField("handle", 0),
+                   LEShortField("connection_handle", 0),
                    ByteEnumField("enabled", 0, {0: "OFF", 1: "ON (LE)", 2: "ON (BR/EDR)"}), ]  # noqa: E501
 
 
@@ -2602,9 +2620,10 @@ class HCI_Event_Read_Remote_Supported_Features_Complete(Packet):
     7.7.11 Read Remote Supported Features Complete event
     """
     name = "HCI_Read_Remote_Supported_Features_Complete"
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
     fields_desc = [
         ByteEnumField('status', 0, _bluetooth_error_codes),
-        LEShortField('handle', 0),
+        LEShortField('connection_handle', 0),
         FlagsField('lmp_features', 0, -64, _bluetooth_features)
     ]
 
@@ -2625,9 +2644,10 @@ class HCI_Event_Read_Remote_Version_Information_Complete(Packet):
     7.7.12 Read Remote Version Information Complete event
     """
     name = "HCI_Read_Remote_Version_Information"
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
     fields_desc = [
         ByteEnumField('status', 0, _bluetooth_error_codes),
-        LEShortField('handle', 0),
+        LEShortField('connection_handle', 0),
         ByteField('version', 0x00),
         LEShortField('manufacturer_name', 0x0000),
         LEShortField('subversion', 0x0000)
@@ -2717,9 +2737,10 @@ class HCI_Event_Read_Remote_Extended_Features_Complete(Packet):
     7.7.34 Read Remote Extended Features Complete event
     """
     name = "HCI_Read_Remote_Extended_Features_Complete"
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
     fields_desc = [
         ByteEnumField('status', 0, _bluetooth_error_codes),
-        LEShortField('handle', 0),
+        LEShortField('connection_handle', 0),
         ByteField('page', 0x00),
         ByteField('max_page', 0x00),
         XLELongField('extended_features', 0)
@@ -2906,7 +2927,8 @@ class HCI_Cmd_Complete_Read_BD_Addr(Packet):
     7.4.6 Read BD_ADDR command complete
     """
     name = "Read BD Addr"
-    fields_desc = [LEMACField("addr", None), ]
+    fields_desc = [LEMACField("bd_addr", None), ]
+    deprecated_fields = {"addr": ("bd_addr", "2.8.0")}
 
 
 class HCI_Cmd_Complete_LE_Read_White_List_Size(Packet):
@@ -2918,7 +2940,7 @@ class HCI_Cmd_Complete_LE_Read_White_List_Size(Packet):
 class HCI_LE_Meta_Connection_Complete(Packet):
     name = "Connection Complete"
     fields_desc = [ByteEnumField("status", 0, {0: "success"}),
-                   LEShortField("handle", 0),
+                   LEShortField("connection_handle", 0),
                    ByteEnumField("role", 0, {0: "master"}),
                    ByteEnumField("peer_addr_type", 0, {0: "public", 1: "random"}),
                    LEMACField("peer_addr", None),
@@ -2927,6 +2949,7 @@ class HCI_LE_Meta_Connection_Complete(Packet):
                    LEShortField("supervision", 42),
                    XByteField("master_clock_accuracy", 5)]
     deprecated_fields = {
+        "handle": ("connection_handle", "2.8.0"),
         "patype": ("peer_addr_type", "2.7.0"),
         "paddr": ("peer_addr", "2.7.0"),
         "clock_latency": ("master_clock_accuracy", "2.7.0"),
@@ -2946,8 +2969,9 @@ class HCI_LE_Meta_Connection_Complete(Packet):
 
 class HCI_LE_Meta_Enhanced_Connection_Complete(Packet):
     name = 'LE Enhanced Connection Complete'
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
     fields_desc = [ByteEnumField('status', 0, {0: 'success'}),
-                   LEShortField('handle', 0),
+                   LEShortField('connection_handle', 0),
                    ByteEnumField('role', 0, {0: 'master', 1: 'slave'}),
                    ByteEnumField('peer_addr_type', 0, {
                        0: 'public',
@@ -2975,8 +2999,9 @@ class HCI_LE_Meta_Enhanced_Connection_Complete(Packet):
 
 class HCI_LE_Meta_Connection_Update_Complete(Packet):
     name = "Connection Update Complete"
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
     fields_desc = [ByteEnumField("status", 0, {0: "success"}),
-                   LEShortField("handle", 0),
+                   LEShortField("connection_handle", 0),
                    LEShortField("interval", 54),
                    LEShortField("latency", 0),
                    LEShortField("timeout", 42), ]
@@ -2984,8 +3009,9 @@ class HCI_LE_Meta_Connection_Update_Complete(Packet):
 
 class HCI_LE_Meta_LE_Read_Remote_Features_Complete(Packet):
     name = "LE Read Remote Features Complete"
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
     fields_desc = [ByteEnumField("status", 0, _bluetooth_error_codes),
-                   LEShortField("handle", 0),
+                   LEShortField("connection_handle", 0),
                    XLELongField("le_features", 0)]
 
 
@@ -3014,7 +3040,8 @@ class HCI_LE_Meta_Advertising_Reports(Packet):
 
 class HCI_LE_Meta_Long_Term_Key_Request(Packet):
     name = "Long Term Key Request"
-    fields_desc = [LEShortField("handle", 0),
+    deprecated_fields = {"handle": ("connection_handle", "2.8.0")}
+    fields_desc = [LEShortField("connection_handle", 0),
                    StrFixedLenField("rand", None, 8),
                    XLEShortField("ediv", 0), ]
 

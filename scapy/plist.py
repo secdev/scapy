@@ -20,8 +20,8 @@ from scapy.base_classes import (
     SetGen,
     _CanvasDumpExtended,
 )
-from scapy.utils import do_graph, hexdump, make_table, make_lined_table, \
-    make_tex_table, issubtype
+from scapy.utils import do_graph, graphviz_escape, hexdump, make_table, \
+    make_lined_table, make_tex_table, issubtype
 from functools import reduce
 
 # typings
@@ -505,7 +505,11 @@ class _PacketList(Generic[_Inner], metaclass=PacketList_metaclass):
         gr = 'digraph "conv" {\n'
         for (s, d), l in conv.items():
             gr += '\t "%s" -> "%s" [label="%s"]\n' % (
-                s, d, ', '.join(str(x) for x in l) if isinstance(l, set) else l
+                graphviz_escape(s),
+                graphviz_escape(d),
+                graphviz_escape(
+                    ', '.join(str(x) for x in l) if isinstance(l, set) else l
+                ),
             )
         gr += "}\n"
         return do_graph(gr, **kargs)

@@ -104,6 +104,12 @@ assert BGPUpdate in pkts[0]
 assert len(pkts[0].nlri) == 512
 assert pkts[0].nlri[511].prefix == '91.0.177.0/24'
 
+= BGP - TCP reassembly rejects lengths smaller than the fixed header
+zero_length = b'\xff' * 16 + b'\x00\x00\x04'
+invalid = BGPHeader.tcp_reassemble(zero_length)
+assert isinstance(invalid, Raw)
+assert invalid.load == zero_length
+
 ############################### BGPKeepAlive  #################################
 + BGPKeepAlive class tests
 

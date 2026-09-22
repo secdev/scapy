@@ -305,3 +305,42 @@ assert exec_msg.rows == 0
 
 sync_msg = request.contents[4]
 assert sync_msg.len == 4
+
+= TCP reassembly preserves later traffic
+
+query = (
+    Ether(src="02:00:00:00:00:01", dst="02:00:00:00:00:02")
+    / IP(src="192.0.2.1", dst="198.51.100.2")
+    / TCP(sport=40000, dport=5432, seq=1, flags="PA")
+    / Raw(load=simple_query_packet)
+)
+tail = (
+    Ether(src="02:00:00:00:00:03", dst="02:00:00:00:00:04")
+    / IP(src="203.0.113.1", dst="203.0.113.2")
+    / UDP(sport=9, dport=9)
+    / Raw(load=b"tail")
+)
+packets = sniff(offline=[query, tail], session=TCPSession)
+assert len(packets) == 1
+assert UDP in packets[0]
+assert isinstance(
+    PostgresFrontend.tcp_reassemble(
+        simple_query_packet + b"S\x00\x00\x00\x04", {}, {}
+    ),
+    PostgresFrontend,
+)
+assert isinstance(
+    PostgresBackend.tcp_reassemble(b"Z\x00\x00\x00\x05I", {}, {}),
+    PostgresBackend,
+)
+
+= TCP reassembly preserves untagged startup parsing
+
+import struct
+untagged = (
+    (struct.pack("!I", 0), KeepAlive),
+    (struct.pack("!II", 8, 80877103), SSLRequest),
+    (struct.pack("!II", 13, 196608) + b"u\x00x\x00\x00", Startup),
+)
+for data, expected in untagged:
+    assert isinstance(PostgresFrontend(data).contents[0], expected)

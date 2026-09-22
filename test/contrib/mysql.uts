@@ -619,3 +619,11 @@ assert MySQLClient.tcp_reassemble(b"\x05\x00\x00\x00abc", {}, None) is None
 assert MySQLServer.tcp_reassemble(b"\x01\x00\x00", {}, None) is None
 assert isinstance(MySQLServer.tcp_reassemble(b"\x01\x00\x00\x00\x0e", {}, None), MySQLServer)
 assert MySQLServer.tcp_reassemble(b"\x05\x00\x00\x00abc", {}, None) is None
+
+= stream reassembly splits packet groups at the parsing limit
+
+one_byte_packet = b"\x01\x00\x00\x00\xfb"
+many_packets = one_byte_packet * (conf.max_list_count + 1)
+reassembled = MySQLServer.tcp_reassemble(many_packets, {}, None)
+assert len(reassembled.contents) == conf.max_list_count
+assert reassembled[Padding].load == one_byte_packet

@@ -263,7 +263,18 @@ def autorun_get_html_interactive_session(cmds, **kargs):
 
     def to_html(s):
         # type: (str) -> str
-        return s.replace("<", "&lt;").replace(">", "&gt;").replace("#[#", "<").replace("#]#", ">")  # noqa: E501
+        s = s.replace("<", "&lt;").replace(">", "&gt;")
+        for css_class in (
+            "prompt", "not_printable", "layer_name", "field_name",
+            "field_value", "emph_field_name", "emph_field_value",
+            "packetlist_name", "packetlist_proto", "packetlist_value",
+            "fail", "success", "even", "odd", "left", "right",
+        ):
+            s = s.replace(
+                "#[#span class=%s#]#" % css_class,
+                "<span class=%s>" % css_class,
+            )
+        return s.replace("#[#/span#]#", "</span>")
     try:
         try:
             conf.color_theme = HTMLTheme2()

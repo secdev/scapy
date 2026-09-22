@@ -415,6 +415,46 @@ with run_httpserver(mech=HTTP_AUTH_MECHS.NTLM, ssp=NTLMSSP(IDENTITIES={"user": M
 
 assert resp.load == b'<!doctype html><html><body><h1>OK</h1></body></html>'
 
+= HTTPS - HTTP_Client does not reuse a plaintext socket
+~ https-client
+
+from unittest.mock import patch
+from scapy.layers.http import HTTP_Client
+
+class _Socket:
+    def __init__(self):
+        self.closed = False
+        self.connected = None
+    def setsockopt(self, *args):
+        pass
+    def settimeout(self, timeout):
+        pass
+    def connect(self, address):
+        self.connected = address
+    def fileno(self):
+        return -1 if self.closed else 1
+    def close(self):
+        self.closed = True
+
+class _Context:
+    def __init__(self):
+        self.wrapped = None
+    def wrap_socket(self, sock, server_hostname):
+        self.wrapped = (sock, server_hostname)
+        return sock
+
+first, second = _Socket(), _Socket()
+context = _Context()
+client = HTTP_Client(verb=False, sslcontext=context)
+with patch("scapy.layers.http.socket.socket", side_effect=[first, second]):
+    client._connect_or_reuse("example.test", port=443, tls=False)
+    client._connect_or_reuse("example.test", port=443, tls=True)
+
+assert first.closed
+assert second.connected == ("example.test", 443)
+assert context.wrapped == (second, "example.test")
+assert client._sockinfo == ("example.test", 443, True)
+
 = HTTP - HTTP_Server with native python client with Basic auth
 ~ http-client
 

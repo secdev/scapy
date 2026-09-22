@@ -280,6 +280,38 @@ if not conf.use_pcap:
     conf.use_pcap = False
     assert not conf.iface.provider.libpcap
 
+= Native libpcap capture returns only the captured bytes
+~ linux libpcap
+
+from ctypes import POINTER, c_ubyte, cast, pointer
+from scapy.arch import libpcap as _libpcap
+
+_was_use_pcap = conf.use_pcap
+conf.use_pcap = True
+try:
+    hdr = _libpcap.pcap_pkthdr()
+    hdr.ts.tv_sec, hdr.ts.tv_usec = 1, 0
+    hdr.caplen = 4
+    hdr.len = 12  # the length on the wire, before the snapshot length cut it
+    buf = (c_ubyte * 12)(1, 2, 3, 4, *([0xff] * 8))
+    wrapper = _libpcap._PcapWrapper_libpcap.__new__(
+        _libpcap._PcapWrapper_libpcap
+    )
+    wrapper.pcap = None
+    wrapper.header = pointer(hdr)
+    wrapper.pkt_data = cast(buf, POINTER(c_ubyte))
+    _next_ex = _libpcap.pcap_next_ex
+    _libpcap.pcap_next_ex = lambda *args: 1
+    try:
+        ts, pkt = wrapper.next()
+    finally:
+        _libpcap.pcap_next_ex = _next_ex
+finally:
+    conf.use_pcap = _was_use_pcap
+
+# Anything past caplen is whatever the buffer held before, not this packet.
+assert pkt == b"\x01\x02\x03\x04"
+
 = Test layer filtering
 ~ filter
 
@@ -1118,6 +1150,13 @@ assert ret == (">>> IP().src\n'127.0.0.1'\n", '127.0.0.1')
 ret = autorun_get_html_interactive_session("IP().src")
 ret
 assert ret == ("<span class=prompt>&gt;&gt;&gt; </span>IP().src\n'127.0.0.1'\n", '127.0.0.1')
+
+ret = autorun_get_html_interactive_session(
+    "print(value)",
+    my_globals={"value": "#[#img src=x onerror=alert(1)#]#"},
+)
+assert "<img" not in ret[0]
+assert "#[#img src=x onerror=alert(1)#]#" in ret[0]
 
 ret = autorun_get_latex_interactive_session("IP().src")
 ret
@@ -2003,6 +2042,17 @@ for i in a:
 
 assert a.sent_time is None
 
+= make_tex_table escapes packet-derived LaTeX control sequences
+
+value = r"\input{secret.txt}&%$#_{}~^"
+table = make_tex_table(
+    [(value,)],
+    lambda item: ("field", "value", item),
+    dump=True,
+)
+assert value not in table
+assert tex_escape(value) in table
+
 
 ############
 ############
@@ -2276,6 +2326,46 @@ assert Ether in pktpcapngdefaults[0]
 pktcapng = sniff(offline=scapy_path("/test/pcaps/macos.pcapng.gz"))
 assert len(pktcapng) != 0
 
+= Read a pcap - final gzip CRC is invalid
+~ needs_py38plus
+
+import gzip
+import struct
+from io import BytesIO
+
+gzpacket = raw(IP(src="192.0.2.1", dst="198.51.100.2") / UDP())
+gzpcapheader = struct.pack("<IHHiIII", 0xA1B2C3D4, 2, 4, 0, 0, 0x40000, DLT_RAW)
+gzpcaprecord = struct.pack("<IIII", 1, 0, len(gzpacket), len(gzpacket))
+gzpcapblob = gzpcapheader + gzpcaprecord + gzpacket
+goodgzpcap = gzip.compress(gzpcapblob, mtime=0)
+badgzpcap = bytearray(goodgzpcap)
+badgzpcap[-8] ^= 1
+badgzfile = get_temp_file(autoext=".pcap.gz")
+with open(badgzfile, "wb") as stream:
+    stream.write(badgzpcap)
+
+assert len(rdpcap(badgzfile)) == 1
+assert len(rdpcap(BytesIO(goodgzpcap))) == 1
+
+= Read a pcap - gzip capture from a named nonseekable stream
+~ needs_py38plus
+
+import gzip
+import os
+import struct
+from unittest.mock import patch
+
+frame = bytes(Ether(src="00:00:00:00:00:01", dst="00:00:00:00:00:02"))
+capture = struct.pack("<IHHiIII", 0xa1b2c3d4, 2, 4, 0, 0, 0xffff, 1)
+capture += struct.pack("<IIII", 0, 0, len(frame), len(frame)) + frame
+capture = gzip.compress(capture, mtime=0)
+read_fd, write_fd = os.pipe()
+assert os.write(write_fd, capture) == len(capture)
+os.close(write_fd)
+stream = os.fdopen(read_fd, "rb")
+with patch("builtins.open", return_value=stream):
+    assert len(rdpcap("capture.pcap.gz")) == 1
+
 = Write a pcapng
 
 tmpfile = get_temp_file(autoext=".pcapng")
@@ -2408,6 +2498,47 @@ except Scapy_Exception:
 file = BytesIO(b"\n\r\r\n\x00\x00\x008\x1a+<M\x00\x01\x00\x00\xef\xff\xff\x81\x01\x00\x00\x01\x00\x00\x00\x0c\x00\x00\x00\x00\x00\x00\x00\x009\x00\x00\x00\x01\x00\x00\x000\x00e\x00\x00\x00\x00\x00\x00\x00\x008\x00\x00\x00\x06\x00\x00\x00d\x00\x00\x00\x00'\x00\x00\x00\x01\x00\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00\x80\x01\x00\x00\x000\x00\x00\x00\x01\x00\x00\x008\x00\x00\n\x0c\x00A\x05\xc0\x01\x00\x00\x00\x00\x00d\x00\x00\x00\x00\x00\x00\x00\x00\x000\x00\x00\x00\x01\x00\x00\x008\x00\x00\n\x0c\x00A\x05\xc0\x83\x00\x00\x043\x01\x00\x00\x00\x00\x00d\x00\x00\x00\x00d")
 l = rdpcap(file)
 
+# Malformed gzip header with unknown method
+import os, tempfile
+fdesc, filename = tempfile.mkstemp()
+try:
+    with os.fdopen(fdesc, "wb") as f:
+        _ = f.write(b"\x1f\x8b\x20\xa1")
+    try:
+        rdpcap(filename)
+        assert False
+    except Scapy_Exception:
+        pass
+finally:
+    os.unlink(filename)
+
+# Malformed gzip pcap with large captured length
+import gzip
+import struct
+from unittest import mock
+from scapy.data import MTU
+
+with mock.patch("scapy.utils.warning") as warning:
+    for snaplen in [0, 0xffff, 0xfacd0000]:
+        packet = b"A" * (MTU * 4 + 4)
+        # Pcap header with fuzzed snaplen.
+        capture = struct.pack(
+            "<IHHiIII", 0xA1B2C3D4, 2, 4, 0, 0, snaplen, 0xe3
+        )
+        # First packet with caplen larger than the bounded read size.
+        capture += struct.pack("<IIII", 0, 0, len(packet), len(packet))
+        capture += packet
+        capture += struct.pack("<IIII", 0, 0, 1, 1) + b"B"
+        capture = gzip.compress(capture, mtime=0)
+        packets = rdpcap(BytesIO(capture))
+        assert len(packets) == 2
+        assert len(packets[0]) == MTU
+        assert bytes(packets[1]) == b"B"
+    assert sum(
+        "packet has been truncated" in call.args[0]
+        for call in warning.call_args_list
+    ) == 3
+
 # Issue #69628
 file = BytesIO(b"\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00\x01\x00\x00\x00\x04{\xdcf\xc2\xa5\x07\x008\x00\x00\x008\x00\x00\x00A]+\xdb]\x04\x8e(6\n\x99\xcb\x08\x00E\x00\x00*\x00\x01\x00\x00@\x06\xe3V\x07\x87\xa5m\x17\x15\xd3m\x01\x85\x01\x85\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xc5_\x00\x000\x00")
 l = rdpcap(file)
@@ -2537,6 +2668,12 @@ assert all(UDP in p for p in l)
 l = sniff(offline=[p for p in IP()/UDP(sport=(10000, 10001))], filter="udp")
 assert len(l) == 2
 assert all(UDP in p for p in l)
+
+= Check offline sniff() with serialized packet bytes
+wire = bytes(IP()/UDP())
+l = sniff(offline=[wire, wire])
+assert len(l) == 2
+assert all(Raw in p for p in l)
 
 l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="tcp")
 assert len(l) == 0
@@ -2672,6 +2809,20 @@ assert isinstance(pkt, Padding) and pkt.load == b'\xeay$\xf6'
 pkt = pkt.payload
 assert isinstance(pkt, NoPayload)
 
+= PcapNg skips packet blocks with an invalid interface ID
+from io import BytesIO
+pcapngfile = BytesIO(bytes.fromhex(
+    "0a0d0d0a1c0000004d3c2b1a01000000ffffffffffffffff1c000000"
+    "010000001400000001000000ffff0000140000000600000034000000"
+    "01000000000000000000000011000000110000000000000000010000"
+    "00000000900042414400000034000000060000003400000000000000"
+    "00000000000000001300000013000000000000000002000000000000"
+    "900041465445520034000000"
+))
+pkts = rdpcap(pcapngfile)
+assert len(pkts) == 1
+assert pkts[0].dst == "00:00:00:00:00:02"
+
 = Invalid pcapng files
 
 from io import BytesIO
@@ -2687,6 +2838,16 @@ except Scapy_Exception:
 # Invalid Packet in PCAPNG -> return
 invalid_pcapngfile_2 = BytesIO(b'\n\r\r\n\x00\x00\x00\x1c\x1a+<M\x00\x01\x00\x00\x00\x00\x00\x01\x00\x00\x00\x10\x00\x00\x00\x1c\x00\x00\x00\x01\x00\x00\x00\x10\x12\x12\x12\x12\x00\x00\x00\x10')
 assert len(rdpcap(invalid_pcapngfile_2)) == 0
+
+# Incomplete block body -> return packets read before it
+section = struct.pack("<IIIHHqI", 0x0A0D0D0A, 28, 0x1A2B3C4D, 1, 0, -1, 28)
+interface = struct.pack("<IIHHII", 1, 20, 1, 0, 0xFFFF, 20)
+packet = (
+    struct.pack("<IIIIIII", 6, 48, 0, 0, 0, 14, 14) + b"\x00" * 16 +
+    struct.pack("<I", 48)
+)
+incomplete = struct.pack("<II", 0x0BADF00D, 40) + b"\x00" * 4
+assert len(rdpcap(BytesIO(section + interface + packet + incomplete))) == 1
 
 # Invalid interface ID in PCAPNG -> raise EOFError
 try:
@@ -3051,6 +3212,24 @@ assert pkterf[0][IP].dst == "10.251.57.218"
 assert pkterf[0][Ether].src == "1c:6a:7a:18:90:ed"
 assert pkterf[0][Ether].dst == "00:0f:53:3f:ca:c0"
 
+= Zero ERF record length preserves later records
+
+import io
+import struct
+
+tail = raw(
+    Ether(src="00:00:00:00:00:01", dst="00:00:00:00:00:02") / IP() / ICMP()
+)
+tail_record = (
+    struct.pack("<Q", 0) +
+    struct.pack(">BBHHH", 2, 0, len(tail) + 18, 0, len(tail)) +
+    b"\0\0" + tail
+)
+zero_length = struct.pack("<Q", 0) + struct.pack(">BBHHH", 2, 0, 0, 0, 0)
+packets = rderf(io.BytesIO(zero_length + tail_record))
+assert len(packets) == 2
+assert ICMP in packets[1]
+
 = Check writing of ERF Ethernet file
 import os, tempfile
 fdesc, filename = tempfile.mkstemp()
@@ -3323,7 +3502,6 @@ assert routes == [
     (2130706433, 4294967295, '0.0.0.0', 'lo0', '127.0.0.1', 1),
     (2887237632, 4294963200, '0.0.0.0', 'hvn0', '172.23.207.191', 1),
     (2887241663, 4294967295, '0.0.0.0', 'lo0', '172.23.207.191', 1),
-    (2887237633, 4294967295, '0.0.0.0', 'hvn0', '', 1),
     (3758096384, 4026531840, '0.0.0.0', 'hvn0', '172.23.207.191', 250),
     (3758096384, 4026531840, '0.0.0.0', 'lo0', '127.0.0.1', 250)
 ]
@@ -3388,8 +3566,6 @@ assert routes == [
     (167772687, 4294967295, '0.0.0.0', 'lo0', '10.0.2.15', 1),
     (2130706432, 4278190080, '127.0.0.1', 'lo0', '127.0.0.1', 1),
     (2130706433, 4294967295, '0.0.0.0', 'lo0', '127.0.0.1', 1),
-    (167772674, 4294967295, '0.0.0.0', 'wm0', '', 1),
-    (167772675, 4294967295, '0.0.0.0', 'wm0', '', 1),
     (3758096384, 4026531840, '0.0.0.0', 'wm0', '10.0.2.15', 250),
     (3758096384, 4026531840, '0.0.0.0', 'lo0', '127.0.0.1', 250)
 ]
@@ -3443,8 +3619,6 @@ assert routes == [
    ('ff01::', 32, '::1', 'lo0', ['::1'], 1),
    ('ff02::', 32, '::', 'wm0', ['fe80::a00:27ff:feed:60bb'], 1),
    ('ff02::', 32, '::1', 'lo0', ['::1'], 1),
-   ('fe80::2', 128, '::', 'wm0', [], 1),
-   ('fd17:625c:f037:2::3', 128, '::', 'wm0', [], 1),
    ('ff00::',
     8,
     '::',
@@ -5058,6 +5232,15 @@ def test_conversations(mock_do_graph):
     assert result_conversations.startswith('digraph "conv" {')
     assert "127.0.0.1" in result_conversations
     assert "::1" in result_conversations
+    injected = b'a" [image="/tmp/secret.eps"]; //'
+    packet = Ether() / ARP(
+        ptype=0x1234,
+        plen=len(injected),
+        psrc=injected,
+        pdst=b"d" * len(injected),
+    )
+    result_conversations = PacketList([Ether(raw(packet))]).conversations()
+    assert '\\" [image=\\"' in result_conversations
 
 test_conversations()
 
