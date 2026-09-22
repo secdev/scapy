@@ -1427,14 +1427,16 @@ class TLSFinished(_TLSHandshake):
                 con_end = s.connection_end
                 verify_data = s.rcs.prf.compute_verify_data(con_end, "read",
                                                             handshake_msg, ms)
-                if self.vdata != verify_data:
+                s.finished_valid = self.vdata == verify_data
+                if not s.finished_valid:
                     pkt_info = pkt.firstlayer().summary()
                     log_runtime.info("TLS: invalid Finished received [%s]", pkt_info)  # noqa: E501
             elif tls_version >= 0x0304:
                 con_end = s.connection_end
                 verify_data = s.compute_tls13_verify_data(con_end, "read",
                                                           handshake_msg)
-                if self.vdata != verify_data:
+                s.finished_valid = self.vdata == verify_data
+                if not s.finished_valid:
                     pkt_info = pkt.firstlayer().summary()
                     log_runtime.info("TLS: invalid Finished received [%s]", pkt_info)  # noqa: E501
 

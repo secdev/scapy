@@ -448,6 +448,9 @@ class tlsSession(object):
         self.client_key = None
         self.client_cert_verify_valid = None
 
+        # Common (server + client) automaton parameters
+        self.finished_valid = None
+        
         # Ephemeral key exchange parameters
 
         # The agreed-upon ephemeral key group

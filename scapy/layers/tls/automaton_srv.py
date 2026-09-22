@@ -561,7 +561,18 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_CLIENTFINISHED(self):
+        if not self.cur_session.finished_valid:
+            raise self.INVALID_FINISHED()
         raise self.PREPARE_SERVERFLIGHT2()
+
+    @ATMT.state()
+    def INVALID_FINISHED(self):
+        self.vprint("Invalid Finished!")
+        self.add_record()
+        self.add_msg(TLSAlert(level=2, descr=51))
+        self.flush_records()
+        self.socket.close()
+        raise self.WAITING_CLIENT()
 
     @ATMT.condition(HANDLED_CHANGECIPHERSPEC, prio=2)
     def should_handle_Alert_from_ClientFinished(self):
@@ -1031,6 +1042,8 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def TLS13_HANDLED_CLIENTFINISHED(self):
+        if not self.cur_session.finished_valid:
+            raise self.INVALID_FINISHED()
         self.vprint("TLS handshake completed!")
         self.vprint_sessioninfo()
         if self.is_echo_server:
