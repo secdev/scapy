@@ -234,8 +234,8 @@ class AvtpCommonControlHeader(AvtpCommonHeader):
                 int.from_bytes(pkt[-10:-8], byteorder="big") & 0xF800
             ) | pay_length
             pkt = pkt[:-10] + struct.pack("!H", current_length) + pkt[-8:]
-            pkt += pay
-        return pkt
+
+        return pkt + pay
 
 
 class AvtpAlternativeHeader(AvtpCommonHeader):
@@ -336,7 +336,7 @@ class AvtpAcfHeader(Packet):
 
             # Do padding
             if (len(pay) + len(pkt)) % 4:
-                pay += b"\x00" * (4 - len(pay) + len(pkt) % 4)
+                pay += b"\x00" * (4 - (len(pay) + len(pkt)) % 4)
 
             acf_length = (len(pkt) + len(pay)) // 4 & 0x1FF
             first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
@@ -835,12 +835,12 @@ class AvtpAcfAbbreviatedByteBusHeader(_AvtpAcfPaddedHeader):
     ]
 
 
-class AvtpAcfI2CHeader(_AvtpAcfPaddedHeader):
+class AvtpAcfI2CMessage(_AvtpAcfPaddedHeader):
     """
-    Header for I2C Messages - Clause 9.4.16 - IEEE 1722 - 2025
+    I2C Messages - Clause 9.4.16 - IEEE 1722 - 2025
     """
 
-    name = "ACF I2C Header"
+    name = "ACF I2C Message"
     fields_desc = [
         BitEnumField(
             name="acf_msg_type",
@@ -864,12 +864,12 @@ class AvtpAcfI2CHeader(_AvtpAcfPaddedHeader):
     ]
 
 
-class AvtpAcfI2CBriefHeader(_AvtpAcfPaddedHeader):
+class AvtpAcfI2CBriefMessage(_AvtpAcfPaddedHeader):
     """
-    Header for I2C Brief Messages - Clause 9.4.17 - IEEE 1722 - 2025
+    I2C Brief Messages - Clause 9.4.17 - IEEE 1722 - 2025
     """
 
-    name = "ACF I2C Brief Header"
+    name = "ACF I2C Brief Message"
     fields_desc = [
         BitEnumField(
             name="acf_msg_type",
