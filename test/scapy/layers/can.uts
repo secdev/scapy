@@ -1823,13 +1823,13 @@ assert pkt.frame_format == 7  # XLF+FDF+IDE: 0b111
 ############
 ############
 
-+ CAN XL show(style="11898-1")
++ CAN XL show_iso()
 
 = CAN XL show ISO style contains expected field names
 
 pkt = CANXL(priority=0x123, vcid=0x45, sdt=0x07,
             af=0x12345678) / b'\xde\xad\xbe\xef'
-output = pkt.show(dump=True, style="11898-1")
+output = pkt.show_iso(dump=True)
 assert "Priority" in output
 assert "VCID" in output
 assert "Format" in output

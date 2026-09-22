@@ -44,7 +44,7 @@ Building and inspecting frames
     pkt.show()
 
     # ISO 11898-1 field names (Priority, Format, FTYPE, SDT, SEC, DLC, etc.)
-    pkt.show(style="11898-1")
+    pkt.show_iso()
 
     # Access payload data (same API as classic CAN)
     pkt.data        # b'\x01\x02\x03'
@@ -74,7 +74,7 @@ Sending and receiving over a socket
     # Receive a frame (in another terminal or Scapy session)
     pkt = sock.recv()
     pkt.show()
-    pkt.show(style="11898-1")
+    pkt.show_iso()
 
     sock.close()
 
@@ -90,7 +90,7 @@ Field naming: Linux vs ISO
 
 CAN XL field names differ between the Linux kernel's ``struct canxl_frame``
 (used in Scapy's ``fields_desc``) and the ISO 11898-1:2024 specification.
-Use ``pkt.show(style="11898-1")`` to see ISO names, or access via
+Use ``pkt.show_iso()`` to see ISO names, or access via
 properties:
 
 +-------------+---------------------+----------------------+

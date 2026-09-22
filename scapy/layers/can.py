@@ -236,15 +236,14 @@ class CANXL(CAN):
     Uses the Linux kernel data representation (``struct canxl_frame``) for
     field names and layout.  ISO 11898-1:2024 field accessors are available
     via ``@property`` methods (``dlc``, ``xlf``, ``sec``, ``ftype``,
-    ``frame_format``), and ``show(style="11898-1")`` renders using ISO
-    terminology.
+    ``frame_format``), and ``show_iso()`` renders using ISO terminology.
 
     Example::
 
         >>> from scapy.layers.can import CANXL
         >>> pkt = CANXL(priority=0x42, vcid=0x10, sdt=3, af=0xDEAD) / b'\\x01\\x02'
         >>> pkt.show()
-        >>> pkt.show(style="11898-1")
+        >>> pkt.show_iso()
     """
     name = "CAN XL"
 
@@ -364,7 +363,7 @@ class CANXL(CAN):
         """ISO 11898-1:2024 3-bit format field (XLF:FDF:IDE), bits 7-5."""
         return (int(self.flags) >> 5) & 0x07
 
-    # -- show(style="11898-1") -----------------------------------------------
+    # -- ISO 11898-1:2024 rendering ------------------------------------------
 
     @property
     def data(self):
@@ -380,26 +379,12 @@ class CANXL(CAN):
         """
         return bytes(self.payload)
 
-    def show(self, dump=False, indent=3, lvl="", label_lvl="",
-             style=None):
-        # type: (bool, int, str, str, Optional[str]) -> Optional[Any]
-        # Return type is Optional[Any] because show() returns None when
-        # printing to stdout (dump=False) and str when dump=True.
-        # Using Any avoids mypy complaints across subclass overrides.
-        """Show packet fields.
+    def show_iso(self, dump=False, lvl="", label_lvl=""):
+        # type: (bool, str, str) -> Optional[str]
+        """Render the frame using ISO 11898-1:2024 field names.
 
-        :param style: If ``"11898-1"``, render using ISO 11898-1:2024
-                      field names (Priority, VCID, Format, SEC, FTYPE,
-                      SDT, DLC, AF, Data).
+        :param dump: return the string instead of printing it
         """
-        if style == "11898-1":
-            return self._show_iso(dump, indent, lvl, label_lvl)
-        return super(CANXL, self).show(
-            dump=dump, indent=indent, lvl=lvl, label_lvl=label_lvl)
-
-    def _show_iso(self, dump=False, indent=3, lvl="", label_lvl=""):
-        # type: (bool, int, str, str) -> Optional[str]
-        """Render using ISO 11898-1:2024 field names."""
         if dump:
             from scapy.themes import ColorTheme, AnsiColorTheme
             ct: ColorTheme = AnsiColorTheme()  # No color for dump output
