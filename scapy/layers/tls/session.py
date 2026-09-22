@@ -450,7 +450,7 @@ class tlsSession(object):
 
         # Common (server + client) automaton parameters
         self.finished_valid = None
-        
+
         # Ephemeral key exchange parameters
 
         # The agreed-upon ephemeral key group
