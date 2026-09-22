@@ -20,8 +20,8 @@ from scapy.config import conf
 from scapy.compat import chb, hex_bytes
 from scapy.data import DLT_CAN_SOCKETCAN
 from scapy.fields import BitField, FieldLenField, FlagsField, StrLenField, \
-    ThreeBytesField, XBitField, XByteField, XIntField, ScalingField, \
-    ConditionalField, LenField, ShortField
+    ThreeBytesField, XBitField, XByteField, XLEIntField, ScalingField, \
+    ConditionalField, LenField, LEShortField, ShortField
 from scapy.volatile import RandFloat, RandBinFloat
 from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import CookedLinux
@@ -260,59 +260,38 @@ class CANXL(CAN):
         return len(pkt) > 4 and bool(pkt[4] & 0x80)
 
     fields_desc = [
-        # prio word (4 bytes, LE on socket, swapped to BE by pre_dissect)
-        BitField('reserved2', 0, 8),       # bits 31-24
-        XBitField('vcid', 0, 8),           # bits 23-16
-        BitField('reserved1', 0, 5),       # bits 15-11
-        XBitField('priority', 0, 11),      # bits 10-0
-        # flags byte (1 byte, no swap needed)
+        # prio word: 4 bytes, little endian (struct canxl_frame.prio)
+        BitField('reserved2', 0, 8, tot_size=-4),       # bits 31-24
+        XBitField('vcid', 0, 8),                        # bits 23-16
+        BitField('reserved1', 0, 5),                    # bits 15-11
+        XBitField('priority', 0, 11, end_tot_size=-4),  # bits 10-0
         # ISO 11898-1:2024: CAN XL requires XLF=1, FDF=1, IDE=0
         FlagsField('flags', CANXL_XLF | CANXL_FDF, 8,
                    ['sec', 'rrs', 'res_f2', 'res_f3',
                     'res_f4', 'ide', 'fdf', 'xlf']),
-        # sdt (1 byte, no swap needed)
         XByteField('sdt', 0),
-        # length (2 bytes, LE on socket, swapped to BE by pre_dissect)
-        # Auto-computed from payload in post_build.
+        # Auto-computed from the payload in post_build.
         # ISO 11898-1:2024 defines this as an 11-bit field (range 1-2048),
         # but Linux struct canxl_frame uses a full 16-bit field.
-        # For kernel compatibility we use ShortField; post_build warns
+        # For kernel compatibility we use a 16-bit field; post_build warns
         # if the computed length falls outside the valid range.
-        ShortField('length', 0),
-        # af (4 bytes, LE on socket, swapped to BE by pre_dissect)
-        XIntField('af', 0),
-        # NO data field — payload carried as sub-layers
+        LEShortField('length', 0),
+        XLEIntField('af', 0),
+        # NO data field - payload carried as sub-layers
     ]
-
-    # -- Byte-order conversion -----------------------------------------------
-    # CAN XL needs 3 regions swapped between LE (socket) and BE (scapy):
-    #   bytes 0-3 (prio), bytes 6-7 (length), bytes 8-11 (af)
-    # This is independent of conf.contribs['CAN']['swap-bytes'] - CANXL
-    # always performs its own full swap.
-
-    @staticmethod
-    def inv_endianness(pkt):
-        # type: (bytes) -> bytes
-        """Swap the three LE multi-byte fields in a CAN XL header."""
-        if len(pkt) < CANXL_HDR_SIZE:
-            return pkt
-        b = bytearray(pkt)
-        b[0:4] = b[0:4][::-1]    # prio
-        b[6:8] = b[6:8][::-1]    # length
-        b[8:12] = b[8:12][::-1]  # af
-        return bytes(b)
 
     def pre_dissect(self, s):
         # type: (bytes) -> bytes
-        return CANXL.inv_endianness(s)
+        # The fields above already describe the SocketCAN wire layout, so
+        # no swap is needed here.  CAN.pre_dissect's swap-bytes handling
+        # covers the 4-byte CAN ID only and would corrupt an XL header;
+        # the pcap byte order for CAN XL is still to be determined.
+        return s
 
     def post_dissect(self, s):
         # type: (bytes) -> bytes
         # Clear the raw byte cache so that self_build() always goes
-        # through do_build() -> post_build(), which applies the
-        # BE -> LE byte-order swap via inv_endianness().  Without
-        # this, self_build() would return the cached LE wire bytes
-        # directly and skip post_build, producing incorrect output.
+        # through do_build() -> post_build(), which recomputes the length.
         self.raw_packet_cache = None
         return s
 
@@ -328,7 +307,7 @@ class CANXL(CAN):
             log_runtime.warning(
                 "CAN XL payload length %d exceeds the ISO 11898-1 "
                 "maximum of %d (11-bit field)", length, CANXL_MAX_DLEN)
-        pkt = pkt[:6] + struct.pack('>H', length) + pkt[8:]
+        pkt = pkt[:6] + struct.pack('<H', length) + pkt[8:]
         # ISO 11898-1:2024: enforce XLF=1, FDF=1, IDE=0
         if pkt[4] & CANXL_IDE:
             log_runtime.warning(
@@ -336,7 +315,7 @@ class CANXL(CAN):
                 "(IDE is always 0 for CAN XL per ISO 11898-1)")
         flags = (pkt[4] | CANXL_XLF | CANXL_FDF) & ~CANXL_IDE
         pkt = pkt[:4] + bytes([flags]) + pkt[5:]
-        return CANXL.inv_endianness(pkt) + pay
+        return pkt + pay
 
     def extract_padding(self, p):
         # type: (bytes) -> Tuple[bytes, Optional[bytes]]
