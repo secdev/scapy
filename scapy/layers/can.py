@@ -379,60 +379,39 @@ class CANXL(CAN):
         """
         return bytes(self.payload)
 
-    def show_iso(self, dump=False, lvl="", label_lvl=""):
-        # type: (bool, str, str) -> Optional[str]
+    def show_iso(self, dump=False):
+        # type: (bool) -> Optional[str]
         """Render the frame using ISO 11898-1:2024 field names.
+
+        Field order follows ISO 11898-1:2024 Table 4.  The values that the
+        standard derives from the flags byte (Format, FTYPE, SEC) and from
+        the length (DLC) are not fields of their own, so they are resolved
+        through the matching properties rather than by ``sprintf``.
 
         :param dump: return the string instead of printing it
         """
-        if dump:
-            from scapy.themes import ColorTheme, AnsiColorTheme
-            ct: ColorTheme = AnsiColorTheme()  # No color for dump output
-        else:
-            ct = conf.color_theme
-
         fmt_val = self.frame_format
-        fmt_names = []
-        if fmt_val & 0x04:
-            fmt_names.append("XLF")
-        if fmt_val & 0x02:
-            fmt_names.append("FDF")
-        if fmt_val & 0x01:
-            fmt_names.append("IDE")
-        fmt_str = "+".join(fmt_names) if fmt_names else "0"
+        fmt_str = "+".join(
+            name for bit, name in ((0x04, "XLF"), (0x02, "FDF"), (0x01, "IDE"))
+            if fmt_val & bit) or "0"
 
-        s = "%s%s %s %s\n" % (
-            label_lvl,
-            ct.punct("###["),
-            ct.layer_name("CAN XL (ISO 11898-1)"),
-            ct.punct("]###"))
+        s = self.sprintf(
+            "###[ CAN XL (ISO 11898-1) ]###\n"
+            "  Priority   = %CANXL.priority%\n"
+            "  Format     = " + fmt_str + " (" + hex(fmt_val) + ")\n"
+            "  FTYPE      = " + str(int(self.ftype)) + "\n"
+            "  SDT        = %CANXL.sdt%\n"
+            "  SEC        = " + str(int(self.sec)) + "\n"
+            "  DLC        = " + str(self.dlc) + "\n"
+            "  VCID       = %CANXL.vcid%\n"
+            "  AF         = %CANXL.af%\n")
+        # Keep the payload out of sprintf - raw bytes may contain '%'.
+        s += "  Data       = %r\n" % bytes(self.payload)
 
-        # Field order follows ISO 11898-1:2024 Table 4
-        fields = [
-            ("Priority", "0x%x" % self.priority),
-            ("Format", "%s (0x%x)" % (fmt_str, fmt_val)),
-            ("FTYPE", "%d" % int(self.ftype)),
-            ("SDT", "0x%x" % self.sdt),
-            ("SEC", "%d" % int(self.sec)),
-            ("DLC", "%d" % self.dlc),
-            ("VCID", "0x%x" % self.vcid),
-            ("AF", "0x%08x" % self.af),
-            ("Data", "%r" % bytes(self.payload)),
-        ]
-
-        for name, val in fields:
-            pad = max(0, 10 - len(name)) * " "
-            s += "%s  %s%s%s %s\n" % (
-                label_lvl + lvl,
-                ct.field_name(name),
-                pad,
-                ct.punct("="),
-                ct.field_value(val))
-
-        if not dump:
-            print(s)
-            return None
-        return s
+        if dump:
+            return s
+        print(s)
+        return None
 
 
 class SignalField(ScalingField):
