@@ -3849,16 +3849,18 @@ class SMBStreamSocket(StreamSocket):
             # "The client MUST skip the processing in this section if any of:"
             # - [...] decryption in section 3.2.5.1.1.1 succeeds
             and not smbh._decrypted
+            # - MessageId is not an OPLOCK_BREAK notification
             and (
-                not smbh.Flags.SMB2_FLAGS_SERVER_TO_REDIR
-                or (
-                    # - MessageId is 0xFFFFFFFFFFFFFFFF
-                    smbh.MID != 0xFFFFFFFFFFFFFFFF
-                    # - Message is not ECHO request
-                    and smbh.Command != 0x000D
-                    # - Status in the SMB2 header is STATUS_PENDING
-                    and smbh.Status != 0x00000103
-                )
+                smbh.MID != 0xFFFFFFFFFFFFFFFF
+                or not smbh.Flags.SMB2_FLAGS_SERVER_TO_REDIR
+                or smbh.Command != 0x0012  # Not an OPLOCK_BREAK notification
+            )
+            # - Message is not ECHO request
+            and smbh.Command != 0x000D
+            # - Message is a response with STATUS_PENDING
+            and (
+                smbh.Status != 0x00000103
+                or not smbh.Flags.SMB2_FLAGS_SERVER_TO_REDIR
             )
         ):
             smbh.verify(
