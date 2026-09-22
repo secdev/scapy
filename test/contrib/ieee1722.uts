@@ -134,6 +134,17 @@ gpc = AvtpAcfGpcHeader(gpc_msgid=0x010203040506) / Raw(load="abc")
 gpc_decoded = AvtpAcfGpcHeader(bytes(gpc))
 assert len(bytes(gpc)) == 12
 assert gpc_decoded.acf_msg_length == 3
+gpc = AvtpAcfGpcHeader(gpc_msgid=0x010203040506) / Raw(load="abcde")
+gpc_decoded = AvtpAcfGpcHeader(bytes(gpc))
+assert len(bytes(gpc)) == 16
+assert gpc_decoded.acf_msg_length == 4
+
+p = AvtpAcfGpcHeader() / Raw(b"12345")
+raw = bytes(p)
+assert len(raw) % 4 == 0
+decoded = AvtpAcfGpcHeader(raw)
+assert decoded.acf_msg_length * 4 == len(raw)
+assert bytes(decoded.payload) == b"12345\x00\x00\00"
 
 parallel = AvtpAcfParallelHeader(bit_width=8) / Raw(load="abc")
 parallel_decoded = AvtpAcfParallelHeader(bytes(parallel))
@@ -295,8 +306,8 @@ for acf_class in [
     AvtpAcfAncillaryHeader,
     AvtpAcfGenericByteBusHeader,
     AvtpAcfAbbreviatedByteBusHeader,
-    AvtpAcfI2CHeader,
-    AvtpAcfI2CBriefHeader,
+    AvtpAcfI2CMessage,
+    AvtpAcfI2CBriefMessage,
     AvtpAcfCanXlHeader,
     AvtpAcfCanXlBriefHeader,
     AvtpAcfGisfHeader
@@ -440,34 +451,36 @@ assert len(decoded.acf_tlv) == 4
 assert AvtpAcfCanHeader in decoded
 assert AvtpAcfGpcHeader in decoded
 
-= AvtpAcfI2CHeader and AvtpAcfI2CBriefHeader
-acf_i2c = AvtpAcfI2CHeader() / Raw(b"\x00\x00")
+= AvtpAcfI2CMessage and AvtpAcfI2CBriefMessage
+acf_i2c = AvtpAcfI2CMessage() / Raw(b"\x00\x00")
 acf_i2c_bytes = bytes(acf_i2c)
-acf_decoded = AvtpAcfI2CHeader(acf_i2c_bytes)
+acf_decoded = AvtpAcfI2CMessage(acf_i2c_bytes)
 assert acf_decoded.acf_msg_length == 4
 
-acf_i2c = AvtpAcfI2CBriefHeader() / Raw(b"\x00\x00")
+acf_i2c = AvtpAcfI2CBriefMessage() / Raw(b"\x00\x00")
 acf_i2c_bytes = bytes(acf_i2c)
-acf_decoded = AvtpAcfI2CBriefHeader(acf_i2c_bytes)
+acf_decoded = AvtpAcfI2CBriefMessage(acf_i2c_bytes)
 assert acf_decoded.acf_msg_length == 2
 
-acf_i2c = AvtpAcfI2CHeader()
+acf_i2c = AvtpAcfI2CMessage()
 acf_i2c_bytes = bytes(acf_i2c)
-acf_decoded = AvtpAcfI2CHeader(acf_i2c_bytes)
+acf_decoded = AvtpAcfI2CMessage(acf_i2c_bytes)
 assert acf_decoded.acf_msg_length == 4
 
-acf_i2c = AvtpAcfI2CBriefHeader()
+acf_i2c = AvtpAcfI2CBriefMessage()
 acf_i2c_bytes = bytes(acf_i2c)
-acf_decoded = AvtpAcfI2CBriefHeader(acf_i2c_bytes)
+acf_decoded = AvtpAcfI2CBriefMessage(acf_i2c_bytes)
 assert acf_decoded.acf_msg_length == 2
 
 = Explicit control_data_length
 avtp_pkt = AvtpCommonControlHeader()/Raw("\x00\x00\x00\x00")
 avtp_pkt_bytes = bytes(avtp_pkt)
 decoded = AvtpCommonControlHeader(avtp_pkt_bytes)
+assert len(bytes(decoded.payload)) == 4
 assert decoded.control_data_length == 4
 
-avtp_pkt = AvtpCommonControlHeader(control_data_length=2)/Raw("\x00\x00\x00\x00")
+avtp_pkt = AvtpCommonControlHeader(control_data_length=2)/Raw("\x00\x00\x00")
 avtp_pkt_bytes = bytes(avtp_pkt)
 decoded = AvtpCommonControlHeader(avtp_pkt_bytes)
+assert len(bytes(decoded.payload)) == 3
 assert decoded.control_data_length == 2
