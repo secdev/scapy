@@ -3483,6 +3483,49 @@ assert routes == [
     ('ff00::', 8, '::', 'hn0', ['fe80::215:5dff:fe00:6507'], 250)
 ]
 
+= FreeBSD 14.4 i386 - read_routes()
+~ mock_read_routes_bsd little_endian_only
+
+import zlib
+
+from scapy.arch.bpf.pfroute import _bsd_iff_flags
+_FREEBSD_IFACES = {1: {'name': 'lo0', 'index': 1, 'flags': FlagValue(32841, _bsd_iff_flags), 'mac': '00:00:00:00:00:00', 'ips': [{'af_family': 28, 'index': 1, 'address': '::1', 'scope': 16}, {'af_family': 28, 'index': 1, 'address': 'fe80::1', 'scope': 32}, {'af_family': 2, 'index': 1, 'address': '127.0.0.1'}], 'type': 24}, 2: {'name': 'hn0', 'index': 2, 'flags': FlagValue(34883, _bsd_iff_flags), 'mac': '00:15:5d:00:65:1b', 'ips': [{'af_family': 2, 'index': 2, 'address': '172.18.101.236'}], 'type': 6}}
+
+_PFROUTE_DATA = zlib.decompress(bytes.fromhex('789cbbc2c0cac2c4c0c0c0ccc1c060ce801bdc61c52309058c40cc82c41760429507f1d7082530e292b710626260636663c8c83360108d654895266c2592b9a96f60fc23403f812c6165106030c6a7d181b0d98c508c6c573d929080102383048a1f807c6606869c7c03225d8fdddc2bd0786104fa811af1821cd4d07840f041e18e26ffffff07389feaf1c2419d7861c66317ba9fa8152f00c9001c82'))
+
+
+with BSDLoader(FREEBSD=True, sysctldata=_PFROUTE_DATA, ifaces=_FREEBSD_IFACES, AF_INET6=28, IS_64BITS=False) as pfroute:
+    routes = pfroute.read_routes()
+
+assert routes == [
+    (0, 0, '172.18.96.1', 'hn0', '172.18.101.236', 1),
+    (2130706433, 4294967295, '0.0.0.0', 'lo0', '127.0.0.1', 1),
+    (2886885376, 4294963200, '0.0.0.0', 'hn0', '172.18.101.236', 1),
+    (2886886892, 4294967295, '0.0.0.0', 'lo0', '127.0.0.1', 1),
+    (3758096384, 4026531840, '0.0.0.0', 'lo0', '127.0.0.1', 250),
+    (3758096384, 4026531840, '0.0.0.0', 'hn0', '172.18.101.236', 250),
+]
+
+= FreeBSD 14.4 i386 - read_routes6()
+~ mock_read_routes_bsd little_endian_only
+
+_PFROUTE_DATA = zlib.decompress(bytes.fromhex('789c6361646561646060e0e460603067c0031cf0494200c81c1624be8c0c6eb538e41891e5fe230198020b214606096606869c7c03c20e22d2be3b0c903060e5106030c6678803617b1861861261af00c82f4882b4f01b0b5de317114f83297ee91106ff1a4873133c0c0e602aa04518fc80a671460601aa840133167bd1c300a40e3d8da3c73db27a4afd8d663f23c87e6ae76d2622eda576dec666073dd2f57f264cb5c4e56d4c05b448d700fd9444e3'))
+
+
+with BSDLoader(FREEBSD=True, sysctldata=_PFROUTE_DATA, ifaces=_FREEBSD_IFACES, AF_INET6=28, IS_64BITS=False) as pfroute:
+    routes = pfroute.read_routes6()
+
+assert routes == [
+    ('::', 96, '::1', 'lo0', ['::1'], 1),
+    ('::1', 128, '::', 'lo0', ['::1'], 1),
+    ('::ffff:0.0.0.0', 96, '::1', 'lo0', ['::1'], 1),
+    ('fe80::', 10, '::1', 'lo0', ['::1'], 1),
+    ('fe80::', 64, '::', 'lo0', ['fe80::1'], 1),
+    ('fe80::1', 128, '::', 'lo0', ['fe80::1'], 1),
+    ('ff02::', 16, '::1', 'lo0', ['::1'], 1),
+    ('ff00::', 8, '::', 'lo0', ['::1', 'fe80::1'], 250),
+]
+
 = NetBSD 10.0 amd64 - read_routes()
 ~ mock_read_routes_bsd little_endian_only
 

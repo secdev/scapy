@@ -777,25 +777,46 @@ elif DARWIN:
 else:
     # FreeBSD
 
-    class rt_metrics(Packet):
-        fields_desc = [
-            Field("rmx_locks", 0, fmt="=Q"),
-            Field("rmx_mtu", 0, fmt="=Q"),
-            Field("rmx_hopcount", 0, fmt="=Q"),
-            Field("rmx_expire", 0, fmt="=Q"),
-            Field("rmx_recvpipe", 0, fmt="=Q"),
-            Field("rmx_sendpipe", 0, fmt="=Q"),
-            Field("rmx_sshthresh", 0, fmt="=Q"),
-            Field("rmx_rtt", 0, fmt="=Q"),
-            Field("rmx_rttvar", 0, fmt="=Q"),
-            Field("rmx_pksent", 0, fmt="=Q"),
-            Field("rmx_weight", 0, fmt="=Q"),
-            Field("rmx_nhidx", 0, fmt="=Q"),
-            StrFixedLenField("rmx_filler", 0, length=16 if IS_64BITS else 8),
-        ]
+    if IS_64BITS:
+        class rt_metrics(Packet):
+            fields_desc = [
+                Field("rmx_locks", 0, fmt="=Q"),
+                Field("rmx_mtu", 0, fmt="=Q"),
+                Field("rmx_hopcount", 0, fmt="=Q"),
+                Field("rmx_expire", 0, fmt="=Q"),
+                Field("rmx_recvpipe", 0, fmt="=Q"),
+                Field("rmx_sendpipe", 0, fmt="=Q"),
+                Field("rmx_sshthresh", 0, fmt="=Q"),
+                Field("rmx_rtt", 0, fmt="=Q"),
+                Field("rmx_rttvar", 0, fmt="=Q"),
+                Field("rmx_pksent", 0, fmt="=Q"),
+                Field("rmx_weight", 0, fmt="=Q"),
+                Field("rmx_nhidx", 0, fmt="=Q"),
+                StrFixedLenField("rmx_filler", 0, length=16),
+            ]
 
-        def default_payload_class(self, payload: bytes) -> Type[Packet]:
-            return conf.padding_layer
+            def default_payload_class(self, payload: bytes) -> Type[Packet]:
+                return conf.padding_layer
+    else:
+        class rt_metrics(Packet):
+            fields_desc = [
+                Field("rmx_locks", 0, fmt="=L"),
+                Field("rmx_mtu", 0, fmt="=L"),
+                Field("rmx_hopcount", 0, fmt="=L"),
+                Field("rmx_expire", 0, fmt="=L"),
+                Field("rmx_recvpipe", 0, fmt="=L"),
+                Field("rmx_sendpipe", 0, fmt="=L"),
+                Field("rmx_sshthresh", 0, fmt="=L"),
+                Field("rmx_rtt", 0, fmt="=L"),
+                Field("rmx_rttvar", 0, fmt="=L"),
+                Field("rmx_pksent", 0, fmt="=L"),
+                Field("rmx_weight", 0, fmt="=L"),
+                Field("rmx_nhidx", 0, fmt="=L"),
+                StrFixedLenField("rmx_filler", 0, length=8),
+            ]
+
+            def default_payload_class(self, payload: bytes) -> Type[Packet]:
+                return conf.padding_layer
 
 
 if OPENBSD:
@@ -921,7 +942,7 @@ else:
             Field("rtm_seq", 0, fmt="=I"),
             Field("rtm_errno", 0, fmt="=I"),
             Field("rtm_fmask", 0, fmt="=I"),
-            Field("rtm_inits", 0, fmt="=Q"),
+            Field("rtm_inits", 0, fmt="=Q" if IS_64BITS else "=I"),
             PadField(
                 PacketField("rtm_rmx", rt_metrics(), rt_metrics),
                 8,
