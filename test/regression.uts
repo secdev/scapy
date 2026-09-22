@@ -2481,6 +2481,7 @@ assert(len(l[0].process_information) == 2)
 assert(l[0].process_information["proc"]["name"] == "trustd")
 
 = OSS-Fuzz Findings
+~ needs_py38plus
 
 from io import BytesIO
 # Issue 68352
