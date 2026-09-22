@@ -173,11 +173,6 @@ class NativeCANSocket(SuperSocket):
         self.ins.bind((self.channel,))
         self.outs = self.ins
 
-    @staticmethod
-    def _is_canxl(pkt):
-        # type: (bytes) -> bool
-        return CANXL.is_canxl_frame(pkt)
-
     def recv_raw(self, x=CAN_MTU):
         # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501
         """Returns a tuple containing (cls, pkt_data, time)"""
@@ -193,14 +188,11 @@ class NativeCANSocket(SuperSocket):
             # something bad happened (e.g. the interface went down)
             warning("Captured no data.")
 
-        # CAN XL frames handle their own byte swapping in
-        # CANXL.pre_dissect - skip the first-4-byte swap here.
-        # CAN/CANFD still need the first-4-byte swap.
+        # CAN XL describes its little endian layout in its fields_desc,
+        # so it needs no swap here. CAN/CANFD still need the CAN ID swap.
         if not conf.contribs['CAN']['swap-bytes'] and pkt \
-                and not self._is_canxl(pkt):
-            pack_fmt = "<I%ds" % (len(pkt) - 4)
-            unpack_fmt = ">I%ds" % (len(pkt) - 4)
-            pkt = struct.pack(pack_fmt, *struct.unpack(unpack_fmt, pkt))
+                and not CANXL.is_canxl_frame(pkt):
+            pkt = CAN.inv_endianness(pkt)
 
         if pkt and ts is None:
             from scapy.arch.linux import get_last_packet_timestamp
@@ -220,16 +212,12 @@ class NativeCANSocket(SuperSocket):
 
         bs = raw(x)
 
-        if isinstance(x, CANXL):
-            # CANXL.post_build already produces little endian wire bytes.
-            # No MTU padding - kernel expects exact HDR_SIZE + len.
-            pass
-        else:
+        # CAN XL builds its little endian wire bytes from fields_desc, and
+        # the kernel expects exactly HDR_SIZE + len bytes, so no padding.
+        if not isinstance(x, CANXL):
             # CAN/CANFD: swap first 4 bytes (CAN ID) big endian to little endian
             if not conf.contribs['CAN']['swap-bytes']:
-                pack_fmt = "<I%ds" % (len(bs) - 4)
-                unpack_fmt = ">I%ds" % (len(bs) - 4)
-                bs = struct.pack(pack_fmt, *struct.unpack(unpack_fmt, bs))
+                bs = CAN.inv_endianness(bs)
             # CAN/CANFD: pad to correct MTU per frame type
             mtu = CAN_FD_MTU if isinstance(x, CANFD) else CAN_MTU
             bs = bs + b"\x00" * (mtu - len(bs))
