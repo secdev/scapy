@@ -1976,7 +1976,14 @@ class NTLMSSP(SSP):
                 pass
 
             # Check the channel bindings
-            if chan_bindings != GSS_C_NO_CHANNEL_BINDINGS:
+            if chan_bindings == GSS_C_NO_CHANNEL_BINDINGS:
+                if (
+                    req_flags is not None
+                    and GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS
+                    not in req_flags
+                ):
+                    return Context, None, GSS_S_BAD_BINDINGS
+            else:
                 try:
                     Bnd = auth_tok.NtChallengeResponse.getAv(0x000A).Value
                     if Bnd != chan_bindings.digestMD5():
