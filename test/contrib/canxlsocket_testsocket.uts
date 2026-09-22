@@ -127,16 +127,13 @@ with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
     s1.send(CANFD(identifier=0x200, length=12,
                   data=b'\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C'))
     s1.send(CANXL(priority=0x042, sdt=1, af=0xBEEF) / b'\xDE\xAD')
-
     rx1 = s2.recv()
     rx2 = s2.recv()
     rx3 = s2.recv()
-
     # dispatch_hook must route each to the correct class
     assert type(rx1) == CAN, "Expected CAN, got %s" % type(rx1).__name__
     assert type(rx2) == CANFD, "Expected CANFD, got %s" % type(rx2).__name__
     assert type(rx3) == CANXL, "Expected CANXL, got %s" % type(rx3).__name__
-
     # Verify fields survived
     assert rx1.identifier == 0x100
     assert rx1.length == 3

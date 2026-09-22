@@ -2,7 +2,7 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
-# 
+#
 # The CAN XL parts are created by Friedrich Wiemer
 # Copyright (C) 2026, Robert Bosch GmbH
 
@@ -225,7 +225,7 @@ class NativeCANSocket(SuperSocket):
             # No MTU padding - kernel expects exact HDR_SIZE + len.
             pass
         else:
-            # CAN/CANFD: swap first 4 bytes (CAN ID) big endian to litte endian
+            # CAN/CANFD: swap first 4 bytes (CAN ID) big endian to little endian
             if not conf.contribs['CAN']['swap-bytes']:
                 pack_fmt = "<I%ds" % (len(bs) - 4)
                 unpack_fmt = ">I%ds" % (len(bs) - 4)

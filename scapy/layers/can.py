@@ -2,7 +2,7 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# 
+#
 # The CAN XL parts are created by Friedrich Wiemer
 # Copyright (C) 2026, Robert Bosch GmbH
 
@@ -439,7 +439,7 @@ class CANXL(CAN):
         """Render using ISO 11898-1:2024 field names."""
         if dump:
             from scapy.themes import ColorTheme, AnsiColorTheme
-            ct = AnsiColorTheme()
+            ct: ColorTheme = AnsiColorTheme()  # No color for dump output
         else:
             ct = conf.color_theme
 

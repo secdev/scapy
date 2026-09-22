@@ -2,7 +2,7 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
-# 
+#
 # The CAN XL parts are created by Friedrich Wiemer
 # Copyright (C) 2026, Robert Bosch GmbH
 
