@@ -288,13 +288,6 @@ class CANXL(CAN):
         # the pcap byte order for CAN XL is still to be determined.
         return s
 
-    def post_dissect(self, s):
-        # type: (bytes) -> bytes
-        # Clear the raw byte cache so that self_build() always goes
-        # through do_build() -> post_build(), which recomputes the length.
-        self.raw_packet_cache = None
-        return s
-
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
         # Auto-compute length from payload
@@ -326,15 +319,6 @@ class CANXL(CAN):
         # frames from a native socket have exact-length data; any
         # trailing garbage is safely discarded.
         return p[:data_len], None
-
-    def guess_payload_class(self, payload):
-        # type: (bytes) -> Type[Packet]
-        # Override the default to unconditionally return raw_layer,
-        # bypassing any bind_layers() registrations.  CAN XL payload
-        # dispatch should be based on SDT or on add-on service flags
-        # (e.g. SEC); contrib modules implementing an add-on service
-        # may monkey-patch this method to add their own dispatch logic.
-        return conf.raw_layer
 
     # -- ISO 11898-1:2024 property accessors ---------------------------------
 
