@@ -19,7 +19,6 @@ from scapy.fields import (
     BitField,
     BitFieldLenField,
     ByteField,
-    ConditionalField,
     FieldLenField,
     IntField,
     LenField,
@@ -95,16 +94,6 @@ class AvtpAcfType(Enum):
     ACF_CRC = 0x77
 
 
-class AvtpHeaderVersion(Enum):
-    """
-    AVTP Header Versions - Table 8 - IEEE 1722-2025
-    """
-
-    V0 = 0
-    V1 = 1
-    AVTP_MAX_HEADER_VERSION = 1
-
-
 class AvtpCommonHeader(Packet):
     """
     Common Header (Clause 4.7.3) for the AVTP-2025
@@ -112,14 +101,10 @@ class AvtpCommonHeader(Packet):
 
     name = "AVTP Common Header"
     fields_desc = [
-        ConditionalField(
-            IntField(name="encapsulation_sequence_num", default=0),
-            lambda pkt: isinstance(pkt.underlayer, UDP),
-        ),
         XByteEnumField(
             name="subtype",
             default=None,
-            enum={i.name: i.value for i in AvtpStreamType},
+            enum=AvtpStreamType,
         ),
         BitField(name="h", size=1, default=0),
         BitField(name="version", size=3, default=0),
@@ -145,29 +130,41 @@ class AvtpCommonHeader(Packet):
         Dispatch the appropriate class based on the parsed subtype and version.
         """
         if pkt is not None:
-            if isinstance(kargs["_underlayer"], UDP):
-                parsed_type = ord(pkt[4:5])
-                parsed_version = (ord(pkt[5:6]) & 0x70) >> 4
-            else:
-                parsed_type = ord(pkt[0:1])
-                parsed_version = (ord(pkt[1:2]) & 0x70) >> 4
+            parsed_type = ord(pkt[0:1])
+            parsed_version = (ord(pkt[1:2]) & 0x70) >> 4
 
             key = (parsed_type, parsed_version)
             return cls.common_header_variants.get(key, cls)
         return cls
 
 
-class _CommonStreamHeaderV0(AvtpCommonHeader):
+class AvtpCommonStreamHeader(AvtpCommonHeader):
+    """
+    Common Stream Header (Clause 4.7.4) for the AVTP-2025
+    """
+
+    name = "AVTP Common Stream Header"
+
+    @classmethod
+    def dispatch_hook(cls, pkt=None, **kargs):
+        version = 0
+        if "version" in kargs:
+            version = kargs.get("version", 0) == 1
+        else:
+            if pkt is not None:
+                parsed_version = (ord(pkt[1:2]) & 0x70) >> 4
+                version = parsed_version == 1
+        return AvtpCommonStreamHeaderV1 if version else AvtpCommonStreamHeaderV0
+
+
+class AvtpCommonStreamHeaderV0(AvtpCommonStreamHeader):
     name = "AVTP Common Stream Header v0"
+    match_subclass = True
     fields_desc = [
-        ConditionalField(
-            IntField(name="encapsulation_sequence_num", default=0),
-            lambda pkt: isinstance(pkt.underlayer, UDP),
-        ),
         XByteEnumField(
             name="subtype",
             default=None,
-            enum={i.name: i.value for i in AvtpStreamType},
+            enum=AvtpStreamType,
         ),
         BitField(name="h", size=1, default=0),
         BitField(name="version", size=3, default=0),
@@ -182,17 +179,14 @@ class _CommonStreamHeaderV0(AvtpCommonHeader):
     ]
 
 
-class _CommonStreamHeaderV1(AvtpCommonHeader):
+class AvtpCommonStreamHeaderV1(AvtpCommonStreamHeader):
     name = "AVTP Common Stream Header v1"
+    match_subclass = True
     fields_desc = [
-        ConditionalField(
-            IntField(name="encapsulation_sequence_num", default=0),
-            lambda pkt: isinstance(pkt.underlayer, UDP),
-        ),
         XByteEnumField(
             name="subtype",
             default=None,
-            enum={i.name: i.value for i in AvtpStreamType},
+            enum=AvtpStreamType,
         ),
         BitField(name="h", size=1, default=0),
         BitField(name="version", size=3, default=1),
@@ -212,25 +206,6 @@ class _CommonStreamHeaderV1(AvtpCommonHeader):
     ]
 
 
-class AvtpCommonStreamHeader(AvtpCommonHeader):
-    """
-    Common Stream Header (Clause 4.7.4) for the AVTP-2025
-    """
-
-    name = "AVTP Common Stream Header"
-
-    @classmethod
-    def dispatch_hook(cls, pkt=None, **kargs):
-        version = 0
-        if "version" in kargs:
-            version = kargs.get("version", 0) == 1
-        else:
-            if pkt is not None:
-                parsed_version = (ord(pkt[1:2]) & 0x70) >> 4
-                version = parsed_version == 1
-        return _CommonStreamHeaderV1 if version else _CommonStreamHeaderV0
-
-
 class AvtpCommonControlHeader(AvtpCommonHeader):
     """
     Common Control Header (Clause 4.7.5) for the AVTP-2025
@@ -238,14 +213,10 @@ class AvtpCommonControlHeader(AvtpCommonHeader):
 
     name = "AVTP Common Control Header"
     fields_desc = [
-        ConditionalField(
-            IntField(name="encapsulation_sequence_num", default=0),
-            lambda pkt: isinstance(pkt.underlayer, UDP),
-        ),
         XByteEnumField(
             name="subtype",
             default=None,
-            enum={i.name: i.value for i in AvtpStreamType},
+            enum=AvtpStreamType,
         ),
         BitField(name="sv", size=1, default=0),
         BitField(name="version", size=3, default=0),
@@ -255,52 +226,16 @@ class AvtpCommonControlHeader(AvtpCommonHeader):
     ]
 
     def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Update the length fields on packet building
-        pay_length = len(pay) if len(pay) < 2**11 else 0
-        current_length = (
-            int.from_bytes(pkt[-10:-8], byteorder="big") & 0xF800
-        ) | pay_length
-        pkt = pkt[:-10] + struct.pack("!H", current_length) + pkt[-8:]
-        pkt += pay
+
+        if self.control_data_length is None:
+            # Update the length fields on packet building
+            pay_length = len(pay) if len(pay) < 2**11 else 0
+            current_length = (
+                int.from_bytes(pkt[-10:-8], byteorder="big") & 0xF800
+            ) | pay_length
+            pkt = pkt[:-10] + struct.pack("!H", current_length) + pkt[-8:]
+            pkt += pay
         return pkt
-
-
-class _AlternativeHeaderV0(AvtpCommonHeader):
-    name = "AVTP Alternative Header v0"
-    fields_desc = [
-        ConditionalField(
-            IntField(name="encapsulation_sequence_num", default=0),
-            lambda pkt: isinstance(pkt.underlayer, UDP),
-        ),
-        XByteEnumField(
-            name="subtype",
-            default=None,
-            enum={i.name: i.value for i in AvtpStreamType},
-        ),
-        BitField(name="h", size=1, default=0),
-        BitField(name="version", size=3, default=0),
-    ]
-
-
-class _AlternativeHeaderV1(AvtpCommonHeader):
-    name = "AVTP Alternative Header v1"
-    fields_desc = [
-        ConditionalField(
-            IntField(name="encapsulation_sequence_num", default=0),
-            lambda pkt: isinstance(pkt.underlayer, UDP),
-        ),
-        XByteEnumField(
-            name="subtype",
-            default=None,
-            enum={i.name: i.value for i in AvtpStreamType},
-        ),
-        BitField(name="h", size=1, default=0),
-        BitField(name="version", size=3, default=0),
-        BitField(name="reserved_1", size=20, default=0),
-        XIntField(name="sequence_num", default=0),
-        XLongField(name="gptp_grandmaster_identity", default=0),
-        BitField(name="reserved_2", size=12, default=0),
-    ]
 
 
 class AvtpAlternativeHeader(AvtpCommonHeader):
@@ -319,7 +254,39 @@ class AvtpAlternativeHeader(AvtpCommonHeader):
             if pkt is not None:
                 parsed_version = (ord(pkt[1:2]) & 0x70) >> 4
                 version = parsed_version == 1
-        return _AlternativeHeaderV1 if version else _AlternativeHeaderV0
+        return AvtpAlternativeHeaderV1 if version else AvtpAlternativeHeaderV0
+
+
+class AvtpAlternativeHeaderV0(AvtpAlternativeHeader):
+    name = "AVTP Alternative Header v0"
+    match_subclass = True
+    fields_desc = [
+        XByteEnumField(
+            name="subtype",
+            default=None,
+            enum=AvtpStreamType,
+        ),
+        BitField(name="h", size=1, default=0),
+        BitField(name="version", size=3, default=0),
+    ]
+
+
+class AvtpAlternativeHeaderV1(AvtpAlternativeHeader):
+    name = "AVTP Alternative Header v1"
+    match_subclass = True
+    fields_desc = [
+        XByteEnumField(
+            name="subtype",
+            default=None,
+            enum=AvtpStreamType,
+        ),
+        BitField(name="h", size=1, default=0),
+        BitField(name="version", size=3, default=1),
+        BitField(name="reserved_1", size=20, default=0),
+        XIntField(name="sequence_num", default=0),
+        XLongField(name="gptp_grandmaster_identity", default=0),
+        BitField(name="reserved_2", size=12, default=0),
+    ]
 
 
 class AvtpAcfHeader(Packet):
@@ -333,7 +300,7 @@ class AvtpAcfHeader(Packet):
             name="acf_msg_type",
             default=None,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
     ]
@@ -358,8 +325,77 @@ class AvtpAcfHeader(Packet):
             return cls.acf_variants.get(tmp_type, cls)
         return cls
 
+    def extract_padding(self, s):
+        length = self.acf_msg_length * 4 - len(self.self_build())
+        return s[:length], s[length:]
 
-class AvtpAcfFlexrayHeader(AvtpAcfHeader):
+    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
+
+        # Take care for length updation if the acf_msg_length field is not set
+        if self.acf_msg_length is None:
+
+            # Do padding
+            if (len(pay) + len(pkt)) % 4:
+                pay += b"\x00" * (4 - len(pay) + len(pkt) % 4)
+
+            acf_length = (len(pkt) + len(pay)) // 4 & 0x1FF
+            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
+            pkt = (
+                struct.pack("!B", first_byte)
+                + struct.pack("!B", acf_length & 0xFF)
+                + pkt[2:]
+            )
+
+        return pkt + pay
+
+
+class _AvtpAcfPaddedHeader(AvtpAcfHeader):
+    """
+    Base class for ACF headers that require padding.
+    """
+
+    name = "ACF PaddedHeader"
+    fields_desc = [
+        BitEnumField(
+            name="acf_msg_type",
+            default=None,
+            size=7,
+            enum=AvtpAcfType,
+        ),
+        BitField(name="acf_msg_length", size=9, default=None),
+        BitField(name="padlength", size=2, default=0),
+    ]
+
+    def do_dissect_payload(self, s):
+        return super().do_dissect_payload(s[: len(s) - self.padlength])
+
+    def extract_padding(self, s):
+        payload_length = self.acf_msg_length * 4 - len(self.self_build())
+        return s[0:payload_length], s[payload_length:]
+
+    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
+
+        # Take care for length updation if the acf_msg_length field is not set
+        if self.acf_msg_length is None:
+
+            # Do padding and update the pad length field
+            if (len(pay) + len(pkt)) % 4:
+                pad_byte = pkt[2] | ((4 - (len(pay) + len(pkt)) % 4) << 6)
+                pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
+                pay += b"\x00" * (4 - (len(pay) + len(pkt)) % 4)
+
+            acf_length = (len(pkt) + len(pay)) // 4 & 0x1FF
+            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
+            pkt = (
+                struct.pack("!B", first_byte)
+                + struct.pack("!B", acf_length & 0xFF)
+                + pkt[2:]
+            )
+
+        return pkt + pay
+
+
+class AvtpAcfFlexrayHeader(_AvtpAcfPaddedHeader):
     """
     Header for FlexRay Messages - Clause 9.4.2 - IEEE 1722 - 2025
     """
@@ -370,7 +406,7 @@ class AvtpAcfFlexrayHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_FLEXRAY,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="padlength", size=2, default=0),
@@ -388,38 +424,8 @@ class AvtpAcfFlexrayHeader(AvtpAcfHeader):
         BitField(name="cycle", size=6, default=0),
     ]
 
-    def do_dissect_payload(self, s):
-        return super().do_dissect_payload(s[: len(s) - self.padlength])
 
-    def extract_padding(self, s):
-        """
-        Extract padding from the payload.
-        """
-        payload_length = self.acf_msg_length * 4 - len(self.self_build())
-        return s[0:payload_length], s[payload_length:]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pad_byte = pkt[2] | ((4 - len(pay) % 4) << 6)
-            pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class AvtpAcfCanHeader(AvtpAcfHeader):
+class AvtpAcfCanHeader(_AvtpAcfPaddedHeader):
     """
     Header for CAN/CAN-FD Messages - Clause 9.4.3 - IEEE 1722 - 2025
     """
@@ -430,7 +436,7 @@ class AvtpAcfCanHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_CAN,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="padlength", size=2, default=0),
@@ -447,35 +453,8 @@ class AvtpAcfCanHeader(AvtpAcfHeader):
         BitField(name="can_identifier", size=29, default=0),
     ]
 
-    def do_dissect_payload(self, s):
-        return super().do_dissect_payload(s[: len(s) - self.padlength])
 
-    def extract_padding(self, s):
-        payload_length = self.acf_msg_length * 4 - len(self.self_build())
-        return s[0:payload_length], s[payload_length:]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pad_byte = pkt[2] | ((4 - len(pay) % 4) << 6)
-            pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class AvtpAcfCanV2Header(AvtpAcfHeader):
+class AvtpAcfCanV2Header(_AvtpAcfPaddedHeader):
     """
     Header for CAN/CAN-FD version 2 Messages - Clause 9.4.3 - IEEE 1722 - 2025
     """
@@ -487,7 +466,7 @@ class AvtpAcfCanV2Header(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_CAN_V2,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="padlength", size=2, default=0),
@@ -502,35 +481,8 @@ class AvtpAcfCanV2Header(AvtpAcfHeader):
         BitField(name="can_identifier", size=29, default=0),
     ]
 
-    def do_dissect_payload(self, s):
-        return super().do_dissect_payload(s[: len(s) - self.padlength])
 
-    def extract_padding(self, s):
-        payload_length = self.acf_msg_length * 4 - len(self.self_build())
-        return s[0:payload_length], s[payload_length:]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pad_byte = pkt[2] | ((4 - len(pay) % 4) << 6)
-            pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class AvtpAcfCanBriefHeader(AvtpAcfHeader):
+class AvtpAcfCanBriefHeader(_AvtpAcfPaddedHeader):
     """
     Header for CAN/CAN-FD Brief Messages - Clause 9.4.4 - IEEE 1722 - 2025
     """
@@ -541,7 +493,7 @@ class AvtpAcfCanBriefHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_CAN_BRIEF,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="padlength", size=2, default=0),
@@ -557,35 +509,8 @@ class AvtpAcfCanBriefHeader(AvtpAcfHeader):
         BitField(name="can_identifier", size=29, default=0),
     ]
 
-    def do_dissect_payload(self, s):
-        return super().do_dissect_payload(s[: len(s) - self.padlength])
 
-    def extract_padding(self, s):
-        payload_length = self.acf_msg_length * 4 - len(self.self_build())
-        return s[0:payload_length], s[payload_length:]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pad_byte = pkt[2] | ((4 - len(pay) % 4) << 6)
-            pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class AvtpAcfCanBriefV2Header(AvtpAcfHeader):
+class AvtpAcfCanBriefV2Header(_AvtpAcfPaddedHeader):
     """
     Header for CAN/CAN-FD Brief version 2 Messages - Clause 9.4.4 - IEEE 1722 - 2025
     """
@@ -597,7 +522,7 @@ class AvtpAcfCanBriefV2Header(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_CAN_BRIEF_V2,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="padlength", size=2, default=0),
@@ -611,35 +536,8 @@ class AvtpAcfCanBriefV2Header(AvtpAcfHeader):
         BitField(name="can_identifier", size=29, default=0),
     ]
 
-    def do_dissect_payload(self, s):
-        return super().do_dissect_payload(s[: len(s) - self.padlength])
 
-    def extract_padding(self, s):
-        payload_length = self.acf_msg_length * 4 - len(self.self_build())
-        return s[0:payload_length], s[payload_length:]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pad_byte = pkt[2] | ((4 - len(pay) % 4) << 6)
-            pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class AvtpAcfLinHeader(AvtpAcfHeader):
+class AvtpAcfLinHeader(_AvtpAcfPaddedHeader):
     """
     Header for LIN Messages - Clause 9.4.5 - IEEE 1722 - 2025
     """
@@ -650,7 +548,7 @@ class AvtpAcfLinHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_LIN,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="padlength", size=2, default=0),
@@ -660,35 +558,8 @@ class AvtpAcfLinHeader(AvtpAcfHeader):
         LongField(name="message_timestamp", default=0),
     ]
 
-    def do_dissect_payload(self, s):
-        return super().do_dissect_payload(s[: len(s) - self.padlength])
 
-    def extract_padding(self, s):
-        payload_length = self.acf_msg_length * 4 - len(self.self_build())
-        return s[0:payload_length], s[payload_length:]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pad_byte = pkt[2] | ((4 - len(pay) % 4) << 6)
-            pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class AvtpAcfLinV2Header(AvtpAcfHeader):
+class AvtpAcfLinV2Header(_AvtpAcfPaddedHeader):
     """
     Header for LIN Messages - Clause 9.4.5 - IEEE 1722 - 2025
     """
@@ -699,7 +570,7 @@ class AvtpAcfLinV2Header(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_LIN_V2,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="padlength", size=2, default=0),
@@ -711,35 +582,8 @@ class AvtpAcfLinV2Header(AvtpAcfHeader):
         XByteField(name="lin_identifier", default=0),
     ]
 
-    def do_dissect_payload(self, s):
-        return super().do_dissect_payload(s[: len(s) - self.padlength])
 
-    def extract_padding(self, s):
-        payload_length = self.acf_msg_length * 4 - len(self.self_build())
-        return s[0:payload_length], s[payload_length:]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pad_byte = pkt[2] | ((4 - len(pay) % 4) << 6)
-            pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class AvtpAcfMostHeader(AvtpAcfHeader):
+class AvtpAcfMostHeader(_AvtpAcfPaddedHeader):
     """
     Header for MOST Messages - Clause 9.4.6 - IEEE 1722 - 2025
     """
@@ -750,7 +594,7 @@ class AvtpAcfMostHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_MOST,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="padlength", size=2, default=0),
@@ -766,33 +610,6 @@ class AvtpAcfMostHeader(AvtpAcfHeader):
         XShortField(name="reserved_2", default=0),
     ]
 
-    def do_dissect_payload(self, s):
-        return super().do_dissect_payload(s[: len(s) - self.padlength])
-
-    def extract_padding(self, s):
-        payload_length = self.acf_msg_length * 4 - len(self.self_build())
-        return s[0:payload_length], s[payload_length:]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pad_byte = pkt[2] | ((4 - len(pay) % 4) << 6)
-            pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
 
 class AvtpAcfGpcHeader(AvtpAcfHeader):
     """
@@ -805,32 +622,14 @@ class AvtpAcfGpcHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_GPC,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="gpc_msgid", size=48, default=0),
     ]
 
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pay += bytes(pad)
 
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class AvtpAcfSerialHeader(AvtpAcfHeader):
+class AvtpAcfSerialHeader(_AvtpAcfPaddedHeader):
     """
     Header for Serial Messages - Clause 9.4.8 - IEEE 1722 - 2025
     """
@@ -841,7 +640,7 @@ class AvtpAcfSerialHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_SERIAL,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="padlength", size=2, default=0),
@@ -853,33 +652,6 @@ class AvtpAcfSerialHeader(AvtpAcfHeader):
         BitField(name="cts", size=1, default=0),
         BitField(name="ri", size=1, default=0),
     ]
-
-    def do_dissect_payload(self, s):
-        return super().do_dissect_payload(s[: len(s) - self.padlength])
-
-    def extract_padding(self, s):
-        payload_length = self.acf_msg_length * 4 - len(self.self_build())
-        return s[0:payload_length], s[payload_length:]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pad_byte = pkt[2] | ((4 - len(pay) % 4) << 6)
-            pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
 
 
 class AvtpAcfParallelHeader(AvtpAcfHeader):
@@ -893,30 +665,12 @@ class AvtpAcfParallelHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_PARALLEL,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         XByteField(name="reserved", default=0),
         XByteField(name="bit_width", default=0),
     ]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
 
 
 class AvtpAcfSensorHeader(AvtpAcfHeader):
@@ -930,7 +684,7 @@ class AvtpAcfSensorHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_SENSOR,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="mtv", size=1, default=None),
@@ -939,24 +693,6 @@ class AvtpAcfSensorHeader(AvtpAcfHeader):
         BitField(name="sensor_group", size=6, default=None),
         XLongField(name="message_timestamp", default=None),
     ]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
 
 
 class AvtpAcfSensorBriefHeader(AvtpAcfHeader):
@@ -970,7 +706,7 @@ class AvtpAcfSensorBriefHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_SENSOR_BRIEF,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="mtv", size=1, default=None),
@@ -978,24 +714,6 @@ class AvtpAcfSensorBriefHeader(AvtpAcfHeader):
         BitField(name="sz", size=2, default=None),
         BitField(name="sensor_group", size=6, default=None),
     ]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
 
 
 class AvtpAcfAecpHeader(AvtpAcfHeader):
@@ -1009,32 +727,14 @@ class AvtpAcfAecpHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_AECP,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         XShortField(name="reserved", default=0),
     ]
 
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pay += bytes(pad)
 
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class AvtpAcfAncillaryHeader(AvtpAcfHeader):
+class AvtpAcfAncillaryHeader(_AvtpAcfPaddedHeader):
     """
     Header for Ancillary Messages - Clause 9.4.13 - IEEE 1722 - 2025
     """
@@ -1053,7 +753,7 @@ class AvtpAcfAncillaryHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_ANCILLARY,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="padlength", size=2, default=0),
@@ -1071,35 +771,8 @@ class AvtpAcfAncillaryHeader(AvtpAcfHeader):
         XByteField(name="sdid_dbn", default=0),
     ]
 
-    def do_dissect_payload(self, s):
-        return super().do_dissect_payload(s[: len(s) - self.padlength])
 
-    def extract_padding(self, s):
-        payload_length = self.acf_msg_length * 4 - len(self.self_build())
-        return s[0:payload_length], s[payload_length:]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pad_byte = pkt[2] | ((4 - len(pay) % 4) << 6)
-            pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class AvtpAcfGenericByteBusHeader(AvtpAcfHeader):
+class AvtpAcfGenericByteBusHeader(_AvtpAcfPaddedHeader):
     """
     Header for Generic Byte Bus Messages - Clause 9.4.14 - IEEE 1722 - 2025
     """
@@ -1110,7 +783,7 @@ class AvtpAcfGenericByteBusHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_GBB,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="padlength", size=2, default=0),
@@ -1130,35 +803,8 @@ class AvtpAcfGenericByteBusHeader(AvtpAcfHeader):
         BitField(name="read_size_segment_num", size=12, default=0),
     ]
 
-    def do_dissect_payload(self, s):
-        return super().do_dissect_payload(s[: len(s) - self.padlength])
 
-    def extract_padding(self, s):
-        payload_length = self.acf_msg_length * 4 - len(self.self_build())
-        return s[0:payload_length], s[payload_length:]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pad_byte = pkt[2] | ((4 - len(pay) % 4) << 6)
-            pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class AvtpAcfAbbreviatedByteBusHeader(AvtpAcfHeader):
+class AvtpAcfAbbreviatedByteBusHeader(_AvtpAcfPaddedHeader):
     """
     Header for Abbreviated Byte Bus Messages - Clause 9.4.15 - IEEE 1722 - 2025
     """
@@ -1169,7 +815,7 @@ class AvtpAcfAbbreviatedByteBusHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_ABB,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="padlength", size=2, default=0),
@@ -1188,35 +834,8 @@ class AvtpAcfAbbreviatedByteBusHeader(AvtpAcfHeader):
         BitField(name="read_size_segment_num", size=12, default=0),
     ]
 
-    def do_dissect_payload(self, s):
-        return super().do_dissect_payload(s[: len(s) - self.padlength])
 
-    def extract_padding(self, s):
-        payload_length = self.acf_msg_length * 4 - len(self.self_build())
-        return s[0:payload_length], s[payload_length:]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pad_byte = pkt[2] | ((4 - len(pay) % 4) << 6)
-            pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class AvtpAcfI2CHeader(AvtpAcfHeader):
+class AvtpAcfI2CHeader(_AvtpAcfPaddedHeader):
     """
     Header for I2C Messages - Clause 9.4.16 - IEEE 1722 - 2025
     """
@@ -1227,9 +846,9 @@ class AvtpAcfI2CHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_I2C,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
-        BitField(name="acf_msg_length", size=9, default=None),
+        BitField(name="acf_msg_length", size=9, default=4),
         BitField(name="padlength", size=2, default=0),
         BitField(name="mtv", size=1, default=0),
         BitField(name="rsv", size=2, default=0),
@@ -1241,27 +860,11 @@ class AvtpAcfI2CHeader(AvtpAcfHeader):
         XByteField(name="transaction_num", default=0),
         BitField(name="evt", size=4, default=0),
         BitField(name="exception_code", size=4, default=0),
+        XByteField(name="i2c_data", default=0),
     ]
 
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
 
-        # A correct I2C message has a 1-byte payload.
-        # If the payload is not 1 byte, we will pad it to 1 byte.
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class AvtpAcfI2CBriefHeader(AvtpAcfHeader):
+class AvtpAcfI2CBriefHeader(_AvtpAcfPaddedHeader):
     """
     Header for I2C Brief Messages - Clause 9.4.17 - IEEE 1722 - 2025
     """
@@ -1272,9 +875,9 @@ class AvtpAcfI2CBriefHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_I2C_BRIEF,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
-        BitField(name="acf_msg_length", size=9, default=None),
+        BitField(name="acf_msg_length", size=9, default=2),
         BitField(name="padlength", size=2, default=0),
         BitField(name="mtv", size=1, default=0),
         BitField(name="rsv", size=2, default=0),
@@ -1285,27 +888,11 @@ class AvtpAcfI2CBriefHeader(AvtpAcfHeader):
         XByteField(name="transaction_num", default=0),
         BitField(name="evt", size=4, default=0),
         BitField(name="exception_code", size=4, default=0),
+        XByteField(name="i2c_data", default=0),
     ]
 
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
 
-        # A correct I2C brief message has a 1-byte payload.
-        # If the payload is not 1 byte, we will pad it to 1 byte.
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class AvtpAcfCanXlHeader(AvtpAcfHeader):
+class AvtpAcfCanXlHeader(_AvtpAcfPaddedHeader):
     """
     Header for CAN XL Messages - Clause 9.4.18 - IEEE 1722 - 2025
     """
@@ -1316,7 +903,7 @@ class AvtpAcfCanXlHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_CAN_XL,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="padlength", size=2, default=0),
@@ -1338,36 +925,8 @@ class AvtpAcfCanXlHeader(AvtpAcfHeader):
         BitField(name="segment_num", size=12, default=0),
     ]
 
-    def do_dissect_payload(self, s):
-        return super().do_dissect_payload(s[: len(s) - self.padlength])
 
-    def extract_padding(self, s):
-        """Extract padding from the payload."""
-        payload_length = self.acf_msg_length * 4 - len(self.self_build())
-        return s[0:payload_length], s[payload_length:]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pad_byte = pkt[2] | ((4 - len(pay) % 4) << 6)
-            pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class AvtpAcfCanXlBriefHeader(AvtpAcfHeader):
+class AvtpAcfCanXlBriefHeader(_AvtpAcfPaddedHeader):
     """
     Header for CAN XL Brief Messages - Clause 9.4.19 - IEEE 1722 - 2025
     """
@@ -1378,7 +937,7 @@ class AvtpAcfCanXlBriefHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_CAN_XL_BRIEF,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="padlength", size=2, default=0),
@@ -1398,34 +957,6 @@ class AvtpAcfCanXlBriefHeader(AvtpAcfHeader):
         BitField(name="ms", size=1, default=0),
         BitField(name="segment_num", size=12, default=0),
     ]
-
-    def do_dissect_payload(self, s):
-        return super().do_dissect_payload(s[: len(s) - self.padlength])
-
-    def extract_padding(self, s):
-        """Extract padding from the payload."""
-        payload_length = self.acf_msg_length * 4 - len(self.self_build())
-        return s[0:payload_length], s[payload_length:]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pad_byte = pkt[2] | ((4 - len(pay) % 4) << 6)
-            pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
 
 
 class AvtpAcfChecksumHeader(AvtpAcfHeader):
@@ -1439,7 +970,7 @@ class AvtpAcfChecksumHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_CHECKSUM,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=1),
         XShortField(name="checksum", default=0),
@@ -1457,33 +988,15 @@ class AvtpAcfCrcHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_CRC,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="reserved", size=12, default=0),
         BitField(name="crc_type", size=4, default=0),
     ]
 
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pay += bytes(pad)
 
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class AvtpAcfGisfHeader(AvtpAcfHeader):
+class AvtpAcfGisfHeader(_AvtpAcfPaddedHeader):
     """
     Header for GISF Messages - Clause 18 - IEEE 1722 - 2025
     """
@@ -1494,7 +1007,7 @@ class AvtpAcfGisfHeader(AvtpAcfHeader):
             name="acf_msg_type",
             default=AvtpAcfType.ACF_GISF,
             size=7,
-            enum={i.name: i.value for i in AvtpAcfType},
+            enum=AvtpAcfType,
         ),
         BitField(name="acf_msg_length", size=9, default=None),
         BitField(name="padlength", size=2, default=0),
@@ -1516,88 +1029,8 @@ class AvtpAcfGisfHeader(AvtpAcfHeader):
         XShortField(name="line_number", default=0),
     ]
 
-    def do_dissect_payload(self, s):
-        return super().do_dissect_payload(s[: len(s) - self.padlength])
 
-    def extract_padding(self, s):
-        """Extract padding from the payload."""
-        payload_length = self.acf_msg_length * 4 - len(self.self_build())
-        return s[0:payload_length], s[payload_length:]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-        # Do padding
-        if len(pay) % 4:
-            pad = [0] * (4 - len(pay) % 4)
-            pad_byte = pkt[2] | ((4 - len(pay) % 4) << 6)
-            pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
-            pay += bytes(pad)
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-            acf_length = int((len(pkt) + len(pay)) / 4) & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
-
-
-class _AvtpNtscfHeaderV0(_AlternativeHeaderV0):
-    name = "AVTP NTSCF Header v0"
-    fields_desc = [
-        ConditionalField(
-            IntField(name="encapsulation_sequence_num", default=0),
-            lambda pkt: isinstance(pkt.underlayer, UDP),
-        ),
-        XByteEnumField(
-            name="subtype",
-            default=AvtpStreamType.NTSCF,
-            enum={i.name: i.value for i in AvtpStreamType},
-        ),
-        BitField(name="h", size=1, default=0),
-        BitField(name="version", size=3, default=0),
-        BitField(name="r", size=1, default=0),
-        BitFieldLenField(
-            name="ntscf_data_length", size=11, default=None, length_of="acf_tlv"
-        ),
-        XByteField(name="sequence_num", default=0),
-        XLongField(name="stream_id", default=0),
-        PacketListField(name="acf_tlv", default=[], pkt_cls=AvtpAcfHeader),
-    ]
-
-
-class _AvtpNtscfHeaderV1(_AlternativeHeaderV1):
-    name = "AVTP NTSCF Header v1"
-    fields_desc = [
-        ConditionalField(
-            IntField(name="encapsulation_sequence_num", default=0),
-            lambda pkt: isinstance(pkt.underlayer, UDP),
-        ),
-        XByteEnumField(
-            name="subtype",
-            default=AvtpStreamType.NTSCF,
-            enum={i.name: i.value for i in AvtpStreamType},
-        ),
-        BitField(name="h", size=1, default=0),
-        BitField(name="version", size=3, default=1),
-        BitField(name="reserved_1", size=20, default=0),
-        XIntField(name="sequence_num", default=0),
-        XLongField(name="gptp_grandmaster_identity", default=0),
-        BitField(name="reserved_2", size=12, default=0),
-        BitField(name="r", size=1, default=0),
-        BitFieldLenField(
-            name="ntscf_data_length", size=11, default=None, length_of="acf_tlv"
-        ),
-        XByteField(name="sequence_num_lsb", default=0),
-        XLongField(name="stream_id", default=0),
-        PacketListField(name="acf_tlv", default=[], pkt_cls=AvtpAcfHeader),
-    ]
-
-
-class AvtpNtscfHeader(AvtpCommonHeader):
+class AvtpNtscfHeader(AvtpAlternativeHeader):
     """
     Header for Non-Time-Synchronous Control Format - Clause 9.2 - IEEE 1722 - 2025
     """
@@ -1616,66 +1049,63 @@ class AvtpNtscfHeader(AvtpCommonHeader):
                 # raw bytes using the AvtpNtscfHeader class directly.
                 parsed_version = (ord(pkt[1:2]) & 0x70) >> 4
                 version = parsed_version == 1
-        return _AvtpNtscfHeaderV1 if version else _AvtpNtscfHeaderV0
+        return AvtpNtscfHeaderV1 if version else AvtpNtscfHeaderV0
 
 
-class _AvtpTscfHeaderV0(_CommonStreamHeaderV0):
-    name = "AVTP TSCF Header v0"
+class AvtpNtscfHeaderV0(AvtpNtscfHeader):
+    name = "AVTP NTSCF Header v0"
+    match_subclass = True
     fields_desc = [
-        ConditionalField(
-            IntField(name="encapsulation_sequence_num", default=0),
-            lambda pkt: isinstance(pkt.underlayer, UDP),
-        ),
         XByteEnumField(
             name="subtype",
-            default=AvtpStreamType.TSCF,
-            enum={i.name: i.value for i in AvtpStreamType},
+            default=AvtpStreamType.NTSCF,
+            enum=AvtpStreamType,
         ),
-        BitField(name="sv", size=1, default=0),
+        BitField(name="h", size=1, default=0),
         BitField(name="version", size=3, default=0),
-        BitField(name="mr", size=1, default=0),
-        BitField(name="rsv", size=2, default=0),
-        BitField(name="tv", size=1, default=0),
+        BitField(name="r", size=1, default=0),
+        BitFieldLenField(
+            name="ntscf_data_length", size=11, default=None, length_of="acf_tlv"
+        ),
         XByteField(name="sequence_num", default=0),
-        BitField(name="reserved_1", size=7, default=0),
-        BitField(name="tu", size=1, default=0),
         XLongField(name="stream_id", default=0),
-        XIntField(name="avtp_timestamp", default=0),
-        XIntField(name="reserved_2", default=0),
-        FieldLenField(name="stream_data_length", default=None, length_of="acf_tlv"),
-        XShortField(name="reserved_3", default=0),
-        PacketListField(name="acf_tlv", default=[], pkt_cls=AvtpAcfHeader),
+        PacketListField(
+            name="acf_tlv",
+            default=[],
+            pkt_cls=AvtpAcfHeader,
+            length_from=lambda pkt: pkt.ntscf_data_length,
+        ),
     ]
 
 
-class _AvtpTscfHeaderV1(_CommonStreamHeaderV1):
-    name = "AVTP TSCF Header v1"
+class AvtpNtscfHeaderV1(AvtpNtscfHeader):
+    name = "AVTP NTSCF Header v1"
+    match_subclass = True
+
     fields_desc = [
-        ConditionalField(
-            IntField(name="encapsulation_sequence_num", default=0),
-            lambda pkt: isinstance(pkt.underlayer, UDP),
-        ),
         XByteEnumField(
             name="subtype",
-            default=AvtpStreamType.TSCF,
-            enum={i.name: i.value for i in AvtpStreamType},
+            default=AvtpStreamType.NTSCF,
+            enum=AvtpStreamType,
         ),
-        BitField(name="sv", size=1, default=0),
+        BitField(name="h", size=1, default=0),
         BitField(name="version", size=3, default=1),
-        BitField(name="mr", size=1, default=0),
-        BitField(name="rsv", size=2, default=0),
-        BitField(name="tv", size=1, default=0),
-        XByteField(name="sequence_num_lsb", default=0),
-        BitField(name="reserved_1", size=7, default=0),
-        BitField(name="tu", size=1, default=0),
-        XLongField(name="stream_id", default=0),
+        BitField(name="reserved_1", size=20, default=0),
         XIntField(name="sequence_num", default=0),
-        XLongField(name="avtp_timestamp", default=0),
-        XLongField(name="ptp_grandmaster_identity", default=0),
-        XIntField(name="reserved_2", default=0),
-        FieldLenField(name="stream_data_length", default=None, length_of="acf_tlv"),
-        XShortField(name="reserved_3", default=0),
-        PacketListField(name="acf_tlv", default=[], pkt_cls=AvtpAcfHeader),
+        XLongField(name="gptp_grandmaster_identity", default=0),
+        BitField(name="reserved_2", size=12, default=0),
+        BitField(name="r", size=1, default=0),
+        BitFieldLenField(
+            name="ntscf_data_length", size=11, default=None, length_of="acf_tlv"
+        ),
+        XByteField(name="sequence_num_lsb", default=0),
+        XLongField(name="stream_id", default=0),
+        PacketListField(
+            name="acf_tlv",
+            default=[],
+            pkt_cls=AvtpAcfHeader,
+            length_from=lambda pkt: pkt.ntscf_data_length,
+        ),
     ]
 
 
@@ -1698,8 +1128,79 @@ class AvtpTscfHeader(AvtpCommonStreamHeader):
                 # raw bytes using the AvtpTscfHeader class directly.
                 parsed_version = (ord(pkt[1:2]) & 0x70) >> 4
                 version = parsed_version == 1
-        return _AvtpTscfHeaderV1 if version else _AvtpTscfHeaderV0
+        return AvtpTscfHeaderV1 if version else AvtpTscfHeaderV0
 
 
+class AvtpTscfHeaderV0(AvtpTscfHeader):
+    name = "AVTP TSCF Header v0"
+    match_subclass = True
+    fields_desc = [
+        XByteEnumField(
+            name="subtype",
+            default=AvtpStreamType.TSCF,
+            enum=AvtpStreamType,
+        ),
+        BitField(name="sv", size=1, default=0),
+        BitField(name="version", size=3, default=0),
+        BitField(name="mr", size=1, default=0),
+        BitField(name="rsv", size=2, default=0),
+        BitField(name="tv", size=1, default=0),
+        XByteField(name="sequence_num", default=0),
+        BitField(name="reserved_1", size=7, default=0),
+        BitField(name="tu", size=1, default=0),
+        XLongField(name="stream_id", default=0),
+        XIntField(name="avtp_timestamp", default=0),
+        XIntField(name="reserved_2", default=0),
+        FieldLenField(name="stream_data_length", default=None, length_of="acf_tlv"),
+        XShortField(name="reserved_3", default=0),
+        PacketListField(
+            name="acf_tlv",
+            default=[],
+            pkt_cls=AvtpAcfHeader,
+            length_from=lambda pkt: pkt.stream_data_length,
+        ),
+    ]
+
+
+class AvtpTscfHeaderV1(AvtpTscfHeader):
+    name = "AVTP TSCF Header v1"
+    match_subclass = True
+    fields_desc = [
+        XByteEnumField(
+            name="subtype",
+            default=AvtpStreamType.TSCF,
+            enum=AvtpStreamType,
+        ),
+        BitField(name="sv", size=1, default=0),
+        BitField(name="version", size=3, default=1),
+        BitField(name="mr", size=1, default=0),
+        BitField(name="rsv", size=2, default=0),
+        BitField(name="tv", size=1, default=0),
+        XByteField(name="sequence_num_lsb", default=0),
+        BitField(name="reserved_1", size=7, default=0),
+        BitField(name="tu", size=1, default=0),
+        XLongField(name="stream_id", default=0),
+        XIntField(name="sequence_num", default=0),
+        XLongField(name="avtp_timestamp", default=0),
+        XLongField(name="ptp_grandmaster_identity", default=0),
+        XIntField(name="reserved_2", default=0),
+        FieldLenField(name="stream_data_length", default=None, length_of="acf_tlv"),
+        XShortField(name="reserved_3", default=0),
+        PacketListField(
+            name="acf_tlv",
+            default=[],
+            pkt_cls=AvtpAcfHeader,
+            length_from=lambda pkt: pkt.stream_data_length,
+        ),
+    ]
+
+
+class AvtpUdpEncapsulation(Packet):
+    fields_desc = [
+        IntField("encapsulation_sequence_num", 0),
+    ]
+
+
+bind_layers(UDP, AvtpUdpEncapsulation, dport=17220)
+bind_layers(AvtpUdpEncapsulation, AvtpCommonHeader)
 bind_layers(Ether, AvtpCommonHeader, type=0x22F0)
-bind_layers(UDP, AvtpCommonHeader, dport=17220)
