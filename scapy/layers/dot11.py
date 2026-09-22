@@ -2521,6 +2521,8 @@ iwconfig wlan0 mode managed
 
     def make_reply(self, p):
         ip = p.getlayer(IP)
+        if ip is None:
+            return
         tcp = p.getlayer(TCP)
         pay = raw(tcp.payload)
         p[IP].underlayer.remove_payload()
