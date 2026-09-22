@@ -152,6 +152,14 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
             return self.dcerpc_commands[(intf, opnum)](self, req)
         return None
 
+    @staticmethod
+    def _run_client(server, clientsocket, sockets):
+        try:
+            server.loop(clientsocket)
+        finally:
+            clientsocket.close()
+            sockets.remove(clientsocket)
+
     @classmethod
     def spawn(cls, transport, iface=None, port=135, bg=False, **kwargs):
         """
@@ -200,7 +208,8 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                             **kwargs,
                         )
                         threading.Thread(
-                            target=server.loop, args=(clientsocket,)
+                            target=cls._run_client,
+                            args=(server, clientsocket, sockets),
                         ).start()
                 except KeyboardInterrupt:
                     print("X Exiting.")
