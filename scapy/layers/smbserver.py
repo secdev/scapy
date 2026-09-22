@@ -861,6 +861,7 @@ class SMB_Server(Automaton):
         # Check the tree name against the shares we're serving
         try:
             share = next(x for x in self.shares if x._name == tree_name.lower())
+            tree_name = share.name  # normalize
         except StopIteration:
             # Unknown tree
             resp = self.smb_header.copy() / SMB2_Error_Response()
