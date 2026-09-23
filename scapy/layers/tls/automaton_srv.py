@@ -1286,7 +1286,8 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_HANDLED_CLIENTFINISHED(self):
-        pass
+        if not self.cur_session.finished_valid:
+            raise self.INVALID_FINISHED()
 
     @ATMT.condition(SSLv2_HANDLED_CLIENTFINISHED, prio=1)
     def sslv2_should_add_ServerVerify_from_ClientFinished(self):
@@ -1380,6 +1381,8 @@ class TLSServerAutomaton(_TLSAutomaton):
     @ATMT.state()
     def SSLv2_HANDLED_CLIENTCERTIFICATE(self):
         self.vprint("Received client certificate...")
+        if self.client_auth and not self.cur_session.client_cert_verify_valid:
+            raise self.INVALID_CERTIFICATEVERIFY()
         # We could care about the client CA, but we don't.
         raise self.SSLv2_HANDLED_CLIENTFINISHED()
 
