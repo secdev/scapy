@@ -89,8 +89,9 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
     :param verb: verbose mode
 
     Other optional parameters:
-    :param min_auth_level: the minimum RPC_C_AUTHN_LEVEL to allow
-        (NONE allows anonymous access)
+
+    :param min_auth_level: the minimum RPC_C_AUTHN_LEVEL to allow.
+                           (NONE allows anonymous access)
     """
 
     def __init__(
