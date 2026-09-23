@@ -1,0 +1,20 @@
+# TF vrouter-agent test
+#
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('tf_agent')" -t test/contrib/tf_agent.uts
+
++ TF vrouter-agent
+
+= Build & dissect - Flow packet
+
+hdr = VrouterAgentHdr(ifindex=3, vrf=1, cmd="AGENT_TRAP_FLOW_MISS",
+                      param=100500, param_1=20, param_5=1)
+assert raw(hdr) == b"\x00\x03\x00\x01\x00\x06\x00\x01\x88\x94\x00\x00\x00\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00"
+print(hdr.summary())
+assert hdr.summary() == "AGENT_TRAP_FLOW_MISS vif0/3 Vrf:1 Flow:100500 Gen:1 K(nh)=20"
+
+pkt = Ether(type=0x800)/hdr/Ether()
+
+s = raw(pkt)
+pkt2 = Ether(s)
+assert VrouterAgentHdr in pkt2
