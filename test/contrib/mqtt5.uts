@@ -1,0 +1,669 @@
+# MQTT layer unit tests
+# Copyright (C) Santiago Hernandez Ramos <shramos@protonmail.com>
+#
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('mqtt5')" -t test/contrib/mqtt5.uts
+
++ Syntax check
+= Import the MQTT layer
+from scapy.contrib.mqtt5 import *
+
+
++ MQTT protocol test
+
+= MQTTConnect, packet instantiation, no mqtt property, no will property
+c = MQTT()/MQTTConnect(clientIdlen=5, clientId='newid') 
+assert(c.type == 1)
+assert(c.proplen == None)
+assert(c.clientIdlen == 5)
+assert(c.clientId == b'newid')
+assert(c.willproplen == None)
+ 
+= MQTTConnect, packet dissection, no mqtt property, no will property
+s = b'\x10\x12\x00\x04MQTT\x05\x02\x00<\x00\x00\x05newid'
+connect = MQTT(s)
+assert(connect.length == 4)
+assert(connect.protoname == b'MQTT')
+assert(connect.protolevel == 5)
+assert(connect.usernameflag == 0)
+assert(connect.passwordflag == 0)
+assert(connect.willretainflag == 0)
+assert(connect.willQOSflag == 0)
+assert(connect.willflag == 0)
+assert(connect.cleansess == 1)
+assert(connect.reserved == 0)
+assert(connect.klive == 60)
+assert(connect.proplen == 0)
+assert(connect.clientIdlen == 5)
+assert(connect.clientId == b'newid')
+
+= MQTTConnect, packet instantiation, with mqtt property, no will property
+c = MQTT()/MQTTConnect(properties=[MQTTProperty(propid=21, propvalue=UTF8EncodedString(value='test'))], clientIdlen=5, clientId='newid') 
+assert(c.type == 1)
+assert(c.properties[0].propid == 21)
+assert(c.properties[0].propvalue.value == b'test')
+assert(c.clientIdlen == 5)
+assert(c.clientId == b'newid')
+
+= MQTTConnect, packet dissection, with mqtt property, no will property
+s = b'\x10\x19\x00\x04MQTT\x05\x00\x00\x00\x07\x15\x00\x04test\x00\x05newid' 
+connect = MQTT(s)
+assert(connect.length == 4)
+assert(connect.protoname == b'MQTT')
+assert(connect.protolevel == 5)
+assert(connect.usernameflag == 0)
+assert(connect.passwordflag == 0)
+assert(connect.willretainflag == 0)
+assert(connect.willQOSflag == 0)
+assert(connect.willflag == 0)
+assert(connect.cleansess == 0)
+assert(connect.reserved == 0)
+assert(connect.klive == 0)
+assert(connect.proplen == 7)
+assert(connect.properties[0].propid == 21)
+assert(connect.properties[0].propvalue.value == b'test')
+assert(connect.clientIdlen == 5)
+assert(connect.clientId == b'newid')
+
+= MQTTConnect, packet instantiation, with mqtt property, with will property
+c = MQTT()/MQTTConnect(properties=[MQTTProperty(propid=21, propvalue=UTF8EncodedString(value='test'))], clientIdlen=5, clientId='newid', willflag=1, willproperties=[MQTTWillProperty(propid=1, propvalue=1)]) 
+assert(c.type == 1)
+assert(c.properties[0].propid == 21)
+assert(c.properties[0].propvalue.value == b'test')
+assert(c.clientIdlen == 5)
+assert(c.clientId == b'newid')
+assert(c.willflag == 1)
+assert(c.willproperties[0].propid == 1)
+assert(c.willproperties[0].propvalue == 1)
+
+= MQTTConnect, packet dissection, with mqtt property, with will property
+s = b'\x10\x34\x00\x04MQTT\x05\x04\x00\x00\x07\x15\x00\x04test\x00\x05newid\x02\x01\x01\x00\x09willtopic\x00\x0bwillmessage'
+connect = MQTT(s)
+assert(connect.length == 4)
+assert(connect.protoname == b'MQTT')
+assert(connect.protolevel == 5)
+assert(connect.usernameflag == 0)
+assert(connect.passwordflag == 0)
+assert(connect.willretainflag == 0)
+assert(connect.willQOSflag == 0)
+assert(connect.willflag == 1)
+assert(connect.cleansess == 0)
+assert(connect.reserved == 0)
+assert(connect.klive == 0)
+assert(connect.proplen == 7)
+assert(connect.properties[0].propid == 21)
+assert(connect.properties[0].propvalue.value == b'test')
+assert(connect.clientIdlen == 5)
+assert(connect.clientId == b'newid')
+assert(connect.willproplen == 2)
+assert(connect.willproperties[0].propid == 1)
+assert(connect.willproperties[0].propvalue == 1)
+assert(connect.wtoplen == 9)
+assert(connect.willtopic == b'willtopic')
+assert(connect.wmsglen == 11)
+assert(connect.willmsg == b'willmessage')
+
+= MQTTPublish, packet instantiation, no mqtt property
+p = MQTT()/MQTTPublish(topic='test1',value='test2')
+assert(p.type == 3)
+assert(p.topic == b'test1')
+assert(p.value == b'test2')
+assert(p.len == None)
+assert(p.length == None)
+assert(p.proplen == None)
+
+= Fixed header and MQTTPublish, packet dissection, no mqtt property
+p = b'0\r\x00\x05test1\x00test2'                                                                                                                                            
+publish = MQTT(p)
+assert(publish.type == 3)
+assert(publish.QOS == 0)
+assert(publish.DUP == 0)
+assert(publish.RETAIN == 0)
+assert(publish.len == 13)
+assert(publish[MQTTPublish].length == 5)
+assert(publish[MQTTPublish].topic == b'test1')
+assert(publish.proplen == 0)
+assert(publish[MQTTPublish].value == b'test2')
+
+= MQTTPublish, packet instantiation, with mqtt property
+p = MQTT()/MQTTPublish(topic='test1',value='test2', properties=[MQTTProperty(propid=35, propvalue=33333)])
+assert(p.type == 3)
+assert(p.topic == b'test1')
+assert(p.value == b'test2')
+assert(p.len == None)
+assert(p.length == None)
+assert(p.proplen == None)
+assert(p.properties[0].propid == 35)
+assert(p.properties[0].propvalue == 33333)
+
+= Fixed header and MQTTPublish, packet dissection, with mqtt property
+p = b'0\x10\x00\x05test1\x03#\x825test2'
+publish = MQTT(p)
+assert(publish.type == 3)
+assert(publish.DUP == 0)
+assert(publish.QOS == 0)
+assert(publish.RETAIN == 0)
+assert(publish.len == 16)
+assert(publish.length == 5)
+assert(publish.topic == b'test1')
+assert(publish.proplen == 3)
+assert(publish.properties[0].propid == 35)
+assert(publish.properties[0].propvalue == 33333)
+assert(publish.value == b'test2')
+
+= MQTTDisconnect, packet instantiation, no mqtt property
+d = MQTT()/MQTTDisconnect(reasoncode=148)
+assert(d.type == 14)
+assert(d.len == None)
+assert(d.reasoncode == 148)
+assert(d.proplen == None)
+
+= MQTTDisconnect, packet dissection, no mqtt property
+dc = b'\xe0\x02\x94\x00'                                                                                                                                                    
+disconnect = MQTT(dc)
+assert(disconnect.type == 14)
+assert(disconnect.DUP == 0)
+assert(disconnect.QOS == 0)
+assert(disconnect.RETAIN == 0)
+assert(disconnect.len == 2)
+assert(disconnect.reasoncode == 148)
+assert(disconnect.proplen == 0)
+
+
+= MQTTDisconnect, packet instantiation, with mqtt property
+d = MQTT()/MQTTDisconnect(reasoncode=148, properties=[MQTTProperty(propid=38, propvalue=UTF8StringPair(key='1', value='test'))])
+assert(d.type == 14)
+assert(d.len == None)
+assert(d.reasoncode == 148)
+assert(d.proplen == None)
+assert(d.properties[0].propid == 38)
+assert(d.properties[0].propvalue.key == b'1')
+assert(d.properties[0].propvalue.value == b'test')
+
+= MQTTDisconnect, packet dissection, with mqtt property
+dc = b'\xe0\x0c\x94\n&\x00\x011\x00\x04test'
+disconnect = MQTT(dc)
+assert(disconnect.type == 14)
+assert(disconnect.DUP == 0)
+assert(disconnect.QOS == 0)
+assert(disconnect.RETAIN == 0)
+assert(disconnect.len == 12)
+assert(disconnect.reasoncode == 148)
+assert(disconnect.proplen == 10)
+assert(disconnect.properties[0].propid == 38)
+assert(disconnect.properties[0].propvalue.keylen == 1)
+assert(disconnect.properties[0].propvalue.key == b'1')
+assert(disconnect.properties[0].propvalue.valuelen == 4)
+assert(disconnect.properties[0].propvalue.value == b'test')
+
+=MQTTConnack, packet instantiation, no mqtt property
+ck = MQTT()/MQTTConnack(sessPresentFlag=1,retcode=0)
+assert(ck.type == 2)
+assert(ck.sessPresentFlag == 1)
+assert(ck.retcode == 0)
+assert(ck.proplen == None)
+
+= MQTTConnack, packet dissection, no mqtt property
+s = b' \x02\x01\x00' 
+connack = MQTT(s)
+assert(connack.type == 2)
+assert(connack.DUP == 0)
+assert(connack.QOS == 0)
+assert(connack.RETAIN == 0)
+assert(connack.len == 2)
+assert(connack.sessPresentFlag == 1)
+assert(connack.retcode == 0)
+assert(connack.proplen == None)
+
+=MQTTConnack, packet instantiation, with mqtt property
+ck = MQTT()/MQTTConnack(sessPresentFlag=1,retcode=0, properties=[MQTTProperty(propid=34, propvalue=10)])
+assert(ck.type == 2)
+assert(ck.sessPresentFlag == 1)
+assert(ck.retcode == 0)
+assert(ck.proplen == None)
+assert(ck.properties[0].propid == 34)
+assert(ck.properties[0].propvalue == 10)
+
+= MQTTConnack, packet dissection, no mqtt property
+s = b' \x06\x01\x00\x03"\x00\n'                                                                                                                                             
+connack = MQTT(s) 
+assert(connack.type == 2)
+assert(connack.DUP == 0)
+assert(connack.QOS == 0)
+assert(connack.RETAIN == 0)
+assert(connack.len == 6)
+assert(connack.sessPresentFlag == 1)
+assert(connack.retcode == 0)
+assert(connack.proplen == 3)
+assert(connack.properties[0].propid == 34)
+assert(connack.properties[0].propvalue == 10)
+
+= MQTTSubscribe, packet instantiation, no mqtt property
+sb = MQTT()/MQTTSubscribe(msgid=1, topics=[MQTTTopicOptions(topic='newtopic', retainhandle=1, RAP=1, NL=1, QOS=1, length=0)])
+assert(sb.type == 8)
+assert(sb.msgid == 1)
+assert(sb.proplen == None)
+assert(sb.topics[0].topic == b'newtopic')
+assert(sb.topics[0].length == 0)
+assert(sb[MQTTSubscribe][MQTTTopicOptions].retainhandle == 1)
+assert(sb[MQTTSubscribe][MQTTTopicOptions].RAP == 1)
+assert(sb[MQTTSubscribe][MQTTTopicOptions].NL == 1)
+assert(sb[MQTTSubscribe][MQTTTopicOptions].QOS == 1)
+
+= MQTTSubscribe, packet dissection, no mqtt property
+s = b'\x82\t\x00\x01\x00\x00\x04test\x1d'
+subscribe = MQTT(s)
+assert(subscribe.type == 8)
+assert(subscribe.DUP == 0)
+assert(subscribe.QOS == 1)
+assert(subscribe.RETAIN == 0)
+assert(subscribe.len == 9)
+assert(subscribe.msgid == 1)
+assert(subscribe.proplen == 0)
+assert(subscribe.topics[0].length == 4)
+assert(subscribe.topics[0].topic == b'test')
+assert(subscribe.topics[0].retainhandle == 1)
+assert(subscribe.topics[0].RAP == 1)
+assert(subscribe.topics[0].NL == 1)
+assert(subscribe.topics[0].QOS == 1)
+
+= MQTTSubscribe, packet instantiation, with mqtt property
+sb = MQTT()/MQTTSubscribe(msgid=1, properties=[MQTTProperty(propid=11, propvalue=55)], topics=[MQTTTopicOptions(topic='newtopic', retainhandle=1, RAP=1, NL=1, QOS=1, length=8)])
+assert(sb.type == 8)
+assert(sb.msgid == 1)
+assert(sb.proplen == None)
+assert(sb.properties[0].propid == 11)
+assert(sb.properties[0].propvalue == 55)
+assert(sb.topics[0].topic == b'newtopic')
+assert(sb.topics[0].length == 8)
+assert(sb[MQTTSubscribe][MQTTTopicOptions].retainhandle == 1)
+assert(sb[MQTTSubscribe][MQTTTopicOptions].RAP == 1)
+assert(sb[MQTTSubscribe][MQTTTopicOptions].NL == 1)
+assert(sb[MQTTSubscribe][MQTTTopicOptions].QOS == 1)
+
+= MQTTSubscribe, packet dissection, with mqtt property
+s = b'\x80\x13\x00\x01\x05\x0b\x00\x00\x007\x00\x08newtopic\x1d'                                                                                                            
+subscribe = MQTT(s)
+assert(subscribe.type == 8)
+assert(subscribe.DUP == 0)
+assert(subscribe.QOS == 0)
+assert(subscribe.RETAIN == 0)
+assert(subscribe.len == 19)
+assert(subscribe.msgid == 1)
+assert(subscribe.proplen == 5)
+assert(subscribe.properties[0].propid == 11)
+assert(subscribe.properties[0].propvalue == 55)
+assert(subscribe.topics[0].length == 8)
+assert(subscribe.topics[0].topic == b'newtopic')
+assert(subscribe.topics[0].retainhandle == 1)
+assert(subscribe.topics[0].RAP == 1)
+assert(subscribe.topics[0].NL == 1)
+assert(subscribe.topics[0].QOS == 1)
+
+= MQTTSuback, packet instantiation, no mqtt property
+sk = MQTT()/MQTTSuback(msgid=1, reasoncode=0) 
+assert(sk.type == 9) 
+assert(sk.msgid == 1) 
+assert(sk.reasoncode == 0) 
+
+= MQTTSuback, packet dissection, no mqtt property
+s = b'\x90\x04\x00\x01\x00\x00'                                                                                                                                             
+suback = MQTT(s)
+assert(suback.type == 9)
+assert(suback.DUP == 0)
+assert(suback.QOS == 0)
+assert(suback.RETAIN == 0)
+assert(suback.len == 4)
+assert(suback.msgid == 1)
+assert(suback.proplen == 0)
+assert(suback.reasoncode == 0) 
+
+= MQTTSuback, packet instantiation, with mqtt property
+sk = MQTT()/MQTTSuback(msgid=1, properties=[MQTTProperty(propid=31, propvalue=UTF8EncodedString(value='test'))], reasoncode=0) 
+assert(sk.type == 9) 
+assert(sk.msgid == 1) 
+assert(sk.proplen == None) 
+assert(sk.properties[0].propid == 31) 
+assert(sk.properties[0].propvalue.value == b'test') 
+assert(sk.reasoncode == 0) 
+
+= MQTTSuback, packet dissection, with mqtt property
+s = b'\x90\x0b\x00\x01\x07\x1f\x00\x04test\x00'                                                                                                                             
+suback = MQTT(s)
+assert(suback.type == 9)
+assert(suback.DUP == 0)
+assert(suback.QOS == 0)
+assert(suback.RETAIN == 0)
+assert(suback.len == 11)
+assert(suback.msgid == 1)
+assert(suback.proplen == 7)
+assert(suback.properties[0].propid == 31)     
+assert(suback.properties[0].propvalue.value == b'test')
+assert(suback.reasoncode == 0)
+
+= MQTTUnsubscribe, packet instantiation, no mqtt property
+unsb = MQTT()/MQTTUnsubscribe(msgid=1, topics=[MQTTTopic(topic='a/b',length=3)])
+assert(unsb.type == 10)
+assert(unsb.msgid == 1)
+assert(unsb.proplen == None) 
+assert(unsb.topics[0].topic == b'a/b')
+assert(unsb.topics[0].length == 3)
+
+= MQTTUnsubscribe, packet dissection, no mqtt property
+u = b'\xa0\x08\x00\x01\x00\x00\x03a/b'
+unsubscribe = MQTT(u)
+assert(unsubscribe.type == 10)
+assert(unsubscribe.DUP == 0)
+assert(unsubscribe.QOS == 0)
+assert(unsubscribe.RETAIN == 0)
+assert(unsubscribe.len == 8)
+assert(unsubscribe.msgid == 1)
+assert(unsubscribe.proplen == 0)
+assert(unsubscribe.topics[0].length == 3)
+assert(unsubscribe.topics[0].topic == b'a/b')
+
+= MQTTUnsubscribe, packet instantiation, with mqtt property
+unsb = MQTT()/MQTTUnsubscribe(msgid=1, properties=[MQTTProperty(propid=38, propvalue=UTF8StringPair(key='1', value='test'))], topics=[MQTTTopic(topic='a/b',length=3)])
+assert(unsb.type == 10)
+assert(unsb.msgid == 1)
+assert(unsb.proplen == None) 
+assert(unsb.properties[0].propid == 38)
+assert(unsb.properties[0].propvalue.key == b'1')
+assert(unsb.properties[0].propvalue.value == b'test')
+assert(unsb.topics[0].length == 3)
+assert(unsb.topics[0].topic == b'a/b')
+
+= MQTTUnsubscribe, packet dissection, with mqtt property
+u = b'\xa0\x12\x00\x01\n&\x00\x011\x00\x04test\x00\x03a/b'                                                                                                                  
+unsubscribe = MQTT(u)
+assert(unsubscribe.type == 10)
+assert(unsubscribe.DUP == 0)
+assert(unsubscribe.QOS == 0)
+assert(unsubscribe.RETAIN == 0)
+assert(unsubscribe.len == 18)
+assert(unsubscribe.msgid == 1)
+assert(unsubscribe.proplen == 10)
+assert(unsubscribe.properties[0].propid == 38)
+assert(unsubscribe.properties[0].propvalue.keylen == 1)
+assert(unsubscribe.properties[0].propvalue.key == b'1')
+assert(unsubscribe.properties[0].propvalue.valuelen == 4)
+assert(unsubscribe.properties[0].propvalue.value == b'test')
+assert(unsubscribe.topics[0].length == 3)
+assert(unsubscribe.topics[0].topic == b'a/b')
+
+= MQTTUnsuback, packet instantiation, no mqtt property
+unsk = MQTT()/MQTTUnsuback(msgid=1, reasoncode=17) 
+assert(unsk.type == 11) 
+assert(unsk.msgid == 1) 
+assert(unsk.proplen == None) 
+assert(unsk.reasoncode == 17) 
+
+= MQTTUnsuback, packet dissection, no mqtt property
+s = b'\xb0\x04\x00\x01\x00\x11'                                                                                                                                             
+unsuback = MQTT(s)
+assert(unsuback.type == 11)
+assert(unsuback.DUP == 0)
+assert(unsuback.QOS == 0)
+assert(unsuback.RETAIN == 0)
+assert(unsuback.len == 4)
+assert(unsuback.msgid == 1)
+assert(unsuback.proplen == 0)
+assert(unsuback.reasoncode == 17)
+
+
+= MQTTUnsuback, packet instantiation, with mqtt property
+unsk = MQTT()/MQTTUnsuback(msgid=1, properties=[MQTTProperty(propid=31, propvalue=UTF8EncodedString(value='test'))], reasoncode=17) 
+assert(unsk.type == 11) 
+assert(unsk.msgid == 1) 
+assert(unsk.properties[0].propid == 31) 
+assert(unsk.properties[0].propvalue.value == b'test') 
+assert(unsk.reasoncode == 17) 
+
+
+= MQTTUnsuback, packet dissection, with mqtt property
+s = b'\xb0\x0b\x00\x01\x07\x1f\x00\x04test\x11'                                                                                                                             
+unsuback = MQTT(s)
+assert(unsuback.type == 11)
+assert(unsuback.DUP == 0)
+assert(unsuback.QOS == 0)
+assert(unsuback.RETAIN == 0)
+assert(unsuback.len == 11)
+assert(unsuback.msgid == 1)
+assert(unsuback.proplen == 7)
+assert(unsuback.properties[0].propid == 31) 
+assert(unsuback.properties[0].propvalue.length == 4) 
+assert(unsuback.properties[0].propvalue.value == b'test') 
+assert(unsuback.reasoncode == 17)
+
+= MQTTPuback, packet instantiation, no mqtt property
+pa = MQTT()/MQTTPuback(msgid=1, reasoncode=0)
+assert(pa.type == 4)
+assert(pa.msgid == 1)
+assert(pa.reasoncode == 0)
+assert(pa.proplen == None)
+
+= MQTTPuback, packet dissection, no mqtt property
+s = b'@\x04\x00\x01\x00\x00'
+puback = MQTT(s)
+assert(puback.type == 4)
+assert(puback.DUP == 0)
+assert(puback.QOS == 0)
+assert(puback.RETAIN == 0)
+assert(puback.len == 4)
+assert(puback.msgid == 1)
+assert(puback.reasoncode == 0)
+assert(puback.proplen == 0)
+
+= MQTTPuback, packet instantiation, with mqtt property
+pa = MQTT()/MQTTPuback(msgid=1, properties=[MQTTProperty(propid=31, propvalue=UTF8EncodedString(value='test'))], reasoncode=0)
+assert(pa.type == 4)
+assert(pa.msgid == 1)
+assert(pa.reasoncode == 0) 
+assert(pa.properties[0].propid == 31) 
+assert(pa.properties[0].propvalue.value == b'test') 
+
+= MQTTPuback packet dissection , with mqtt property
+s = b'@\x0b\x00\x01\x00\x07\x1f\x00\x04test'
+puback = MQTT(s)
+assert(puback.type == 4)
+assert(puback.DUP == 0)
+assert(puback.QOS == 0)
+assert(puback.RETAIN == 0)
+assert(puback.len == 11)
+assert(puback.msgid == 1)
+assert(puback.reasoncode == 0)
+assert(puback.proplen == 7)
+assert(puback.properties[0].propid == 31) 
+assert(puback.properties[0].propvalue.length == 4) 
+assert(puback.properties[0].propvalue.value == b'test') 
+
+= MQTTPubrec, packet instantiation, no mqtt property
+pc = MQTT()/MQTTPubrec(msgid=1, reasoncode=0)
+assert(pc.type == 5)
+assert(pc.msgid == 1)
+assert(pc.reasoncode == 0)
+assert(pc.proplen == None)
+
+= MQTTPubrec, packet dissection, no mqtt property
+s = b'P\x04\x00\x01\x00\x00'                                                                                                                                                
+pubrec = MQTT(s)
+assert(pubrec.type == 5)
+assert(pubrec.DUP == 0)
+assert(pubrec.QOS == 0)
+assert(pubrec.RETAIN == 0)
+assert(pubrec.len == 4)
+assert(pubrec.msgid == 1)
+assert(pubrec.reasoncode == 0)
+assert(pubrec.proplen == 0)
+
+= MQTTPubrec, packet instantiation, with mqtt property
+pc = MQTT()/MQTTPubrec(msgid=1, properties=[MQTTProperty(propid=31, propvalue=UTF8EncodedString(value='test'))], reasoncode=0)
+assert(pc.type == 5)
+assert(pc.msgid == 1)
+assert(pc.reasoncode == 0) 
+assert(pc.properties[0].propid == 31) 
+assert(pc.properties[0].propvalue.value == b'test') 
+
+= MQTTPubrec packet dissection , with mqtt property
+s = b'P\x0b\x00\x01\x00\x07\x1f\x00\x04test'                                                                                                                                
+pubrec = MQTT(s)
+assert(pubrec.type == 5)
+assert(pubrec.DUP == 0)
+assert(pubrec.QOS == 0)
+assert(pubrec.RETAIN == 0)
+assert(pubrec.len == 11)
+assert(pubrec.msgid == 1)
+assert(pubrec.reasoncode == 0)
+assert(pubrec.proplen == 7)
+assert(pubrec.properties[0].propid == 31) 
+assert(pubrec.properties[0].propvalue.length == 4) 
+assert(pubrec.properties[0].propvalue.value == b'test') 
+
+= MQTTPubrel, packet instantiation, no mqtt property
+pl = MQTT()/MQTTPubrel(msgid=1, reasoncode=0)
+assert(pl.type == 6)
+assert(pl.msgid == 1)
+assert(pl.reasoncode == 0)
+assert(pl.proplen == None)
+
+= MQTTPubrel, packet dissection, no mqtt property
+s = b'`\x04\x00\x01\x00\x00'
+pubrel = MQTT(s)
+assert(pubrel.type == 6)
+assert(pubrel.DUP == 0)
+assert(pubrel.QOS == 0)
+assert(pubrel.RETAIN == 0)
+assert(pubrel.len == 4)
+assert(pubrel.msgid == 1)
+assert(pubrel.reasoncode == 0)
+assert(pubrel.proplen == 0)
+
+= MQTTPubrel, packet instantiation, with mqtt property
+pl = MQTT()/MQTTPubrel(msgid=1, properties=[MQTTProperty(propid=31, propvalue=UTF8EncodedString(value='test'))], reasoncode=0)
+assert(pl.type == 6)
+assert(pl.msgid == 1)
+assert(pl.reasoncode == 0) 
+assert(pl.properties[0].propid == 31) 
+assert(pl.properties[0].propvalue.value == b'test') 
+
+= MQTTPubrel packet dissection , with mqtt property
+s = b'`\x0b\x00\x01\x00\x07\x1f\x00\x04test'
+pubrel = MQTT(s)
+assert(pubrel.type == 6)
+assert(pubrel.DUP == 0)
+assert(pubrel.QOS == 0)
+assert(pubrel.RETAIN == 0)
+assert(pubrel.len == 11)
+assert(pubrel.msgid == 1)
+assert(pubrel.reasoncode == 0)
+assert(pubrel.proplen == 7)
+assert(pubrel.properties[0].propid == 31) 
+assert(pubrel.properties[0].propvalue.length == 4) 
+assert(pubrel.properties[0].propvalue.value == b'test') 
+
+= MQTTPubcomp, packet instantiation, no mqtt property
+pp = MQTT()/MQTTPubcomp(msgid=1, reasoncode=0)
+assert(pp.type == 7)
+assert(pp.msgid == 1)
+assert(pp.reasoncode == 0)
+assert(pp.proplen == None)
+
+= MQTTPubcomp, packet dissection, no mqtt property
+s = b'p\x04\x00\x01\x00\x00'
+pubcomp = MQTT(s)
+assert(pubcomp.type == 7)
+assert(pubcomp.DUP == 0)
+assert(pubcomp.QOS == 0)
+assert(pubcomp.RETAIN == 0)
+assert(pubcomp.len == 4)
+assert(pubcomp.msgid == 1)
+assert(pubcomp.reasoncode == 0)
+assert(pubcomp.proplen == 0)
+
+= MQTTPubcomp, packet instantiation, with mqtt property
+pp = MQTT()/MQTTPubcomp(msgid=1, properties=[MQTTProperty(propid=31, propvalue=UTF8EncodedString(value='test'))], reasoncode=0)
+assert(pp.type == 7)
+assert(pp.msgid == 1)
+assert(pp.reasoncode == 0) 
+assert(pp.properties[0].propid == 31) 
+assert(pp.properties[0].propvalue.value == b'test') 
+
+= MQTTPubcomp packet dissection , with mqtt property
+s = b'p\x0b\x00\x01\x00\x07\x1f\x00\x04test'
+pubcomp = MQTT(s)
+assert(pubcomp.type == 7)
+assert(pubcomp.DUP == 0)
+assert(pubcomp.QOS == 0)
+assert(pubcomp.RETAIN == 0)
+assert(pubcomp.len == 11)
+assert(pubcomp.msgid == 1)
+assert(pubcomp.reasoncode == 0)
+assert(pubcomp.proplen == 7)
+assert(pubcomp.properties[0].propid == 31) 
+assert(pubcomp.properties[0].propvalue.length == 4) 
+assert(pubcomp.properties[0].propvalue.value == b'test') 
+
+= MQTTAuth, packet instantiation, no mqtt property
+a = MQTT()/MQTTAuth(reasoncode=0)
+assert(a.type == 15)
+assert(a.reasoncode == 0)
+assert(a.proplen == None)
+
+= MQTTAuth, packet dissection, no mqtt property
+s = b'\xf0\x02\x00\x00'                                                                                                                                                     
+auth = MQTT(s)
+assert(auth.type == 15)
+assert(auth.DUP == 0)
+assert(auth.QOS == 0)
+assert(auth.RETAIN == 0)
+assert(auth.len == 2)
+assert(auth.reasoncode == 0)
+assert(auth.proplen == 0)
+
+= MQTTAuth, packet instantiation, with mqtt property
+a = MQTT()/MQTTAuth(reasoncode=0, properties=[MQTTProperty(propid=22, propvalue=UTF8EncodedString(value='test'))])
+assert(a.type == 15)
+assert(a.reasoncode == 0)
+assert(a.properties[0].propid == 22)
+assert(a.properties[0].propvalue.value == b'test')
+
+= MQTTAuth, packet dissection, with mqtt property
+s = b'\xf0\t\x00\x07\x16\x00\x04test'                                                                                                                                       
+auth = MQTT(s)
+assert(auth.type == 15)
+assert(auth.DUP == 0)
+assert(auth.QOS == 0)
+assert(auth.RETAIN == 0)
+assert(auth.len == 9)
+assert(auth.reasoncode == 0)
+assert(auth.proplen == 7)
+assert(auth.properties[0].propid == 22)
+assert(auth.properties[0].propvalue.length == 4)
+assert(auth.properties[0].propvalue.value == b'test')
+
+= MQTTPublish, long value
+p = MQTT()/MQTTPublish(topic='test1', properties=[MQTTProperty(propid=3, propvalue=UTF8EncodedString(value='a'*200))], value='a'*200)
+assert(bytes(p))
+assert(p.type == 3)
+assert(p.topic == b'test1')
+assert(p.properties[0].propid == 3)
+assert(p.properties[0].propvalue.value == b'a'*200)
+assert(p.value == b'a'*200)
+assert(p.len == None)
+assert(p.length == None)
+
+= MQTT without payload
+p = MQTT()
+assert(bytes(p) == b'\x10\x00')
+
+= MQTT RandVariableFieldLen
+assert(type(MQTT().fieldtype['len'].randval()) == RandVariableFieldLen)
+assert(type(MQTT().fieldtype['len'].randval() + 0) == int)
+
+= MQTTUnsubscribe, multiple topics
+u = MQTT(b'\xA2\x0C\x00\x01\x00\x00\x03\x61\x2F\x62\x00\x03\x63\x2F\x64')
+assert MQTTUnsubscribe in u and len(u.topics) == 2 and u.topics[1].topic == b"c/d"
+
+= MQTTSubscribe, multiple topics
+u = MQTT(b'\x82\x10\x00\x01\x00\x00\x03\x61\x2F\x62\x02\x00\x03\x63\x2F\x64\x00')
+assert MQTTSubscribe in u and len(u.topics) == 2 and u.topics[1].topic == b"c/d"
