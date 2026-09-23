@@ -44,7 +44,7 @@ import time
 from scapy.config import conf
 from scapy.utils import randstring, repr_hex
 from scapy.automaton import ATMT, select_objects
-from scapy.error import warning
+from scapy.error import log_runtime, warning
 from scapy.layers.tls.automaton import _TLSAutomaton
 from scapy.layers.tls.basefields import _tls_version, _tls_version_options
 from scapy.layers.tls.cert import CertList, CertTree
@@ -94,12 +94,17 @@ def _verify_server_certificate(certificates, trusted_certs, hostname):
     :param certificates: the chain the server sent, leaf first
     :param trusted_certs: the CAs to trust, or None to use the system store
     :param hostname: the name the client asked for
-    :return: True if the server is authenticated
+    :return: True if the server is authenticated. The reason for a refusal is
+        logged, because a bare "verification failed" is not actionable.
     """
     # None means "use the system store". An empty list is not the same thing and
     # must fail closed: CertTree reads no roots as "trust any self-signed
     # certificate in the list", and that list is the one the peer just sent.
-    if not certificates or (trusted_certs is not None and not trusted_certs):
+    if not certificates:
+        log_runtime.info("TLS: the server sent no certificate")
+        return False
+    if trusted_certs is not None and not trusted_certs:
+        log_runtime.info("TLS: no certificate authority was supplied to trust")
         return False
     try:
         CertTree(
@@ -109,7 +114,9 @@ def _verify_server_certificate(certificates, trusted_certs, hostname):
         ).verify(
             certificates[0], hostname=hostname
         )
-    except Exception:
+    except Exception as error:
+        log_runtime.info("TLS: server certificate rejected for %s [%s]",
+                         hostname, error or error.__class__.__name__)
         return False
     return True
 
@@ -127,7 +134,9 @@ class TLSClientAutomaton(_TLSAutomaton):
     :param server_name: the SNI to use. It does not need to be set
     :param cafile: optional CA certificate bundle used to authenticate the server.
         By default, the system trust store is used.
-    :param verify: whether to authenticate the server certificate. Defaults to True.
+    :param verify: whether to authenticate the server certificate against a trust
+        store and the requested hostname. Off by default, because this client is
+        commonly pointed at servers whose certificates are not meant to verify.
     :param mycert:
     :param mykey: may be provided as filenames. They will be used in the (or post)
         handshake, should the server ask for client authentication.
@@ -147,7 +156,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     """
 
     def parse_args(self, server="127.0.0.1", dport=4433, server_name=None,
-                   cafile=None, verify=True,
+                   cafile=None, verify=False,
                    mycert=None, mykey=None,
                    client_hello=None, version=None,
                    resumption_master_secret=None,
@@ -170,10 +179,10 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.remote_port = dport
         self.server_name = server_name
         self.expected_server_name = server_name or server
-        self.verify_server = verify
-        if verify and cafile:
+        self.verify_server = verify or bool(cafile)
+        if self.verify_server and cafile:
             self.server_trust_anchors = CertList(cafile)
-        elif verify:
+        elif self.verify_server:
             self.server_trust_anchors = None
         else:
             self.server_trust_anchors = []

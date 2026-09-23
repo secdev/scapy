@@ -271,19 +271,16 @@ def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None,
     commands.append(b"quit")
     if version == "0002":
         t = TLSClientAutomaton(data=commands, version="sslv2", debug=4, mycert=mycert, mykey=mykey,
-                               verify=False,
                                session_ticket_file_in=session_ticket_file_in,
                                session_ticket_file_out=session_ticket_file_out)
     elif version == "0304":
         ch = TLS13ClientHello(ciphers=int(cipher_suite_code, 16))
         t = TLSClientAutomaton(client_hello=ch, data=commands, version="tls13", debug=4, mycert=mycert, mykey=mykey,
-                               verify=False,
                                session_ticket_file_in=session_ticket_file_in,
                                session_ticket_file_out=session_ticket_file_out)
     else:
         ch = TLSClientHello(version=int(version, 16), ciphers=int(cipher_suite_code, 16))
         t = TLSClientAutomaton(client_hello=ch, data=commands, debug=4, mycert=mycert, mykey=mykey,
-                               verify=False,
                                session_ticket_file_in=session_ticket_file_in,
                                session_ticket_file_out=session_ticket_file_out)
     print("Running client...")
@@ -433,7 +430,6 @@ def run_tls13_client_auth_exchange(client_key):
             server="127.0.0.1",
             dport=port,
             version="tls13",
-            verify=False,
             mycert=client_cert,
             mykey=client_key,
             data=[marker, b"stop_server", b"quit"],
@@ -450,7 +446,6 @@ def run_tls13_client_auth_exchange(client_key):
                 server="127.0.0.1",
                 dport=port,
                 version="tls13",
-                verify=False,
                 mycert=client_cert,
                 mykey=scapy_path("/test/scapy/layers/tls/pki/cli_key.pem"),
                 data=[b"stop_server", b"quit"],
@@ -811,7 +806,6 @@ def test_tls_client_native(post_handshake_auth=False,
         server="127.0.0.1",
         dport=port,
         version="tls13",
-        verify=False,
         mycert=certfile,
         mykey=keyfile,
         # we select x25519 but the server enforces seco256r1, so a Hello Retry will be issued
