@@ -310,7 +310,7 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
             pad = req[conf.padding_layer].load
             req[conf.padding_layer].underlayer.remove_payload()
         # Ask the DCE/RPC session to process it (match interface, etc.)
-        req = self.session.in_pkt(req)
+        req = self.session.in_pkt(req, commit=False)
         hdr = DceRpc5(
             endian=req.endian,
             encoding=req.encoding,
@@ -339,7 +339,10 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                         )
                     )
                 )
-            if not self.session.rpc_bind_interface:
+            if (
+                not self.session.rpc_bind_interface_commit
+                and not self.session.rpc_bind_interface
+            ):
                 # The session did not find a matching interface !
                 self.queue.extend(self.session.out_pkt(hdr / DceRpc5BindNak()))
                 if self.verb:
@@ -457,6 +460,9 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                                 ),
                             )
                         )
+
+                        # Commit session interface selection
+                        self.session.commit_rpc_interface()
                     elif name == "Bind Time Feature Negotiation":
                         # Handle Bind Time Feature
                         results.append(
