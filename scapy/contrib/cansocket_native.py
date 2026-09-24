@@ -188,10 +188,7 @@ class NativeCANSocket(SuperSocket):
             # something bad happened (e.g. the interface went down)
             warning("Captured no data.")
 
-        # CAN XL describes its little endian layout in its fields_desc,
-        # so it needs no swap here. CAN/CANFD still need the CAN ID swap.
-        if not conf.contribs['CAN']['swap-bytes'] and pkt \
-                and not CANXL.is_canxl_frame(pkt):
+        if not conf.contribs['CAN']['swap-bytes'] and pkt:
             pkt = CAN.inv_endianness(pkt)
 
         if pkt and ts is None:
@@ -212,12 +209,11 @@ class NativeCANSocket(SuperSocket):
 
         bs = raw(x)
 
-        # CAN XL builds its little endian wire bytes from fields_desc, and
-        # the kernel expects exactly HDR_SIZE + len bytes, so no padding.
+        if not conf.contribs['CAN']['swap-bytes']:
+            bs = CAN.inv_endianness(bs)
+
+        # CAN XL: the kernel expects exactly HDR_SIZE + len bytes, so no padding.
         if not isinstance(x, CANXL):
-            # CAN/CANFD: swap first 4 bytes (CAN ID) big endian to little endian
-            if not conf.contribs['CAN']['swap-bytes']:
-                bs = CAN.inv_endianness(bs)
             # CAN/CANFD: pad to correct MTU per frame type
             mtu = CAN_FD_MTU if isinstance(x, CANFD) else CAN_MTU
             bs = bs + b"\x00" * (mtu - len(bs))

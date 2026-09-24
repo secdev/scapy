@@ -1549,7 +1549,7 @@ assert remote.data == b""
 
 = CAN XL constants
 
-from scapy.layers.can import CANXL, CANXL_MTU, CANXL_HDR_SIZE, \
+from scapy.layers.can import CAN, CANFD, CANXL, CANXL_MTU, CANXL_HDR_SIZE, \
     CANXL_MAX_DLEN, CANXL_MIN_DLEN, CANXL_XLF, CANXL_FDF, CANXL_IDE, \
     CANXL_SEC, CANXL_RRS
 
@@ -1588,8 +1588,8 @@ assert not (wire[4] & CANXL_IDE)  # IDE must be clear
 
 = CAN XL TV1: minimal frame wire format
 # priority=0x042, flags=0xC0 (XLF+FDF), sdt=0x00, af=0, payload=b'\xde'
-# Expected wire bytes (LE):
-#   prio LE : 42 00 00 00
+# Expected wire bytes (BE for Priority/VCID, LE for len/af):
+#   prio BE : 00 00 00 42
 #   flags   : c0
 #   sdt     : 00
 #   len  LE : 01 00
@@ -1598,14 +1598,14 @@ assert not (wire[4] & CANXL_IDE)  # IDE must be clear
 
 pkt = CANXL(priority=0x042) / b'\xde'
 wire = raw(pkt)
-assert wire == bytes.fromhex('42000000' 'c0' '00' '0100' '00000000' 'de'), wire.hex()
+assert wire == bytes.fromhex('00000042' 'c0' '00' '0100' '00000000' 'de'), wire.hex()
 
 = CAN XL TV2: all fields set
 
 pkt = CANXL(priority=0x123, vcid=0x45, sdt=0x07, af=0x12345678) / \
     b'\xde\xad\xbe\xef'
 wire = raw(pkt)
-assert wire == bytes.fromhex('23014500' 'c0' '07' '0400' '78563412' 'deadbeef'), wire.hex()
+assert wire == bytes.fromhex('00450123' 'c0' '07' '0400' '78563412' 'deadbeef'), wire.hex()
 
 = CAN XL TV3: SEC flag set
 
@@ -1618,8 +1618,8 @@ assert wire == bytes.fromhex('00000000' 'c1' '00' '0200' '00000000' '1122'), wir
 pkt = CANXL(priority=0x7ff, vcid=0xff, flags=0xC2, sdt=0xff,
             af=0xffffffff) / b'\xff'
 wire = raw(pkt)
-# prio = 0x00ff07ff -> LE: ff 07 ff 00
-assert wire == bytes.fromhex('ff07ff00' 'c2' 'ff' '0100' 'ffffffff' 'ff'), wire.hex()
+# prio = (0xff << 16) | 0x7ff -> 0x00ff07ff -> BE: 00 ff 07 ff
+assert wire == bytes.fromhex('00ff07ff' 'c2' 'ff' '0100' 'ffffffff' 'ff'), wire.hex()
 
 = CAN XL TV5: 2048-byte payload (max)
 
@@ -1651,7 +1651,7 @@ assert not (wire[4] & CANXL_IDE)  # IDE forced clear
 = dispatch_hook returns CANXL for XL frame bytes
 
 # Byte 4 has bit 7 set (flags=0xC0) -> CANXL
-xl_bytes = bytes.fromhex('42000000' 'c0' '00' '0100' '00000000' 'de')
+xl_bytes = bytes.fromhex('00000042' 'c0' '00' '0100' '00000000' 'de')
 assert CAN.dispatch_hook(_pkt=xl_bytes) == CANXL
 
 = dispatch_hook still returns CAN for classic CAN
@@ -1672,7 +1672,7 @@ assert CAN.dispatch_hook(_pkt=canfd_bytes) == CANFD
 
 = CAN XL TV1 dissect
 
-wire = bytes.fromhex('42000000' 'c0' '00' '0100' '00000000' 'de')
+wire = bytes.fromhex('00000042' 'c0' '00' '0100' '00000000' 'de')
 pkt = CANXL(wire)
 assert pkt.priority == 0x042
 assert pkt.vcid == 0x00
@@ -1686,7 +1686,7 @@ assert pkt.flags.ide == 0
 
 = CAN XL TV2 dissect
 
-wire = bytes.fromhex('23014500' 'c0' '07' '0400' '78563412' 'deadbeef')
+wire = bytes.fromhex('00450123' 'c0' '07' '0400' '78563412' 'deadbeef')
 pkt = CANXL(wire)
 assert pkt.priority == 0x123
 assert pkt.vcid == 0x45
@@ -1706,7 +1706,7 @@ assert pkt.flags.rrs == 0
 
 = CAN XL TV4 dissect (RRS + max fields)
 
-wire = bytes.fromhex('ff07ff00' 'c2' 'ff' '0100' 'ffffffff' 'ff')
+wire = bytes.fromhex('00ff07ff' 'c2' 'ff' '0100' 'ffffffff' 'ff')
 pkt = CANXL(wire)
 assert pkt.priority == 0x7ff
 assert pkt.vcid == 0xff
@@ -1848,3 +1848,58 @@ output = pkt.show(dump=True)
 assert "CAN XL" in output
 assert "priority" in output
 assert "flags" in output
+
+############
+############
+
++ CAN XL swap-bytes and pcap interactions
+
+= CAN XL swap-bytes configuration
+
+conf.contribs['CAN']['swap-bytes'] = True
+pkt = CANXL(priority=0x123, vcid=0x45, sdt=0x07, af=0x12345678) / b'\xde\xad\xbe\xef'
+wire = raw(pkt)
+# When swap-bytes=True, priority word is swapped to SocketCAN LE format
+assert wire[:4] == bytes.fromhex('23014500')
+assert wire[4:] == bytes.fromhex('c007040078563412deadbeef')
+# Dissect back with swap-bytes=True
+rx = CANXL(wire)
+assert rx.priority == 0x123
+assert rx.vcid == 0x45
+assert rx.sdt == 0x07
+assert rx.af == 0x12345678
+assert bytes(rx.payload) == b'\xde\xad\xbe\xef'
+
+# Dispatch hook with swap-bytes=True
+rx_can = CAN(wire)
+assert isinstance(rx_can, CANXL)
+assert rx_can.priority == 0x123
+assert rx_can.vcid == 0x45
+
+conf.contribs['CAN']['swap-bytes'] = False
+
+= CAN XL pcap write and read
+
+from scapy.utils import get_temp_file
+tmp_pcap = get_temp_file(autoext=".pcap")
+orig = CANXL(priority=0x123, vcid=0x45, sdt=0x07, af=0x12345678) / b'\xde\xad\xbe\xef'
+wrpcap(tmp_pcap, [orig])
+pkts = rdpcap(tmp_pcap)
+assert len(pkts) == 1
+assert isinstance(pkts[0], CANXL)
+assert pkts[0].priority == 0x123
+assert pkts[0].vcid == 0x45
+assert pkts[0].sdt == 0x07
+assert pkts[0].af == 0x12345678
+assert bytes(pkts[0].payload) == b'\xde\xad\xbe\xef'
+
+= CAN XL CookedLinux binding
+
+orig = CookedLinux(proto=14) / CANXL(priority=0x123, vcid=0x45) / b'\x01\x02'
+wire = raw(orig)
+rx = CookedLinux(wire)
+assert CANXL in rx
+assert rx[CANXL].priority == 0x123
+assert rx[CANXL].vcid == 0x45
+assert bytes(rx[CANXL].payload) == b'\x01\x02'
+

@@ -125,16 +125,19 @@ properties:
 Byte-order handling
 ====================
 
-CAN XL uses a multi-region byte swap: the Priority word (4 bytes),
-Length (2 bytes), and Acceptance Field (4 bytes) are in little-endian
-order on the Linux socket but stored as big-endian inside Scapy.
-The swap happens automatically in ``pre_dissect`` (receive) and
-``post_build`` (send).
+In PCAP captures (``DLT_CAN_SOCKETCAN``), CAN XL follows the Wireshark and
+``libpcap`` specification: the 4-byte Priority word (VCID + Priority) is stored
+in big-endian (network) byte order, matching classic CAN and CAN FD, while the
+Length (2 bytes) and Acceptance Field (4 bytes) are stored in little-endian byte
+order.
 
-Unlike classic CAN and CAN FD, CAN XL **ignores** the
-``conf.contribs['CAN']['swap-bytes']`` setting -- the swap always happens
-because CAN XL frames only come from PF_CAN sockets which are always LE.
-You do *not* need to touch this config for CAN XL.
+Linux SocketCAN (``struct canxl_frame``) uses host byte order (little-endian on
+x86/ARM) for all multi-byte fields.  When using ``NativeCANSocket``, Scapy
+automatically swaps the 4-byte Priority word between Linux SocketCAN and Scapy
+when ``conf.contribs['CAN']['swap-bytes']`` is ``False`` (default), exactly as
+it does for classic CAN and CAN FD.  Setting
+``conf.contribs['CAN']['swap-bytes'] = True`` configures Scapy to parse and
+build CAN XL frames directly in Linux SocketCAN host byte order.
 
 
 Interop with can-utils

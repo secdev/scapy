@@ -228,6 +228,7 @@ class CANFD(CAN):
 
 
 bind_layers(CookedLinux, CANFD, proto=13)
+conf.l2types.register_layer2num(DLT_CAN_SOCKETCAN, CANFD)
 
 
 class CANXL(CAN):
@@ -259,11 +260,12 @@ class CANXL(CAN):
         return len(pkt) > 4 and bool(pkt[4] & 0x80)
 
     fields_desc = [
-        # prio word: 4 bytes, little endian (struct canxl_frame.prio)
-        BitField('reserved2', 0, 8, tot_size=-4),       # bits 31-24
+        # prio word: 4 bytes, big endian in PCAP (matches classic CAN / CAN FD),
+        # swapped with CAN.inv_endianness for Linux SocketCAN (struct canxl_frame.prio)
+        BitField('reserved2', 0, 8),                    # bits 31-24
         XBitField('vcid', 0, 8),                        # bits 23-16
         BitField('reserved1', 0, 5),                    # bits 15-11
-        XBitField('priority', 0, 11, end_tot_size=-4),  # bits 10-0
+        XBitField('priority', 0, 11),                   # bits 10-0
         # ISO 11898-1:2024: CAN XL requires XLF=1, FDF=1, IDE=0
         FlagsField('flags', CANXL_XLF | CANXL_FDF, 8,
                    ['sec', 'rrs', 'res_f2', 'res_f3',
@@ -278,14 +280,6 @@ class CANXL(CAN):
         XLEIntField('af', 0),
         # NO data field - payload carried as sub-layers
     ]
-
-    def pre_dissect(self, s):
-        # type: (bytes) -> bytes
-        # The fields above already describe the SocketCAN wire layout, so
-        # no swap is needed here.  CAN.pre_dissect's swap-bytes handling
-        # covers the 4-byte CAN ID only and would corrupt an XL header;
-        # the pcap byte order for CAN XL is still to be determined.
-        return s
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
@@ -307,6 +301,8 @@ class CANXL(CAN):
                 "(IDE is always 0 for CAN XL per ISO 11898-1)")
         flags = (pkt[4] | CANXL_XLF | CANXL_FDF) & ~CANXL_IDE
         pkt = pkt[:4] + bytes([flags]) + pkt[5:]
+        if conf.contribs['CAN']['swap-bytes']:
+            pkt = CAN.inv_endianness(pkt)
         return pkt + pay
 
     def extract_padding(self, p):
@@ -412,6 +408,10 @@ class CANXL(CAN):
             return s
         print(s)
         return None
+
+
+bind_layers(CookedLinux, CANXL, proto=14)
+conf.l2types.register_layer2num(DLT_CAN_SOCKETCAN, CANXL)
 
 
 class SignalField(ScalingField):
