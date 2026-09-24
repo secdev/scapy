@@ -928,7 +928,9 @@ def zero_mutable_fields(pkt, sending=False):
 
 class SecurityAssociation(object):
     """
-    This class is responsible of "encryption" and "decryption" of IPsec packets.  # noqa: E501
+    This class is responsible of "encryption" and "decryption" of IPsec packets.
+
+    This does not check replay, and shouldn't be used as-is in production.
     """
 
     SUPPORTED_PROTOS = (IP, IPv6)

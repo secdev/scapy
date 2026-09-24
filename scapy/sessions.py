@@ -373,7 +373,12 @@ class TCPSession(IPSession):
                 relative_seq = metadata["relative_seq"] = seq - 1
             seq = seq - relative_seq
             # Add the data to the buffer
+            noff = data.noff
             data.append(new_data, seq)
+            if data.noff != noff:
+                # The negative offset has changed => data was prepended.
+                # this means that our estimate min length may be wrong.
+                metadata.pop("tcp_min_len", None)
 
         # Check TCP FIN or TCP RESET
         if pkt[TCP].flags.F or pkt[TCP].flags.R:

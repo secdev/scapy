@@ -18,6 +18,7 @@ from scapy.layers.tls.record import _TLSMsgListField, TLS
 from scapy.layers.tls.handshake_sslv2 import _sslv2_handshake_cls
 from scapy.layers.tls.basefields import (_SSLv2LengthField, _SSLv2PadField,
                                          _SSLv2PadLenField, _TLSMACField)
+from scapy.layers.tls.crypto.h_mac import HMACError
 
 
 ###############################################################################
@@ -141,7 +142,9 @@ class SSLv2(TLS):
         is_mac_ok = self._sslv2_mac_verify(cfrag + pad, mac)
         if not is_mac_ok:
             pkt_info = self.firstlayer().summary()
-            log_runtime.info("SSLv2: record integrity check failed [%s]", pkt_info)  # noqa: E501
+            log_runtime.info("SSLv2: record integrity check failed [%s]", pkt_info)
+            if self.strict_integrity:
+                raise HMACError("SSLv2 record integrity check failed")
 
         reconstructed_body = mac + cfrag + pad
         return hdr + reconstructed_body + r

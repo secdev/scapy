@@ -39,6 +39,10 @@ from scapy.layers.dcerpc import (
     NDRPacket,
     RPC_C_AUTHN_LEVEL,
 )
+from scapy.layers.gssapi import (
+    GSS_S_COMPLETE,
+    GSS_S_CONTINUE_NEEDED,
+)
 
 # RPC
 from scapy.layers.msrpce.ept import (
@@ -71,29 +75,54 @@ class _DCERPC_Server_metaclass(type):
         return type.__new__(cls, name, bases, dct)
 
 
+class DCERPC_Fault(Exception):
+    def __init__(self, status):
+        self.status = status
+
+
 class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
+    """
+    DCE/RPC server
+
+    :param transport: the DCERPC_Transport to bind this server on
+    :param ndr64: whether to use NDR64 or not (default: conf.ndr64)
+    :param verb: verbose mode
+
+    Other optional parameters:
+
+    :param min_auth_level: the minimum RPC_C_AUTHN_LEVEL to allow.
+                           (NONE allows anonymous access)
+    """
+
     def __init__(
         self,
         transport: DCERPC_Transport,
         ndr64: Optional[bool] = None,
         verb: bool = True,
+        min_auth_level: RPC_C_AUTHN_LEVEL = RPC_C_AUTHN_LEVEL.NONE,
+        # endpoint mapper only
         local_ip: str = None,
         port: int = None,
         portmap: Dict[DceRpcInterface, int] = None,
         **kwargs,
     ):
         self.transport = transport
-        self.session = DceRpcSession(**kwargs)
-        self.queue = deque()
         self.dcerpc_commands = self.dcerpc_commands.copy()
         if ndr64 is None:
             ndr64 = conf.ndr64
         self.ndr64 = ndr64
+        self.min_auth_level = min_auth_level
+
         # For endpoint mapper. TODO: improve separation/handling of SMB/IP etc
         self.local_ip = local_ip
         self.port = port
         self.portmap = portmap or {}
         self.verb = verb
+
+        # Session specific
+        self.session = DceRpcSession(**kwargs)
+        self.authenticated = False
+        self.queue = deque()
 
     def loop(self, sock):
         while True:
@@ -152,6 +181,14 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
             return self.dcerpc_commands[(intf, opnum)](self, req)
         return None
 
+    @staticmethod
+    def _run_client(server, clientsocket, sockets):
+        try:
+            server.loop(clientsocket)
+        finally:
+            clientsocket.close()
+            sockets.remove(clientsocket)
+
     @classmethod
     def spawn(cls, transport, iface=None, port=135, bg=False, **kwargs):
         """
@@ -200,7 +237,8 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                             **kwargs,
                         )
                         threading.Thread(
-                            target=server.loop, args=(clientsocket,)
+                            target=cls._run_client,
+                            args=(server, clientsocket, sockets),
                         ).start()
                 except KeyboardInterrupt:
                     print("X Exiting.")
@@ -227,6 +265,14 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
             # SMB case
             from scapy.layers.smbserver import SMB_Server
 
+            min_auth_level = kwargs.pop(
+                "min_auth_level", RPC_C_AUTHN_LEVEL.PKT_INTEGRITY
+            )
+            if min_auth_level >= RPC_C_AUTHN_LEVEL.PKT_PRIVACY:
+                kwargs.setdefault("REQUIRE_ENCRYPTION", True)
+            elif min_auth_level <= RPC_C_AUTHN_LEVEL.PKT:
+                kwargs.setdefault("REQUIRE_SIGNATURE", False)
+
             kwargs.setdefault("shares", [])  # do not expose files by default
             return SMB_Server.spawn(
                 iface=iface or conf.iface,
@@ -240,6 +286,19 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
         else:
             raise ValueError("Unsupported transport :(")
 
+    def _send_fault(self, hdr, req, status):
+        """
+        Internal: return a DCE/RPC Fault
+        """
+        hdr.pfc_flags += "PFC_DID_NOT_EXECUTE"
+        self.queue.extend(
+            hdr
+            / DceRpc5Fault(
+                status=status,
+                cont_id=req.cont_id,
+            )
+        )
+
     def recv(self, data):
         if isinstance(data, bytes):
             req = DceRpc5(data)
@@ -251,7 +310,7 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
             pad = req[conf.padding_layer].load
             req[conf.padding_layer].underlayer.remove_payload()
         # Ask the DCE/RPC session to process it (match interface, etc.)
-        req = self.session.in_pkt(req)
+        req = self.session.in_pkt(req, commit=False)
         hdr = DceRpc5(
             endian=req.endian,
             encoding=req.encoding,
@@ -280,7 +339,10 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                         )
                     )
                 )
-            if not self.session.rpc_bind_interface:
+            if (
+                not self.session.rpc_bind_interface_commit
+                and not self.session.rpc_bind_interface
+            ):
                 # The session did not find a matching interface !
                 self.queue.extend(self.session.out_pkt(hdr / DceRpc5BindNak()))
                 if self.verb:
@@ -292,6 +354,7 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                     and req.auth_verifier
                     and req.auth_verifier.auth_value
                 ):
+                    # SSPI
                     (
                         self.session.sspcontext,
                         auth_value,
@@ -299,17 +362,48 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                     ) = self.session.ssp.GSS_Accept_sec_context(
                         self.session.sspcontext, req.auth_verifier.auth_value
                     )
+
                     if DceRpc5Auth3 in req:
                         # Auth 3 stops here (no server response) !
-                        if status != 0:
+                        if status == GSS_S_COMPLETE:
+                            self.authenticated = True
+                        else:
                             print(conf.color_theme.fail("! DceRpc5Auth3 failed"))
+                            self.session.auth_level = RPC_C_AUTHN_LEVEL.NONE
                         if pad is not None:
                             self.recv(pad)
                         return
+
+                    # Check auth status
+                    if status not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
+                        self._send_fault(hdr, req, status=5)
+                        if self.verb:
+                            print(
+                                conf.color_theme.fail(
+                                    "! GSS_Accept_sec_context failed: %s" % status
+                                )
+                            )
+                        return
+
+                    # Store session context
                     self.session.auth_context_id = req.auth_verifier.auth_context_id
                     self.session.auth_level = RPC_C_AUTHN_LEVEL(
                         req.auth_verifier.auth_level
                     )
+                    if self.session.auth_level < self.min_auth_level:
+                        self._send_fault(hdr, req, status=5)
+                        if self.verb:
+                            print(
+                                conf.color_theme.fail(
+                                    "! auth_level %s < min_auth_level %s."
+                                    % (
+                                        self.session.auth_level,
+                                        self.min_auth_level,
+                                    )
+                                )
+                            )
+                        return
+
                     # auth_verifier here contains the SSP nego packets
                     # (whereas it usually contains the verifiers)
                     if auth_value is not None:
@@ -319,6 +413,23 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                             auth_context_id=req.auth_verifier.auth_context_id,
                             auth_value=auth_value,
                         )
+
+                    # Mark as authenticated if successful.
+                    if status == GSS_S_COMPLETE:
+                        self.authenticated = True
+                elif not self.authenticated:
+                    # Trying to do unauthenticated bind.
+                    if self.min_auth_level == RPC_C_AUTHN_LEVEL.NONE:
+                        self.session.auth_level = RPC_C_AUTHN_LEVEL.NONE
+                    else:
+                        self._send_fault(hdr, req, status=5)
+                        if self.verb:
+                            print(
+                                conf.color_theme.fail(
+                                    "! Anonymous bind is not allowed."
+                                )
+                            )
+                        return
 
                 # Detect if the client requested NDR64 and the server agrees
                 self.ndr64 = self.ndr64 and any(
@@ -349,6 +460,9 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                                 ),
                             )
                         )
+
+                        # Commit session interface selection
+                        self.session.commit_rpc_interface()
                     elif name == "Bind Time Feature Negotiation":
                         # Handle Bind Time Feature
                         results.append(
@@ -415,9 +529,20 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                         % req[DceRpc5Request].payload.__class__.__name__
                     )
                 )
+
+            # Check auth
+            if not self.authenticated and self.min_auth_level != RPC_C_AUTHN_LEVEL.NONE:
+                self._send_fault(hdr, req, status=5)
+                return
+
             # Can be any RPC request !
-            resp = self.make_reply(req)
-            if resp:
+            try:
+                resp = self.make_reply(req)
+                if not resp:
+                    # nca_s_op_rng_error
+                    raise DCERPC_Fault(0x1C010002)
+
+                # Send response
                 self.queue.extend(
                     self.session.out_pkt(
                         hdr
@@ -434,26 +559,13 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
                             ">> RESPONSE: %s" % (resp.__class__.__name__)
                         )
                     )
-            else:
-                # Unimplemented request !
+            except DCERPC_Fault as ex:
                 if self.verb:
-                    print(
-                        conf.color_theme.fail(
-                            "! RPC request not implemented by server."
-                        )
-                    )
-                    req.show()
+                    print(conf.color_theme.fail("! %s" % ex.status))
 
                 # Return a Fault
-                hdr.pfc_flags += "PFC_DID_NOT_EXECUTE"
-                self.queue.extend(
-                    hdr
-                    / DceRpc5Fault(
-                        # nca_s_op_rng_error
-                        status=0x1C010002,
-                        cont_id=req.cont_id,
-                    )
-                )
+                self._send_fault(hdr, req, status=ex.status)
+
         # If there was padding, process the second frag
         if pad is not None:
             self.recv(pad)
@@ -515,6 +627,6 @@ class DCERPC_Server(metaclass=_DCERPC_Server_metaclass):
             resp = ept_map_Response(ITowers=[resp_tower], ndr64=self.ndr64)
             resp.ITowers.max_count = req.max_towers  # ugh
         else:
-            # No result found
-            pass
+            # No result found: nca_s_unk_if
+            raise DCERPC_Fault(0x1C010003)
         return resp
