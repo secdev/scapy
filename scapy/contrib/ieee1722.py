@@ -13,7 +13,9 @@ IEEE 1722 serialization formats for Scapy
 import struct
 from enum import Enum
 
-from scapy.all import UDP, Ether, bind_layers  # pylint: disable=no-name-in-module
+from scapy.packet import Packet, bind_layers
+from scapy.layers.inet import UDP
+from scapy.layers.l2 import Ether
 from scapy.fields import (
     BitEnumField,
     BitField,
@@ -329,23 +331,19 @@ class AvtpAcfHeader(Packet):
         length = self.acf_msg_length * 4 - len(self.self_build())
         return s[:length], s[length:]
 
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
+    def _pad_payload(self, pkt, pay):
+        pad = -(len(pkt) + len(pay)) % 4
+        return pkt, pay + b"\x00" * pad
 
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-
-            # Do padding
-            if (len(pay) + len(pkt)) % 4:
-                pay += b"\x00" * (4 - (len(pay) + len(pkt)) % 4)
-
-            acf_length = (len(pkt) + len(pay)) // 4 & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
+    def post_build(self, pkt, pay):
+        if self.acf_msg_length is not None:
+            return pkt + pay
+        pkt, pay = self._pad_payload(pkt, pay)
+        acf_length = (len(pkt) + len(pay)) // 4 & 0x1FF
+        pkt = bytes([
+            (pkt[0] & 0xFE) | (acf_length >> 8),
+            acf_length & 0xFF,
+        ]) + pkt[2:]
         return pkt + pay
 
 
@@ -356,43 +354,19 @@ class _AvtpAcfPaddedHeader(AvtpAcfHeader):
 
     name = "ACF PaddedHeader"
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=None,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
+        AvtpAcfHeader,
         BitField(name="padlength", size=2, default=0),
     ]
 
     def do_dissect_payload(self, s):
         return super().do_dissect_payload(s[: len(s) - self.padlength])
 
-    def extract_padding(self, s):
-        payload_length = self.acf_msg_length * 4 - len(self.self_build())
-        return s[0:payload_length], s[payload_length:]
-
-    def post_build(self, pkt: bytes, pay: bytes) -> bytes:
-
-        # Take care for length updation if the acf_msg_length field is not set
-        if self.acf_msg_length is None:
-
-            # Do padding and update the pad length field
-            if (len(pay) + len(pkt)) % 4:
-                pad_byte = pkt[2] | ((4 - (len(pay) + len(pkt)) % 4) << 6)
-                pkt = pkt[0:2] + struct.pack("!B", pad_byte) + pkt[3:]
-                pay += b"\x00" * (4 - (len(pay) + len(pkt)) % 4)
-
-            acf_length = (len(pkt) + len(pay)) // 4 & 0x1FF
-            first_byte = (pkt[0] & 0xFE) | ((acf_length >> 8) & 0x01)
-            pkt = (
-                struct.pack("!B", first_byte)
-                + struct.pack("!B", acf_length & 0xFF)
-                + pkt[2:]
-            )
-
-        return pkt + pay
+    def _pad_payload(self, pkt, pay):
+        pad = -(len(pkt) + len(pay)) % 4
+        if pad:
+            pkt = pkt[:2] + bytes([pkt[2] | (pad << 6)]) + pkt[3:]
+            pay += b"\x00" * pad
+        return pkt, pay
 
 
 class AvtpAcfFlexrayHeader(_AvtpAcfPaddedHeader):
@@ -401,15 +375,9 @@ class AvtpAcfFlexrayHeader(_AvtpAcfPaddedHeader):
     """
 
     name = "ACF Flexray Header"
+    acf_msg_type = AvtpAcfType.ACF_FLEXRAY.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_FLEXRAY,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="mtv", size=1, default=0),
         BitField(name="fr_bus_id", size=5, default=0),
         BitField(name="rsv", size=2, default=0),
@@ -430,16 +398,10 @@ class AvtpAcfCanHeader(_AvtpAcfPaddedHeader):
     Header for CAN/CAN-FD Messages - Clause 9.4.3 - IEEE 1722 - 2025
     """
 
+    acf_msg_type = AvtpAcfType.ACF_CAN.value
     name = "ACF CAN Header"
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_CAN,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="mtv", size=1, default=0),
         BitField(name="rtr", size=1, default=0),
         BitField(name="eff", size=1, default=0),
@@ -460,16 +422,9 @@ class AvtpAcfCanV2Header(_AvtpAcfPaddedHeader):
     """
 
     name = "ACF CAN V2 Header"
-
+    acf_msg_type = AvtpAcfType.ACF_CAN_V2.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_CAN_V2,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="mtv", size=1, default=0),
         BitField(name="rtr", size=1, default=0),
         BitField(name="eff", size=1, default=0),
@@ -488,15 +443,9 @@ class AvtpAcfCanBriefHeader(_AvtpAcfPaddedHeader):
     """
 
     name = "ACF CAN BRIEF Header"
+    acf_msg_type = AvtpAcfType.ACF_CAN_BRIEF.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_CAN_BRIEF,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="mtv", size=1, default=0),
         BitField(name="rtr", size=1, default=0),
         BitField(name="eff", size=1, default=0),
@@ -516,16 +465,9 @@ class AvtpAcfCanBriefV2Header(_AvtpAcfPaddedHeader):
     """
 
     name = "ACF CAN Brief V2 Header"
-
+    acf_msg_type = AvtpAcfType.ACF_CAN_BRIEF_V2.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_CAN_BRIEF_V2,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="mtv", size=1, default=0),
         BitField(name="rtr", size=1, default=0),
         BitField(name="eff", size=1, default=0),
@@ -543,15 +485,9 @@ class AvtpAcfLinHeader(_AvtpAcfPaddedHeader):
     """
 
     name = "ACF LIN Header"
+    acf_msg_type = AvtpAcfType.ACF_LIN.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_LIN,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="mtv", size=1, default=0),
         BitField(name="lin_bus_id", size=5, default=0),
         XByteField(name="lin_identifier", default=0),
@@ -565,15 +501,9 @@ class AvtpAcfLinV2Header(_AvtpAcfPaddedHeader):
     """
 
     name = "ACF LIN V2 Header"
+    acf_msg_type = AvtpAcfType.ACF_LIN_V2.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_LIN_V2,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="mtv", size=1, default=0),
         BitField(name="rsv", size=2, default=0),
         BitField(name="lin_bus_id", size=11, default=0),
@@ -589,15 +519,9 @@ class AvtpAcfMostHeader(_AvtpAcfPaddedHeader):
     """
 
     name = "ACF MOST Header"
+    acf_msg_type = AvtpAcfType.ACF_MOST.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_MOST,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="mtv", size=1, default=0),
         BitField(name="most_net_id", size=5, default=0),
         ByteField(name="reserved_1", default=0),
@@ -617,14 +541,9 @@ class AvtpAcfGpcHeader(AvtpAcfHeader):
     """
 
     name = "ACF GPC Header"
+    acf_msg_type = AvtpAcfType.ACF_GPC.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_GPC,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
+        AvtpAcfHeader,
         BitField(name="gpc_msgid", size=48, default=0),
     ]
 
@@ -635,15 +554,9 @@ class AvtpAcfSerialHeader(_AvtpAcfPaddedHeader):
     """
 
     name = "ACF Serial Header"
+    acf_msg_type = AvtpAcfType.ACF_SERIAL.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_SERIAL,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="reserved", size=8, default=0),
         BitField(name="dcd", size=1, default=0),
         BitField(name="dtr", size=1, default=0),
@@ -660,14 +573,9 @@ class AvtpAcfParallelHeader(AvtpAcfHeader):
     """
 
     name = "ACF Parallel Header"
+    acf_msg_type = AvtpAcfType.ACF_PARALLEL.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_PARALLEL,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
+        AvtpAcfHeader,
         XByteField(name="reserved", default=0),
         XByteField(name="bit_width", default=0),
     ]
@@ -679,14 +587,9 @@ class AvtpAcfSensorHeader(AvtpAcfHeader):
     """
 
     name = "ACF Sensor Header"
+    acf_msg_type = AvtpAcfType.ACF_SENSOR.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_SENSOR,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
+        AvtpAcfHeader,
         BitField(name="mtv", size=1, default=None),
         BitField(name="num_sensors", size=7, default=None),
         BitField(name="sz", size=2, default=None),
@@ -701,14 +604,9 @@ class AvtpAcfSensorBriefHeader(AvtpAcfHeader):
     """
 
     name = "ACF Sensor Brief Header"
+    acf_msg_type = AvtpAcfType.ACF_SENSOR_BRIEF.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_SENSOR_BRIEF,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
+        AvtpAcfHeader,
         BitField(name="mtv", size=1, default=None),
         BitField(name="num_sensors", size=7, default=None),
         BitField(name="sz", size=2, default=None),
@@ -722,14 +620,9 @@ class AvtpAcfAecpHeader(AvtpAcfHeader):
     """
 
     name = "ACF AECP Header"
+    acf_msg_type = AvtpAcfType.ACF_AECP.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_AECP,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
+        AvtpAcfHeader,
         XShortField(name="reserved", default=0),
     ]
 
@@ -748,21 +641,15 @@ class AvtpAcfAncillaryHeader(_AvtpAcfPaddedHeader):
         ANC_10BIT = 1
 
     name = "ACF Ancillary Header"
+    acf_msg_type = AvtpAcfType.ACF_ANCILLARY.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_ANCILLARY,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="reserved", size=10, default=0),
         BitEnumField(
             name="mode",
             default=AncMode.ANC_8BIT,
             size=2,
-            enum={i.name: i.value for i in AncMode},
+            enum=AncMode,
         ),
         BitField(name="fp", size=1, default=0),
         BitField(name="lp", size=1, default=0),
@@ -778,15 +665,9 @@ class AvtpAcfGenericByteBusHeader(_AvtpAcfPaddedHeader):
     """
 
     name = "ACF Generic Byte Bus Header"
+    acf_msg_type = AvtpAcfType.ACF_GBB.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_GBB,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="mtv", size=1, default=0),
         BitField(name="rsv", size=2, default=0),
         BitField(name="byte_bus_id", size=11, default=0),
@@ -810,15 +691,9 @@ class AvtpAcfAbbreviatedByteBusHeader(_AvtpAcfPaddedHeader):
     """
 
     name = "ACF Abbreviated Byte Bus Header"
+    acf_msg_type = AvtpAcfType.ACF_ABB.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_ABB,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="mtv", size=1, default=0),
         BitField(name="rsv", size=2, default=0),
         BitField(name="byte_bus_id", size=11, default=0),
@@ -841,15 +716,10 @@ class AvtpAcfI2CMessage(_AvtpAcfPaddedHeader):
     """
 
     name = "ACF I2C Message"
+    acf_msg_type = AvtpAcfType.ACF_I2C.value
+    acf_msg_length = 4
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_I2C,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=4),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="mtv", size=1, default=0),
         BitField(name="rsv", size=2, default=0),
         BitField(name="i2c_bus_id", size=11, default=0),
@@ -870,15 +740,10 @@ class AvtpAcfI2CBriefMessage(_AvtpAcfPaddedHeader):
     """
 
     name = "ACF I2C Brief Message"
+    acf_msg_type = AvtpAcfType.ACF_I2C_BRIEF.value
+    acf_msg_length = 2
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_I2C_BRIEF,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=2),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="mtv", size=1, default=0),
         BitField(name="rsv", size=2, default=0),
         BitField(name="i2c_bus_id", size=11, default=0),
@@ -898,15 +763,9 @@ class AvtpAcfCanXlHeader(_AvtpAcfPaddedHeader):
     """
 
     name = "ACF CAN XL Header"
+    acf_msg_type = AvtpAcfType.ACF_CAN_XL.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_CAN_XL,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="mtv", size=1, default=0),
         BitField(name="rsv", size=2, default=0),
         BitField(name="can_bus_id", size=11, default=0),
@@ -932,15 +791,9 @@ class AvtpAcfCanXlBriefHeader(_AvtpAcfPaddedHeader):
     """
 
     name = "ACF CAN XL Brief Header"
+    acf_msg_type = AvtpAcfType.ACF_CAN_XL_BRIEF.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_CAN_XL_BRIEF,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="mtv", size=1, default=0),
         BitField(name="rsv", size=2, default=0),
         BitField(name="can_bus_id", size=11, default=0),
@@ -965,14 +818,10 @@ class AvtpAcfChecksumHeader(AvtpAcfHeader):
     """
 
     name = "ACF Checksum Header"
+    acf_msg_type = AvtpAcfType.ACF_CHECKSUM.value
+    acf_msg_length = 1
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_CHECKSUM,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=1),
+        AvtpAcfHeader,
         XShortField(name="checksum", default=0),
     ]
 
@@ -983,14 +832,9 @@ class AvtpAcfCrcHeader(AvtpAcfHeader):
     """
 
     name = "ACF CRC Header"
+    acf_msg_type = AvtpAcfType.ACF_CRC.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_CRC,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
+        AvtpAcfHeader,
         BitField(name="reserved", size=12, default=0),
         BitField(name="crc_type", size=4, default=0),
     ]
@@ -1002,15 +846,9 @@ class AvtpAcfGisfHeader(_AvtpAcfPaddedHeader):
     """
 
     name = "ACF GISF Header"
+    acf_msg_type = AvtpAcfType.ACF_GISF.value
     fields_desc = [
-        BitEnumField(
-            name="acf_msg_type",
-            default=AvtpAcfType.ACF_GISF,
-            size=7,
-            enum=AvtpAcfType,
-        ),
-        BitField(name="acf_msg_length", size=9, default=None),
-        BitField(name="padlength", size=2, default=0),
+        _AvtpAcfPaddedHeader,
         BitField(name="mtv", size=1, default=0),
         BitField(name="rsv", size=2, default=0),
         BitField(name="image_sensor_id", size=11, default=0),
