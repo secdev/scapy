@@ -46,7 +46,9 @@ class MACsecSA(object):
     """Representation of a MACsec Secure Association
 
     Provides encapsulation, decapsulation, encryption, and decryption
-    of MACsec frames
+    of MACsec frames.
+
+    This does not check replay, and shouldn't be used as-is in production.
     """
     def __init__(self, sci, an, pn, key, icvlen, encrypt, send_sci, xpn_en=False, ssci=None, salt=None):  # noqa: E501
         if isinstance(sci, int):

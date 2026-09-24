@@ -1067,3 +1067,25 @@ server = DCERPC_Server(DCERPC_Transport.NCACN_IP_TCP, port=135, verb=False)
 request = hex_bytes("050000031000000018000000000000000000000000000000")
 server.recv(request)
 assert DceRpc5Fault in server.get_response()
+
+= Security - Server session doesn't commit rejected binds
+
+server = DCERPC_Server(
+    DCERPC_Transport.NCACN_IP_TCP,
+    verb=False,
+    ssp=NTLMSSP(IDENTITIES={}),
+    min_auth_level=RPC_C_AUTHN_LEVEL.PKT_INTEGRITY,
+)
+server.recv(
+    DceRpc5() / DceRpc5Bind(
+        context_elem=[
+            DceRpc5Context(
+                abstract_syntax=DceRpc5AbstractSyntax(if_uuid="wkssvc"),
+                transfer_syntaxes=[DceRpc5TransferSyntax(if_uuid="NDR64", if_version=1)]
+            )
+        ]
+    )
+)
+
+assert DceRpc5BindNak in server.get_response()
+assert server.session.rpc_bind_interface is None

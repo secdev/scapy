@@ -890,8 +890,14 @@ class TLSClientAutomaton(_TLSAutomaton):
                              get_next_msg=False)
 
     @ATMT.state()
+    def SSLv2_INVALID_SERVERVERIFY(self):
+        self.vprint("Invalid SSLv2ServerVerify!")
+        raise self.SSLv2_CLOSE_NOTIFY()
+
+    @ATMT.state()
     def SSLv2_HANDLED_SERVERVERIFY(self):
-        pass
+        if self.cur_session.sslv2_server_verify_valid is False:
+            raise self.SSLv2_INVALID_SERVERVERIFY()
 
     def sslv2_should_add_ClientFinished(self):
         if self.in_handshake(SSLv2ClientFinished):

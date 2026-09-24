@@ -61,11 +61,10 @@ from scapy.packet import Packet
 from scapy.sessions import StringBuffer
 
 from scapy.layers.gssapi import (
-    _GSSAPI_OIDS,
-    _GSSAPI_SIGNATURE_OIDS,
     GSS_C_FLAGS,
     GSS_C_NO_CHANNEL_BINDINGS,
     GSS_S_BAD_BINDINGS,
+    GSS_S_BAD_MIC,
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
     GSS_S_DEFECTIVE_CREDENTIAL,
@@ -73,6 +72,8 @@ from scapy.layers.gssapi import (
     GSS_S_FLAGS,
     GssChannelBindings,
     SSP,
+    _GSSAPI_OIDS,
+    _GSSAPI_SIGNATURE_OIDS,
 )
 
 # Typing imports
@@ -1024,6 +1025,13 @@ class NTLM_AUTHENTICATE(_NTLM_VARIANT_Packet, NTLM_Header):
             ExportedSessionKey, bytes(negotiate) + bytes(challenge) + bytes(self)
         )
 
+    def verify_mic(self, ExportedSessionKey, negotiate, challenge):
+        auth = self.copy()
+        auth.MIC = b"\x00" * 16
+        return self.MIC == HMAC_MD5(
+            ExportedSessionKey, bytes(negotiate) + bytes(challenge) + bytes(auth)
+        )
+
 
 class NTLM_AUTHENTICATE_V2(NTLM_AUTHENTICATE):
     NTLM_VERSION = 2
@@ -1829,10 +1837,12 @@ class NTLMSSP(SSP):
 
         if Context.state == self.STATE.INIT:
             # Server: challenge (input_token=negotiate)
-            nego_tok = input_token
-            if not nego_tok or NTLM_NEGOTIATE not in nego_tok:
+            neg_tok = input_token
+            if not neg_tok or NTLM_NEGOTIATE not in neg_tok:
                 log_runtime.debug("NTLMSSP: Unexpected token. Expected NTLM Negotiate")
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
+
+            Context.neg_tok = neg_tok
 
             # Build the challenge token
             currentTime = (time.time() + 11644473600) * 1e7
@@ -1859,12 +1869,12 @@ class NTLMSSP(SSP):
                     )
                     + (
                         ["NEGOTIATE_SIGN"]
-                        if nego_tok.NegotiateFlags.NEGOTIATE_SIGN
+                        if neg_tok.NegotiateFlags.NEGOTIATE_SIGN
                         else []
                     )
                     + (
                         ["NEGOTIATE_SEAL"]
-                        if nego_tok.NegotiateFlags.NEGOTIATE_SEAL
+                        if neg_tok.NegotiateFlags.NEGOTIATE_SEAL
                         else []
                     )
                 ),
@@ -1961,6 +1971,24 @@ class NTLMSSP(SSP):
                 Context.ExportedSessionKey = ExportedSessionKey
                 # [MS-SMB] 3.2.5.3
                 Context.SessionKey = Context.ExportedSessionKey
+            else:
+                # Bad NTProofStr or unknown user
+                Context.SessionKey = None
+                Context.state = self.STATE.INIT
+                return Context, None, GSS_S_DEFECTIVE_CREDENTIAL
+
+            # Verify MIC
+            try:
+                Flags = auth_tok.NtChallengeResponse.getAv(0x0006).Value
+                if Flags & 2:
+                    # MIC is required
+                    if not auth_tok.verify_mic(
+                        ExportedSessionKey, Context.neg_tok, Context.chall_tok
+                    ):
+                        log_runtime.warning("Client MIC is invalid !")
+                        return Context, None, GSS_S_BAD_MIC
+            except IndexError:
+                pass
 
             # Check the timestamp
             try:
@@ -1976,7 +2004,14 @@ class NTLMSSP(SSP):
                 pass
 
             # Check the channel bindings
-            if chan_bindings != GSS_C_NO_CHANNEL_BINDINGS:
+            if chan_bindings == GSS_C_NO_CHANNEL_BINDINGS:
+                if (
+                    req_flags is not None
+                    and GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS
+                    not in req_flags
+                ):
+                    return Context, None, GSS_S_BAD_BINDINGS
+            else:
                 try:
                     Bnd = auth_tok.NtChallengeResponse.getAv(0x000A).Value
                     if Bnd != chan_bindings.digestMD5():
@@ -1987,36 +2022,31 @@ class NTLMSSP(SSP):
                         # Uhoh, we required channel bindings
                         return Context, None, GSS_S_BAD_BINDINGS
 
-            if Context.SessionKey:
-                # Compute NTLM keys
-                Context.SendSignKey = SIGNKEY(
-                    auth_tok.NegotiateFlags, ExportedSessionKey, "Server"
-                )
-                Context.SendSealKey = SEALKEY(
-                    auth_tok.NegotiateFlags, ExportedSessionKey, "Server"
-                )
-                Context.SendSealHandle = RC4Init(Context.SendSealKey)
-                Context.RecvSignKey = SIGNKEY(
-                    auth_tok.NegotiateFlags, ExportedSessionKey, "Client"
-                )
-                Context.RecvSealKey = SEALKEY(
-                    auth_tok.NegotiateFlags, ExportedSessionKey, "Client"
-                )
-                Context.RecvSealHandle = RC4Init(Context.RecvSealKey)
+            # Compute NTLM keys
+            Context.SendSignKey = SIGNKEY(
+                auth_tok.NegotiateFlags, ExportedSessionKey, "Server"
+            )
+            Context.SendSealKey = SEALKEY(
+                auth_tok.NegotiateFlags, ExportedSessionKey, "Server"
+            )
+            Context.SendSealHandle = RC4Init(Context.SendSealKey)
+            Context.RecvSignKey = SIGNKEY(
+                auth_tok.NegotiateFlags, ExportedSessionKey, "Client"
+            )
+            Context.RecvSealKey = SEALKEY(
+                auth_tok.NegotiateFlags, ExportedSessionKey, "Client"
+            )
+            Context.RecvSealHandle = RC4Init(Context.RecvSealKey)
 
-                # Check the NTProofStr
-                if self._checkLogin(Context, auth_tok):
-                    # Set negotiated flags
-                    if auth_tok.NegotiateFlags.NEGOTIATE_SIGN:
-                        Context.flags |= GSS_C_FLAGS.GSS_C_INTEG_FLAG
-                    if auth_tok.NegotiateFlags.NEGOTIATE_SEAL:
-                        Context.flags |= GSS_C_FLAGS.GSS_C_CONF_FLAG
-                    return Context, None, GSS_S_COMPLETE
+            # Check the NTProofStr
+            if self._checkLogin(Context, auth_tok):
+                # Set negotiated flags
+                if auth_tok.NegotiateFlags.NEGOTIATE_SIGN:
+                    Context.flags |= GSS_C_FLAGS.GSS_C_INTEG_FLAG
+                if auth_tok.NegotiateFlags.NEGOTIATE_SEAL:
+                    Context.flags |= GSS_C_FLAGS.GSS_C_CONF_FLAG
+                return Context, None, GSS_S_COMPLETE
 
-            # Bad NTProofStr or unknown user
-            Context.SessionKey = None
-            Context.state = self.STATE.INIT
-            return Context, None, GSS_S_DEFECTIVE_CREDENTIAL
         else:
             raise ValueError("NTLMSSP: unexpected state %s" % repr(Context.state))
 
