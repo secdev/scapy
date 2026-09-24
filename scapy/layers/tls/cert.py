@@ -1791,7 +1791,7 @@ class CertTree(CertList):
         else:
             return None
 
-    def verify(self, cert, hostname=None, now=None):
+    def verify(self, cert, hostname=None, now=None, allow_expired=False):
         """
         Verify that a certificate is properly signed, current, and the right one.
 
@@ -1803,6 +1803,10 @@ class CertTree(CertList):
             so any certificate the store can chain is accepted.
         :param now: (optional) a UTC time tuple to check validity against,
             defaulting to the current time
+        :param allow_expired: (optional) accept a chain that is outside its
+            validity period. Useful when checking a signature made while the
+            certificate was still valid, or against a stored capture, where
+            the dates say nothing about whether the signature was genuine.
         """
         # Check that we can find a chain to this certificate
         chain = self.getchain(cert)
@@ -1814,7 +1818,7 @@ class CertTree(CertList):
         for c in chain:
             if not isinstance(c, Cert):
                 continue
-            if not c.isValidAt(now):
+            if not allow_expired and not c.isValidAt(now):
                 raise ValueError(
                     "Certificate %s is outside its validity period "
                     "(%s to %s) !" % (
@@ -2053,6 +2057,7 @@ class CMS_Engine:
         eContentType: Optional[ASN1_OID] = None,
         eContent: Optional[bytes] = None,
         no_verify_cert: bool = False,
+        allow_expired: bool = False,
     ):
         """
         Verify a CMS message against the list of trusted certificates,
@@ -2062,6 +2067,10 @@ class CMS_Engine:
         :param eContentType: if provided, verifies that the content type is valid
         :param eContent: in PKCS 7.1, provide the content to verify
         :param no_verify_cert: do not check the remote certificate (unsafe)
+        :param allow_expired: accept a signer certificate that is outside its
+            validity period. A CMS signature is often checked long after it was
+            made, so an expired signer does not by itself mean the signature is
+            not genuine.
         """
         if contentInfo.contentType.oidname != "id-signedData":
             raise ValueError("ContentInfo isn't signed !")
@@ -2091,7 +2100,7 @@ class CMS_Engine:
 
             # Verify certificate signature
             if not no_verify_cert:
-                certTree.verify(cert)
+                certTree.verify(cert, allow_expired=allow_expired)
 
             # Verify the message hash
             if signerInfo.signedAttrs:
