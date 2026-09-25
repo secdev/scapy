@@ -22,6 +22,7 @@ from scapy.pton_ntop import inet_pton
 from scapy.sessions import TCPSession
 from scapy.utils import repr_hex, strxor
 from scapy.layers.inet import TCP
+from scapy.layers.tls.cert import CertList
 from scapy.layers.tls.crypto.compression import Comp_NULL
 from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
 from scapy.layers.tls.crypto.prf import PRF
@@ -417,8 +418,7 @@ class tlsSession(object):
         # Either we act as server and it has to be provided, or it is expected
         # to be sent by the server through a Certificate message.
         # The server certificate should be self.server_certs[0].
-        self.server_certs = []
-        self.server_cert_valid = None
+        self.server_certs = CertList([])
 
         # The server private key, as a PrivKey instance, when acting as server.
         # XXX It would be nice to be able to provide both an RSA and an ECDSA

@@ -15,7 +15,7 @@ from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
     ShortEnumField, StrLenField, XStrField, XStrLenField
 
 from scapy.packet import Padding
-from scapy.layers.tls.cert import Cert
+from scapy.layers.tls.cert import Cert, CertList
 from scapy.layers.tls.basefields import _tls_version, _TLSVersionField
 from scapy.layers.tls.handshake import _CipherSuitesField
 from scapy.layers.tls.keyexchange import _TLSSignatureField, _TLSSignature
@@ -196,7 +196,7 @@ class SSLv2ServerHello(_SSLv2Handshake):
         s.sslv2_connection_id = self.connection_id
         s.tls_version = self.version
         if self.cert is not None:
-            s.server_certs = [self.cert]
+            s.server_certs = CertList([self.cert])
 
 
 ###############################################################################
