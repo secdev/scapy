@@ -403,7 +403,8 @@ class SSLv2ServerVerify(_SSLv2Handshake):
     def post_dissection(self, pkt):
         s = self.tls_session
         if s.sslv2_challenge is not None:
-            if self.challenge != s.sslv2_challenge:
+            s.sslv2_server_verify_valid = self.challenge == s.sslv2_challenge
+            if s.sslv2_server_verify_valid:
                 pkt_info = pkt.firstlayer().summary()
                 log_runtime.info("TLS: invalid ServerVerify received [%s]", pkt_info)  # noqa: E501
 
@@ -480,6 +481,7 @@ class SSLv2ClientCertificate(_SSLv2Handshake):
                  s.sslv2_challenge_clientcert +
                  s.server_certs[0].der)
             sig_test = self.responsedata._verify_sig(m, s.client_certs[0])
+            s.client_cert_verify_valid = sig_test
             if not sig_test:
                 pkt_info = self.firstlayer().summary()
                 log_runtime.info("TLS: invalid client CertificateVerify signature [%s]", pkt_info)  # noqa: E501
@@ -512,7 +514,8 @@ class SSLv2ClientFinished(_SSLv2Handshake):
     def post_dissection(self, pkt):
         s = self.tls_session
         if s.sslv2_connection_id is not None:
-            if self.connection_id != s.sslv2_connection_id:
+            s.finished_valid = self.connection_id == s.sslv2_connection_id
+            if s.finished_valid:
                 pkt_info = pkt.firstlayer().summary()
                 log_runtime.info("TLS: invalid client Finished received [%s]", pkt_info)  # noqa: E501
 

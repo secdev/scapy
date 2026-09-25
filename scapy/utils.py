@@ -1111,6 +1111,11 @@ def tex_escape(x):
     return s
 
 
+def graphviz_escape(x):
+    # type: (Any) -> str
+    return str(x).replace("\\", "\\\\").replace('"', '\\"')
+
+
 def colgen(*lstcol,  # type: Any
            **kargs  # type: Any
            ):
@@ -3466,7 +3471,8 @@ def __make_table(
     sortx=None,  # type: Optional[Callable[[str], Tuple[Any, ...]]]
     sorty=None,  # type: Optional[Callable[[str], Tuple[Any, ...]]]
     seplinefunc=None,  # type: Optional[Callable[[int, List[int]], str]]
-    dump=False  # type: bool
+    dump=False,  # type: bool
+    stringconv=str,  # type: Callable[[str], str]
 ):
     # type: (...) -> Optional[str]
     """Core function of the make_table suite, which generates the table"""
@@ -3516,16 +3522,16 @@ def __make_table(
     s += ' '
     for x in vxk:
         vxf[x] = fmtfunc(vx[x])
-        s += vxf[x] % x
+        s += vxf[x] % stringconv(x)
         s += ' '
     s += endline + "\n"
     if seplinefunc:
         s += sepline + "\n"
     for y in vyk:
-        s += fmt % y
+        s += fmt % stringconv(y)
         s += ' '
         for x in vxk:
-            s += vxf[x] % vz.get((x, y), "-")
+            s += vxf[x] % stringconv(vz.get((x, y), "-"))
             s += ' '
         s += endline + "\n"
     if seplinefunc:
@@ -3571,6 +3577,7 @@ def make_tex_table(*args, **kargs):
         "\\\\",
         *args,
         seplinefunc=lambda a, x: "\\hline",
+        stringconv=tex_escape,
         **kargs
     )
 

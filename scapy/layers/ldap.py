@@ -2268,6 +2268,10 @@ class LDAP_Client(object):
             from scapy.layers.ntlm import NTLMSSP
 
             if isinstance(self.sspcontext.ssp, NTLMSSP):
+                if self.sign and not self.encrypt:
+                    raise ValueError(
+                        "NTLM with GSS-SPNEGO cannot sign without encryption !"
+                    )
                 self.sign = False
 
         # SASL wrapping is now available.

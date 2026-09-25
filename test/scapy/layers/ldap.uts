@@ -6,9 +6,6 @@
 
 from scapy.layers.ldap import *
 
-= LDAP SASL reassembly waits for a complete BER length
-assert LDAP_SASL_Buffer.tcp_reassemble(bytes.fromhex("30840000"), {}, None) is None
-
 = LDAP_UnbindRequest
 
 pkt = Ether(b'RT\x00!l+RT\x00\x0cG\xab\x08\x00E\x00\x003\xb2\x8a@\x00\x80\x06\xd2F\xc0\xa8z\x06\xc0\xa8z\x9c\xc2\xfb\x01\x85\xa6\x89q"\xa1\x076\xdeP\x18\x03\xffG\xf0\x00\x000\x05\x02\x01\x07B\x00')
@@ -125,6 +122,35 @@ assert LDAP_SearchResponseResultDone in response
 assert sum(materialized_lengths) <= len(stream) * 3, (
     sum(materialized_lengths), len(stream)
 )
+
+= LDAP Assembly - Late TCP prefix invalidates LDAP minimum length
+
+from scapy.layers.inet import IP, TCP
+from scapy.sessions import TCPSession
+
+def segment(seq, payload):
+    packet = IP()/TCP(sport=12345, dport=389, seq=seq)/Raw(payload)
+    # Each segment is a fragment of the message, so it is not valid LDAP on its own.
+    with no_debug_dissector():
+        return IP(raw(packet))
+
+bind = raw(LDAP(
+    messageID=1,
+    protocolOp=LDAP_BindRequest(
+        bind_name=b"user",
+        authentication=LDAP_Authentication_simple(b"pass"),
+    ),
+))
+split = 4
+session = TCPSession()
+assert session.process(segment(1000 + split, bind[split:-1])) is None
+assert session.process(segment(1000, bind[:split])) is None
+response = session.process(segment(1000 + len(bind) - 1, bind[-1:]))
+assert response is not None
+assert LDAP_BindRequest in response
+
+= LDAP Assembly - SASL reassembly waits for a complete BER length
+assert LDAP_SASL_Buffer.tcp_reassemble(bytes.fromhex("30840000"), {}, None) is None
 
 + CLDAP tests
 

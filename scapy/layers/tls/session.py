@@ -448,6 +448,9 @@ class tlsSession(object):
         self.client_key = None
         self.client_cert_verify_valid = None
 
+        # Common (server + client) automaton parameters
+        self.finished_valid = None
+
         # Ephemeral key exchange parameters
 
         # The agreed-upon ephemeral key group
@@ -511,6 +514,7 @@ class tlsSession(object):
         self.sslv2_challenge = None
         self.sslv2_challenge_clientcert = None
         self.sslv2_key_material = None
+        self.sslv2_server_verify_valid = False
 
         # These attributes should only be used with TLS 1.3 connections.
         self.tls13_psk_secret = None

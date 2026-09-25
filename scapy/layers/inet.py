@@ -15,7 +15,7 @@ import select
 import socket
 from collections import defaultdict
 
-from scapy.utils import checksum, do_graph, incremental_label, \
+from scapy.utils import checksum, do_graph, graphviz_escape, incremental_label, \
     linehexdump, strxor, whois, colgen
 from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Gen, Net, _ScopedIP
@@ -2060,7 +2060,10 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
             s += '\t\tcolor="#%s%s%s";' % col
             s += '\t\tnode [fillcolor="#%s%s%s",style=filled];' % col
             s += '\t\tfontsize = 10;'
-            s += '\t\tlabel = "%s\\n[%s]"\n' % (asn, ASDs[asn])
+            s += '\t\tlabel = "%s\\n[%s]"\n' % (
+                graphviz_escape(asn),
+                graphviz_escape(ASDs[asn]),
+            )
             for ip in ASNs[asn]:
 
                 s += '\t\t"%s";\n' % ip
