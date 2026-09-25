@@ -132,12 +132,24 @@ class AvtpCommonHeader(Packet):
         Dispatch the appropriate class based on the parsed subtype and version.
         """
         if pkt is not None:
-            parsed_type = ord(pkt[0:1])
-            parsed_version = (ord(pkt[1:2]) & 0x70) >> 4
+            parsed_type = pkt[0]
+            parsed_version = (pkt[1] & 0x70) >> 4
 
             key = (parsed_type, parsed_version)
-            return cls.common_header_variants.get(key, cls)
+            return cls.common_header_variants.get(key, _AvtpCommonSerializableHeader)
         return cls
+
+class _AvtpCommonSerializableHeader(AvtpCommonHeader):
+    """
+    Base class for AvtpCommonHeader in a serializable format. 
+    This is the fallback class for Avtp Variants without a specific implementation.
+    """
+
+    name = "AVTP Common Header"
+    fields_desc = [
+        AvtpCommonHeader,
+        BitField(name="unknown", size=4, default=0),
+    ]
 
 
 class AvtpCommonStreamHeader(AvtpCommonHeader):
@@ -149,17 +161,20 @@ class AvtpCommonStreamHeader(AvtpCommonHeader):
 
     @classmethod
     def dispatch_hook(cls, pkt=None, **kargs):
-        version = 0
         if "version" in kargs:
-            version = kargs.get("version", 0) == 1
+            version = kargs["version"]
+        elif pkt:
+            version = (pkt[1] & 0x70) >> 4
         else:
-            if pkt is not None:
-                parsed_version = (ord(pkt[1:2]) & 0x70) >> 4
-                version = parsed_version == 1
-        return AvtpCommonStreamHeaderV1 if version else AvtpCommonStreamHeaderV0
+            version = 0
+
+        return {
+            0: _AvtpCommonStreamHeaderV0,
+            1: _AvtpCommonStreamHeaderV1,
+        }.get(version, AvtpCommonHeader)
 
 
-class AvtpCommonStreamHeaderV0(AvtpCommonStreamHeader):
+class _AvtpCommonStreamHeaderV0(AvtpCommonStreamHeader):
     name = "AVTP Common Stream Header v0"
     match_subclass = True
     fields_desc = [
@@ -170,6 +185,9 @@ class AvtpCommonStreamHeaderV0(AvtpCommonStreamHeader):
         ),
         BitField(name="h", size=1, default=0),
         BitField(name="version", size=3, default=0),
+        BitField(name="mr", size=1, default=0),
+        BitField(name="f_s_d", size=2, default=0),
+        BitField(name="tv", size=1, default=0),
         XByteField(name="sequence_num", default=0),
         BitField(name="format_specific_data_1", size=7, default=0),
         BitField(name="tu", size=1, default=0),
@@ -181,7 +199,7 @@ class AvtpCommonStreamHeaderV0(AvtpCommonStreamHeader):
     ]
 
 
-class AvtpCommonStreamHeaderV1(AvtpCommonStreamHeader):
+class _AvtpCommonStreamHeaderV1(AvtpCommonStreamHeader):
     name = "AVTP Common Stream Header v1"
     match_subclass = True
     fields_desc = [
@@ -240,7 +258,7 @@ class AvtpCommonControlHeader(AvtpCommonHeader):
         return pkt + pay
 
 
-class AvtpAlternativeHeader(AvtpCommonHeader):
+class _AvtpAlternativeHeader(AvtpCommonHeader):
     """
     Alternative Header (Clause 4.7.6) for the AVTP-2025
     """
@@ -249,17 +267,20 @@ class AvtpAlternativeHeader(AvtpCommonHeader):
 
     @classmethod
     def dispatch_hook(cls, pkt=None, **kargs):
-        version = 0
         if "version" in kargs:
-            version = kargs.get("version", 0) == 1
+            version = kargs["version"]
+        elif pkt:
+            version = (pkt[1] & 0x70) >> 4
         else:
-            if pkt is not None:
-                parsed_version = (ord(pkt[1:2]) & 0x70) >> 4
-                version = parsed_version == 1
-        return AvtpAlternativeHeaderV1 if version else AvtpAlternativeHeaderV0
+            version = 0
+
+        return {
+            0: _AvtpAlternativeHeaderV0,
+            1: _AvtpAlternativeHeaderV1,
+        }.get(version, _AvtpCommonSerializableHeader)
 
 
-class AvtpAlternativeHeaderV0(AvtpAlternativeHeader):
+class _AvtpAlternativeHeaderV0(_AvtpAlternativeHeader):
     name = "AVTP Alternative Header v0"
     match_subclass = True
     fields_desc = [
@@ -273,7 +294,7 @@ class AvtpAlternativeHeaderV0(AvtpAlternativeHeader):
     ]
 
 
-class AvtpAlternativeHeaderV1(AvtpAlternativeHeader):
+class _AvtpAlternativeHeaderV1(_AvtpAlternativeHeader):
     name = "AVTP Alternative Header v1"
     match_subclass = True
     fields_desc = [
@@ -323,7 +344,7 @@ class AvtpAcfHeader(Packet):
         Dispatch to the appropriate ACF header variant based on the acf_msg_type field.
         """
         if pkt is not None:
-            tmp_type = (ord(pkt[:1]) & 0xFE) >> 1
+            tmp_type = (pkt[0] & 0xFE) >> 1
             return cls.acf_variants.get(tmp_type, cls)
         return cls
 
@@ -868,7 +889,7 @@ class AvtpAcfGisfHeader(_AvtpAcfPaddedHeader):
     ]
 
 
-class AvtpNtscfHeader(AvtpAlternativeHeader):
+class AvtpNtscfHeader(_AvtpAlternativeHeader):
     """
     Header for Non-Time-Synchronous Control Format - Clause 9.2 - IEEE 1722 - 2025
     """
@@ -877,17 +898,17 @@ class AvtpNtscfHeader(AvtpAlternativeHeader):
 
     @classmethod
     def dispatch_hook(cls, pkt=None, **kargs):
-        version = 0
         if "version" in kargs:
-            version = kargs.get("version", 0) == 1
+            version = kargs["version"]
+        elif pkt:
+            version = (pkt[1] & 0x70) >> 4
         else:
-            if pkt is not None:
-                # We do not check for the underlayer here.
-                # This is only if the packet is being dissected from
-                # raw bytes using the AvtpNtscfHeader class directly.
-                parsed_version = (ord(pkt[1:2]) & 0x70) >> 4
-                version = parsed_version == 1
-        return AvtpNtscfHeaderV1 if version else AvtpNtscfHeaderV0
+            version = 0
+
+        return {
+            0: AvtpNtscfHeaderV0,
+            1: AvtpNtscfHeaderV1,
+        }.get(version, _AvtpCommonSerializableHeader)
 
 
 class AvtpNtscfHeaderV0(AvtpNtscfHeader):
@@ -956,17 +977,17 @@ class AvtpTscfHeader(AvtpCommonStreamHeader):
 
     @classmethod
     def dispatch_hook(cls, pkt=None, **kargs):
-        version = 0
         if "version" in kargs:
-            version = kargs.get("version", 0) == 1
+            version = kargs["version"]
+        elif pkt:
+            version = (pkt[1] & 0x70) >> 4
         else:
-            if pkt is not None:
-                # We do not check for the underlayer here.
-                # This is only if the packet is being dissected from
-                # raw bytes using the AvtpTscfHeader class directly.
-                parsed_version = (ord(pkt[1:2]) & 0x70) >> 4
-                version = parsed_version == 1
-        return AvtpTscfHeaderV1 if version else AvtpTscfHeaderV0
+            version = 0
+
+        return {
+            0: AvtpTscfHeaderV0,
+            1: AvtpTscfHeaderV1,
+        }.get(version, _AvtpCommonSerializableHeader)
 
 
 class AvtpTscfHeaderV0(AvtpTscfHeader):

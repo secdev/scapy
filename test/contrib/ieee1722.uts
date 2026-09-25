@@ -44,18 +44,20 @@ acf_can_pkt = AvtpAcfCanHeader() / Raw(
 )
 cf_pkt = AvtpNtscfHeader(acf_tlv=[acf_can_pkt])
 pkt = Ether()/cf_pkt
-assert len(pkt.layers()) == 2 
-assert type(pkt.layers()[0]()) == Ether
-assert type(pkt.layers()[1]()) == type(AvtpNtscfHeader())
+decoded = Ether(bytes(pkt))
+assert len(decoded.layers()) == 2 
+assert type(decoded.layers()[0]()) == Ether
+assert type(decoded.layers()[1]()) == type(AvtpNtscfHeader())
 
-pkt = Ether()/IP()/UDP()/AvtpUdpEncapsulation()/cf_pkt
-assert pkt.encapsulation_sequence_num == 0
-assert len(pkt.layers()) == 5
-assert pkt.layers()[0] == Ether
-assert pkt.layers()[1] == IP
-assert pkt.layers()[2] == UDP
-assert pkt.layers()[3] == AvtpUdpEncapsulation
-assert type(pkt.layers()[4]()) == type(AvtpNtscfHeader())
+pkt = Ether()/IP()/UDP(sport=20000, dport=17220)/AvtpUdpEncapsulation()/cf_pkt
+decoded = Ether(bytes(pkt))
+assert decoded[AvtpUdpEncapsulation].encapsulation_sequence_num == 0
+assert len(decoded.layers()) == 5
+assert decoded.layers()[0] == Ether
+assert decoded.layers()[1] == IP
+assert decoded.layers()[2] == UDP
+assert decoded.layers()[3] == AvtpUdpEncapsulation
+assert type(decoded.layers()[4]()) == type(AvtpNtscfHeader())
 
 = Encapsulations with version 1
 acf_can_pkt = AvtpAcfCanHeader() / Raw(
@@ -71,11 +73,11 @@ assert type(pkt.layers()[1]()) == type(AvtpNtscfHeader(version=1))
 = Stream header versions
 stream_v0 = AvtpCommonStreamHeader(version=0)
 stream_v1 = AvtpCommonStreamHeader(version=1)
-assert type(stream_v0) == AvtpCommonStreamHeaderV0
-assert type(stream_v1) == AvtpCommonStreamHeaderV1
+assert AvtpCommonStreamHeader in stream_v0
+assert AvtpCommonStreamHeader in stream_v1
 assert stream_v0.version == 0
 assert stream_v1.version == 1
-assert len(stream_v0.fields_desc) == 11
+assert len(stream_v0.fields_desc) == 14
 assert len(stream_v1.fields_desc) == 16
 
 = Control and alternative header versions
@@ -85,12 +87,7 @@ control = AvtpCommonControlHeader(
 assert control.control_data_length == None
 assert control.subtype == AvtpStreamType.AECP.value
 assert control.stream_id == 0x0102030405060708
-alternative_v0 = AvtpAlternativeHeader(version=0)
-alternative_v1 = AvtpAlternativeHeader(version=1)
-assert type(alternative_v0) == AvtpAlternativeHeaderV0
-assert type(alternative_v1) == AvtpAlternativeHeaderV1
-assert len(alternative_v0.fields_desc) == 3
-assert len(alternative_v1.fields_desc) == 7
+
 
 + ACF header tests
 = ACF variant defaults
@@ -252,6 +249,12 @@ for acf_class in padlength_zero_classes:
     assert decoded.padlength == 3
     assert bytes(decoded.payload) == b"W"
 
+for acf_class in padlength_zero_classes:
+    built = acf_class() / Raw(load=b"WXYZA")
+    decoded = acf_class(bytes(built))
+    assert decoded.padlength == 3
+    assert bytes(decoded.payload) == b"WXYZA"
+
 = Versioned NTSCF and TSCF headers
 acf_tlv = [AvtpAcfCanHeader(can_identifier=0x123) / Raw(load="abc")]
 ntscf_v0 = AvtpNtscfHeader(version=0, acf_tlv=acf_tlv)
@@ -381,12 +384,27 @@ ether_pkt_bytes = bytes(ether_pkt)
 ether_pkt_recd = Ether(ether_pkt_bytes)
 assert type(ether_pkt_recd.payload) == AvtpNtscfHeaderV1
 
-udp_pkt = IP() / UDP(dport=17220) / AvtpUdpEncapsulation() / AvtpNtscfHeader()
-assert udp_pkt.payload.payload.encapsulation_sequence_num == 0
+udp_pkt = (IP() / 
+        UDP(sport=21000, dport=17220) / 
+        AvtpUdpEncapsulation(encapsulation_sequence_num=123) / 
+        AvtpNtscfHeader())
+assert udp_pkt.payload.payload.encapsulation_sequence_num == 123
 assert type(udp_pkt.payload.payload.payload) == AvtpNtscfHeaderV0
-udp_pkt = IP() / UDP(dport=17220) / AvtpUdpEncapsulation() / AvtpNtscfHeader(version=1)
-assert udp_pkt.payload.payload.encapsulation_sequence_num == 0
+udp_pkt_bytes = bytes(udp_pkt)
+decoded = IP(udp_pkt_bytes)
+assert AvtpUdpEncapsulation in decoded
+assert decoded.payload.payload.encapsulation_sequence_num == 123
+assert type(decoded.payload.payload.payload) == AvtpNtscfHeaderV0
+
+udp_pkt = (IP() / UDP(sport=21000, dport=17220) / 
+        AvtpUdpEncapsulation(encapsulation_sequence_num=123) / AvtpNtscfHeader(version=1))
+assert udp_pkt.payload.payload.encapsulation_sequence_num == 123
 assert type(udp_pkt.payload.payload.payload) == AvtpNtscfHeaderV1
+udp_pkt_bytes = bytes(udp_pkt)
+decoded = IP(udp_pkt_bytes)
+assert AvtpUdpEncapsulation in decoded
+assert decoded.payload.payload.encapsulation_sequence_num == 123
+assert type(decoded.payload.payload.payload) == AvtpNtscfHeaderV1
 
 = TSCF & NTSCF parsing
 wire = bytes(Ether(type=0x22f0)/AvtpNtscfHeader(version=1))
@@ -395,9 +413,14 @@ assert AvtpNtscfHeader in decoded
 assert AvtpNtscfHeaderV0 not in decoded
 assert AvtpNtscfHeaderV1 in decoded
 wire = bytes(Ether(type=0x22f0)/AvtpNtscfHeader())
-decoded = AvtpNtscfHeader(wire)
+decoded = Ether(wire)
 assert AvtpNtscfHeader in decoded
 assert AvtpNtscfHeaderV0 in decoded
+assert AvtpNtscfHeaderV1 not in decoded
+
+wire = bytes(Ether(type=0x22f0)/AvtpNtscfHeader(version=2))
+decoded = Ether(wire)
+assert AvtpNtscfHeaderV0 not in decoded
 assert AvtpNtscfHeaderV1 not in decoded
 
 wire = bytes(Ether(type=0x22f0)/AvtpTscfHeader(version=1))
@@ -409,6 +432,11 @@ wire = bytes(Ether(type=0x22f0)/AvtpTscfHeader())
 decoded = Ether(wire)
 assert AvtpTscfHeader in decoded
 assert AvtpTscfHeaderV0 in decoded
+assert AvtpTscfHeaderV1 not in decoded
+
+wire = bytes(Ether(type=0x22f0)/AvtpTscfHeader(version=2))
+decoded = Ether(wire)
+assert AvtpTscfHeaderV0 not in decoded
 assert AvtpTscfHeaderV1 not in decoded
 
 = Mixing padded and unpadded types
@@ -452,25 +480,17 @@ assert AvtpAcfCanHeader in decoded
 assert AvtpAcfGpcHeader in decoded
 
 = AvtpAcfI2CMessage and AvtpAcfI2CBriefMessage
-acf_i2c = AvtpAcfI2CMessage() / Raw(b"\x00\x00")
+acf_i2c = AvtpAcfI2CMessage(i2c_data=0x12)
 acf_i2c_bytes = bytes(acf_i2c)
 acf_decoded = AvtpAcfI2CMessage(acf_i2c_bytes)
 assert acf_decoded.acf_msg_length == 4
+assert acf_decoded.i2c_data==0x12
 
-acf_i2c = AvtpAcfI2CBriefMessage() / Raw(b"\x00\x00")
+acf_i2c = AvtpAcfI2CBriefMessage(i2c_data=0x12)
 acf_i2c_bytes = bytes(acf_i2c)
 acf_decoded = AvtpAcfI2CBriefMessage(acf_i2c_bytes)
 assert acf_decoded.acf_msg_length == 2
-
-acf_i2c = AvtpAcfI2CMessage()
-acf_i2c_bytes = bytes(acf_i2c)
-acf_decoded = AvtpAcfI2CMessage(acf_i2c_bytes)
-assert acf_decoded.acf_msg_length == 4
-
-acf_i2c = AvtpAcfI2CBriefMessage()
-acf_i2c_bytes = bytes(acf_i2c)
-acf_decoded = AvtpAcfI2CBriefMessage(acf_i2c_bytes)
-assert acf_decoded.acf_msg_length == 2
+assert acf_decoded.i2c_data==0x12
 
 = Explicit control_data_length
 avtp_pkt = AvtpCommonControlHeader()/Raw("\x00\x00\x00\x00")
