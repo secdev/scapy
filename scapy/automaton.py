@@ -11,6 +11,7 @@ TODO:
     - add documentation for ioevent, as_supersocket...
 """
 
+import copy
 import itertools
 import logging
 import os
@@ -1334,6 +1335,17 @@ class Automaton(metaclass=Automaton_metaclass):
             self.packets = PacketList(name="session[%s]" % self.__class__.__name__)
             try:
                 self.parse_args(*a, **k)
+
+                # Timers are class attributes but their expiry state is per run: copy
+                # them so concurrently started instances do not consume each other's
+                # one-shot timeouts. (After parse_args() above, which can reconfigure
+                # them by name.)
+                self.timeout = {}  # type: Dict[str, _TimerList]
+                for state_name, timers in type(self).timeout.items():
+                    timer_list = _TimerList()
+                    for t in timers:
+                        timer_list.add_timer(copy.copy(t))
+                    self.timeout[state_name] = timer_list
                 self.state = self.initial_states[0](self)
                 self.send_sock = self.sock or self.send_sock_class(**self.socket_kargs)
                 if self.recv_conditions:

@@ -386,6 +386,42 @@ assert sm.timer_by_name("goto_end")._timeout == 1
 assert sm.count1 == 10
 assert sm.count2 == 6
 
+~ timers are per-instance when several instances run concurrently
+
+import time
+
+
+class TimerRaceTest(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        self.fired = False
+
+    @ATMT.timeout(BEGIN, 0.2)
+    def goto_end(self):
+        self.fired = True
+        raise self.END()
+
+    @ATMT.state(final=1)
+    def END(self):
+        pass
+
+
+a = TimerRaceTest(ll=lambda: None, recvsock=lambda: None)
+b = TimerRaceTest(ll=lambda: None, recvsock=lambda: None)
+assert a.timer_by_name("goto_end") is not None
+assert b.timer_by_name("goto_end") is not None
+
+a.runbg()
+b.runbg()
+deadline = time.time() + 10
+while time.time() < deadline and (a.isrunning() or b.isrunning()):
+    time.sleep(0.05)
+assert not a.isrunning(), "instance a never observed its timeout"
+assert not b.isrunning(), "instance b never observed its timeout"
+assert a.fired and b.fired
+a.stop()
+b.stop()
+
 ~ reconfigure timers
 
 sm = TimerTest(ll=lambda: None, recvsock=lambda: None)
