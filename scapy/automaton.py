@@ -11,6 +11,7 @@ TODO:
     - add documentation for ioevent, as_supersocket...
 """
 
+import copy
 import ctypes
 import itertools
 import logging
@@ -1307,6 +1308,23 @@ class Automaton(metaclass=Automaton_metaclass):
             k = self.init_kargs.copy()
             k.update(kargs)
             self.parse_args(*a, **k)
+
+            # The timers are registered on the class by the @ATMT.timeout and
+            # @ATMT.timer decorators, but their runtime state (_time, _expired,
+            # _just_expired) is per-run bookkeeping. Left shared on the class,
+            # concurrently running instances of the same automaton (Automaton.spawn,
+            # ioevents used as supersockets) race for the one-shot expiry flags:
+            # whichever control thread decrements a timer first consumes the
+            # expiration, and the other instances never observe the timeout and
+            # block forever in select(). Copy the timers per started instance,
+            # after parse_args() so pre-start reconfiguration through
+            # timer_by_name() (which mutates the class-level timers) is honored.
+            self.timeout = {}  # type: Dict[str, _TimerList]
+            for state_name, timers in type(self).timeout.items():
+                timer_list = _TimerList()
+                for t in timers:
+                    timer_list.add_timer(copy.copy(t))
+                self.timeout[state_name] = timer_list
 
             # Start the automaton
             self.state = self.initial_states[0](self)
