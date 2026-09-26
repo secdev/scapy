@@ -420,15 +420,33 @@ class CryptAlgo(object):
                     aad = struct.pack('!LL', esp.spi, esp.seq)
             if self.ciphers_aead_api:
                 # New API
-                if self.cipher == aead.AESCCM:
+                # For ciphers that don't support custom tag_length (e.g., AES-GCM),
+                # use the lower-level API when icv_size differs from default
+                use_lower_level_api = (self.cipher == aead.AESGCM and 
+                                      icv_size != self.icv_size)
+                
+                if use_lower_level_api:
+                    # Use lower-level API for truncated ICV support
+                    # For AES-GCM, we need to use algorithms.AES with modes.GCM
+                    cipher = Cipher(
+                        algorithms.AES(key),
+                        modes.GCM(mode_iv),
+                        default_backend(),
+                    )
+                    encryptor = cipher.encryptor()
+                    encryptor.authenticate_additional_data(aad)
+                    data = encryptor.update(data) + encryptor.finalize()
+                    data += encryptor.tag[:icv_size]
+                elif self.cipher == aead.AESCCM:
                     cipher = self.cipher(key, tag_length=icv_size)
+                    data = cipher.encrypt(mode_iv, data, aad)
                 else:
                     cipher = self.cipher(key)
-                if self.name == 'AES-NULL-GMAC':
-                    # Special case for GMAC (rfc 4543 sect 3)
-                    data = data + cipher.encrypt(mode_iv, b"", aad + esp.iv + data)
-                else:
-                    data = cipher.encrypt(mode_iv, data, aad)
+                    if self.name == 'AES-NULL-GMAC':
+                        # Special case for GMAC (rfc 4543 sect 3)
+                        data = data + cipher.encrypt(mode_iv, b"", aad + esp.iv + data)
+                    else:
+                        data = cipher.encrypt(mode_iv, data, aad)
             else:
                 cipher = self.new_cipher(key, mode_iv)
                 encryptor = cipher.encryptor()
@@ -475,18 +493,41 @@ class CryptAlgo(object):
                     aad = struct.pack('!LL', esp.spi, esp.seq)
             if self.ciphers_aead_api:
                 # New API
-                if self.cipher == aead.AESCCM:
+                # For ciphers that don't support custom tag_length (e.g., AES-GCM),
+                # use the lower-level API when icv_size differs from default
+                use_lower_level_api = (self.cipher == aead.AESGCM and 
+                                      icv_size != self.icv_size)
+                
+                if use_lower_level_api:
+                    # Use lower-level API for truncated ICV support
+                    # For AES-GCM, we need to use algorithms.AES with modes.GCM
+                    cipher = Cipher(
+                        algorithms.AES(key),
+                        modes.GCM(mode_iv, icv, len(icv)),
+                        default_backend(),
+                    )
+                    decryptor = cipher.decryptor()
+                    decryptor.authenticate_additional_data(aad)
+                    try:
+                        data = decryptor.update(data) + decryptor.finalize()
+                    except InvalidTag as err:
+                        raise IPSecIntegrityError(err)
+                elif self.cipher == aead.AESCCM:
                     cipher = self.cipher(key, tag_length=icv_size)
+                    try:
+                        data = cipher.decrypt(mode_iv, data + icv, aad)
+                    except InvalidTag as err:
+                        raise IPSecIntegrityError(err)
                 else:
                     cipher = self.cipher(key)
-                try:
-                    if self.name == 'AES-NULL-GMAC':
-                        # Special case for GMAC (rfc 4543 sect 3)
-                        data = data + cipher.decrypt(mode_iv, icv, aad + iv + data)
-                    else:
-                        data = cipher.decrypt(mode_iv, data + icv, aad)
-                except InvalidTag as err:
-                    raise IPSecIntegrityError(err)
+                    try:
+                        if self.name == 'AES-NULL-GMAC':
+                            # Special case for GMAC (rfc 4543 sect 3)
+                            data = data + cipher.decrypt(mode_iv, icv, aad + iv + data)
+                        else:
+                            data = cipher.decrypt(mode_iv, data + icv, aad)
+                    except InvalidTag as err:
+                        raise IPSecIntegrityError(err)
             else:
                 cipher = self.new_cipher(key, mode_iv, icv)
                 decryptor = cipher.decryptor()
