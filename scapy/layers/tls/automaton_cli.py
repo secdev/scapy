@@ -44,7 +44,7 @@ import time
 from scapy.config import conf
 from scapy.utils import randstring, repr_hex
 from scapy.automaton import ATMT, select_objects
-from scapy.error import log_runtime, warning
+from scapy.error import warning
 from scapy.layers.tls.automaton import _TLSAutomaton
 from scapy.layers.tls.basefields import _tls_version, _tls_version_options
 from scapy.layers.tls.cert import CertList, CertTree
