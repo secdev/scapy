@@ -47,6 +47,7 @@ from scapy.automaton import ATMT, select_objects
 from scapy.error import warning
 from scapy.layers.tls.automaton import _TLSAutomaton
 from scapy.layers.tls.basefields import _tls_version, _tls_version_options
+from scapy.layers.tls.cert import CertList, CertTree
 from scapy.layers.tls.session import tlsSession
 from scapy.layers.tls.extensions import (
     ServerName,
@@ -97,6 +98,9 @@ class TLSClientAutomaton(_TLSAutomaton):
     :param server: the server IP or hostname. defaults to 127.0.0.1
     :param dport: the server port. defaults to 4433
     :param server_name: the SNI to use. It does not need to be set
+    :param cafile: optional CA certificate bundle used to authenticate the server.
+        By default, the system trust store is used (if verify_server is set to True).
+    :param verify_server: whether to verify the server certificate. False by default.
     :param mycert:
     :param mykey: may be provided as filenames. They will be used in the (or post)
         handshake, should the server ask for client authentication.
@@ -116,6 +120,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     """
 
     def parse_args(self, server="127.0.0.1", dport=4433, server_name=None,
+                   cafile=None, verify_server=False,
                    mycert=None, mykey=None,
                    client_hello=None, version=None,
                    resumption_master_secret=None,
@@ -137,6 +142,15 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.remote_ip = tmp[0][4][0]
         self.remote_port = dport
         self.server_name = server_name
+        self.expected_server_name = server_name or server
+        print(verify_server)
+        self.verify_server = verify_server or bool(cafile)
+        if self.verify_server and cafile:
+            self.server_trust_store = CertList(cafile)
+        elif self.verify_server:
+            self.server_trust_store = CertList.load_system_store()
+        else:
+            self.server_trust_store = None
         self.local_ip = None
         self.local_port = None
         self.socket = None
@@ -400,9 +414,31 @@ class TLSClientAutomaton(_TLSAutomaton):
                                  self.HANDLED_SERVERCERTIFICATE)
         raise self.HANDLED_SERVERCERTIFICATE()
 
+    def _verify_server_cert(self):
+        if self.verify_server:
+            raise self.INVALID_SERVER_CERTIFICATE()
+            try:
+                CertTree(
+                    self.cur_session.server_certs,
+                    self.server_trust_store,
+                ).verify(
+                    self.cur_session.server_certs[0],
+                    hostname=self.server_name or self.remote_ip,
+                )
+            except ValueError:
+                raise self.INVALID_SERVER_CERTIFICATE()
+
     @ATMT.state()
     def HANDLED_SERVERCERTIFICATE(self):
-        pass
+        self._verify_server_cert()
+
+    @ATMT.state()
+    def INVALID_SERVER_CERTIFICATE(self):
+        self.vprint("Server certificate verification failed!")
+        self.add_record()
+        self.add_msg(TLSAlert(level=2, descr=46))
+        self.flush_records()
+        raise self.FINAL(reason=self.INVALID_SERVER_CERTIFICATE)
 
     @ATMT.condition(HANDLED_SERVERHELLO, prio=2)
     def missing_ServerCertificate(self):
@@ -429,9 +465,9 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.raise_on_packet(TLSServerKeyExchange,
                              self.HANDLED_SERVERKEYEXCHANGE)
 
-    @ATMT.state(final=True)
+    @ATMT.state()
     def MISSING_SERVERKEYEXCHANGE(self):
-        pass
+        raise self.FINAL(reason=self.MISSING_SERVERKEYEXCHANGE)
 
     @ATMT.condition(HANDLED_SERVERCERTIFICATE, prio=2)
     def missing_ServerKeyExchange(self):
@@ -798,7 +834,7 @@ class TLSClientAutomaton(_TLSAutomaton):
             self.flush_records()
         except Exception:
             self.vprint("Could not send termination Alert, maybe the server stopped?")  # noqa: E501
-        raise self.FINAL()
+        raise self.FINAL(reason=self.CLOSE_NOTIFY)
 
     #                          SSLv2 handshake                                #
 
@@ -842,7 +878,10 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_HANDLED_SERVERHELLO(self):
-        pass
+        try:
+            self._verify_server_cert()
+        except self.INVALID_SERVER_CERTIFICATE:
+            raise self.SSLv2_CLOSE_NOTIFY()
 
     @ATMT.condition(SSLv2_RECEIVED_SERVERHELLO, prio=2)
     def sslv2_missing_ServerHello(self):
@@ -922,7 +961,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     def sslv2_missing_ServerVerify(self):
         raise self.SSLv2_MISSING_SERVERVERIFY()
 
-    @ATMT.state(final=True)
+    @ATMT.state()
     def SSLv2_MISSING_SERVERVERIFY(self):
         self.vprint("Missing SSLv2 ServerVerify message!")
         raise self.SSLv2_CLOSE_NOTIFY()
@@ -1092,7 +1131,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         except Exception:
             self.vprint("Could not send our goodbye. The server probably stopped.")  # noqa: E501
         self.socket.close()
-        raise self.FINAL()
+        raise self.FINAL(reason=self.SSLv2_CLOSE_NOTIFY)
 
     #                         TLS 1.3 handshake                               #
 
@@ -1347,7 +1386,7 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def TLS13_HANDLED_CERTIFICATE(self):
-        pass
+        self._verify_server_cert()
 
     @ATMT.condition(TLS13_HANDLED_CERTIFICATE, prio=1)
     def tls13_should_handle_CertificateVerify(self):
@@ -1370,7 +1409,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.add_record()
         self.add_msg(TLSAlert(level=2, descr=51))
         self.flush_records()
-        raise self.FINAL()
+        raise self.FINAL(reason=self.TLS13_INVALID_CERTIFICATE_VERIFY)
 
     @ATMT.condition(TLS13_HANDLED_CERTIFICATE_VERIFY, prio=1)
     def tls13_should_handle_finished(self):
@@ -1466,7 +1505,7 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SOCKET_CLOSED(self):
-        raise self.FINAL()
+        raise self.FINAL(reason=self.SOCKET_CLOSED)
 
     @ATMT.state(stop=True)
     def STOP(self):
@@ -1477,10 +1516,12 @@ class TLSClientAutomaton(_TLSAutomaton):
             raise self.CLOSE_NOTIFY()
 
     @ATMT.state(final=True)
-    def FINAL(self):
+    def FINAL(self, reason=None):
         # We might call shutdown, but it may happen that the server
         # did not wait for us to shutdown after answering our data query.
         # self.socket.shutdown(1)
         self.vprint("Closing client socket...")
         self.socket.close()
+        if reason is not None:
+            self.final_reason = reason
         self.vprint("Ending TLS client automaton.")

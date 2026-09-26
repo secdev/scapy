@@ -92,15 +92,19 @@ No need for obnoxious openssl tweaking anymore. :)
 """
 
 import base64
+import calendar
 import enum
 import os
+import socket
+import ssl
 import time
 import warnings
 
 from scapy.config import conf, crypto_validator
-from scapy.compat import Self
+from scapy.compat import Self, plain_str
 from scapy.error import warning
 from scapy.utils import binrepr
+from scapy.pton_ntop import inet_ntop
 from scapy.asn1.asn1 import (
     ASN1_BIT_STRING,
     ASN1_NULL,
@@ -134,6 +138,8 @@ from scapy.layers.x509 import (
     X509_AttributeValue,
     X509_Cert,
     X509_CRL,
+    X509_DNSName,
+    X509_IPAddress,
     X509_SubjectPublicKeyInfo,
 )
 from scapy.layers.tls.crypto.hash import _get_hash
@@ -943,6 +949,22 @@ def _get_csr_sig_hashname(csr):
     return hash_by_oid[sigAlg.algorithm.val]
 
 
+def _match_dns_name(pattern, hostname):
+    """
+    Whether a certificate DNS name matches a hostname, RFC 6125 sect 6.4.3.
+
+    :param pattern: a dNSName from the certificate
+    :param hostname: the name the client asked for
+    :return: True if they match
+    """
+    pattern = pattern.lower().rstrip(".")
+    hostname = hostname.lower().rstrip(".")
+    if pattern[:2] == "*.":
+        return pattern[2:] == hostname.split(".", 1)[-1]
+    else:
+        return pattern == hostname
+
+
 class Cert(metaclass=_CertMaker):
     """
     Wrapper for the X509_Cert from layers/x509.py.
@@ -985,6 +1007,7 @@ class Cert(metaclass=_CertMaker):
         self.notAfter_str_simple = time.strftime("%x", self.notAfter)
 
         self.pubkey = PubKey(bytes(tbsCert.subjectPublicKeyInfo))
+        self.subjectAltName = None
 
         if tbsCert.extensions:
             for extn in tbsCert.extensions:
@@ -998,6 +1021,8 @@ class Cert(metaclass=_CertMaker):
                     self.extKeyUsage = extn.extnValue.get_extendedKeyUsage()
                 elif extn.extnID.oidname == "authorityKeyIdentifier":
                     self.authorityKeyID = extn.extnValue.keyIdentifier.val
+                elif extn.extnID.oidname == "subjectAltName":
+                    self.subjectAltName = extn.extnValue.subjectAltName
 
         self.signatureValue = bytes(cert.signatureValue)
         self.signatureLen = len(self.signatureValue)
@@ -1096,6 +1121,63 @@ class Cert(metaclass=_CertMaker):
         nft = time.mktime(self.notAfter)
         diff = (nft - now) / (24.0 * 3600)
         return diff
+
+    def isValidAt(self, now=None):
+        """
+        Whether the current time falls inside the certificate's validity period.
+
+        The comparison is made in UTC, which is how notBefore and notAfter are
+        stored. (:func:`remainingDays` compares in local time and so is off by
+        the local UTC offset.)
+
+        :param now: (optional) a UTC time tuple to compare against, defaulting
+            to the current time
+        :return: True if the certificate is neither expired nor not yet valid
+        """
+        if now is None:
+            now = time.gmtime()
+        now = calendar.timegm(now)
+        return (
+            calendar.timegm(self.notBefore) <= now <=
+            calendar.timegm(self.notAfter)
+        )
+
+    def matchesHostname(self, hostname):
+        """
+        Whether this certificate was issued to the given host.
+
+        Names come from the subjectAltName extension. RFC 6125 sect 6.4.4 says
+        the Common Name is only consulted when there is no subjectAltName at
+        all, and that is what happens here.
+
+        :param hostname: the DNS name or IP address the client asked for
+        :return: True if the certificate names that host
+        """
+        if not hostname:
+            return False
+        hostname = plain_str(hostname)
+
+        if self.subjectAltName is not None:
+            # Check subjectAltName
+            for generalName in self.subjectAltName:
+                name = generalName.generalName
+                if isinstance(name, X509_DNSName):
+                    if _match_dns_name(plain_str(name.dNSName.val), hostname):
+                        return True
+                elif isinstance(name, X509_IPAddress):
+                    raw = name.iPAddress.val
+                    if len(raw) == 4:
+                        if inet_ntop(socket.AF_INET, raw) == hostname:
+                            return True
+                    elif len(raw) == 16:
+                        if inet_ntop(socket.AF_INET6, raw) == hostname:
+                            return True
+            return False
+        else:
+            # Check Common Name
+            if "commonName" in self.subject:
+                return _match_dns_name(self.subject["commonName"], hostname)
+        return False
 
     def isRevoked(self, crl_list):
         """
@@ -1497,6 +1579,16 @@ class CertList(list):
 
         super(CertList, self).__init__(certList)
 
+    @classmethod
+    def load_system_store(cls):
+        """
+        Return a CertList containing the default trusted system store.
+        """
+        context = ssl.create_default_context()
+        return cls([
+            Cert(der) for der in context.get_ca_certs(binary_form=True)
+        ])
+
     def findCertBySid(self, sid):
         """
         Find a certificate in the list by SubjectIDentifier.
@@ -1662,13 +1754,46 @@ class CertTree(CertList):
         else:
             return None
 
-    def verify(self, cert):
+    def verify(self, cert, hostname=None, now=None, allow_expired=False):
         """
-        Verify that a certificate is properly signed.
+        Verify that a certificate is properly signed, current, and the right one.
+
+        Raises ValueError when the certificate fails any of the checks.
+
+        :param cert: the certificate to verify
+        :param hostname: (optional) the DNS name or IP address the peer was
+            expected to be. Without it the identity of the peer is not checked,
+            so any certificate the store can chain is accepted.
+        :param now: (optional) a UTC time tuple to check validity against,
+            defaulting to the current time
+        :param allow_expired: (optional) accept a chain that is outside its
+            validity period. Useful when checking a signature made while the
+            certificate was still valid, or against a stored capture, where
+            the dates say nothing about whether the signature was genuine.
         """
         # Check that we can find a chain to this certificate
-        if not self.getchain(cert):
+        chain = self.getchain(cert)
+        if not chain:
             raise ValueError("Certificate verification failed !")
+        # Nothing in the chain may have expired or be in the future: an issuer
+        # that is out of date does not vouch for anything below it. A chain can
+        # also hold a CSR, which has no validity period to check.
+        for c in chain:
+            if not isinstance(c, Cert):
+                continue
+            if not allow_expired and not c.isValidAt(now):
+                raise ValueError(
+                    "Certificate %s is outside its validity period "
+                    "(%s to %s) !" % (
+                        c.subject_str, c.notBefore_str, c.notAfter_str
+                    )
+                )
+        if hostname is not None and not cert.matchesHostname(hostname):
+            raise ValueError(
+                "Certificate %s was not issued to %s !" % (
+                    cert.subject_str, plain_str(hostname)
+                )
+            )
 
     def show(self, ret: bool = False):
         """
@@ -1895,6 +2020,7 @@ class CMS_Engine:
         eContentType: Optional[ASN1_OID] = None,
         eContent: Optional[bytes] = None,
         no_verify_cert: bool = False,
+        allow_expired: bool = False,
     ):
         """
         Verify a CMS message against the list of trusted certificates,
@@ -1904,6 +2030,10 @@ class CMS_Engine:
         :param eContentType: if provided, verifies that the content type is valid
         :param eContent: in PKCS 7.1, provide the content to verify
         :param no_verify_cert: do not check the remote certificate (unsafe)
+        :param allow_expired: accept a signer certificate that is outside its
+            validity period. A CMS signature is often checked long after it was
+            made, so an expired signer does not by itself mean the signature is
+            not genuine.
         """
         if contentInfo.contentType.oidname != "id-signedData":
             raise ValueError("ContentInfo isn't signed !")
@@ -1933,7 +2063,7 @@ class CMS_Engine:
 
             # Verify certificate signature
             if not no_verify_cert:
-                certTree.verify(cert)
+                certTree.verify(cert, allow_expired=allow_expired)
 
             # Verify the message hash
             if signerInfo.signedAttrs:

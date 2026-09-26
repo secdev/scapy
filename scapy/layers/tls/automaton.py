@@ -93,6 +93,9 @@ class _TLSAutomaton(Automaton):
         else:
             self.mykey = None
 
+        # Output of the automaton (final status)
+        self.final_reason = None
+
     def get_next_msg(self, socket_timeout=2, retry=2):
         """
         The purpose of the function is to make next message(s) available in

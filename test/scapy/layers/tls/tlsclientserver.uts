@@ -257,7 +257,8 @@ send_data = cipher_suite_code = version = None
 
 def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None,
                         client_auth=False, key_update=False, stop_server=True,
-                        session_ticket_file_out=None, session_ticket_file_in=None):
+                        session_ticket_file_out=None, session_ticket_file_in=None,
+                        verify_server=False):
     print("Loading client...")
     mycert = scapy_path("/test/scapy/layers/tls/pki/cli_cert.pem") if client_auth else None
     mykey = scapy_path("/test/scapy/layers/tls/pki/cli_key.pem") if client_auth else None
@@ -272,22 +273,26 @@ def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None,
     if version == "0002":
         t = TLSClientAutomaton(data=commands, version="sslv2", debug=4, mycert=mycert, mykey=mykey,
                                session_ticket_file_in=session_ticket_file_in,
-                               session_ticket_file_out=session_ticket_file_out)
+                               session_ticket_file_out=session_ticket_file_out,
+                               verify_server=verify_server)
     elif version == "0304":
         ch = TLS13ClientHello(ciphers=int(cipher_suite_code, 16))
         t = TLSClientAutomaton(client_hello=ch, data=commands, version="tls13", debug=4, mycert=mycert, mykey=mykey,
                                session_ticket_file_in=session_ticket_file_in,
-                               session_ticket_file_out=session_ticket_file_out)
+                               session_ticket_file_out=session_ticket_file_out,
+                               verify_server=verify_server)
     else:
         ch = TLSClientHello(version=int(version, 16), ciphers=int(cipher_suite_code, 16))
         t = TLSClientAutomaton(client_hello=ch, data=commands, debug=4, mycert=mycert, mykey=mykey,
                                session_ticket_file_in=session_ticket_file_in,
-                               session_ticket_file_out=session_ticket_file_out)
+                               session_ticket_file_out=session_ticket_file_out,
+                               verify_server=verify_server)
     print("Running client...")
     t.run()
+    return t.final_reason
 
 def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
-                    key_update=False, sess_in_out=False, sigalgo="rsa"):
+                    key_update=False, sess_in_out=False, sigalgo="rsa", verify_server=False):
     msg = ("TestC_%s_data" % suite).encode()
     # Run server
     q_ = Queue()
@@ -305,25 +310,38 @@ def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
     try:
         wait_tls_test_server_online()
     except Exception as ex:
-        atmtsrv.stop()
+        atmtsrv.forcestop()
         raise ex
     print("Thread synchronised")
     # Run client
     if sess_in_out:
         file_sess = scapy_path("/test/session")
         run_tls_test_client(msg, suite, version, client_auth, key_update, session_ticket_file_out=file_sess,
-                            stop_server=False)
-        run_tls_test_client(msg, suite, version, client_auth, key_update, session_ticket_file_in=file_sess,
-                            stop_server=True)
+                            stop_server=False, verify_server=verify_server)
+        
+        final_reason = run_tls_test_client(msg, suite, version, client_auth, key_update, session_ticket_file_in=file_sess,
+                                           stop_server=True, verify_server=verify_server)
     else:
-        run_tls_test_client(msg, suite, version, client_auth, key_update)
-    # Wait for server
-    print("Client running, waiting...")
-    ret = q_.get(timeout=5)
-    if not ret:
-        raise RuntimeError("Test timed out")
-    atmtsrv.stop()
-    print(ret)
+        final_reason = run_tls_test_client(msg, suite, version, client_auth, key_update, verify_server=verify_server)
+    print("Client finished: ", final_reason.atmt_origfunc)
+    # If client crashed, kill server
+    if final_reason.atmt_origfunc not in [TLSClientAutomaton.CLOSE_NOTIFY.atmt_origfunc, TLSClientAutomaton.SSLv2_CLOSE_NOTIFY.atmt_origfunc]:
+        atmtsrv.stop()
+        atmtsrv.destroy()
+    else:
+        final_reason = None
+        # Wait for server
+        print("Server still running, waiting...")
+        ret = q_.get(timeout=1)
+        if not ret:
+            raise RuntimeError("Test timed out")
+        atmtsrv.stop()
+        atmtsrv.destroy()
+        print(ret)
+    # re-raise if client failed.
+    if final_reason:
+        raise ValueError(final_reason.atmt_origfunc)
+    # final assertion that server didn't fail.
     assert ret[0]
 
 = Testing TLS server and client with SSLv2 and SSL_CK_DES_192_EDE3_CBC_WITH_MD5
@@ -402,63 +420,14 @@ test_tls_client("1305", "0304", key_update=True)
 
 test_tls_client("1305", "0304", client_auth=True, sess_in_out=True)
 
-= Reject a CertificateVerify made with a key unrelated to the client certificate
+= Testing TLS server and client with TLS 1.3 and TLS_AES_128_CCM_8_SHA256 and server verification
 ~ crypto_advanced
 
-def run_tls13_client_auth_exchange(client_key):
-    marker = b"certificate proof accepted"
-    server_cert = scapy_path("/test/scapy/layers/tls/pki/srv_cert.pem")
-    server_key = scapy_path("/test/scapy/layers/tls/pki/srv_key.pem")
-    client_cert = scapy_path("/test/scapy/layers/tls/pki/cli_cert.pem")
-    probe = socket.socket()
-    probe.bind(("127.0.0.1", 0))
-    port = probe.getsockname()[1]
-    probe.close()
-    server = TLSServerAutomaton(
-        server="127.0.0.1",
-        sport=port,
-        mycert=server_cert,
-        mykey=server_key,
-        client_auth=True,
-        debug=0,
-    )
-    server_thread = threading.Thread(target=server.run, daemon=True)
-    with captured_output() as (out, _):
-        server_thread.start()
-        time.sleep(0.1)
-        client = TLSClientAutomaton(
-            server="127.0.0.1",
-            dport=port,
-            version="tls13",
-            mycert=client_cert,
-            mykey=client_key,
-            data=[marker, b"stop_server", b"quit"],
-            debug=0,
-        )
-        client_thread = threading.Thread(target=client.run, daemon=True)
-        client_thread.start()
-        client_thread.join(timeout=2)
-        time.sleep(0.1)
-        if client_thread.is_alive():
-            client.stop(wait=False)
-        if server_thread.is_alive():
-            stopper = TLSClientAutomaton(
-                server="127.0.0.1",
-                dport=port,
-                version="tls13",
-                mycert=client_cert,
-                mykey=scapy_path("/test/scapy/layers/tls/pki/cli_key.pem"),
-                data=[b"stop_server", b"quit"],
-                debug=0,
-            )
-            stopper.run()
-            server_thread.join(timeout=1)
-    return "> Received: %r" % marker in out.s
-
-server_key = scapy_path("/test/scapy/layers/tls/pki/srv_key.pem")
-client_key = scapy_path("/test/scapy/layers/tls/pki/cli_key.pem")
-assert not run_tls13_client_auth_exchange(server_key)
-assert run_tls13_client_auth_exchange(client_key)
+try:
+    test_tls_client("1305", "0304", verify_server=True)
+    assert False, "Client should have rejected the server"
+except ValueError as ex:
+    assert "INVALID_SERVER_CERTIFICATE" in str(ex)
 
 = Clear session file
 
@@ -472,118 +441,6 @@ except:
 ############
 + TLS client automaton tests against builtin ssl using Post Handshake Authentication
 ~ client post_handshake_auth
-
-= TLS 1.3 client rejects an invalid server CertificateVerify
-~ crypto_advanced
-
-import contextlib, io, ipaddress, socket
-from datetime import datetime, timedelta, timezone
-from cryptography import x509 as crypto_x509
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
-from scapy.layers.tls.cert import PrivKey
-
-server_key = scapy_path("/test/scapy/layers/tls/pki/srv_key.pem")
-with open(server_key, "rb") as cert_key_file:
-    cert_key = serialization.load_pem_private_key(cert_key_file.read(), None)
-
-with open(scapy_path("/test/scapy/layers/tls/pki/ca_key.pem"), "rb") as ca_key_file:
-    ca_key = serialization.load_pem_private_key(ca_key_file.read(), None)
-
-ca_name = crypto_x509.Name([
-    crypto_x509.NameAttribute(NameOID.COMMON_NAME, "CertificateVerify test CA")
-])
-cert_name = crypto_x509.Name([
-    crypto_x509.NameAttribute(NameOID.COMMON_NAME, "127.0.0.1")
-])
-now = datetime.now(timezone.utc)
-ca_cert = (crypto_x509.CertificateBuilder()
-           .subject_name(ca_name)
-           .issuer_name(ca_name)
-           .public_key(ca_key.public_key())
-           .serial_number(crypto_x509.random_serial_number())
-           .not_valid_before(now - timedelta(days=1))
-           .not_valid_after(now + timedelta(days=1))
-           .add_extension(crypto_x509.BasicConstraints(ca=True, path_length=None), True)
-           .add_extension(crypto_x509.SubjectKeyIdentifier.from_public_key(ca_key.public_key()), False)
-           .add_extension(crypto_x509.KeyUsage(False, False, False, False, False, True, True, None, None), True)
-           .sign(ca_key, hashes.SHA256()))
-ca_certfile = get_temp_file()
-with open(ca_certfile, "wb") as ca_cert_file:
-    ca_cert_file.write(ca_cert.public_bytes(serialization.Encoding.PEM))
-
-trusted_server_cert = (crypto_x509.CertificateBuilder()
-                       .subject_name(cert_name)
-                       .issuer_name(ca_name)
-                       .public_key(cert_key.public_key())
-                       .serial_number(crypto_x509.random_serial_number())
-                       .not_valid_before(now - timedelta(days=1))
-                       .not_valid_after(now + timedelta(days=1))
-                       .add_extension(crypto_x509.BasicConstraints(ca=False, path_length=None), True)
-                       .add_extension(crypto_x509.SubjectKeyIdentifier.from_public_key(cert_key.public_key()), False)
-                       .add_extension(crypto_x509.AuthorityKeyIdentifier.from_issuer_public_key(ca_key.public_key()), False)
-                       .add_extension(crypto_x509.KeyUsage(True, False, True, False, False, False, False, None, None), True)
-                       .add_extension(crypto_x509.SubjectAlternativeName([
-                           crypto_x509.IPAddress(ipaddress.ip_address("127.0.0.1"))
-                       ]), False)
-                       .add_extension(crypto_x509.ExtendedKeyUsage([
-                           ExtendedKeyUsageOID.SERVER_AUTH
-                       ]), False)
-                       .sign(ca_key, hashes.SHA256()))
-trusted_server_certfile = get_temp_file()
-with open(trusted_server_certfile, "wb") as cert_file:
-    cert_file.write(trusted_server_cert.public_bytes(serialization.Encoding.PEM))
-
-def run_server_certificate_verify_case(signing_key):
-    marker = b"server proof accepted"
-    probe = socket.socket()
-    probe.bind(("127.0.0.1", 0))
-    port = probe.getsockname()[1]
-    probe.close()
-    server = TLSServerAutomaton(
-        server="127.0.0.1",
-        sport=port,
-        mycert=trusted_server_certfile,
-        mykey=signing_key,
-        is_echo_server=True,
-        max_client_idle_time=0.3,
-        debug=0,
-    )
-    server_thread = threading.Thread(target=server.run, daemon=True)
-    output = io.StringIO()
-    with contextlib.redirect_stdout(output):
-        server_thread.start()
-        for _ in range(100):
-            if server.serversocket is not None:
-                break
-            time.sleep(0.01)
-        client = TLSClientAutomaton(
-            server="127.0.0.1",
-            dport=port,
-            version="tls13",
-            cafile=ca_certfile,
-            data=[marker, b"stop_server", b"quit"],
-            debug=0,
-        )
-        client.run()
-        server_thread.join(timeout=0.5)
-        if server_thread.is_alive():
-            server.mykey = PrivKey(server_key)
-            stopper = TLSClientAutomaton(
-                server="127.0.0.1",
-                dport=port,
-                version="tls13",
-                cafile=ca_certfile,
-                data=[b"stop_server", b"quit"],
-                debug=0,
-            )
-            stopper.run()
-            server_thread.join(timeout=1)
-    return ("> Received: %r" % marker) in output.getvalue()
-
-mismatched_key = scapy_path("/test/scapy/layers/tls/pki/cli_key.pem")
-assert not run_server_certificate_verify_case(mismatched_key)
-assert run_server_certificate_verify_case(server_key)
 
 = Load native server util functions
 
@@ -614,6 +471,7 @@ with open(certfile, "wb") as fd:
 
 with open(keyfile, "wb") as fd:
     fd.write(rsa_key)
+
 
 # Define server
 
@@ -713,15 +571,11 @@ def test_tls_client_native(post_handshake_auth=False,
     assert not server.is_alive()
 
 
-# XXX: Ugh, Appveyor uses an ancient Windows 10 build that doesn't support TLS 1.3 natively.
-
 = Testing TLS client against ssl.SSLContext server with TLS 1.3 and a post-handshake authentication
-~ native_tls13
 
 test_tls_client_native(post_handshake_auth=True)
 
 = Testing TLS client against ssl.SSLContext server with TLS 1.3 and a Hello-Retry request
-~ native_tls13
 
 test_tls_client_native(with_hello_retry=True)
 
