@@ -14,6 +14,7 @@ from scapy.cbor.cbor import (
     CBOR_BadTag_Decoding_Error,
     CBOR_Codecs,
     CBOR_MajorTypes,
+    CBOR_SimpleValue,
     CBOR_Object,
     CBOR_UNSIGNED_INTEGER,
     CBOR_NEGATIVE_INTEGER,
@@ -21,6 +22,7 @@ from scapy.cbor.cbor import (
     CBOR_TEXT_STRING,
     CBOR_ARRAY,
     CBOR_MAP,
+    CBORMapData,
     CBOR_SEMANTIC_TAG,
     CBOR_SIMPLE_VALUE,
     CBOR_FALSE,
@@ -47,6 +49,8 @@ from scapy.cbor.cborcodec import (
 from scapy.cbor.cborfields import (
     CBORF_element,
     CBORF_field,
+    CBORF_ANY,
+    CBOR_ABSENT,
     CBORF_UNSIGNED_INTEGER,
     CBORF_NEGATIVE_INTEGER,
     CBORF_INTEGER,
@@ -56,12 +60,17 @@ from scapy.cbor.cborfields import (
     CBORF_NULL,
     CBORF_UNDEFINED,
     CBORF_FLOAT,
+    CBORF_ITEMS,
+    CBORF_REMAINDER_OF,
     CBORF_ARRAY,
     CBORF_ARRAY_OF,
+    CBORF_ARRAY_INDEFINITE,
     CBORF_MAP,
     CBORF_SEMANTIC_TAG,
     CBORF_optional,
+    CBORF_CONDITIONAL,
     CBORF_PACKET,
+    CBORF_BYTE_STRING_PACKET,
 )
 
 __all__ = [
@@ -73,6 +82,7 @@ __all__ = [
     # Codecs
     "CBOR_Codecs",
     "CBOR_MajorTypes",
+    "CBOR_SimpleValue",
     # Objects
     "CBOR_Object",
     "CBOR_UNSIGNED_INTEGER",
@@ -81,6 +91,7 @@ __all__ = [
     "CBOR_TEXT_STRING",
     "CBOR_ARRAY",
     "CBOR_MAP",
+    "CBORMapData",
     "CBOR_SEMANTIC_TAG",
     "CBOR_SIMPLE_VALUE",
     "CBOR_FALSE",
@@ -104,6 +115,8 @@ __all__ = [
     # Field base classes
     "CBORF_element",
     "CBORF_field",
+    "CBORF_ANY",
+    "CBOR_ABSENT",
     # Scalar fields
     "CBORF_UNSIGNED_INTEGER",
     "CBORF_NEGATIVE_INTEGER",
@@ -115,11 +128,16 @@ __all__ = [
     "CBORF_UNDEFINED",
     "CBORF_FLOAT",
     # Structured fields
+    "CBORF_ITEMS",
+    "CBORF_REMAINDER_OF",
     "CBORF_ARRAY",
     "CBORF_ARRAY_OF",
+    "CBORF_ARRAY_INDEFINITE",
     "CBORF_MAP",
     "CBORF_SEMANTIC_TAG",
     # Complex fields
     "CBORF_optional",
+    "CBORF_CONDITIONAL",
     "CBORF_PACKET",
+    "CBORF_BYTE_STRING_PACKET",
 ]

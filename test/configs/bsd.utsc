@@ -20,7 +20,8 @@
     "test/contrib/automotive/gm/gmlanutils.uts",
     "test/contrib/isotp_packet.uts",
     "test/contrib/isotpscan.uts",
-    "test/contrib/isotp_soft_socket.uts"
+    "test/contrib/isotp_soft_socket.uts",
+    "test/scapy/layers/cbor_cbor2_interop.uts"
   ],
   "onlyfailed": true,
   "extensions": ["scapy-rpc"],
@@ -36,6 +37,7 @@
     "ipv6",
     "vcan_socket",
     "tun",
-    "tap"
+    "tap",
+    "external_cbor2"
   ]
 }
