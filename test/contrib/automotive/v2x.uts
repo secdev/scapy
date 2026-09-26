@@ -1,0 +1,272 @@
+% Tests for the ETSI ITS V2X ASN.1 messages (UPER)
+
+#
+# Try me with:
+# bash test/run_tests -t test/contrib/automotive/v2x.uts -F
+
++ ETSI ITS load
+
+= load the layer
+
+from scapy.contrib.automotive.v2x import CAM, DENM, IVIM, MAPEM, SPATEM
+from scapy.contrib.automotive.v2x.packets import (
+    ActionID,
+    Altitude,
+    CauseCode,
+    DecentralizedEnvironmentalNotificationMessage,
+    DeltaReferencePosition,
+    EventPoint,
+    Heading,
+    ItsPduHeader,
+    LocationContainer,
+    ManagementContainer,
+    PathHistory,
+    PosConfidenceEllipse,
+    ReferencePosition,
+    SituationContainer,
+    Speed,
+)
+from scapy.asn1packet import ASN1_Packet
+from scapy.packet import raw
+
+# LF Edge InstantX UPER example (DENM inside a G5/BTP payload):
+# https://github.com/lf-edge/instantx/blob/main/docs/Encoding.md#examples
+# The ITS PDU (ItsPduHeader + DENM) starts after the BTP-B header.
+INSTANTX_DENM_ITS_HEX = (
+    "0201012fd537c78097ea9b81ed9f2d8fa1a3c7cb63e868f2f19a1e6649cc65d179179"
+    "00018b5010546001f3056c1c0061000dff8480e018d841196eac3e4a01c780c518d326"
+    "1453f0077e000"
+)
+
+def build_instantx_denm():
+    return DENM(
+        header=ItsPduHeader(
+            protocolVersion=2,
+            messageID=1,
+            stationID=19911991,
+        ),
+        denm=DecentralizedEnvironmentalNotificationMessage(
+            management=ManagementContainer(
+                actionID=ActionID(
+                    originatingStationID=19911991,
+                    sequenceNumber=987,
+                ),
+                detectionTime=1071266991390,
+                referenceTime=1071266991390,
+                termination=None,
+                eventPosition=ReferencePosition(
+                    latitude=-109791002,
+                    longitude=-112004003,
+                    positionConfidenceEllipse=PosConfidenceEllipse(
+                        semiMajorConfidence=377,
+                        semiMinorConfidence=377,
+                        semiMajorOrientation=0,
+                    ),
+                    altitude=Altitude(
+                        altitudeValue=1200,
+                        altitudeConfidence=1,
+                    ),
+                ),
+                relevanceDistance=0,
+                relevanceTrafficDirection=0,
+                validityDuration=86400,
+                transmissionInterval=500,
+                stationType=5,
+            ),
+            situation=SituationContainer(
+                informationQuality=3,
+                eventType=CauseCode(causeCode=14, subCauseCode=0),
+                linkedCause=CauseCode(causeCode=97, subCauseCode=0),
+                eventHistory=[
+                    EventPoint(
+                        eventPosition=DeltaReferencePosition(
+                            deltaLatitude=-123,
+                            deltaLongitude=897,
+                            deltaAltitude=20,
+                        ),
+                        eventDeltaTime=1706733817,
+                        informationQuality=1,
+                    ),
+                    EventPoint(
+                        eventPosition=DeltaReferencePosition(
+                            deltaLatitude=456,
+                            deltaLongitude=789,
+                            deltaAltitude=10,
+                        ),
+                        informationQuality=2,
+                    ),
+                ],
+            ),
+            location=LocationContainer(
+                eventSpeed=Speed(speedValue=1300, speedConfidence=127),
+                eventPositionHeading=Heading(
+                    headingValue=14,
+                    headingConfidence=127,
+                ),
+                traces=[PathHistory()],
+            ),
+        ),
+    )
+
+= the messages of the layer are exported
+
+assert [c.__name__ for c in (CAM, DENM, IVIM, SPATEM, MAPEM)] == \
+    ["CAM", "DENM", "IVIM", "SPATEM", "MAPEM"]
+
++ ETSI ITS messages
+
+= every message builds with its default values
+
+for cls, message_id in [(CAM, 2), (DENM, 1), (IVIM, 6), (SPATEM, 4), (MAPEM, 5)]:
+    pkt = cls()
+    pkt.header = ItsPduHeader(
+        protocolVersion=1,
+        messageID=message_id,
+        stationID=42,
+    )
+    data = raw(pkt)
+    assert data
+    assert raw(cls(data)) == data
+
+= every packet class of the layer round-trips
+
+from scapy.contrib.automotive.v2x import packets
+
+classes = [
+    getattr(packets, name) for name in packets.__all__
+    if isinstance(getattr(packets, name), type) and
+    issubclass(getattr(packets, name), ASN1_Packet)
+]
+built = 0
+for cls in classes:
+    try:
+        data = raw(cls())
+    except Exception:
+        # A CHOICE without an alternative and a SEQUENCE OF that may not be
+        # empty have no encodable default value.
+        continue
+    built += 1
+    assert raw(cls(data)) == data, cls.__name__
+
+assert len(classes) == 177
+
+assert built == 161
+
+= a CHOICE between alternatives of one type round-trips
+
+from scapy.contrib.automotive.v2x.packets import EuVehicleCategoryCode
+
+# Reference (asn1tools) for the six alternatives of
+#   EuVehicleCategoryCode ::= CHOICE {
+#       euVehicleCategoryL ENUMERATED {l1, ..., l7},
+#       euVehicleCategoryM ENUMERATED {m1, m2, m3},
+#       euVehicleCategoryN ENUMERATED {n1, n2, n3},
+#       euVehicleCategoryO ENUMERATED {o1, ..., o4},
+#       euVehilcleCategoryT NULL, euVehilcleCategoryG NULL }
+# Four of them are ENUMERATED and two NULL, so only their position tells them
+# apart: l3, m2, n1, o4, T and G.
+for encoded in [b"\x08", b"\x28", b"\x40", b"\x78", b"\x80", b"\xa0"]:
+    assert raw(EuVehicleCategoryCode(encoded)) == encoded
+
+assert EuVehicleCategoryCode(b"\x78").root.val == 3
+
+= a CHOICE reports the alternative it misses
+
+from scapy.contrib.automotive.v2x.packets import LaneAttributes
+
+try:
+    raw(LaneAttributes())
+    assert False
+except ASN1_Error as e:
+    assert "unknown alternative" in str(e)
+
++ ETSI ITS DENM interoperability
+
+= the InstantX DENM example builds byte for byte
+
+assert raw(build_instantx_denm()) == bytes.fromhex(INSTANTX_DENM_ITS_HEX)
+
+= the InstantX DENM example dissects
+
+pkt = DENM(bytes.fromhex(INSTANTX_DENM_ITS_HEX))
+assert pkt.header.protocolVersion.val == 2
+assert pkt.header.messageID.val == 1
+assert pkt.header.stationID.val == 19911991
+mgmt = pkt.denm.management
+assert mgmt.actionID.originatingStationID.val == 19911991
+assert mgmt.actionID.sequenceNumber.val == 987
+assert mgmt.detectionTime.val == 1071266991390
+assert mgmt.referenceTime.val == 1071266991390
+assert mgmt.termination is None
+assert mgmt.eventPosition.latitude.val == -109791002
+assert mgmt.eventPosition.longitude.val == -112004003
+assert mgmt.eventPosition.altitude.altitudeValue.val == 1200
+assert mgmt.validityDuration.val == 86400
+assert mgmt.transmissionInterval.val == 500
+assert mgmt.stationType.val == 5
+assert pkt.denm.situation.eventType.causeCode.val == 14
+assert pkt.denm.situation.linkedCause.causeCode.val == 97
+assert len(pkt.denm.situation.eventHistory) == 2
+assert pkt.denm.situation.eventHistory[0].eventDeltaTime.val == 1706733817
+assert pkt.denm.situation.eventHistory[0].eventPosition.deltaLatitude.val == -123
+assert pkt.denm.situation.eventHistory[1].eventPosition.deltaLatitude.val == 456
+assert pkt.denm.location.eventSpeed.speedValue.val == 1300
+assert len(pkt.denm.location.traces) == 1
+assert len(pkt.denm.location.traces[0].pathPoints) == 0
+
+= the InstantX DENM example round-trips
+
+data = raw(build_instantx_denm())
+assert raw(DENM(data)) == data
+
++ ETSI ITS containers
+
+= a management container builds
+
+mgmt = ManagementContainer(
+    actionID=ActionID(originatingStationID=1, sequenceNumber=1),
+    detectionTime=1,
+    referenceTime=1,
+    eventPosition=ReferencePosition(
+        latitude=0,
+        longitude=0,
+        positionConfidenceEllipse=PosConfidenceEllipse(
+            semiMajorConfidence=0,
+            semiMinorConfidence=0,
+            semiMajorOrientation=0,
+        ),
+        altitude=Altitude(altitudeValue=0, altitudeConfidence=0),
+    ),
+    stationType=0,
+)
+assert raw(mgmt)
+
+= a situation container round-trips its event history
+
+situation = SituationContainer(
+    informationQuality=1,
+    eventType=CauseCode(causeCode=1, subCauseCode=0),
+    eventHistory=[
+        EventPoint(
+            eventPosition=DeltaReferencePosition(
+                deltaLatitude=0,
+                deltaLongitude=0,
+                deltaAltitude=0,
+            ),
+            eventDeltaTime=1706733817,
+            informationQuality=1,
+        ),
+    ],
+)
+decoded = SituationContainer(raw(situation))
+assert decoded.informationQuality.val == 1
+assert decoded.eventType.causeCode.val == 1
+assert len(decoded.eventHistory) == 1
+assert decoded.eventHistory[0].eventDeltaTime.val == 1706733817
+
+= a location container round-trips its traces
+
+location = LocationContainer(traces=[PathHistory()])
+decoded = LocationContainer(raw(location))
+assert len(decoded.traces) == 1
+assert len(decoded.traces[0].pathPoints) == 0
