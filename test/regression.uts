@@ -1065,6 +1065,23 @@ assert in6_addrtovendor("fe80::0200:0fff:fe01:0203").lower().startswith("next")
 assert conf.manufdb.lookup("00:00:0F:01:02:03") == ('Next', 'Next, Inc.')
 assert "00:00:0F" in conf.manufdb.reverse_lookup("Next")
 
+= Test manuf DB is lazily loaded
+~ manufdb
+import subprocess
+out = subprocess.check_output([
+    sys.executable, "-c",
+    "import scapy.data; print('MANUFDB' in vars(scapy.data))"
+])
+assert out.strip() == b"False"
+import scapy.data
+assert scapy.data.MANUFDB is conf.manufdb
+assert "MANUFDB" in vars(scapy.data)
+try:
+    scapy.data.DOES_NOT_EXIST
+    assert False
+except AttributeError:
+    pass
+
 = Test multiple wireshark's manuf formats
 ~ manufdb
 

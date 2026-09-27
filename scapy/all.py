@@ -11,6 +11,8 @@ from scapy.base_classes import *
 from scapy.config import *
 from scapy.dadict import *
 from scapy.data import *
+# MANUFDB is lazily loaded, so it isn't picked up by the * import above
+from scapy.data import MANUFDB
 from scapy.error import *
 from scapy.themes import *
 from scapy.arch import *
