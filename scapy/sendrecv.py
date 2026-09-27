@@ -580,6 +580,7 @@ def sendpfast(x: _PacketIterable,
     argv.append(f)
     wrpcap(f, x)
     results = None
+    cmd = None
     with ContextManagerSubprocess(conf.prog.tcpreplay):
         try:
             cmd = subprocess.Popen(argv, stdout=subprocess.PIPE,
@@ -593,13 +594,14 @@ def sendpfast(x: _PacketIterable,
             os.unlink(f)
             raise
         finally:
-            stdout, stderr = cmd.communicate()
-            if stderr:
-                log_runtime.warning(stderr.decode())
-            if parse_results:
-                results = _parse_tcpreplay_result(stdout, stderr, argv)
-            elif conf.verb > 2:
-                log_runtime.info(stdout.decode())
+            if cmd is not None:
+                stdout, stderr = cmd.communicate()
+                if stderr:
+                    log_runtime.warning(stderr.decode())
+                if parse_results:
+                    results = _parse_tcpreplay_result(stdout, stderr, argv)
+                elif conf.verb > 2:
+                    log_runtime.info(stdout.decode())
     if os.path.exists(f):
         os.unlink(f)
     return results

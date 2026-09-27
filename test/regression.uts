@@ -2007,6 +2007,18 @@ except Exception:
 conf.interactive = old_interactive
 assert True
 
+= sendpfast - tcpreplay not installed
+* A missing tcpreplay must be reported as such, not hidden by an UnboundLocalError
+
+old_tcpreplay = conf.prog.tcpreplay
+conf.prog.tcpreplay = "/nonexistent/tcpreplay"
+try:
+    with mock.patch("scapy.utils.log_runtime.error") as log_error:
+        assert sendpfast(Ether() / IP()) is None
+    assert "is it installed?" in log_error.call_args[0][0]
+finally:
+    conf.prog.tcpreplay = old_tcpreplay
+
 ############
 ############
 + Generator tests
