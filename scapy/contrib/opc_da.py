@@ -883,7 +883,7 @@ class OpcDaFack(Packet):
         IntField('maxTsdu', 0),
         IntField('maxFragSize', 0),
         ShortField('serialNum', 0),
-        FieldLenField('selackLen', 0, count_of='selack', fmt="H"),
+        FieldLenField('selackLen', None, count_of='selack', fmt="H"),
         FieldListField('selack', [], IntField('', 0),
                        count_from=lambda pkt: pkt.selackLen),
     ]
