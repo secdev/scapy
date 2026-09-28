@@ -123,6 +123,18 @@ fackLE = OpcDaFackLE(opcDaFackPacket_Dissect)
 assert len(fackLE.selack) == 2
 assert raw(fackLE) == opcDaFackPacket_Dissect
 
+= OpcDaFack selackLen counts selack when building
+fack = OpcDaFack(raw(OpcDaFack(selack=[0xaaaaaaaa, 0xbbbbbbbb])))
+assert fack.selackLen == 2
+assert fack.selack == [0xaaaaaaaa, 0xbbbbbbbb]
+fackLE = OpcDaFackLE(raw(OpcDaFackLE(selack=[1])))
+assert fackLE.selackLen == 1 and fackLE.selack == [1]
+
+= OpcDaFack selackLen matches the entries written for selack=None
+data = raw(OpcDaFack(selack=None))
+assert OpcDaFack(data).selackLen == (len(data) - len(raw(OpcDaFack()))) // 4
+assert raw(OpcDaFack()) == raw(OpcDaFack(selack=[]))
+
 # + Test Cancel ack Packet
 # No example yet
 # OpcDaCancel_ack
