@@ -762,11 +762,14 @@ if conf.use_pcap:
                   **kargs  # type: Any
                   ):
         # type: (...) -> libpcap._PcapWrapper_libpcap
-        """open_pcap: Windows routine for creating a pcap from an interface.
+        """
+        open_pcap: Windows routine for creating a pcap from an interface.
         This function is also responsible for detecting monitor mode.
         """
+        if kargs.get("offline", False):
+            return _orig_open_pcap(device, *args, **kargs)
+
         iface = cast(NetworkInterface_Win, resolve_iface(device))
-        iface_network_name = iface.network_name
         if not iface:
             raise Scapy_Exception(
                 "Interface is invalid (no pcap match found)!"
@@ -781,7 +784,7 @@ if conf.use_pcap:
                 # The monitor param is specified, and not matching the current
                 # interface state
                 iface.setmonitor(kw_monitor)
-        return _orig_open_pcap(iface_network_name, *args, **kargs)
+        return _orig_open_pcap(device, *args, **kargs)
     libpcap.open_pcap = open_pcap  # type: ignore
 
 
