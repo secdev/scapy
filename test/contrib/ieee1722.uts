@@ -345,9 +345,16 @@ checksum = AvtpAcfChecksumHeader(checksum=0xABCD)
 assert checksum.checksum == 0xABCD
 assert checksum.acf_msg_type == AvtpAcfType.ACF_CHECKSUM.value
 
-crc = AvtpAcfCrcHeader(crc_type=0x3)
-assert crc.crc_type == 0x3
-assert crc.acf_msg_type == AvtpAcfType.ACF_CRC.value
+crc = AvtpAcfCrcHeader(crc_type=AvtpAcfCrcHeader.CrcType.CRC_32P4)
+decoded = AvtpAcfHeader(bytes(crc))
+assert decoded.crc_type == 0x1
+assert decoded.acf_msg_type == AvtpAcfType.ACF_CRC.value
+
+
+crc = AvtpAcfCrcHeader(crc_type=AvtpAcfCrcHeader.CrcType.CRC_USER)
+decoded = AvtpAcfHeader(bytes(crc))
+assert decoded.crc_type == 0xf
+assert decoded.acf_msg_type == AvtpAcfType.ACF_CRC.value
 
 gisf = AvtpAcfGisfHeader(
     image_sensor_id=0x123, line_number=0x456
@@ -463,7 +470,7 @@ acf_gpc_pkt = AvtpAcfGpcHeader() / Raw(load="\x01\x02\x03")
 acf_can_pkt2 = AvtpAcfCanHeader() / Raw(load="\x01")
 acf_pkts = [acf_pkt1, acf_can_pkt1, acf_gpc_pkt, acf_can_pkt2]
 cf_pkt = AvtpNtscfHeader(acf_tlv=acf_pkts)
-wire = bytes(Ether() / cf_pkt)
+wire = bytes(Ether(type=0x22f0) / cf_pkt)
 decoded = Ether(wire)
 assert len(decoded.payload.acf_tlv) == 4
 
