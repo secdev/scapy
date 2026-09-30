@@ -12,6 +12,7 @@ IEEE 1722 serialization formats for Scapy
 
 import struct
 from enum import Enum
+from scapy.error import warning
 
 from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import UDP
@@ -139,9 +140,10 @@ class AvtpCommonHeader(Packet):
             return cls.common_header_variants.get(key, _AvtpCommonSerializableHeader)
         return cls
 
+
 class _AvtpCommonSerializableHeader(AvtpCommonHeader):
     """
-    Base class for AvtpCommonHeader in a serializable format. 
+    Base class for AvtpCommonHeader in a serializable format.
     This is the fallback class for Avtp Variants without a specific implementation.
     """
 
@@ -362,10 +364,15 @@ class AvtpAcfHeader(Packet):
         pkt, pay = self._pad_payload(pkt, pay)
         acf_length = (len(pkt) + len(pay)) // 4 & 0x1FF
         if len(pkt) >= 2:
-            pkt = bytes([
-                (pkt[0] & 0xFE) | (acf_length >> 8),
-                acf_length & 0xFF,
-            ]) + pkt[2:]
+            pkt = (
+                bytes(
+                    [
+                        (pkt[0] & 0xFE) | (acf_length >> 8),
+                        acf_length & 0xFF,
+                    ]
+                )
+                + pkt[2:]
+            )
         return pkt + pay
 
 
@@ -860,7 +867,7 @@ class AvtpAcfCrcHeader(AvtpAcfHeader):
 
         CRC_ETH = 0
         CRC_32P4 = 1
-        CRC_USER = 0xf
+        CRC_USER = 0xF
 
     name = "ACF CRC Header"
     acf_msg_type = AvtpAcfType.ACF_CRC.value
@@ -919,6 +926,11 @@ class AvtpNtscfHeader(_AvtpAlternativeHeader):
             version = (pkt[1] & 0x70) >> 4
         else:
             version = 0
+
+        if version not in (0, 1):
+            warning(
+                f"Unsupported AVTP NTSCF version {version}. Defaulting to AVTP common header."
+            )
 
         return {
             0: AvtpNtscfHeaderV0,
@@ -998,6 +1010,11 @@ class AvtpTscfHeader(AvtpCommonStreamHeader):
             version = (pkt[1] & 0x70) >> 4
         else:
             version = 0
+
+        if version not in (0, 1):
+            warning(
+                f"Unsupported AVTP TSCF version {version}. Defaulting to AVTP common header."
+            )
 
         return {
             0: AvtpTscfHeaderV0,
