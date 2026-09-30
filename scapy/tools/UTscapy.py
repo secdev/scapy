@@ -1117,8 +1117,8 @@ def main():
         if VERB > 2:
             print(" " + arrow + " libpcap mode")
 
-    if sys.version_info < (3, 8):
-        KW_KO.append("needs_py38plus")
+    if sys.version_info < (3, 9):
+        KW_KO.append("needs_py39plus")
 
     KW_KO.append("disabled")
 

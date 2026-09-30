@@ -1,5 +1,5 @@
 % MS-LSAD tests
-~ needs_py38plus
+~ needs_py39plus
 
 + [MS-LSAD] build and dissection tests
 

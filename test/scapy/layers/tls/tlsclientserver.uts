@@ -428,7 +428,7 @@ test_tls_client("1305", "0304", key_update=True)
 test_tls_client("1305", "0304", client_auth=True, sess_in_out=True)
 
 = Testing TLS server and client with TLS 1.3 and TLS_AES_128_CCM_8_SHA256 and server verification
-~ crypto_advanced
+~ crypto_advanced needs_py39plus
 
 try:
     test_tls_client("1305", "0304", verify_server=True)

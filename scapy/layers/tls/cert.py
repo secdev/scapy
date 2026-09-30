@@ -124,22 +124,25 @@ from scapy.layers.x509 import (
     CMS_SignedData,
     CMS_SignerInfo,
     CMS_SubjectKeyIdentifier,
-    ECDSAPrivateKey_OpenSSL,
     ECDSAPrivateKey,
+    ECDSAPrivateKey_OpenSSL,
     ECDSAPublicKey,
     EdDSAPrivateKey,
     EdDSAPublicKey,
+    MLDSAPrivateKey,
+    MLDSAPublicKey,
     PKCS10_CertificationRequest,
-    RSAPrivateKey_OpenSSL,
     RSAPrivateKey,
+    RSAPrivateKey_OpenSSL,
     RSAPublicKey,
     X509_AlgorithmIdentifier,
     X509_Attribute,
     X509_AttributeValue,
-    X509_Cert,
     X509_CRL,
+    X509_Cert,
     X509_DNSName,
     X509_IPAddress,
+    X509_OneAsymmetricKey,
     X509_SubjectPublicKeyInfo,
 )
 from scapy.layers.tls.crypto.hash import _get_hash
@@ -163,6 +166,12 @@ if conf.crypto_valid:
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa, ec, x25519, x448
+
+    try:
+        # cryptography >= 47.0
+        from cryptography.hazmat.primitives.asymmetric import mldsa
+    except ImportError:
+        pass
 
     # cryptography raised the minimum RSA key length to 1024 in 43.0+
     # https://github.com/pyca/cryptography/pull/10278
@@ -337,7 +346,8 @@ class _PubKeyFactory(_PKIObjMaker):
         # _an X509_SubjectPublicKeyInfo, as processed by openssl;
         # _an RSAPublicKey;
         # _an ECDSAPublicKey;
-        # _an EdDSAPublicKey.
+        # _an EdDSAPublicKey;
+        # _an MLDSAPublicKey.
         obj = _PKIObjMaker.__call__(cls, key_path, _MAX_KEY_SIZE)
         try:
             spki = X509_SubjectPublicKeyInfo(obj._der)
@@ -350,6 +360,9 @@ class _PubKeyFactory(_PKIObjMaker):
                 obj.import_from_der(obj._der)
             elif isinstance(pubkey, EdDSAPublicKey):
                 obj.__class__ = PubKeyEdDSA
+                obj.import_from_der(obj._der)
+            elif isinstance(pubkey, MLDSAPublicKey):
+                obj.__class__ = PubKeyMLDSA
                 obj.import_from_der(obj._der)
             else:
                 raise
@@ -370,7 +383,7 @@ class _PubKeyFactory(_PKIObjMaker):
 
 class PubKey(metaclass=_PubKeyFactory):
     """
-    Parent class for PubKeyRSA, PubKeyECDSA and PubKeyEdDSA.
+    Parent class for PubKeyRSA, PubKeyECDSA, PubKeyEdDSA and PubKeyMLDSA.
     Provides common verifyCert() and export() methods.
     """
 
@@ -556,6 +569,38 @@ class PubKeyEdDSA(PubKey):
             return False
 
 
+class PubKeyMLDSA(PubKey):
+    """
+    Wrapper for MLDSA keys based on the cryptography library.
+    Use the 'key' attribute to access original object.
+    """
+
+    @crypto_validator
+    def fill_and_store(self, curve=None):
+        curve = curve or mldsa.MLDSA87PrivateKey
+        private_key = curve.generate()
+        self.pubkey = private_key.public_key()
+
+    @crypto_validator
+    def import_from_der(self, pubkey):
+        self.pubkey = serialization.load_der_public_key(
+            pubkey,
+            backend=default_backend(),
+        )
+
+    def encrypt(self, msg, **kwargs):
+        raise Exception("No MLDSA encryption support")
+
+    @crypto_validator
+    def verify(self, msg, sig, **kwargs):
+        # 'sig' should be a DER-encoded signature, as per RFC 3279
+        try:
+            self.pubkey.verify(sig, msg)
+            return True
+        except InvalidSignature:
+            return False
+
+
 ################
 # Private Keys #
 ################
@@ -601,31 +646,38 @@ class _PrivKeyFactory(_PKIObjMaker):
             obj = _PKIObjMaker.__call__(cls, key_path, _MAX_KEY_SIZE)
 
         try:
-            privkey = RSAPrivateKey_OpenSSL(obj._der)
-            privkey = privkey.privateKey
-            obj.__class__ = PrivKeyRSA
+            # The modern format "OneAsymmetricKey" supports specifying the algorithm
+            privkey = X509_OneAsymmetricKey(obj._der)
+            if isinstance(privkey.privateKey, EdDSAPrivateKey):
+                obj.__class__ = PrivKeyEdDSA
+            elif isinstance(privkey.privateKey, MLDSAPrivateKey):
+                obj.__class__ = PrivKeyMLDSA
+            else:
+                raise
             obj.marker = "PRIVATE KEY"
         except Exception:
+            # If it fails, we have a chain of legacy fallbacks.
             try:
-                privkey = ECDSAPrivateKey_OpenSSL(obj._der)
+                privkey = RSAPrivateKey_OpenSSL(obj._der)
                 privkey = privkey.privateKey
-                obj.__class__ = PrivKeyECDSA
-                obj.marker = "EC PRIVATE KEY"
+                obj.__class__ = PrivKeyRSA
+                obj.marker = "PRIVATE KEY"
             except Exception:
                 try:
-                    privkey = RSAPrivateKey(obj._der)
-                    obj.__class__ = PrivKeyRSA
-                    obj.marker = "RSA PRIVATE KEY"
+                    privkey = ECDSAPrivateKey_OpenSSL(obj._der)
+                    privkey = privkey.privateKey
+                    obj.__class__ = PrivKeyECDSA
+                    obj.marker = "EC PRIVATE KEY"
                 except Exception:
                     try:
-                        privkey = ECDSAPrivateKey(obj._der)
-                        obj.__class__ = PrivKeyECDSA
-                        obj.marker = "EC PRIVATE KEY"
+                        privkey = RSAPrivateKey(obj._der)
+                        obj.__class__ = PrivKeyRSA
+                        obj.marker = "RSA PRIVATE KEY"
                     except Exception:
                         try:
-                            privkey = EdDSAPrivateKey(obj._der)
-                            obj.__class__ = PrivKeyEdDSA
-                            obj.marker = "PRIVATE KEY"
+                            privkey = ECDSAPrivateKey(obj._der)
+                            obj.__class__ = PrivKeyECDSA
+                            obj.marker = "EC PRIVATE KEY"
                         except Exception:
                             raise Exception("Unable to import private key")
         try:
@@ -875,7 +927,7 @@ class PrivKeyEdDSA(PrivKey):
     def fill_and_store(self, curve=None):
         curve = curve or x25519.X25519PrivateKey
         self.key = curve.generate()
-        self.pubkey = PubKeyECDSA(cryptography_obj=self.key.public_key())
+        self.pubkey = PubKeyEdDSA(cryptography_obj=self.key.public_key())
         self.marker = "PRIVATE KEY"
 
     @crypto_validator
@@ -883,7 +935,37 @@ class PrivKeyEdDSA(PrivKey):
         self.key = serialization.load_der_private_key(
             bytes(privkey), None, backend=default_backend()
         )
-        self.pubkey = PubKeyECDSA(cryptography_obj=self.key.public_key())
+        self.pubkey = PubKeyEdDSA(cryptography_obj=self.key.public_key())
+        self.marker = "PRIVATE KEY"
+
+    @crypto_validator
+    def verify(self, msg, sig, **kwargs):
+        return self.pubkey.verify(msg=msg, sig=sig, **kwargs)
+
+    @crypto_validator
+    def sign(self, data, **kwargs):
+        return self.key.sign(data)
+
+
+class PrivKeyMLDSA(PrivKey):
+    """
+    Wrapper for MLDSA keys
+    Use the 'key' attribute to access original object.
+    """
+
+    @crypto_validator
+    def fill_and_store(self, curve=None):
+        curve = curve or mldsa.MLDSA87PrivateKey
+        self.key = curve.generate()
+        self.pubkey = PubKeyMLDSA(cryptography_obj=self.key.public_key())
+        self.marker = "PRIVATE KEY"
+
+    @crypto_validator
+    def import_from_asn1pkt(self, privkey):
+        self.key = serialization.load_der_private_key(
+            bytes(privkey), None, backend=default_backend()
+        )
+        self.pubkey = PubKeyMLDSA(cryptography_obj=self.key.public_key())
         self.marker = "PRIVATE KEY"
 
     @crypto_validator
@@ -1590,7 +1672,8 @@ class CertList(list):
             try:
                 certs.append(Cert(der))
             except Exception as ex:
-                log_runtime.error("Failed loading cert:", repr(der))
+                log_runtime.error("Failed loading cert.")
+                log_runtime.error(der2pem(der))
                 raise ex
         return cls(certs)
 

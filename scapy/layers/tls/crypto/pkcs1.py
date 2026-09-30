@@ -124,7 +124,11 @@ class _EncryptAndVerifyRSA(object):
     def verify(self, M, S, t="pkcs", h="sha256", mgf=None, L=None):
         M = bytes_encode(M)
         mgf = mgf or padding.MGF1
-        h = _get_hash(h)
+        try:
+            h = _get_hash(h)
+        except KeyError:
+            warning("Cannot verify unknown hash format: %s" % h)
+            return False
         pad = _get_padding(t, mgf, h, L)
         try:
             try:
