@@ -367,14 +367,11 @@ class Packet(
             if for_dissect_only:
                 return
 
-            # Deepcopy default references
+            # Deepcopy default references into fields (list/dict/Packet/…)
             for fname in Packet.class_default_fields_ref[cls_name]:
                 value = self.default_fields[fname]
-                try:
-                    self.fields[fname] = value.copy()
-                except AttributeError:
-                    # Python 2.7 - list only
-                    self.fields[fname] = value[:]
+                fld = self.fieldtype[fname]
+                self.fields[fname] = fld.do_copy(value)
 
     def prepare_cached_fields(self, flist):
         # type: (Sequence[AnyField]) -> None
@@ -406,7 +403,7 @@ class Packet(
             if f.holds_packets:
                 class_packetfields.append(f)
 
-            # Remember references
+            # list/dict/set/Packet/RandField: promote copies into fields
             if isinstance(f.default, (list, dict, set, RandField, Packet)):
                 class_default_fields_ref.append(f.name)
 
@@ -766,22 +763,30 @@ class Packet(
                         fsubval.clear_cache()
         self.payload.clear_cache()
 
+    def _raw_packet_cache_is_valid(self):
+        # type: () -> bool
+        """Return True if ``raw_packet_cache`` still matches nested field state.
+
+        On mismatch, clear the cache fingerprints and ``wirelen``.
+        """
+        if self.raw_packet_cache is None or self.raw_packet_cache_fields is None:
+            return False
+        for fname, fval in self.raw_packet_cache_fields.items():
+            fld, val = self.getfield_and_val(fname)
+            if self._raw_packet_cache_field_value(fld, val) != fval:
+                self.raw_packet_cache = None
+                self.raw_packet_cache_fields = None
+                self.wirelen = None
+                return False
+        return True
+
     def self_build(self):
         # type: () -> bytes
         """
         Create the default layer regarding fields_desc dict
         """
-        if self.raw_packet_cache is not None and \
-                self.raw_packet_cache_fields is not None:
-            for fname, fval in self.raw_packet_cache_fields.items():
-                fld, val = self.getfield_and_val(fname)
-                if self._raw_packet_cache_field_value(fld, val) != fval:
-                    self.raw_packet_cache = None
-                    self.raw_packet_cache_fields = None
-                    self.wirelen = None
-                    break
-            if self.raw_packet_cache is not None:
-                return self.raw_packet_cache
+        if self._raw_packet_cache_is_valid():
+            return cast(bytes, self.raw_packet_cache)
         p = b""
         for f in self.fields_desc:
             val = self.getfieldval(f.name)
