@@ -291,13 +291,15 @@ from scapy.arch.libpcap import open_pcap
 try:
     # 0. Create
     fname = get_temp_file()
-    wrpcap(fname, [Ether()/IP()])
+    pkt = Ether() / IP()
+    pkt.wirelen = len(pkt) + 1000
+    wrpcap(fname, [pkt])
     # 1. Open with libpcap
     reader = open_pcap(fname, offline=True)
     # 2. Read packet
     reader.next()
     # 3. Check the header lengths
-    assert reader.header.contents.len == 34
+    assert reader.header.contents.len == 1034
     assert reader.header.contents.caplen == 34
 finally:
     try:
