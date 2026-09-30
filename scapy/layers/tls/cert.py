@@ -102,7 +102,7 @@ import warnings
 
 from scapy.config import conf, crypto_validator
 from scapy.compat import Self, plain_str
-from scapy.error import warning
+from scapy.error import log_runtime, warning
 from scapy.utils import binrepr
 from scapy.pton_ntop import inet_ntop
 from scapy.asn1.asn1 import (
@@ -1585,9 +1585,14 @@ class CertList(list):
         Return a CertList containing the default trusted system store.
         """
         context = ssl.create_default_context()
-        return cls([
-            Cert(der) for der in context.get_ca_certs(binary_form=True)
-        ])
+        certs = []
+        for der in context.get_ca_certs(binary_form=True):
+            try:
+                certs.append(Cert(der))
+            except Exception as ex:
+                log_runtime.error("Failed loading cert:", repr(der))
+                raise ex
+        return cls(certs)
 
     def findCertBySid(self, sid):
         """
