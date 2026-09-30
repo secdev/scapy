@@ -268,7 +268,7 @@ except:
 
 assert not conf.use_bpf
 
-= Configuration conf.use_pcap
+= libpcap - Configuration conf.use_pcap
 ~ linux libpcap
 
 if not conf.use_pcap:
@@ -280,37 +280,31 @@ if not conf.use_pcap:
     conf.use_pcap = False
     assert not conf.iface.provider.libpcap
 
-= Native libpcap capture returns only the captured bytes
-~ linux libpcap
+= libpcap - test open_pcap
+~ libpcap
 
-from ctypes import POINTER, c_ubyte, cast, pointer
-from scapy.arch import libpcap as _libpcap
-
-_was_use_pcap = conf.use_pcap
+_old_usepcap = conf.use_pcap
 conf.use_pcap = True
-try:
-    hdr = _libpcap.pcap_pkthdr()
-    hdr.ts.tv_sec, hdr.ts.tv_usec = 1, 0
-    hdr.caplen = 4
-    hdr.len = 12  # the length on the wire, before the snapshot length cut it
-    buf = (c_ubyte * 12)(1, 2, 3, 4, *([0xff] * 8))
-    wrapper = _libpcap._PcapWrapper_libpcap.__new__(
-        _libpcap._PcapWrapper_libpcap
-    )
-    wrapper.pcap = None
-    wrapper.header = pointer(hdr)
-    wrapper.pkt_data = cast(buf, POINTER(c_ubyte))
-    _next_ex = _libpcap.pcap_next_ex
-    _libpcap.pcap_next_ex = lambda *args: 1
-    try:
-        ts, pkt = wrapper.next()
-    finally:
-        _libpcap.pcap_next_ex = _next_ex
-finally:
-    conf.use_pcap = _was_use_pcap
 
-# Anything past caplen is whatever the buffer held before, not this packet.
-assert pkt == b"\x01\x02\x03\x04"
+from scapy.arch.libpcap import open_pcap
+
+try:
+    # 0. Create
+    fname = get_temp_file()
+    wrpcap(fname, [Ether()/IP()])
+    # 1. Open with libpcap
+    reader = open_pcap(fname, offline=True)
+    # 2. Read packet
+    reader.next()
+    # 3. Check the header lengths
+    assert reader.header.contents.len == 34
+    assert reader.header.contents.caplen == 34
+finally:
+    try:
+        reader.close()
+    except Exception:
+        pass
+    conf.use_pcap = _old_usepcap
 
 = Test layer filtering
 ~ filter

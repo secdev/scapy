@@ -179,6 +179,7 @@ if conf.use_pcap:
             pcap_lib_version,
             pcap_next_ex,
             pcap_open_live,
+            pcap_open_offline,
             pcap_pkthdr,
             pcap_setfilter,
             pcap_setnonblock,
@@ -283,22 +284,38 @@ if conf.use_pcap:
 
 if conf.use_pcap:
     class _PcapWrapper_libpcap:  # noqa: F811
-        """Wrapper for the libpcap calls"""
+        """
+        Wrapper for the libpcap calls
 
-        def __init__(self,
-                     device,  # type: _GlobInterfaceType
-                     snaplen,  # type: int
-                     promisc,  # type: bool
-                     to_ms,  # type: int
-                     monitor=None,  # type: Optional[bool]
-                     ):
+        :param device: the device to open (or filename if offline=True)
+        :param offline: if True, reads a pcap, else do a live capture
+        """
+
+        def __init__(
+            self,
+            device: _GlobInterfaceType,
+            snaplen: int = MTU,
+            promisc: bool = False,
+            to_ms: int = 100,
+            monitor: Optional[bool] = None,
+            offline: bool = False,
+        ):
             # type: (...) -> None
             self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
-            self.iface = create_string_buffer(
-                network_name(device).encode("utf8")
-            )
-            self.dtl = -1
-            if not WINDOWS or conf.use_npcap:
+            if offline:
+                self.iface = cast(str, device).encode()
+            else:
+                self.iface = network_name(device).encode("utf8")
+
+            if offline:
+                # We're doing an offline capture
+                self.pcap = pcap_open_offline(self.iface, self.errbuf)
+                if not self.pcap:
+                    error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
+                    if error:
+                        raise OSError(error)
+            elif not WINDOWS or conf.use_npcap:
+                # Linux / BSD / Npcap
                 from scapy.libs.winpcapy import pcap_create
                 self.pcap = pcap_create(self.iface, self.errbuf)
                 if not self.pcap:
@@ -365,6 +382,7 @@ if conf.use_pcap:
                         errmsg = "%s: %s" % (iface, statusstr)
                     raise OSError(errmsg)
             else:
+                # Winpcap
                 if WINDOWS and monitor:
                     raise OSError("On Windows, this feature requires NPcap !")
                 self.pcap = pcap_open_live(self.iface,
@@ -382,6 +400,7 @@ if conf.use_pcap:
                 # returned, and not buffered within Winpcap/Npcap
                 pcap_setmintocopy(self.pcap, 0)
 
+            self.dtl = -1
             self.header = POINTER(pcap_pkthdr)()
             self.pkt_data = POINTER(c_ubyte)()
             self.bpf_program = bpf_program()
