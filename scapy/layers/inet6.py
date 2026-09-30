@@ -314,7 +314,7 @@ class _IPv6GuessPayload:
             return Raw
         elif self.nh == 135 and len(p) > 3:  # Mobile IPv6
             return _mip6_mhtype2cls.get(p[2], MIP6MH_Generic)
-        elif self.nh == 43 and len(p) > 2 and p[2] == 4:  # Segment Routing header
+        elif self.nh == 43 and p[2] == 4:  # Segment Routing header
             return IPv6ExtHdrSegmentRouting
         return ipv6nhcls.get(self.nh, Raw)
 
