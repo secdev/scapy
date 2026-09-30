@@ -312,6 +312,54 @@ finally:
 # Anything past caplen is whatever the buffer held before, not this packet.
 assert pkt == b"\x01\x02\x03\x04"
 
+= Native libpcap capture reads the header as libpcap lays it out
+~ libpcap
+
+# pcap_pkthdr starts with a struct timeval whose size varies by platform. Read
+# a real file through libpcap, so a wrong size shows up as a wrong caplen. The
+# microseconds are 1 so that, if they are misread as caplen, the read is short
+# and the test fails instead of crashing.
+import struct
+from ctypes import POINTER, c_ubyte, create_string_buffer
+from scapy.arch import libpcap as _libpcap
+from scapy.libs.winpcapy import (
+    PCAP_ERRBUF_SIZE, pcap_close, pcap_open_offline, pcap_pkthdr
+)
+
+# Turning libpcap on turns BPF off on BSD and macOS, so restore both.
+_was_use_pcap, _was_use_bpf = conf.use_pcap, conf.use_bpf
+conf.use_pcap = True
+try:
+    if conf.use_pcap:  # False when no libpcap could be loaded
+        fname = get_temp_file()
+        with open(fname, "wb") as fd:
+            fd.write(struct.pack("<IHHiIII", 0xa1b2c3d4, 2, 4, 0, 0, 65535, 1))
+            # captured 4 of 12 bytes, at 1790769268.000001
+            fd.write(struct.pack("<IIII", 1790769268, 1, 4, 12) + b"\x01\x02\x03\x04")
+        errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
+        handle = pcap_open_offline(fname.encode(), errbuf)
+        assert handle, bytes(errbuf).rstrip(b"\x00")
+        try:
+            wrapper = _libpcap._PcapWrapper_libpcap.__new__(
+                _libpcap._PcapWrapper_libpcap
+            )
+            wrapper.pcap = handle
+            wrapper.header = POINTER(pcap_pkthdr)()
+            wrapper.pkt_data = POINTER(c_ubyte)()
+            ts, pkt = wrapper.next()
+            # libpcap owns the header, so read it before closing the handle
+            caplen, wirelen = wrapper.header.contents.caplen, wrapper.header.contents.len
+        finally:
+            pcap_close(handle)
+        assert caplen == 4
+        assert wirelen == 12
+        assert pkt == b"\x01\x02\x03\x04"
+        assert abs(ts - 1790769268.000001) < 5e-7
+finally:
+    conf.use_pcap = _was_use_pcap
+    if _was_use_bpf:
+        conf.use_bpf = True
+
 = Test layer filtering
 ~ filter
 

@@ -11,10 +11,12 @@
 
 from ctypes import *
 from ctypes.util import find_library
+import ctypes
 import os
+import time
 
 from scapy.libs.structures import bpf_program
-from scapy.consts import WINDOWS, BSD
+from scapy.consts import WINDOWS, BSD, DARWIN, LINUX, NETBSD, OPENBSD
 
 if WINDOWS:
     # Try to load Npcap, or Winpcap
@@ -60,9 +62,38 @@ class bpf_version(Structure):
                 ("bv_minor", c_ushort)]
 
 
+# The timestamp in struct pcap_pkthdr. Windows uses two longs, and OpenBSD its
+# own struct bpf_timeval of two u_int32_t. Elsewhere its seconds are a time_t,
+# which is 64-bit on NetBSD, musl and 64-bit-time glibc even where a long is
+# 32-bit. Getting its size wrong shifts caplen and len, which follow it. This
+# assumes Python and libpcap were built for the same time_t, as a
+# distribution's packages are.
+if WINDOWS:
+    _time_t = _timeval_usec_t = c_long
+elif OPENBSD:
+    _time_t = _timeval_usec_t = c_uint32
+else:
+    try:
+        _time_t = ctypes.c_time_t  # Python 3.12+
+    except AttributeError:
+        # Older Pythons: ask whether this build's time_t can hold 2**31
+        try:
+            time.gmtime(2 ** 31)
+            _time_t = c_int64
+        except (OverflowError, OSError, ValueError):
+            _time_t = c_int32
+    if NETBSD or DARWIN:
+        _timeval_usec_t = c_int
+    elif LINUX:
+        # As wide as tv_sec in glibc and musl, including glibc's 64-bit time
+        _timeval_usec_t = _time_t
+    else:
+        _timeval_usec_t = c_long
+
+
 class timeval(Structure):
-    _fields_ = [('tv_sec', c_long),
-                ('tv_usec', c_long)]
+    _fields_ = [('tv_sec', _time_t),
+                ('tv_usec', _timeval_usec_t)]
 
 
 # sockaddr is used by pcap_addr.
