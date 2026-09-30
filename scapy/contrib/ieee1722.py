@@ -131,7 +131,7 @@ class AvtpCommonHeader(Packet):
         """
         Dispatch the appropriate class based on the parsed subtype and version.
         """
-        if pkt is not None:
+        if pkt is not None and len(pkt) >= 2:
             parsed_type = pkt[0]
             parsed_version = (pkt[1] & 0x70) >> 4
 
@@ -163,7 +163,7 @@ class AvtpCommonStreamHeader(AvtpCommonHeader):
     def dispatch_hook(cls, pkt=None, **kargs):
         if "version" in kargs:
             version = kargs["version"]
-        elif pkt:
+        elif pkt and len(pkt) >= 2:
             version = (pkt[1] & 0x70) >> 4
         else:
             version = 0
@@ -247,13 +247,13 @@ class AvtpCommonControlHeader(AvtpCommonHeader):
 
     def post_build(self, pkt: bytes, pay: bytes) -> bytes:
 
-        if self.control_data_length is None:
+        if self.control_data_length is None and len(pkt) >= 4:
             # Update the length fields on packet building
             pay_length = len(pay) if len(pay) < 2**11 else 0
             current_length = (
-                int.from_bytes(pkt[-10:-8], byteorder="big") & 0xF800
+                int.from_bytes(pkt[2:4], byteorder="big") & 0xF800
             ) | pay_length
-            pkt = pkt[:-10] + struct.pack("!H", current_length) + pkt[-8:]
+            pkt = pkt[:2] + struct.pack("!H", current_length) + pkt[4:]
 
         return pkt + pay
 
@@ -269,7 +269,7 @@ class _AvtpAlternativeHeader(AvtpCommonHeader):
     def dispatch_hook(cls, pkt=None, **kargs):
         if "version" in kargs:
             version = kargs["version"]
-        elif pkt:
+        elif pkt and len(pkt) >= 2:
             version = (pkt[1] & 0x70) >> 4
         else:
             version = 0
@@ -343,7 +343,7 @@ class AvtpAcfHeader(Packet):
         """
         Dispatch to the appropriate ACF header variant based on the acf_msg_type field.
         """
-        if pkt is not None:
+        if pkt is not None and len(pkt) >= 1:
             tmp_type = (pkt[0] & 0xFE) >> 1
             return cls.acf_variants.get(tmp_type, cls)
         return cls
@@ -361,10 +361,11 @@ class AvtpAcfHeader(Packet):
             return pkt + pay
         pkt, pay = self._pad_payload(pkt, pay)
         acf_length = (len(pkt) + len(pay)) // 4 & 0x1FF
-        pkt = bytes([
-            (pkt[0] & 0xFE) | (acf_length >> 8),
-            acf_length & 0xFF,
-        ]) + pkt[2:]
+        if len(pkt) >= 2:
+            pkt = bytes([
+                (pkt[0] & 0xFE) | (acf_length >> 8),
+                acf_length & 0xFF,
+            ]) + pkt[2:]
         return pkt + pay
 
 
@@ -384,7 +385,7 @@ class _AvtpAcfPaddedHeader(AvtpAcfHeader):
 
     def _pad_payload(self, pkt, pay):
         pad = -(len(pkt) + len(pay)) % 4
-        if pad:
+        if pad and len(pkt) >= 3:
             pkt = pkt[:2] + bytes([pkt[2] | (pad << 6)]) + pkt[3:]
             pay += b"\x00" * pad
         return pkt, pay
@@ -852,12 +853,26 @@ class AvtpAcfCrcHeader(AvtpAcfHeader):
     Header for CRC Messages - Clause 9.4.21 - IEEE 1722 - 2025
     """
 
+    class CrcType(Enum):
+        """
+        CRC Type - Clause 9.4.21.2
+        """
+
+        CRC_ETH = 0
+        CRC_32P4 = 1
+        CRC_USER = 0xf
+
     name = "ACF CRC Header"
     acf_msg_type = AvtpAcfType.ACF_CRC.value
     fields_desc = [
         AvtpAcfHeader,
         BitField(name="reserved", size=12, default=0),
-        BitField(name="crc_type", size=4, default=0),
+        BitEnumField(
+            name="crc_type",
+            default=CrcType.CRC_ETH,
+            size=4,
+            enum=CrcType,
+        ),
     ]
 
 
@@ -900,7 +915,7 @@ class AvtpNtscfHeader(_AvtpAlternativeHeader):
     def dispatch_hook(cls, pkt=None, **kargs):
         if "version" in kargs:
             version = kargs["version"]
-        elif pkt:
+        elif pkt and len(pkt) >= 2:
             version = (pkt[1] & 0x70) >> 4
         else:
             version = 0
@@ -979,7 +994,7 @@ class AvtpTscfHeader(AvtpCommonStreamHeader):
     def dispatch_hook(cls, pkt=None, **kargs):
         if "version" in kargs:
             version = kargs["version"]
-        elif pkt:
+        elif pkt and len(pkt) >= 2:
             version = (pkt[1] & 0x70) >> 4
         else:
             version = 0
