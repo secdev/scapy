@@ -235,7 +235,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         answer = (header + body) % len(body)
         return answer
 
-    def stop(self):
+    def stop(self, wait=True):
         # We shutdown the server socket so that WAITING_CLIENT exits.
         try:
             self.serversocket.shutdown(socket.SHUT_RDWR)
@@ -243,9 +243,9 @@ class TLSServerAutomaton(_TLSAutomaton):
         except OSError:
             pass
         self.serversocket.close()
-        return super(TLSServerAutomaton, self).stop()
+        return super(TLSServerAutomaton, self).stop(wait=wait)
 
-    def forcestop(self):
+    def forcestop(self, wait=True):
         # We shutdown the server socket so that WAITING_CLIENT exits.
         try:
             self.serversocket.shutdown(socket.SHUT_RDWR)
@@ -253,7 +253,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         except OSError:
             pass
         self.serversocket.close()
-        return super(TLSServerAutomaton, self).forcestop()
+        return super(TLSServerAutomaton, self).forcestop(wait=wait)
 
     @ATMT.state(initial=True)
     def INITIAL(self):

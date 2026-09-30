@@ -1329,7 +1329,8 @@ class Automaton(metaclass=Automaton_metaclass):
                 self.state = self.initial_states[0](self)
                 self.send_sock = self.sock or self.send_sock_class(**self.socket_kargs)
                 if self.recv_conditions:
-                    # Only start a receiving socket if we have at least one recv_conditions
+                    # Only start a receiving socket if we have at least one
+                    # recv_conditions
                     self.listen_sock = self.sock or self.recv_sock_class(**self.socket_kargs)  # noqa: E501
             except Exception as e:
                 self._transfer_error(e, sys.exc_info())

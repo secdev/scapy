@@ -315,18 +315,23 @@ def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
         raise ex
     print("Thread synchronised")
     # Run client
-    if sess_in_out:
-        file_sess = scapy_path("/test/session")
-        run_tls_test_client(msg, suite, version, client_auth, key_update, session_ticket_file_out=file_sess,
-                            stop_server=False, verify_server=verify_server)
-        
-        final_reason = run_tls_test_client(msg, suite, version, client_auth, key_update, session_ticket_file_in=file_sess,
-                                           stop_server=True, verify_server=verify_server)
-    else:
-        final_reason = run_tls_test_client(msg, suite, version, client_auth, key_update, verify_server=verify_server)
+    try:
+        if sess_in_out:
+            file_sess = scapy_path("/test/session")
+            run_tls_test_client(msg, suite, version, client_auth, key_update, session_ticket_file_out=file_sess,
+                                stop_server=False, verify_server=verify_server)
+            
+            final_reason = run_tls_test_client(msg, suite, version, client_auth, key_update, session_ticket_file_in=file_sess,
+                                               stop_server=True, verify_server=verify_server)
+        else:
+            final_reason = run_tls_test_client(msg, suite, version, client_auth, key_update, verify_server=verify_server)
+    except Exception as ex:
+        final_reason = Bunch(atmt_origfunc=ex)
     # Check the final reason
     if final_reason.atmt_origfunc not in [TLSClientAutomaton.CLOSE_NOTIFY.atmt_origfunc, TLSClientAutomaton.SSLv2_CLOSE_NOTIFY.atmt_origfunc]:
-        print("Client crashed:", final_reason.atmt_origfunc)
+        print("Client crashed:", final_reason.atmt_origfunc, "Stopping server.")
+        atmtsrv.stop(wait=False)
+        th_.join(timeout=5)
     else:
         print("Client finished successfully")
         final_reason = None
@@ -335,10 +340,9 @@ def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
         ret = q_.get(timeout=1)
         if not ret:
             raise RuntimeError("Test timed out")
-    print("Stopping server...")
-    atmtsrv.stop()
+        atmtsrv.stop()
     print("Server stopped. Destroying server...")
-    atmtsrv.destroy()
+    atmtsrv.destroy(force=True)
     print("Server destroyed.")
     # re-raise if client failed.
     if final_reason:

@@ -143,7 +143,6 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.remote_port = dport
         self.server_name = server_name
         self.expected_server_name = server_name or server
-        print(verify_server)
         self.verify_server = verify_server or bool(cafile)
         if self.verify_server and cafile:
             self.server_trust_store = CertList(cafile)
@@ -416,7 +415,6 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     def _verify_server_cert(self):
         if self.verify_server:
-            raise self.INVALID_SERVER_CERTIFICATE()
             try:
                 CertTree(
                     self.cur_session.server_certs,
