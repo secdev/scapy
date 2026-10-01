@@ -1453,7 +1453,11 @@ class RawPcapReader(metaclass=PcapReader_metaclass):
             raise Scapy_Exception(
                 "Not a pcap capture file (bad magic: %r)" % magic
             )
-        hdr = self.f.read(20)
+        try:
+            hdr = self.f.read(20)
+        except (OSError, OverflowError, zlib.error) as e:
+            warning(f"Pcap: {e}")
+            raise Scapy_Exception("Invalid pcap file (corrupted stream)")
         if len(hdr) < 20:
             raise Scapy_Exception("Invalid pcap file (too short)")
         vermaj, vermin, tz, sig, snaplen, linktype = struct.unpack(
@@ -1697,7 +1701,8 @@ class RawPcapNgReader(RawPcapReader):
 
         try:
             self._read_block_shb()
-        except EOFError:
+        except (EOFError, OSError, OverflowError, zlib.error) as e:
+            warning(f"PcapNg: {e}")
             raise Scapy_Exception(
                 "The first SHB of the pcapng file is malformed !"
             )
@@ -1801,7 +1806,11 @@ class RawPcapNgReader(RawPcapReader):
 
         """
         while True:
-            res = self._read_block(size=size)
+            try:
+                res = self._read_block(size=size)
+            except (OSError, OverflowError, zlib.error) as e:
+                warning(f"PcapNg: {e}")
+                raise EOFError
             if res is not None:
                 return res
 
