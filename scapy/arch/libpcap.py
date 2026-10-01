@@ -66,8 +66,7 @@ if not hasattr(socket, "AF_LINK"):
 ############
 
 # From BSD net/bpf.h
-# BIOCIMMEDIATE = 0x80044270
-BIOCIMMEDIATE = -2147204496
+BIOCIMMEDIATE = 0x80044270
 
 # https://github.com/the-tcpdump-group/libpcap/blob/master/pcap/pcap.h
 PCAP_IF_UP = 0x00000002  # interface is up
