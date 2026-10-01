@@ -29,6 +29,10 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: ${{ env.PR_FETCH_DEPTH }}
+          fetch-tags: true
+        if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'skip-ai-check')
+      - name: Checkout master tag
+        run: git fetch origin master:master
         if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'skip-ai-check')
       - name: AI trailer reminder
         run: bash ./.config/ci/check_commits.sh

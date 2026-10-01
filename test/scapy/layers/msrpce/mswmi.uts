@@ -1,5 +1,5 @@
 % MS-WMI Tests
-~ needs_py38plus
+~ needs_py39plus
 
 + [MS-WMI] build and dissection tests
 

@@ -1260,7 +1260,7 @@ class Automaton(metaclass=Automaton_metaclass):
 
     def __del__(self):
         # type: () -> None
-        self.destroy()
+        self.destroy(force=True)
 
     def _run_condition(self, cond, *args, **kargs):
         # type: (_StateWrapper, Any, Any) -> None
@@ -1289,11 +1289,26 @@ class Automaton(metaclass=Automaton_metaclass):
             target=self._do_control,
             args=(ready,) + (args),
             kwargs=kargs,
-            name="scapy.automaton _do_start"
+            name="scapy.automaton _do_control"
         )
         _t.daemon = True
         _t.start()
         ready.wait()
+
+    def _transfer_error(self, ex: Exception, exc_info: Any) -> None:
+        """
+        This transfers the error to the main thread.
+        """
+        self.debug(3, "Transferring exception from tid=%i:\n%s" % (
+            self.threadid or 0,
+            "".join(traceback.format_exception(*exc_info))
+        ))
+        m = Message(
+            type=_ATMT_Command.EXCEPTION,
+            exception=ex,
+            exc_info=exc_info,
+        )
+        self.cmdout.send(m)
 
     def _do_control(self, ready, *args, **kargs):
         # type: (threading.Event, Any, Any) -> None
@@ -1306,20 +1321,26 @@ class Automaton(metaclass=Automaton_metaclass):
             a = args + self.init_args[len(args):]
             k = self.init_kargs.copy()
             k.update(kargs)
-            self.parse_args(*a, **k)
 
-            # Start the automaton
-            self.state = self.initial_states[0](self)
-            self.send_sock = self.sock or self.send_sock_class(**self.socket_kargs)
-            if self.recv_conditions:
-                # Only start a receiving socket if we have at least one recv_conditions
-                self.listen_sock = self.sock or self.recv_sock_class(**self.socket_kargs)  # noqa: E501
+            # Initialize the automaton
             self.packets = PacketList(name="session[%s]" % self.__class__.__name__)
+            try:
+                self.parse_args(*a, **k)
+                self.state = self.initial_states[0](self)
+                self.send_sock = self.sock or self.send_sock_class(**self.socket_kargs)
+                if self.recv_conditions:
+                    # Only start a receiving socket if we have at least one
+                    # recv_conditions
+                    self.listen_sock = self.sock or self.recv_sock_class(**self.socket_kargs)  # noqa: E501
+            except Exception as e:
+                self._transfer_error(e, sys.exc_info())
+                ready.set()
+                return
 
+            # Main loop of the control thread
             singlestep = True
             iterator = self._do_iter()
             self.debug(3, "Starting control thread [tid=%i]" % self.threadid)
-            # Sync threads
             ready.set()
             try:
                 while True:
@@ -1360,10 +1381,7 @@ class Automaton(metaclass=Automaton_metaclass):
                             result=self.final_state_output)
                 self.cmdout.send(c)
             except Exception as e:
-                exc_info = sys.exc_info()
-                self.debug(3, "Transferring exception from tid=%i:\n%s" % (self.threadid, "".join(traceback.format_exception(*exc_info))))  # noqa: E501
-                m = Message(type=_ATMT_Command.EXCEPTION, exception=e, exc_info=exc_info)  # noqa: E501
-                self.cmdout.send(m)
+                self._transfer_error(e, sys.exc_info())
             self.debug(3, "Stopping control thread (tid=%i)" % self.threadid)
             self.threadid = None
             if self.listen_sock:
@@ -1569,15 +1587,17 @@ class Automaton(metaclass=Automaton_metaclass):
         for cmd in [self.cmdin, self.cmdout]:
             cmd.clear()
 
-    def destroy(self):
-        # type: () -> None
+    def destroy(self, force=False):
+        # type: (bool) -> None
         """
         Destroys a stopped Automaton: this cleanups all opened file descriptors.
+        The automaton will not be able to be restarted.
+
         Required on PyPy for instance where the garbage collector behaves differently.
         """
         if not hasattr(self, "started"):
             return  # was never started.
-        if self.isrunning():
+        if not force and self.isrunning():
             raise ValueError("Can't close running Automaton ! Call stop() beforehand")
         # Close command pipes
         self.cmdin.close()

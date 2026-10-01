@@ -30,7 +30,6 @@
     "broken_windows",
     "ipv6",
     "linux",
-    "native_tls13",
     "mock_read_routes_bsd",
     "open_ssl_client",
     "osx",

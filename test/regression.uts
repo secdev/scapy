@@ -2335,7 +2335,7 @@ pktcapng = sniff(offline=scapy_path("/test/pcaps/macos.pcapng.gz"))
 assert len(pktcapng) != 0
 
 = Read a pcap - final gzip CRC is invalid
-~ needs_py38plus
+~ needs_py39plus
 
 import gzip
 import struct
@@ -2356,7 +2356,7 @@ assert len(rdpcap(badgzfile)) == 1
 assert len(rdpcap(BytesIO(goodgzpcap))) == 1
 
 = Read a pcap - gzip capture from a named nonseekable stream
-~ needs_py38plus
+~ needs_py39plus
 
 import gzip
 import os
@@ -2489,7 +2489,7 @@ assert(len(l[0].process_information) == 2)
 assert(l[0].process_information["proc"]["name"] == "trustd")
 
 = OSS-Fuzz Findings
-~ needs_py38plus
+~ needs_py39plus
 
 from io import BytesIO
 # Issue 68352
