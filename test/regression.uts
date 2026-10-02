@@ -2548,6 +2548,30 @@ with mock.patch("scapy.utils.warning") as warning:
         for call in warning.call_args_list
     ) == 3
 
+# Issue 568035799
+import zlib
+
+from scapy.error import Scapy_Exception
+
+class CorruptedStream(BytesIO):
+    def read(self, *args, **kwargs):
+        if self.tell() >= self.getbuffer().nbytes:
+            raise zlib.error(
+                "Error -3 while decompressing data: "
+                "invalid distance too far back"
+            )
+        return BytesIO.read(self, *args, **kwargs)
+
+with mock.patch("scapy.utils.warning") as warning:
+    tmpfile = get_temp_file(autoext=".pcapng")
+    writer = RawPcapNgWriter(tmpfile)
+    writer._write_block_shb()
+    writer.f.close()
+    with open(tmpfile, "rb") as fd:
+        capture = fd.read()
+    rdpcap(CorruptedStream(capture))
+    any("PcapNg" in call.args[0] for call in warning.call_args_list)
+
 # Issue #69628
 file = BytesIO(b"\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00\x01\x00\x00\x00\x04{\xdcf\xc2\xa5\x07\x008\x00\x00\x008\x00\x00\x00A]+\xdb]\x04\x8e(6\n\x99\xcb\x08\x00E\x00\x00*\x00\x01\x00\x00@\x06\xe3V\x07\x87\xa5m\x17\x15\xd3m\x01\x85\x01\x85\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xc5_\x00\x000\x00")
 l = rdpcap(file)
