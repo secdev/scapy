@@ -2,6 +2,9 @@
 # This file is part of Scapy
 # See https://scapy.net/ for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
+#
+# The CAN XL parts are created by Friedrich Wiemer
+# Copyright (C) 2026, Robert Bosch GmbH
 
 
 """A minimal implementation of the CANopen protocol, based on
@@ -16,12 +19,13 @@ import struct
 from scapy.config import conf
 from scapy.compat import chb, hex_bytes
 from scapy.data import DLT_CAN_SOCKETCAN
-from scapy.fields import FieldLenField, FlagsField, StrLenField, \
-    ThreeBytesField, XBitField, ScalingField, ConditionalField, LenField, ShortField
+from scapy.fields import BitField, FieldLenField, FlagsField, StrLenField, \
+    ThreeBytesField, XBitField, XByteField, XLEIntField, ScalingField, \
+    ConditionalField, LenField, LEShortField, ShortField
 from scapy.volatile import RandFloat, RandBinFloat
 from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import CookedLinux
-from scapy.error import Scapy_Exception
+from scapy.error import Scapy_Exception, log_runtime
 from scapy.plist import PacketList
 from scapy.supersocket import SuperSocket
 from scapy.utils import _ByteStream
@@ -44,7 +48,9 @@ __all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
            "BESignedSignalField", "BEUnsignedSignalField", "rdcandump",
            "CandumpReader", "SignalHeader", "CAN_MTU", "CAN_MAX_IDENTIFIER",
            "CAN_MAX_DLEN", "CAN_INV_FILTER", "CANFD", "CAN_FD_MTU",
-           "CAN_FD_MAX_DLEN"]
+           "CAN_FD_MAX_DLEN", "CANXL", "CANXL_MTU", "CANXL_MAX_DLEN",
+           "CANXL_MIN_DLEN", "CANXL_HDR_SIZE", "CANXL_XLF", "CANXL_FDF",
+           "CANXL_IDE", "CANXL_SEC", "CANXL_RRS"]
 
 # CONSTANTS
 CAN_MAX_IDENTIFIER = (1 << 29) - 1  # Maximum 29-bit identifier
@@ -53,6 +59,15 @@ CAN_MAX_DLEN = 8
 CAN_INV_FILTER = 0x20000000
 CAN_FD_MTU = 72
 CAN_FD_MAX_DLEN = 64
+CANXL_MTU = 2060
+CANXL_HDR_SIZE = 12
+CANXL_MAX_DLEN = 2048
+CANXL_MIN_DLEN = 1
+CANXL_XLF = 0x80   # XL Frame flag (flags bit 7, must be set)
+CANXL_FDF = 0x40   # FD Frame flag (flags bit 6, must be set)
+CANXL_IDE = 0x20   # Identifier Extension (flags bit 5, must be clear)
+CANXL_SEC = 0x01   # Security / SEC bit
+CANXL_RRS = 0x02   # Remote Request Substitution / Frame Type bit
 
 # Mimics the Wireshark CAN dissector parameter
 # 'Byte-swap the CAN ID/flags field'.
@@ -111,6 +126,8 @@ class CAN(Packet):
                       **kargs  # type: Any
                       ):  # type: (...) -> Type[Packet]
         if _pkt:
+            if CANXL.is_canxl_frame(_pkt):
+                return CANXL
             fdf_set = len(_pkt) > 5 and _pkt[5] & 0x04 and \
                 not _pkt[5] & 0xf8
             if fdf_set:
@@ -211,6 +228,190 @@ class CANFD(CAN):
 
 
 bind_layers(CookedLinux, CANFD, proto=13)
+conf.l2types.register_layer2num(DLT_CAN_SOCKETCAN, CANFD)
+
+
+class CANXL(CAN):
+    """CAN XL frame - wire-format compatible with Linux struct canxl_frame.
+
+    Uses the Linux kernel data representation (``struct canxl_frame``) for
+    field names and layout.  ISO 11898-1:2024 field accessors are available
+    via ``@property`` methods (``dlc``, ``xlf``, ``sec``, ``ftype``,
+    ``frame_format``), and ``show_iso()`` renders using ISO terminology.
+
+    Example::
+
+        >>> from scapy.layers.can import CANXL
+        >>> pkt = CANXL(priority=0x42, vcid=0x10, sdt=3, af=0xDEAD) / b'\\x01\\x02'
+        >>> pkt.show()
+        >>> pkt.show_iso()
+    """
+    name = "CAN XL"
+
+    @staticmethod
+    def is_canxl_frame(pkt):
+        # type: (bytes) -> bool
+        """Detect CAN XL frame by XLF flag (bit 7 of byte 4).
+
+        CAN XL: byte 4 is the flags byte with XLF (bit 7) always set.
+        In CAN/CANFD byte 4 is the length field (max 64 = 0x40),
+        so bit 7 is never set - this is an unambiguous discriminator.
+        """
+        return len(pkt) > 4 and bool(pkt[4] & 0x80)
+
+    fields_desc = [
+        # prio word: 4 bytes, big endian in PCAP (matches classic CAN / CAN FD),
+        # swapped with CAN.inv_endianness for Linux SocketCAN (struct canxl_frame.prio)
+        BitField('reserved2', 0, 8),                    # bits 31-24
+        XBitField('vcid', 0, 8),                        # bits 23-16
+        BitField('reserved1', 0, 5),                    # bits 15-11
+        XBitField('priority', 0, 11),                   # bits 10-0
+        # ISO 11898-1:2024: CAN XL requires XLF=1, FDF=1, IDE=0
+        FlagsField('flags', CANXL_XLF | CANXL_FDF, 8,
+                   ['sec', 'rrs', 'res_f2', 'res_f3',
+                    'res_f4', 'ide', 'fdf', 'xlf']),
+        XByteField('sdt', 0),
+        # Auto-computed from the payload in post_build.
+        # ISO 11898-1:2024 defines this as an 11-bit field (range 1-2048),
+        # but Linux struct canxl_frame uses a full 16-bit field.
+        # For kernel compatibility we use a 16-bit field; post_build warns
+        # if the computed length falls outside the valid range.
+        LEShortField('length', 0),
+        XLEIntField('af', 0),
+        # NO data field - payload carried as sub-layers
+    ]
+
+    def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
+        # Auto-compute length from payload
+        length = len(pay)
+        if length < CANXL_MIN_DLEN:
+            log_runtime.warning(
+                "CAN XL payload length %d is below the minimum of %d",
+                length, CANXL_MIN_DLEN)
+        elif length > CANXL_MAX_DLEN:
+            log_runtime.warning(
+                "CAN XL payload length %d exceeds the ISO 11898-1 "
+                "maximum of %d (11-bit field)", length, CANXL_MAX_DLEN)
+        pkt = pkt[:6] + struct.pack('<H', length) + pkt[8:]
+        # ISO 11898-1:2024: enforce XLF=1, FDF=1, IDE=0
+        if pkt[4] & CANXL_IDE:
+            log_runtime.warning(
+                "CAN XL frame has IDE set; clearing it "
+                "(IDE is always 0 for CAN XL per ISO 11898-1)")
+        flags = (pkt[4] | CANXL_XLF | CANXL_FDF) & ~CANXL_IDE
+        pkt = pkt[:4] + bytes([flags]) + pkt[5:]
+        if conf.contribs['CAN']['swap-bytes']:
+            pkt = CAN.inv_endianness(pkt)
+        return pkt + pay
+
+    def extract_padding(self, p):
+        # type: (bytes) -> Tuple[bytes, Optional[bytes]]
+        data_len = min(int(self.length), CANXL_MAX_DLEN) if self.length else 0
+        # Return None (not p[data_len:]) as the padding element so
+        # that trailing bytes beyond the stated length are silently
+        # dropped rather than preserved as a Padding layer.  CAN XL
+        # frames from a native socket have exact-length data; any
+        # trailing garbage is safely discarded.
+        return p[:data_len], None
+
+    # -- ISO 11898-1:2024 property accessors ---------------------------------
+
+    @property
+    def dlc(self):
+        # type: () -> int
+        """ISO 11898-1 Data Length Code (length - 1, range 0..2047)."""
+        return max(0, self.length - 1) if self.length else 0
+
+    @property
+    def xlf(self):
+        # type: () -> bool
+        """XL Frame flag (flags bit 7). Always 1 for valid CAN XL."""
+        return bool(self.flags.xlf)
+
+    @property
+    def fdf(self):
+        # type: () -> bool
+        """FD Frame flag (flags bit 6). Always 1 for valid CAN XL."""
+        return bool(self.flags.fdf)
+
+    @property
+    def ide(self):
+        # type: () -> bool
+        """Identifier Extension flag (flags bit 5). Always 0 for CAN XL."""
+        return bool(self.flags.ide)
+
+    @property
+    def sec(self):
+        # type: () -> bool
+        """Simple Extended Content / security flag (flags bit 0)."""
+        return bool(self.flags.sec)
+
+    @property
+    def ftype(self):
+        # type: () -> bool
+        """Frame Type / RRS (flags bit 1)."""
+        return bool(self.flags.rrs)
+
+    @property
+    def frame_format(self):
+        # type: () -> int
+        """ISO 11898-1:2024 3-bit format field (XLF:FDF:IDE), bits 7-5."""
+        return (int(self.flags) >> 5) & 0x07
+
+    # -- ISO 11898-1:2024 rendering ------------------------------------------
+
+    @property
+    def data(self):
+        # type: () -> bytes
+        """Access payload data as bytes, for API consistency with CAN/CANFD.
+
+        CAN and CAN FD use ``pkt.data``; CAN XL carries its payload as
+        Scapy sub-layers, so this property provides the same interface::
+
+            >>> pkt = CANXL(priority=0x42) / b'\\x01\\x02\\x03'
+            >>> pkt.data  # equivalent to bytes(pkt.payload)
+            b'\\x01\\x02\\x03'
+        """
+        return bytes(self.payload)
+
+    def show_iso(self, dump=False):
+        # type: (bool) -> Optional[str]
+        """Render the frame using ISO 11898-1:2024 field names.
+
+        Field order follows ISO 11898-1:2024 Table 4.  The values that the
+        standard derives from the flags byte (Format, FTYPE, SEC) and from
+        the length (DLC) are not fields of their own, so they are resolved
+        through the matching properties rather than by ``sprintf``.
+
+        :param dump: return the string instead of printing it
+        """
+        fmt_val = self.frame_format
+        fmt_str = "+".join(
+            name for bit, name in ((0x04, "XLF"), (0x02, "FDF"), (0x01, "IDE"))
+            if fmt_val & bit) or "0"
+
+        s = self.sprintf(
+            "###[ CAN XL (ISO 11898-1) ]###\n"
+            "  Priority   = %CANXL.priority%\n"
+            "  Format     = " + fmt_str + " (" + hex(fmt_val) + ")\n"
+            "  FTYPE      = " + str(int(self.ftype)) + "\n"
+            "  SDT        = %CANXL.sdt%\n"
+            "  SEC        = " + str(int(self.sec)) + "\n"
+            "  DLC        = " + str(self.dlc) + "\n"
+            "  VCID       = %CANXL.vcid%\n"
+            "  AF         = %CANXL.af%\n")
+        # Keep the payload out of sprintf - raw bytes may contain '%'.
+        s += "  Data       = %r\n" % bytes(self.payload)
+
+        if dump:
+            return s
+        print(s)
+        return None
+
+
+bind_layers(CookedLinux, CANXL, proto=14)
+conf.l2types.register_layer2num(DLT_CAN_SOCKETCAN, CANXL)
 
 
 class SignalField(ScalingField):
