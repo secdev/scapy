@@ -627,18 +627,33 @@ if WINDOWS:
         "services",
     ))
     ETHER_TYPES = load_ethertypes()
-    MANUFDB = load_manuf()
 else:
     IP_PROTOS = load_protocols("/etc/protocols")
     TCP_SERVICES, UDP_SERVICES, SCTP_SERVICES = load_services("/etc/services")
     ETHER_TYPES = load_ethertypes("/etc/ethertypes")
-    MANUFDB = load_manuf(
-        select_path(
-            ['/usr', '/usr/local', '/opt', '/opt/wireshark',
-             '/Applications/Wireshark.app/Contents/Resources'],
-            "share/wireshark/manuf"
+
+
+def __getattr__(attr):
+    # type: (str) -> Any
+    """
+    Lazily load MANUFDB on first access, as it is large and only used to
+    resolve MAC addresses.
+    """
+    if attr != "MANUFDB":
+        raise AttributeError("module %r has no attribute %r" % (__name__, attr))
+    if WINDOWS:
+        manufdb = load_manuf()
+    else:
+        manufdb = load_manuf(
+            select_path(
+                ['/usr', '/usr/local', '/opt', '/opt/wireshark',
+                 '/Applications/Wireshark.app/Contents/Resources'],
+                "share/wireshark/manuf"
+            )
         )
-    )
+    globals()["MANUFDB"] = manufdb
+    return manufdb
+
 
 BLUETOOTH_CORE_COMPANY_IDENTIFIERS = load_bluetoothids()
 
