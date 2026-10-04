@@ -8,7 +8,11 @@ SuperSocket.
 """
 
 from select import select, error as select_error
-import ctypes
+
+try:
+    import ctypes
+except OSError:
+    ctypes = None  # type: ignore[assignment]
 import errno
 import socket
 import struct
@@ -75,16 +79,17 @@ TP_STATUS_VLAN_VALID = 1 << 4
 TP_STATUS_VLAN_TPID_VALID = 1 << 6
 
 
-class tpacket_auxdata(ctypes.Structure):
-    _fields_ = [
-        ("tp_status", ctypes.c_uint),
-        ("tp_len", ctypes.c_uint),
-        ("tp_snaplen", ctypes.c_uint),
-        ("tp_mac", ctypes.c_ushort),
-        ("tp_net", ctypes.c_ushort),
-        ("tp_vlan_tci", ctypes.c_ushort),
-        ("tp_vlan_tpid", ctypes.c_ushort),
-    ]  # type: List[Tuple[str, Any]]
+if ctypes is not None:
+    class tpacket_auxdata(ctypes.Structure):
+        _fields_ = [
+            ("tp_status", ctypes.c_uint),
+            ("tp_len", ctypes.c_uint),
+            ("tp_snaplen", ctypes.c_uint),
+            ("tp_mac", ctypes.c_ushort),
+            ("tp_net", ctypes.c_ushort),
+            ("tp_vlan_tci", ctypes.c_ushort),
+            ("tp_vlan_tpid", ctypes.c_ushort),
+        ]  # type: List[Tuple[str, Any]]
 
 
 # SuperSocket
@@ -160,6 +165,11 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
             for cmsg_lvl, cmsg_type, cmsg_data in ancdata:
                 # Check available ancillary data
                 if (cmsg_lvl == SOL_PACKET and cmsg_type == PACKET_AUXDATA):
+                    if ctypes is None:
+                        warning(
+                            "ctypes is required to parse PACKET_AUXDATA"
+                        )
+                        continue
                     # Parse AUXDATA
                     try:
                         auxdata = tpacket_auxdata.from_buffer_copy(cmsg_data)
