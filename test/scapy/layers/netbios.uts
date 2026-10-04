@@ -166,3 +166,134 @@ try:
     assert _nbns_queries == [b"ALPHA", b"BETA"]
 finally:
     _nbns_cache.flush()
+
+= nbns_resolve accepts a list of names
+~ mock
+
+from unittest import mock
+from scapy.layers.netbios import _nbns_cache, nbns_resolve
+
+_nbns_queries = []
+_nbns_cache.flush()
+
+def _answer_nbns(requests, **kwargs):
+    packet = requests[0] if isinstance(requests, list) else requests
+    name = packet.QUESTION_NAME
+    _nbns_queries.append(name)
+    address = "203.0.113.66" if name == b"ALPHA" else "192.0.2.44"
+    return NBNSHeader(RESPONSE=1, NM_FLAGS=0x50, ANCOUNT=1) / NBNSQueryResponse(
+        RR_NAME=name,
+        ADDR_ENTRY=[NBNS_ADD_ENTRY(NB_ADDRESS=address)],
+    )
+
+try:
+    with mock.patch("scapy.layers.netbios.sr1", side_effect=_answer_nbns), mock.patch(
+        "scapy.layers.netbios.conf.route.get_if_bcast", return_value=["192.0.2.255"]
+    ):
+        result = nbns_resolve(["ALPHA", "BETA"], iface="test")
+    assert result == {"ALPHA": ["203.0.113.66"], "BETA": ["192.0.2.44"]}
+    assert _nbns_queries == [b"ALPHA", b"BETA"]
+finally:
+    _nbns_cache.flush()
+
+= nbns_resolve with an empty list sends nothing
+~ mock
+
+_nbns_queries.clear()
+_nbns_cache.flush()
+
+try:
+    with mock.patch("scapy.layers.netbios.sr1", side_effect=_answer_nbns), mock.patch(
+        "scapy.layers.netbios.conf.route.get_if_bcast", return_value=["192.0.2.255"]
+    ):
+        assert nbns_resolve([], iface="test") == {}
+    assert _nbns_queries == []
+finally:
+    _nbns_cache.flush()
+
+= nbns_resolve with a bytearray name does not break the cache
+~ mock
+
+_nbns_queries.clear()
+_nbns_cache.flush()
+
+try:
+    with mock.patch("scapy.layers.netbios.sr1", side_effect=_answer_nbns), mock.patch(
+        "scapy.layers.netbios.conf.route.get_if_bcast", return_value=["192.0.2.255"]
+    ):
+        assert nbns_resolve(bytearray(b"ALPHA"), iface="test") == ["203.0.113.66"]
+        # Same logical name as a str and as bytes: served from the cache
+        assert nbns_resolve("ALPHA", iface="test") == ["203.0.113.66"]
+        assert nbns_resolve(b"ALPHA", iface="test") == ["203.0.113.66"]
+    assert _nbns_queries == [b"ALPHA"]
+finally:
+    _nbns_cache.flush()
+
+= nbns_resolve single names keep returning a list
+~ mock
+
+_nbns_queries.clear()
+_nbns_cache.flush()
+
+try:
+    with mock.patch("scapy.layers.netbios.sr1", side_effect=_answer_nbns), mock.patch(
+        "scapy.layers.netbios.conf.route.get_if_bcast", return_value=["192.0.2.255"]
+    ):
+        assert nbns_resolve("ALPHA", iface="test") == ["203.0.113.66"]
+        assert nbns_resolve(b"BETA", iface="test") == ["192.0.2.44"]
+finally:
+    _nbns_cache.flush()
+
+= nbns_resolve with a list reuses the cache and keeps names apart
+~ mock
+
+_nbns_queries.clear()
+_nbns_cache.flush()
+
+try:
+    with mock.patch("scapy.layers.netbios.sr1", side_effect=_answer_nbns), mock.patch(
+        "scapy.layers.netbios.conf.route.get_if_bcast", return_value=["192.0.2.255"]
+    ):
+        assert nbns_resolve("ALPHA", iface="test") == ["203.0.113.66"]
+        result = nbns_resolve(["ALPHA", "BETA"], iface="test")
+        assert result == {"ALPHA": ["203.0.113.66"], "BETA": ["192.0.2.44"]}
+        # Second list call: everything is cached
+        assert nbns_resolve(["BETA", "ALPHA"], iface="test") == result
+    # ALPHA was cached by the first call, so it is queried once overall
+    assert _nbns_queries == [b"ALPHA", b"BETA"]
+finally:
+    _nbns_cache.flush()
+
+= nbns_resolve with a list and raw=True returns one packet per name
+~ mock
+
+_nbns_queries.clear()
+_nbns_cache.flush()
+
+try:
+    with mock.patch("scapy.layers.netbios.sr1", side_effect=_answer_nbns), mock.patch(
+        "scapy.layers.netbios.conf.route.get_if_bcast", return_value=["192.0.2.255"]
+    ):
+        result = nbns_resolve(["ALPHA", "BETA"], iface="test", raw=True)
+    assert result["ALPHA"][NBNSQueryResponse].ADDR_ENTRY[0].NB_ADDRESS == "203.0.113.66"
+    assert result["BETA"][NBNSQueryResponse].ADDR_ENTRY[0].NB_ADDRESS == "192.0.2.44"
+finally:
+    _nbns_cache.flush()
+
+= nbns_resolve with a list raises TimeoutError when a name is unanswered
+~ mock
+
+_nbns_cache.flush()
+
+try:
+    with mock.patch("scapy.layers.netbios.sr1", return_value=None), mock.patch(
+        "scapy.layers.netbios.conf.route.get_if_bcast", return_value=["192.0.2.255"]
+    ):
+        try:
+            nbns_resolve(["ALPHA", "BETA"], iface="test")
+            raised = False
+        except TimeoutError:
+            raised = True
+    assert raised
+finally:
+    _nbns_cache.flush()

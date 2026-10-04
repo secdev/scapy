@@ -41,6 +41,7 @@ from scapy.layers.l2 import Ether, SourceMACField
 
 # Typing imports
 from typing import (
+    Dict,
     List,
     Union,
 )
@@ -435,24 +436,35 @@ _nbns_cache = conf.netcache.new_cache("nbns_cache", 300)
 
 @conf.commands.register
 def nbns_resolve(
-    qname: str,
+    qname: Union[str, bytes, bytearray, List[Union[str, bytes]]],
     iface: Union[_GlobInterfaceType, List[_GlobInterfaceType]] = None,
     raw: bool = False,
     timeout: int = 3,
     **kwargs,
-) -> List[str]:
+) -> Union[List[str], Dict[Union[str, bytes], List[str]]]:
     """
     Perform a simple NBNS (NetBios Name Services) resolution with caching
 
-    :param qname: the name to query
+    :param qname: the name to query. If a list of names is given, each name is
+        resolved independently and a dict {name: result} is returned.
     :param iface: the interfaces to use. (default: all)
     :param raw: return the whole netbios packet (default False)
     :param timeout: seconds until timeout (per server)
     :raise TimeoutError: if no DNS servers were reached in time.
     """
+    if isinstance(qname, list):
+        # One independent (and cached) resolution per name
+        return {
+            name: nbns_resolve(name, iface=iface, raw=raw, timeout=timeout, **kwargs)
+            for name in qname
+        }
+
     kwargs.setdefault("verbose", 0)
 
     # Unify types (for caching)
+    if isinstance(qname, bytearray):
+        # Mutable, so it can't be used in the cache key
+        qname = bytes(qname)
     qname = NBNSQueryRequest.QUESTION_NAME.any2i(None, qname)
 
     # Check cache
