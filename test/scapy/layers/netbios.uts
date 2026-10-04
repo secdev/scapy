@@ -297,3 +297,66 @@ try:
     assert raised
 finally:
     _nbns_cache.flush()
+
+= nbns_resolve with duplicate names in a list queries each name once
+~ mock
+
+_nbns_queries.clear()
+_nbns_cache.flush()
+
+try:
+    with mock.patch("scapy.layers.netbios.sr1", side_effect=_answer_nbns), mock.patch(
+        "scapy.layers.netbios.conf.route.get_if_bcast", return_value=["192.0.2.255"]
+    ):
+        result = nbns_resolve(["ALPHA", "ALPHA"], iface="test")
+    assert result == {"ALPHA": ["203.0.113.66"]}
+    assert _nbns_queries == [b"ALPHA"]
+finally:
+    _nbns_cache.flush()
+
+= nbns_resolve keeps raw and default results of a name apart
+~ mock
+
+_nbns_queries.clear()
+_nbns_cache.flush()
+
+try:
+    with mock.patch("scapy.layers.netbios.sr1", side_effect=_answer_nbns), mock.patch(
+        "scapy.layers.netbios.conf.route.get_if_bcast", return_value=["192.0.2.255"]
+    ):
+        assert nbns_resolve("ALPHA", iface="test") == ["203.0.113.66"]
+        assert isinstance(nbns_resolve("ALPHA", iface="test", raw=True), NBNSHeader)
+    assert _nbns_queries == [b"ALPHA", b"ALPHA"]
+finally:
+    _nbns_cache.flush()
+
+= nbns_resolve with a list keeps the names resolved before a timeout cached
+~ mock
+
+_nbns_queries.clear()
+_nbns_cache.flush()
+
+def _answer_nbns_or_none(requests, **kwargs):
+    packet = requests[0] if isinstance(requests, list) else requests
+    if packet.QUESTION_NAME == b"BETA":
+        _nbns_queries.append(packet.QUESTION_NAME)
+        return None
+    return _answer_nbns(requests, **kwargs)
+
+try:
+    with mock.patch(
+        "scapy.layers.netbios.sr1", side_effect=_answer_nbns_or_none
+    ), mock.patch(
+        "scapy.layers.netbios.conf.route.get_if_bcast", return_value=["192.0.2.255"]
+    ):
+        try:
+            nbns_resolve(["ALPHA", "BETA"], iface="test")
+            raised = False
+        except TimeoutError:
+            raised = True
+        assert raised
+        # ALPHA was cached by the failed call: no new query for it
+        assert nbns_resolve("ALPHA", iface="test") == ["203.0.113.66"]
+    assert _nbns_queries == [b"ALPHA", b"BETA"]
+finally:
+    _nbns_cache.flush()
