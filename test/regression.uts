@@ -268,7 +268,7 @@ except:
 
 assert not conf.use_bpf
 
-= Configuration conf.use_pcap
+= libpcap - Configuration conf.use_pcap
 ~ linux libpcap
 
 if not conf.use_pcap:
@@ -280,37 +280,33 @@ if not conf.use_pcap:
     conf.use_pcap = False
     assert not conf.iface.provider.libpcap
 
-= Native libpcap capture returns only the captured bytes
-~ linux libpcap
+= libpcap - test open_pcap
+~ libpcap
 
-from ctypes import POINTER, c_ubyte, cast, pointer
-from scapy.arch import libpcap as _libpcap
-
-_was_use_pcap = conf.use_pcap
+_old_usepcap = conf.use_pcap
 conf.use_pcap = True
-try:
-    hdr = _libpcap.pcap_pkthdr()
-    hdr.ts.tv_sec, hdr.ts.tv_usec = 1, 0
-    hdr.caplen = 4
-    hdr.len = 12  # the length on the wire, before the snapshot length cut it
-    buf = (c_ubyte * 12)(1, 2, 3, 4, *([0xff] * 8))
-    wrapper = _libpcap._PcapWrapper_libpcap.__new__(
-        _libpcap._PcapWrapper_libpcap
-    )
-    wrapper.pcap = None
-    wrapper.header = pointer(hdr)
-    wrapper.pkt_data = cast(buf, POINTER(c_ubyte))
-    _next_ex = _libpcap.pcap_next_ex
-    _libpcap.pcap_next_ex = lambda *args: 1
-    try:
-        ts, pkt = wrapper.next()
-    finally:
-        _libpcap.pcap_next_ex = _next_ex
-finally:
-    conf.use_pcap = _was_use_pcap
 
-# Anything past caplen is whatever the buffer held before, not this packet.
-assert pkt == b"\x01\x02\x03\x04"
+from scapy.arch.libpcap import open_pcap
+
+try:
+    # 0. Create
+    fname = get_temp_file()
+    pkt = Ether() / IP()
+    pkt.wirelen = len(pkt) + 1000
+    wrpcap(fname, [pkt])
+    # 1. Open with libpcap
+    reader = open_pcap(fname, offline=True)
+    # 2. Read packet
+    reader.next()
+    # 3. Check the header lengths
+    assert reader.header.contents.len == 1034
+    assert reader.header.contents.caplen == 34
+finally:
+    try:
+        reader.close()
+    except Exception:
+        pass
+    conf.use_pcap = _old_usepcap
 
 = Test layer filtering
 ~ filter
@@ -2339,7 +2335,7 @@ pktcapng = sniff(offline=scapy_path("/test/pcaps/macos.pcapng.gz"))
 assert len(pktcapng) != 0
 
 = Read a pcap - final gzip CRC is invalid
-~ needs_py38plus
+~ needs_py39plus
 
 import gzip
 import struct
@@ -2360,7 +2356,7 @@ assert len(rdpcap(badgzfile)) == 1
 assert len(rdpcap(BytesIO(goodgzpcap))) == 1
 
 = Read a pcap - gzip capture from a named nonseekable stream
-~ needs_py38plus
+~ needs_py39plus
 
 import gzip
 import os
@@ -2493,7 +2489,7 @@ assert(len(l[0].process_information) == 2)
 assert(l[0].process_information["proc"]["name"] == "trustd")
 
 = OSS-Fuzz Findings
-~ needs_py38plus
+~ needs_py39plus
 
 from io import BytesIO
 # Issue 68352
@@ -2551,6 +2547,30 @@ with mock.patch("scapy.utils.warning") as warning:
         "packet has been truncated" in call.args[0]
         for call in warning.call_args_list
     ) == 3
+
+# Issue 568035799
+import zlib
+
+from scapy.error import Scapy_Exception
+
+class CorruptedStream(BytesIO):
+    def read(self, *args, **kwargs):
+        if self.tell() >= self.getbuffer().nbytes:
+            raise zlib.error(
+                "Error -3 while decompressing data: "
+                "invalid distance too far back"
+            )
+        return BytesIO.read(self, *args, **kwargs)
+
+with mock.patch("scapy.utils.warning") as warning:
+    tmpfile = get_temp_file(autoext=".pcapng")
+    writer = RawPcapNgWriter(tmpfile)
+    writer._write_block_shb()
+    writer.f.close()
+    with open(tmpfile, "rb") as fd:
+        capture = fd.read()
+    rdpcap(CorruptedStream(capture))
+    any("PcapNg" in call.args[0] for call in warning.call_args_list)
 
 # Issue #69628
 file = BytesIO(b"\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00\x01\x00\x00\x00\x04{\xdcf\xc2\xa5\x07\x008\x00\x00\x008\x00\x00\x00A]+\xdb]\x04\x8e(6\n\x99\xcb\x08\x00E\x00\x00*\x00\x01\x00\x00@\x06\xe3V\x07\x87\xa5m\x17\x15\xd3m\x01\x85\x01\x85\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xc5_\x00\x000\x00")

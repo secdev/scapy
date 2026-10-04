@@ -185,6 +185,9 @@ c = X509_Cert(cert_with_bmp_string)
 bmp_field_value = str(c.tbsCertificate.issuer[7].rdn[0].value.val, "utf-16be")
 assert bmp_field_value == '1246183514EP@websense.com'
 
+= Cert class: ml-dsa signature signature
+ai = X509_AlgorithmIdentifier(b'0\x0b\x06\t`\x86H\x01e\x03\x04\x03\x13')
+assert ai.algorithm.oidname == 'ml-dsa-87'
 
 ############ CRL class ###############################################
 
