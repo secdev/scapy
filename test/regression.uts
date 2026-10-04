@@ -759,6 +759,41 @@ except:
 
 interact_emulator(extra_args=["-d"])  # Extended
 
+= init_session() without ctypes
+~ interact
+
+import subprocess
+import sys
+import textwrap
+
+code = textwrap.dedent("""
+    import builtins
+
+    from scapy.main import init_session
+
+    real_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "ctypes" and globals and globals.get("__name__") == "scapy.supersocket":
+            raise OSError("Dynamic loading not supported")
+        return real_import(name, globals, locals, fromlist, level)
+
+    builtins.__import__ = fake_import
+    try:
+        ns = init_session(ret=True)
+    finally:
+        builtins.__import__ = real_import
+
+    assert "Ether" in ns
+""")
+
+result = subprocess.run(
+    [sys.executable, "-c", code],
+    capture_output=True,
+    text=True,
+)
+assert result.returncode == 0, result.stderr
+
 = Emulate interact() and test startup.py with ptpython
 ~ interact
 
