@@ -593,9 +593,12 @@ class Packet(
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
             self.wirelen = None
+            self.firstlayer().wirelen = None
         elif attr == "payload":
             self.remove_payload()
             self.add_payload(val)
+            self.wirelen = None
+            self.firstlayer().wirelen = None
         else:
             self.payload.setfieldval(attr, val)
 
@@ -617,6 +620,7 @@ class Packet(
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
             self.wirelen = None
+            self.firstlayer().wirelen = None
         elif attr in self.default_fields:
             pass
         elif attr == "payload":
@@ -781,6 +785,8 @@ class Packet(
         # type: () -> None
         """Clear the raw packet cache for the field and all its subfields"""
         self.raw_packet_cache = None
+        self.wirelen = None
+        self.firstlayer().wirelen = None
         for fname, fval in self.fields.items():
             fld = self.get_field(fname)
             if fld.holds_packets:

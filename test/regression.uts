@@ -2629,6 +2629,18 @@ assert newpktpcapwirelen[0].wirelen is not None
 assert len(newpktpcapwirelen[0]) < newpktpcapwirelen[0].wirelen
 assert newpktpcapwirelen[0].wirelen == pktpcapwirelen[0].wirelen
 
+= Check wrpcap() resets wirelen after a nested length change
+filename1 = get_temp_file(autoext=".pcap")
+filename2 = get_temp_file(autoext=".pcap")
+wrpcap(filename1, [Ether()/Raw(b"a")])
+pkt = rdpcap(filename1)[0]
+assert pkt.wirelen == len(pkt)
+pkt[Raw].load = b"abcdef"
+wrpcap(filename2, [pkt])
+newpkt = rdpcap(filename2)[0]
+assert newpkt[Raw].load == b"abcdef"
+assert newpkt.wirelen == len(newpkt)
+
 = Check wrpcap() then rdpcap() with sent_time on SndRcvList
 f = get_temp_file()
 s = Ether()/IP()
