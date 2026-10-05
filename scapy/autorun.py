@@ -66,7 +66,7 @@ def autorun_commands(_cmds, my_globals=None, verb=None):
                 my_globals = _scapy_builtins()
             interp = ScapyAutorunInterpreter(locals=my_globals)
             try:
-                del builtins.__dict__["scapy_session"]["_"]
+                del builtins.__dict__["_"]
             except KeyError:
                 pass
             if verb is not None:
@@ -113,10 +113,7 @@ def autorun_commands(_cmds, my_globals=None, verb=None):
             pass
     finally:
         conf.verb = sv
-    try:
-        return builtins.__dict__["scapy_session"]["_"]
-    except KeyError:
-        return builtins.__dict__.get("_", None)
+    return builtins.__dict__.get("_", None)
 
 
 def autorun_commands_timeout(cmds, timeout=None, **kwargs):

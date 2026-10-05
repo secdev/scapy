@@ -1161,6 +1161,18 @@ assert ret == ("\\textcolor{blue}{{\\tt\\char62}{\\tt\\char62}{\\tt\\char62} }IP
 ret = autorun_get_text_interactive_session("scapy_undefined")
 assert "NameError" in ret[0]
 
+= Test autorun does not reuse a previous False result
+~ autorun
+
+# The last non-None expression is the test result. A following test that only
+# asserts produces no new value; it must not inherit the previous False.
+
+out, res = autorun_get_text_interactive_session("False\n")
+assert res is False
+
+out, res = autorun_get_text_interactive_session("assert 1 == 1\n")
+assert res is None
+
 = Test autorun with logging
 
 cmds = """log_runtime.info(hex_bytes("446166742050756e6b"))\n"""
