@@ -368,6 +368,11 @@ a[ICMPv6PacketTooBig][TCPerror].chksum == b.chksum
 # To be done but not critical. Same mechanisms and format as 
 # previous ones.
 
+= ICMPv6TimeExceeded Class - RFC4884 extension length
+pkt = Ether()/IPv6()/ICMPv6TimeExceeded(ext=ICMPExtension_Header())/IPv6()/ICMPv6EchoRequest()
+decoded = Ether(raw(pkt))
+decoded[ICMPv6TimeExceeded].length == 16 and isinstance(decoded[ICMPv6TimeExceeded].ext, ICMPExtension_Header)
+
 ########### ICMPv6ParamProblem Class ################################
 # See previous note
 
