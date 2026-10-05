@@ -1,0 +1,2578 @@
+% Bundle Protocol Version 7 test campaign
+
++ Syntax check
+= Import the BPv7 layer
+from scapy.contrib.bpv7 import *
+
++ EID CODEC
+
+= EID encode
+
+from scapy.cbor import *
+from scapy.contrib.bpv7 import BundleEidField
+
+class TestPkt(CBOR_Packet):
+    CBOR_root = CBORF_SEQUENCE(
+        BundleEidField('eid', default='dtn:none'),
+    )
+
+pkt = TestPkt()
+outdata = bytes(pkt)
+assert outdata == bytes.fromhex('820100')
+
+pkt = TestPkt(
+    eid="dtn://n/s"
+)
+outdata = bytes(pkt)
+assert outdata == bytes.fromhex('8201652F2F6E2F73')
+
+pkt = TestPkt(
+    eid="ipn:1.2.3"
+)
+outdata = bytes(pkt)
+assert outdata == bytes.fromhex('820283010203')
+
+
++ Block CODEC
+
+= Primary default
+from scapy.contrib.bpv7 import *
+pkt = PrimaryBlock()
+outdata = bytes(pkt)
+assert outdata == bytes.fromhex('8807000082010082010082010082000000')
+
+= Canonical payload encode
+from scapy.contrib.bpv7 import *
+pkt = CanonicalBlock(
+  type_code=1,
+  block_num=1,
+  btsd=Raw(load=b""),
+)
+outdata = bytes(pkt)
+assert outdata == bytes.fromhex('850101000040')
+
+= Canonical with CRC encode
+from scapy.contrib.bpv7 import *
+pkt = CanonicalBlock(
+  type_code=1,
+  block_num=1,
+  crc_type=2,
+  btsd=Raw(load=b"hi"),
+)
+outdata = bytes(pkt)
+assert outdata == bytes.fromhex('8601010002426869441ff585a4')
+
+= Canonical empty decode
+from scapy.contrib.bpv7 import *
+pkt = CanonicalBlock(bytes.fromhex('850101000040'))
+assert pkt.type_code == 1
+
+= Canonical with CRC decode
+from scapy.contrib.bpv7 import *
+pkt = CanonicalBlock(bytes.fromhex('8601010002426869441ff585a4'))
+assert pkt.check_crc()
+
+
++ BPv7 CODEC
+
+= construct default
+from scapy.contrib.bpv7 import *
+pkt = BundleV7()
+assert pkt.primary.crc_type == 0
+outdata = bytes(pkt)
+assert outdata[:1] == b'\x9f'
+assert outdata[-1:] == b'\xff'
+
+= construct only payload
+from scapy.contrib.bpv7 import *
+pkt = BundleV7(
+  primary=PrimaryBlock(
+    crc_type=2,
+    destination='ipn:1.2.3',
+    create_ts=BundleTimestamp(
+      dtntime='2025-11-26T15:00:00Z',
+      seqno=1,
+    ),
+    lifetime=3600000,
+  ),
+  blocks=[
+    CanonicalBlock(
+      type_code=1,
+      block_num=1,
+      crc_type=2,
+      btsd=Raw(b'hi'),
+    ),
+  ]
+)
+outdata = bytes(pkt)
+assert outdata[:1] == b'\x9f'
+assert outdata[-1:] == b'\xff'
+
+= construct with extensions
+
+pkt = BundleV7(
+  primary=PrimaryBlock(
+    crc_type=2,
+    destination='ipn:1.2.3',
+    create_ts=BundleTimestamp(
+      dtntime='2025-11-26T15:00:00Z',
+      seqno=1,
+    ),
+    lifetime=3600000,
+  ),
+  blocks=[
+    CanonicalBlock(
+      block_num=2,
+      crc_type=2,
+      btsd=PreviousNodeBlock(node='ipn:3.2.0'),
+    ),
+    CanonicalBlock(
+      type_code=1,
+      block_num=1,
+      crc_type=2,
+      btsd=Raw(b'hi'),
+    ),
+  ]
+)
+outdata = bytes(pkt)
+assert len(outdata) > 5
+assert outdata[:1] == b'\x9f'
+assert outdata[-1:] == b'\xff'
+
+
+= decoding example from Appendix A.1.1.3 of RFC 9173
+
+from scapy.contrib.bpv7 import *
+data = bytes.fromhex('9f88070000820282010282028202018202820201820018281a000f424085010100005823526561647920746f2067656e657261746520612033322d62797465207061796c6f6164ff')
+pkt = BundleV7(data)
+assert pkt.check_crc()
+assert pkt.primary.source == 'ipn:2.1'
+assert pkt.primary.destination == 'ipn:1.2'
+
+pkt.clear_cache()
+outdata = bytes(pkt)
+assert outdata == data
+
+= decoding example from Appendix A.1.1.4 of RFC 9173
+
+from scapy.contrib.bpv7 import *
+data = bytes.fromhex('9f88070000820282010282028202018202820201820018281a000f424085070200004319012c85010100005823526561647920746f2067656e657261746520612033322d62797465207061796c6f6164ff')
+pkt = BundleV7(data)
+assert pkt.check_crc()
+assert pkt.primary.source == 'ipn:2.1'
+assert pkt.primary.destination == 'ipn:1.2'
+
+pkt.clear_cache()
+outdata = bytes(pkt)
+assert outdata == data
+
+= decoding example from Appendix A.1.4 of RFC 9173
+
+from scapy.contrib.bpv7 import *
+data = bytes.fromhex('9f88070000820282010282028202018202820201820018281a000f4240850b0200005856810101018202820201828201078203008181820158403bdc69b3a34a2b5d3a8554368bd1e808f606219d2a10a846eae3886ae4ecc83c4ee550fdfb1cc636b904e2f1a73e303dcd4b6ccece003e95e8164dcc89a156e185010100005823526561647920746f2067656e657261746520612033322d62797465207061796c6f6164ff')
+pkt = BundleV7(data)
+assert pkt.check_crc()
+assert len(pkt.blocks) == 2
+assert pkt.blocks[0].type_code == 11
+
+pkt.clear_cache()
+outdata = bytes(pkt)
+assert outdata == data
+
+
+= decoding example from Appendix A of draft-dtn-bpsec-cose
+
+from scapy.contrib.bpv7 import *
+data = bytes.fromhex('9f880700008201692f2f6473742f7376638201692f2f7372632f7376638201662f2f7372632f821b000000bd51281400001a000f42408501010000466568656c6c6fff')
+pkt = BundleV7(data)
+assert pkt.check_crc()
+assert pkt.primary.source == 'dtn://src/svc'
+assert pkt.primary.destination == 'dtn://dst/svc'
+assert len(pkt.blocks) == 1
+assert pkt.blocks[0].type_code == 1
+
+pkt.clear_cache()
+outdata = bytes(pkt)
+assert outdata == data
+
+
+= decoding example from Appendix A.1 of draft-dtn-bpsec-cose
+
+from scapy.contrib.bpv7 import *
+data = bytes.fromhex(
+    "9f890700028201692f2f6473742f7376638201692f2f7372632f7376638201662f2f"
+    "7372632f821b000000bd51281400001a000f42404482a081c9850b03000058608101"
+    "03018201662f2f7372632f818205a2000120018181821158458443a10106a1044a45"
+    "78616d706c65412e31f65830ec8260a38a1a00fef2cd4aae063f50f01c5645e84c6c"
+    "4893ca895eed44ef60a5f50f9adf5cc5654499b881e5896378058601010002466568"
+    "656c6c6f444ec359d2ff"
+)
+pkt = BundleV7(data)
+assert pkt.check_crc()
+assert pkt.primary.source == 'dtn://src/svc'
+assert pkt.primary.destination == 'dtn://dst/svc'
+assert len(pkt.blocks) == 2
+assert pkt.blocks[0].type_code == 11
+assert pkt.blocks[1].type_code == 1
+
+
++ BPv7 User API
+
+= bundle flags
+from scapy.contrib.bpv7 import *
+
+pkt = PrimaryBlock(
+    bundle_flags="PAYLOAD_ADMIN",
+)
+assert pkt.bundle_flags == PrimaryBlock.Flag.PAYLOAD_ADMIN
+
+pkt = PrimaryBlock(
+    bundle_flags=0x004002,
+)
+assert pkt.bundle_flags == (
+    PrimaryBlock.Flag.PAYLOAD_ADMIN | PrimaryBlock.Flag.REQ_RECEPTION_REPORT
+)
+
+pkt = PrimaryBlock(
+    bundle_flags="PAYLOAD_ADMIN+REQ_RECEPTION_REPORT",
+)
+assert pkt.bundle_flags == (
+    PrimaryBlock.Flag.PAYLOAD_ADMIN | PrimaryBlock.Flag.REQ_RECEPTION_REPORT
+)
+
+= validate empty bundle
+from scapy.contrib.bpv7 import *
+pkt = BundleV7()
+issues = pkt.validate()
+assert any(issue.code == "missing-payload" for issue in issues)
+assert any(issue.code == "missing-canonical-blocks" for issue in issues)
+try:
+    pkt.assert_valid()
+    assert False, "empty bundle should not validate"
+except ValueError:
+    pass
+
++ Assignment parity
+
+= Post-construction bundle_flags assignment matches constructor
+from scapy.contrib.bpv7 import PrimaryBlock
+
+pkt_ctor = PrimaryBlock(bundle_flags="PAYLOAD_ADMIN")
+pkt_set = PrimaryBlock()
+pkt_set.bundle_flags = "PAYLOAD_ADMIN"
+assert int(pkt_ctor.bundle_flags) == int(pkt_set.bundle_flags) == int(PrimaryBlock.Flag.PAYLOAD_ADMIN)
+assert bytes(pkt_ctor) == bytes(pkt_set)
+
+= Post-construction crc_type assignment matches constructor
+from scapy.contrib.bpv7 import PrimaryBlock, CrcType
+
+pkt_ctor = PrimaryBlock(crc_type="CRC32C")
+pkt_set = PrimaryBlock()
+pkt_set.crc_type = "CRC32C"
+assert pkt_ctor.crc_type == pkt_set.crc_type == CrcType.CRC32C
+# Temporary alias still accepted
+assert PrimaryBlock(crc_type="CRC32").crc_type == CrcType.CRC32C
+assert bytes(pkt_ctor) == bytes(pkt_set)
+
++ Required field omission
+
+= Missing required CanonicalBlock type_code raises instead of shifting positions
+from scapy.contrib.bpv7 import CanonicalBlock
+from scapy.cbor.cbor import CBOR_Decoding_Error, CBOR_Encoding_Error
+from scapy.packet import Raw
+
+pkt = CanonicalBlock(
+    block_num=1,
+    btsd=Raw(load=b""),
+)
+try:
+    bytes(pkt)
+    assert False
+except (CBOR_Decoding_Error, CBOR_Encoding_Error, ValueError, TypeError):
+    pass
+
++ Import compatibility
+
+= bpv7 module imports on current Python
+import importlib
+mod = importlib.import_module("scapy.contrib.bpv7")
+assert mod.PrimaryBlock is not None
+
+= bpv7 source is import-safe on Python 3.7/3.8
+import sys
+import pathlib
+src = pathlib.Path("scapy/contrib/bpv7.py").read_text()
+header = "\n".join(src.split("\n", 10)[:10])
+if sys.version_info < (3, 9):
+    assert (
+        "from __future__ import annotations" in header
+        or "Dict[" in src and "from typing import" in src
+    )
+else:
+    import scapy.contrib.bpv7  # noqa: F401
+
++ DtnTimeField
+
+= String zero maps to DTN time 0
+from scapy.contrib.bpv7 import DtnTimeField, BundleTimestamp
+
+ts = BundleTimestamp(dtntime="zero")
+assert ts.getfieldval('dtntime') == 0
+
+= bytes ISO timestamp accepted
+import datetime
+from scapy.contrib.bpv7 import BundleTimestamp
+
+ts = BundleTimestamp(dtntime=b"2000-01-01T00:00:01+00:00")
+assert ts.getfieldval('dtntime') == 1000
+
+= Trailing Z ISO8601 accepted
+ts = BundleTimestamp(dtntime="2000-01-01T00:00:01Z")
+assert ts.getfieldval('dtntime') == 1000
+
+= Naive datetime rejected
+try:
+    BundleTimestamp(dtntime=datetime.datetime(2000, 1, 1, 0, 0, 1))
+    assert False
+except ValueError:
+    pass
+
+= Timezone-aware datetime accepted
+ts = BundleTimestamp(dtntime=datetime.datetime(2000, 1, 1, 0, 0, 1, tzinfo=datetime.timezone.utc))
+assert ts.getfieldval('dtntime') == 1000
+
+= Pre-epoch datetime rejected
+try:
+    BundleTimestamp(dtntime=datetime.datetime(1999, 1, 1, tzinfo=datetime.timezone.utc))
+    assert False
+except ValueError:
+    pass
+
+= DtnTimeField derives from unsigned integer field
+from scapy.cbor.cborfields import CBORF_UNSIGNED_INTEGER
+assert issubclass(DtnTimeField, CBORF_UNSIGNED_INTEGER)
+
++ CRC lifecycle
+
+= CRC recalculated after covered field mutation
+from scapy.contrib.bpv7 import CanonicalBlock, CrcType
+from scapy.packet import Raw
+
+pkt = CanonicalBlock(
+    type_code=1,
+    block_num=1,
+    crc_type=CrcType.CRC32C,
+    btsd=Raw(load=b"hi"),
+)
+first = bytes(pkt)
+assert pkt.getfieldval("crc_value") is None
+assert "crc_value" not in pkt.fields
+pkt.btsd = Raw(load=b"bye")
+second = bytes(pkt)
+assert first != second
+assert pkt.getfieldval("crc_value") is None
+assert CanonicalBlock(second).check_crc()
+
+= check_crc with wrong CRC returns False without AttributeError
+from scapy.contrib.bpv7 import CanonicalBlock, CrcType
+from scapy.packet import Raw
+from scapy.cbor import CBOR_BYTE_STRING
+
+pkt = CanonicalBlock(
+    type_code=1,
+    block_num=1,
+    crc_type=CrcType.CRC32C,
+    btsd=Raw(load=b"hi"),
+)
+bytes(pkt)
+pkt.crc_value = CBOR_BYTE_STRING(b"\x00\x00\x00\x00")
+result = pkt.check_crc()
+assert result is False
+
+= check_crc with missing CRC value returns False
+from scapy.contrib.bpv7 import CanonicalBlock, CrcType
+from scapy.packet import Raw
+
+pkt = CanonicalBlock(
+    type_code=1,
+    block_num=1,
+    crc_type=CrcType.CRC32C,
+    btsd=Raw(load=b"hi"),
+)
+assert pkt.check_crc() is False
+
+= freeze_crc stores an explicit CRC
+from scapy.contrib.bpv7 import CanonicalBlock, CrcType
+from scapy.packet import Raw
+
+pkt = CanonicalBlock(
+    type_code=1,
+    block_num=1,
+    crc_type=CrcType.CRC32C,
+    btsd=Raw(load=b"hi"),
+)
+pkt.freeze_crc()
+assert pkt.getfieldval("crc_value") is not None
+assert pkt.check_crc() is True
+pkt.crc_value = None
+assert pkt.check_crc() is False
+
++ Import side effects
+
+= Importing bpv7 does not enable global debug_dissector
+from scapy import config
+import importlib
+import sys
+
+modname = "scapy.contrib.bpv7"
+sys.modules.pop(modname, None)
+config.conf.debug_dissector = False
+import scapy.contrib.bpv7 as bpv7_mod  # noqa: F401
+assert config.conf.debug_dissector is False
+importlib.reload(bpv7_mod)
+assert config.conf.debug_dissector is False
+
+= bpv7 source does not call print()
+import pathlib
+src = pathlib.Path("scapy/contrib/bpv7.py").read_text()
+assert "print(" not in src
+
++ Specialized canonical block type codes
+
+= PreviousNodeBlock encodes type code 6 automatically
+from scapy.contrib.bpv7 import CanonicalBlock, PreviousNodeBlock
+
+pkt = CanonicalBlock(
+    block_num=2,
+    btsd=PreviousNodeBlock(node="dtn://n/s"),
+)
+raw = bytes(pkt)
+dec = CanonicalBlock(raw)
+assert dec.getfieldval("type_code") == 6
+assert isinstance(dec.btsd, PreviousNodeBlock)
+
++ BundleV7 semantic validity
+
+= Default BundleV7 without payload block is not protocol-conformant
+from scapy.contrib.bpv7 import BundleV7, PrimaryBlock
+
+bundle = BundleV7(primary=PrimaryBlock())
+assert len(bundle.blocks) == 0
+
++ BPSec scope (deferred)
+
+= BIB block type 11 is not registered
+from scapy.contrib.bpv7 import CanonicalBlock
+assert 11 not in CanonicalBlock._reg_types
+
+= BCB block type 12 is not registered
+assert 12 not in CanonicalBlock._reg_types
+
+= Incomplete BPSec class removed from public API
+import scapy.contrib.bpv7 as bpv7
+assert not hasattr(bpv7, "AbstractSecurityBock")
+assert not hasattr(bpv7, "AbstractSecurityBlock")
+
++ IPN EID normalization
+
+= Two-element and three-element IPN forms name the same logical endpoint
+from scapy.contrib.bpv7 import EidStruct
+
+text_form = EidStruct.from_text("ipn:1.2.3")
+explicit = EidStruct.from_cbor([2, [1, 2, 3]])
+assert text_form == explicit
+assert text_form.ssp.same_endpoint(explicit.ssp)
+
+= Two-element packed form splits allocator from node number
+from scapy.contrib.bpv7 import EidStruct
+
+fqnn = (1 << 32) | 2
+two_elem = EidStruct.from_cbor([2, [fqnn, 3]])
+assert two_elem.ssp.allocator == 1
+assert two_elem.ssp.node == 2
+assert two_elem.ssp.service == 3
+assert two_elem.ssp.wire_elements == 2
+
+= Packed two-element IPN CBOR form is preserved on re-encode
+from scapy.contrib.bpv7 import EidStruct
+
+fqnn = (1 << 32) | 2
+parts = [fqnn, 3]
+eid = EidStruct.from_cbor([2, parts])
+assert eid.to_cbor() == [2, parts]
+assert eid.ssp.to_wire() == parts
+
+= Explicit three-element IPN CBOR form is preserved on re-encode
+from scapy.contrib.bpv7 import EidStruct
+
+parts = [1, 2, 3]
+eid = EidStruct.from_cbor([2, parts])
+assert eid.to_cbor() == [2, parts]
+assert eid.ssp.to_wire() == parts
+
+= Explicit three-element form with allocator zero keeps three wire elements
+from scapy.contrib.bpv7 import EidStruct
+
+parts = [0, 2, 3]
+eid = EidStruct.from_cbor([2, parts])
+assert eid.ssp.wire_elements == 3
+assert eid.to_cbor() == [2, parts]
+assert eid.to_text() == "ipn:0.2.3"
+
+= Packed and explicit forms of the same endpoint compare logically
+from scapy.contrib.bpv7 import EidStruct
+
+fqnn = (1 << 32) | 2
+packed = EidStruct.from_cbor([2, [fqnn, 3]])
+explicit = EidStruct.from_cbor([2, [1, 2, 3]])
+assert packed.ssp.same_endpoint(explicit.ssp)
+assert packed != explicit
+assert packed.to_cbor() != explicit.to_cbor()
+
+= Primary block sizes for fragment and CRC combinations
+from scapy.contrib.bpv7 import *
+
+assert bytes(PrimaryBlock())[0] == 0x88
+assert bytes(PrimaryBlock(crc_type=CrcType.CRC16))[0] == 0x89
+assert bytes(PrimaryBlock(bundle_flags="IS_FRAGMENT"))[0] == 0x8a
+assert bytes(PrimaryBlock(bundle_flags="IS_FRAGMENT", crc_type=CrcType.CRC16))[0] == 0x8b
+
+= Canonical block sizes with and without CRC
+from scapy.contrib.bpv7 import *
+from scapy.packet import Raw
+
+assert bytes(CanonicalBlock(type_code=1, block_num=1, btsd=Raw(load=b"")))[0] == 0x85
+assert bytes(CanonicalBlock(type_code=1, block_num=1, crc_type=CrcType.CRC32C, btsd=Raw(load=b"")))[0] == 0x86
+
+= BundleAgeBlock and HopCountBlock infer type codes
+from scapy.contrib.bpv7 import *
+
+age = CanonicalBlock(block_num=2, btsd=BundleAgeBlock(age=100))
+assert CanonicalBlock(bytes(age)).getfieldval("type_code") == 7
+hop = CanonicalBlock(block_num=3, btsd=HopCountBlock(limit=10, count=1))
+assert CanonicalBlock(bytes(hop)).getfieldval("type_code") == 10
+
+= IPN negative allocator rejected
+from scapy.contrib.bpv7 import IpnSsp
+try:
+    IpnSsp(-1, 1, 2)
+    assert False
+except ValueError:
+    pass
+
++ Validation and CRC regressions
+
++ Truncated canonical block
+
+= Canonical block truncated before btsd fails dissection
+from scapy.cbor.cbor import CBOR_Decoding_Error
+from scapy.contrib.bpv7 import CanonicalBlock
+
+# [type_code, block_num, flags, crc_type] — missing btsd
+try:
+    CanonicalBlock(b"\x84\x01\x01\x00\x00")
+    assert False
+except CBOR_Decoding_Error:
+    pass
+
++ CRC build context and unsupported types
+
+= freeze_crc uses inferred type code for BundleAgeBlock
+from scapy.contrib.bpv7 import CanonicalBlock, BundleAgeBlock, CrcType
+
+blk = CanonicalBlock(block_num=2, crc_type=CrcType.CRC16, btsd=BundleAgeBlock(age=1))
+blk.freeze_crc()
+assert blk.crc_value is not None
+assert blk.check_crc()
+
+= Unsupported CRC type validates and fails build
+from scapy.cbor.cbor import CBOR_Encoding_Error
+from scapy.contrib.bpv7 import CanonicalBlock, CrcType
+from scapy.packet import Raw
+
+blk = CanonicalBlock(type_code=1, block_num=1, crc_type=99, btsd=Raw(load=b""))
+codes = [i.code for i in blk.validate()]
+assert "unsupported-crc-type" in codes
+try:
+    bytes(blk)
+    assert False
+except CBOR_Encoding_Error:
+    pass
+
++ DTN pre-epoch times
+
+= Sub-millisecond pre-epoch DTN times are rejected
+import datetime
+from scapy.contrib.bpv7 import DtnTimeField
+
+for us in (1, 999):
+    pre = datetime.datetime(
+        1999, 12, 31, 23, 59, 59, 1000000 - us, datetime.timezone.utc
+    )
+    try:
+        DtnTimeField.datetime_to_dtntime(pre)
+        assert False
+    except ValueError:
+        pass
+
+= Exact millisecond arithmetic at epoch
+import datetime
+from scapy.contrib.bpv7 import DtnTimeField
+
+assert DtnTimeField.datetime_to_dtntime(DtnTimeField.DTN_EPOCH) == 0
+one_ms = DtnTimeField.DTN_EPOCH + datetime.timedelta(milliseconds=1)
+assert DtnTimeField.datetime_to_dtntime(one_ms) == 1
+
++ EID service and DTN SSP
+
+= IPN service exceeding uint64 is rejected
+from scapy.contrib.bpv7 import IpnSsp
+
+try:
+    IpnSsp(0, 1, 2 ** 64)
+    assert False
+except ValueError:
+    pass
+
+= Unknown compressed DTN SSP is rejected from CBOR
+from scapy.contrib.bpv7 import EidStruct
+
+try:
+    EidStruct.from_cbor([1, 99])
+    assert False
+except ValueError:
+    pass
+
+= Known compressed DTN SSP renders without KeyError
+from scapy.contrib.bpv7 import EidStruct
+
+assert EidStruct.from_cbor([1, 0]).to_text() == "dtn:none"
+
++ Multi-payload validation code
+
+= Multiple payload blocks report bad-payload-count
+from scapy.contrib.bpv7 import BundleV7, PrimaryBlock, CanonicalBlock
+from scapy.packet import Raw
+
+bundle = BundleV7(
+    primary=PrimaryBlock(),
+    blocks=[
+        CanonicalBlock(type_code=1, block_num=1, btsd=Raw(load=b"a")),
+        CanonicalBlock(type_code=1, block_num=2, btsd=Raw(load=b"b")),
+    ],
+)
+codes = [i.code for i in bundle.validate()]
+assert "bad-payload-count" in codes
+
++ Review test helpers
+
+= Define conformant helper blocks used by the validation tests
+from scapy.contrib.bpv7 import (
+    BundleAgeBlock,
+    BundleTimestamp,
+    BundleV7,
+    CanonicalBlock,
+    CrcType,
+    PrimaryBlock,
+)
+from scapy.packet import Raw
+
+def _review_primary(source="ipn:1.1", flags=0, dtntime=1):
+    primary = PrimaryBlock(
+        bundle_flags=flags,
+        crc_type=CrcType.CRC16,
+        destination="ipn:2.1",
+        source=source,
+        report_to="ipn:1.1",
+        create_ts=BundleTimestamp(dtntime=dtntime, seqno=0),
+        lifetime=60000,
+    )
+    primary.freeze_crc()
+    return primary
+
+def _review_block(type_code, block_num, btsd, block_flags=0):
+    block = CanonicalBlock(
+        type_code=type_code,
+        block_num=block_num,
+        block_flags=block_flags,
+        crc_type=CrcType.CRC16,
+        btsd=btsd,
+    )
+    block.freeze_crc()
+    return block
+
+def _review_payload(load=b"payload"):
+    return _review_block(1, 1, Raw(load=load))
+
+def _review_bundle(primary=None, extension_blocks=None):
+    return BundleV7(
+        primary=primary if primary is not None else _review_primary(),
+        blocks=list(extension_blocks or []) + [_review_payload()],
+    )
+
+assert _review_bundle().primary.check_crc()
+assert _review_bundle().blocks[-1].check_crc()
+
+
++ CRC verification over the exact received serialization
+
+= Canonical block CRC16 verifies an indefinite-array wire representation
+import struct
+from scapy.contrib.bpv7 import CanonicalBlock
+from scapy.libs.crc import CRC_16_X25
+
+# [_ 1, 1, 0, CRC16, h'6869', h'0000' _]
+prefix = b"\x9f\x01\x01\x00\x01\x42\x68\x69\x42"
+zeroed_wire = prefix + b"\x00\x00\xff"
+crc_value = struct.pack(">H", CRC_16_X25(zeroed_wire))
+wire = prefix + crc_value + b"\xff"
+
+block = CanonicalBlock(wire)
+assert block.check_crc(), "CRC must cover the exact indefinite block bytes"
+
+= Canonical block rejects a CRC calculated over Scapy's normalized encoding
+import struct
+from scapy.contrib.bpv7 import CanonicalBlock
+from scapy.libs.crc import CRC_16_X25
+
+indefinite_prefix = b"\x9f\x01\x01\x00\x01\x42\x68\x69\x42"
+definite_zeroed = b"\x86\x01\x01\x00\x01\x42\x68\x69\x42\x00\x00"
+normalized_crc = struct.pack(">H", CRC_16_X25(definite_zeroed))
+wire = indefinite_prefix + normalized_crc + b"\xff"
+
+block = CanonicalBlock(wire)
+assert not block.check_crc(), (
+    "A CRC over a reconstructed definite array must not validate an "
+    "indefinite wire block"
+)
+
+= Primary block CRC16 verifies an indefinite-array wire representation
+import struct
+from scapy.contrib.bpv7 import PrimaryBlock
+from scapy.libs.crc import CRC_16_X25
+
+# The three EIDs are dtn:none, the creation timestamp is [0, 0], and the
+# lifetime is zero. This test concerns serialization fidelity, not semantics.
+prefix = (
+    b"\x9f"          # indefinite array
+    b"\x07"          # version
+    b"\x00"          # flags
+    b"\x01"          # CRC16
+    b"\x82\x01\x00"  # destination
+    b"\x82\x01\x00"  # source
+    b"\x82\x01\x00"  # report-to
+    b"\x82\x00\x00"  # creation timestamp
+    b"\x00"          # lifetime
+    b"\x42"          # two-byte CRC byte string
+)
+zeroed_wire = prefix + b"\x00\x00\xff"
+crc_value = struct.pack(">H", CRC_16_X25(zeroed_wire))
+wire = prefix + crc_value + b"\xff"
+
+primary = PrimaryBlock(wire)
+assert primary.check_crc(), "Primary CRC must cover its exact received bytes"
+
+
++ Primary-block and bundle semantic validation
+
+= Default construction is either RFC-safe or reports every violated invariant
+from scapy.contrib.bpv7 import BundleV7, CanonicalBlock, CrcType, PrimaryBlock
+from scapy.packet import Raw
+
+primary = PrimaryBlock()
+bundle = BundleV7(
+    primary=primary,
+    blocks=[CanonicalBlock(type_code=1, block_num=1, btsd=Raw(load=b"x"))],
+)
+codes = {issue.code for issue in bundle.validate()}
+
+if int(primary.getfieldval("crc_type")) == int(CrcType.NONE):
+    assert "primary-crc-required" in codes
+
+source = primary.getfieldval("source")
+source_text = source.to_text() if hasattr(source, "to_text") else str(source)
+flags = int(primary.getfieldval("bundle_flags"))
+if source_text == "dtn:none" and not (flags & int(PrimaryBlock.Flag.NO_FRAGMENT)):
+    assert "anonymous-source-must-not-fragment" in codes
+
+create_ts = primary.getfieldval("create_ts")
+if int(create_ts.getfieldval("dtntime")) == 0:
+    assert "bundle-age-required" in codes
+
+= A primary block without CRC protection reports primary-crc-required
+from scapy.contrib.bpv7 import BundleTimestamp, CrcType, PrimaryBlock
+
+primary = PrimaryBlock(
+    crc_type=CrcType.NONE,
+    destination="ipn:2.1",
+    source="ipn:1.1",
+    report_to="ipn:1.1",
+    create_ts=BundleTimestamp(dtntime=1, seqno=0),
+    lifetime=60000,
+)
+bundle = _review_bundle(primary=primary)
+codes = {issue.code for issue in bundle.validate()}
+assert "primary-crc-required" in codes
+
+= An anonymous source requires the must-not-fragment flag
+from scapy.contrib.bpv7 import PrimaryBlock
+
+primary = _review_primary(source="dtn:none", flags=0, dtntime=1)
+bundle = _review_bundle(primary=primary)
+codes = {issue.code for issue in bundle.validate()}
+assert "anonymous-source-must-not-fragment" in codes
+
+= An anonymous source cannot request status reports
+from scapy.contrib.bpv7 import PrimaryBlock
+
+flags = int(
+    PrimaryBlock.Flag.NO_FRAGMENT |
+    PrimaryBlock.Flag.REQ_RECEPTION_REPORT
+)
+primary = _review_primary(source="dtn:none", flags=flags, dtntime=1)
+bundle = _review_bundle(primary=primary)
+codes = {issue.code for issue in bundle.validate()}
+assert "anonymous-source-status-flags" in codes
+
+= Zero creation time requires exactly one Bundle Age block
+primary = _review_primary(dtntime=0)
+bundle = _review_bundle(primary=primary)
+codes = {issue.code for issue in bundle.validate()}
+assert "bundle-age-required" in codes
+
+= One Bundle Age block satisfies a zero creation timestamp
+from scapy.contrib.bpv7 import BundleAgeBlock
+
+primary = _review_primary(dtntime=0)
+age = _review_block(7, 2, BundleAgeBlock(age=10))
+bundle = _review_bundle(primary=primary, extension_blocks=[age])
+codes = {issue.code for issue in bundle.validate()}
+assert "bundle-age-required" not in codes
+assert "duplicate-bundle-age" not in codes
+
+= Administrative-record bundles cannot request status reports
+from scapy.contrib.bpv7 import PrimaryBlock
+
+flags = int(
+    PrimaryBlock.Flag.PAYLOAD_ADMIN |
+    PrimaryBlock.Flag.REQ_RECEPTION_REPORT
+)
+primary = _review_primary(flags=flags)
+bundle = _review_bundle(primary=primary)
+codes = {issue.code for issue in bundle.validate()}
+assert "admin-record-status-flags" in codes
+
+= Canonical status-report flags are forbidden for anonymous bundles
+from scapy.contrib.bpv7 import BundleAgeBlock, CanonicalBlock, PrimaryBlock
+
+primary = _review_primary(
+    source="dtn:none",
+    flags=int(PrimaryBlock.Flag.NO_FRAGMENT),
+)
+extension = _review_block(
+    7,
+    2,
+    BundleAgeBlock(age=1),
+    block_flags=int(CanonicalBlock.Flag.STATUS_IF_NO_PROCESS),
+)
+bundle = _review_bundle(primary=primary, extension_blocks=[extension])
+codes = {issue.code for issue in bundle.validate()}
+assert "forbidden-block-status-report" in codes
+
+= Canonical status-report flags are forbidden for administrative bundles
+from scapy.contrib.bpv7 import BundleAgeBlock, CanonicalBlock, PrimaryBlock
+
+primary = _review_primary(flags=int(PrimaryBlock.Flag.PAYLOAD_ADMIN))
+extension = _review_block(
+    7,
+    2,
+    BundleAgeBlock(age=1),
+    block_flags=int(CanonicalBlock.Flag.STATUS_IF_NO_PROCESS),
+)
+bundle = _review_bundle(primary=primary, extension_blocks=[extension])
+codes = {issue.code for issue in bundle.validate()}
+assert "forbidden-block-status-report" in codes
+
+
++ Registered block-type-specific data failures
+
+= Malformed data for a registered block type raises on dissection
+from scapy.cbor.cbor import CBOR_Decoding_Error
+from scapy.contrib.bpv7 import CanonicalBlock
+
+# Type 7 is Bundle Age, whose BTSD must be an unsigned integer. The byte
+# string instead contains the CBOR text string "x".
+wire = b"\x85\x07\x02\x00\x00\x42\x61x"
+try:
+    CanonicalBlock(wire)
+except CBOR_Decoding_Error:
+    pass
+else:
+    raise AssertionError(
+        "Malformed registered BTSD was accepted without a decoding error"
+    )
+
+= Data for an unregistered block type remains available as Raw
+from scapy.contrib.bpv7 import CanonicalBlock
+from scapy.packet import Raw
+
+# [99, 2, 0, NONE, h'616263']
+wire = b"\x85\x18\x63\x02\x00\x00\x43abc"
+block = CanonicalBlock(wire)
+assert isinstance(block.btsd, Raw)
+assert bytes(block.btsd) == b"abc"
+assert "known-btsd-decode-failed" not in {
+    issue.code for issue in block.validate()
+}
+
+
+= Auto CRC build remains correct when BTSD contains zero-byte sequences
+from scapy.contrib.bpv7 import CanonicalBlock, CrcType
+from scapy.packet import Raw
+
+# Payload deliberately contains CRC16 / CRC32C zero placeholders so a
+# naive rfind(zero) patch would hit the wrong offset.
+for crc_type, zeros in (
+    (CrcType.CRC16, b"\x00\x00"),
+    (CrcType.CRC32C, b"\x00\x00\x00\x00"),
+):
+    block = CanonicalBlock(
+        type_code=1,
+        block_num=1,
+        crc_type=crc_type,
+        btsd=Raw(load=b"pre" + zeros + b"post"),
+    )
+    raw = bytes(block)
+    decoded = CanonicalBlock(raw)
+    assert decoded.check_crc(), (crc_type, raw.hex())
+
+
++ Canonical block-number reservation
+
+= Canonical block number zero is reserved for the primary block
+from scapy.contrib.bpv7 import BundleAgeBlock
+
+extension = _review_block(7, 0, BundleAgeBlock(age=1))
+bundle = _review_bundle(extension_blocks=[extension])
+codes = {issue.code for issue in bundle.validate()}
+assert "canonical-block-uses-primary-number" in codes
+
+
++ Extension-block cardinality and value constraints
+
+= A bundle cannot contain more than one Previous Node block
+from scapy.contrib.bpv7 import PreviousNodeBlock
+
+first = _review_block(6, 2, PreviousNodeBlock(node="ipn:9.1"))
+second = _review_block(6, 3, PreviousNodeBlock(node="ipn:10.1"))
+bundle = _review_bundle(extension_blocks=[first, second])
+codes = {issue.code for issue in bundle.validate()}
+assert "duplicate-previous-node" in codes
+
+= A bundle cannot contain more than one Bundle Age block
+from scapy.contrib.bpv7 import BundleAgeBlock
+
+first = _review_block(7, 2, BundleAgeBlock(age=1))
+second = _review_block(7, 3, BundleAgeBlock(age=2))
+bundle = _review_bundle(extension_blocks=[first, second])
+codes = {issue.code for issue in bundle.validate()}
+assert "duplicate-bundle-age" in codes
+
+= A bundle cannot contain more than one Hop Count block
+from scapy.contrib.bpv7 import HopCountBlock
+
+first = _review_block(10, 2, HopCountBlock(limit=10, count=1))
+second = _review_block(10, 3, HopCountBlock(limit=20, count=2))
+bundle = _review_bundle(extension_blocks=[first, second])
+codes = {issue.code for issue in bundle.validate()}
+assert "duplicate-hop-count" in codes
+
+= Hop Count limit is restricted to the inclusive range 1 through 255
+from scapy.contrib.bpv7 import HopCountBlock
+
+for limit in (0, 256):
+    block = _review_block(10, 2, HopCountBlock(limit=limit, count=0))
+    codes = {issue.code for issue in block.validate()}
+    assert "bad-hop-limit" in codes
+
+= Hop Count accepts boundary limits 1 and 255
+from scapy.contrib.bpv7 import HopCountBlock
+
+for limit in (1, 255):
+    block = _review_block(10, 2, HopCountBlock(limit=limit, count=0))
+    codes = {issue.code for issue in block.validate()}
+    assert "bad-hop-limit" not in codes
+
+
++ BPv7 definite byte strings and CRC lengths
+
+= Canonical BTSD rejects an indefinite-length byte string
+from scapy.cbor.cbor import CBOR_Decoding_Error
+from scapy.contrib.bpv7 import CanonicalBlock
+
+# [1, 1, 0, NONE, (_ h'6869' _)]
+wire = b"\x85\x01\x01\x00\x00\x5f\x42hi\xff"
+try:
+    CanonicalBlock(wire)
+    assert False, "BPv7 accepted an indefinite BTSD byte string"
+except CBOR_Decoding_Error:
+    pass
+
+= Canonical CRC rejects an indefinite-length byte string
+from scapy.cbor.cbor import CBOR_Decoding_Error
+from scapy.contrib.bpv7 import CanonicalBlock
+
+# [1, 1, 0, CRC16, h'', (_ h'0000' _)]
+wire = b"\x86\x01\x01\x00\x01\x40\x5f\x42\x00\x00\xff"
+try:
+    CanonicalBlock(wire)
+    assert False, "BPv7 accepted an indefinite CRC byte string"
+except CBOR_Decoding_Error:
+    pass
+
+= CRC16 validation reports a byte string that is not exactly two octets
+from scapy.contrib.bpv7 import CanonicalBlock
+
+wire = b"\x86\x01\x01\x00\x01\x40\x43\x00\x00\x00"
+block = CanonicalBlock(wire)
+codes = {issue.code for issue in block.validate()}
+assert "bad-crc-length" in codes
+
+= CRC32C validation reports a byte string that is not exactly four octets
+from scapy.contrib.bpv7 import CanonicalBlock
+
+wire = b"\x86\x01\x01\x00\x02\x40\x42\x00\x00"
+block = CanonicalBlock(wire)
+codes = {issue.code for issue in block.validate()}
+assert "bad-crc-length" in codes
+
+= Primary CRC16 validation reports a byte string that is not two octets
+from scapy.contrib.bpv7 import PrimaryBlock
+
+wire = (
+    b"\x89"
+    b"\x07"
+    b"\x00"
+    b"\x01"
+    b"\x82\x01\x00"
+    b"\x82\x01\x00"
+    b"\x82\x01\x00"
+    b"\x82\x00\x00"
+    b"\x00"
+    b"\x43\x00\x00\x00"
+)
+primary = PrimaryBlock(wire)
+codes = {issue.code for issue in primary.validate()}
+assert "bad-crc-length" in codes
+
+= Building an explicit wrong-length CRC16 value is rejected
+from scapy.cbor.cbor import CBOR_Encoding_Error
+from scapy.contrib.bpv7 import CanonicalBlock, CrcType
+from scapy.packet import Raw
+
+block = CanonicalBlock(
+    type_code=1,
+    block_num=1,
+    crc_type=CrcType.CRC16,
+    crc_value=b"\x00\x00\x00",
+    btsd=Raw(load=b""),
+)
+try:
+    bytes(block)
+    assert False, "Builder emitted a CRC16 value with three octets"
+except CBOR_Encoding_Error:
+    pass
+
+
++ DTN time helper error contract
+
+= Direct naive datetime conversion raises ValueError rather than Python TypeError
+import datetime
+from scapy.contrib.bpv7 import DtnTimeField
+
+naive = datetime.datetime(2000, 1, 1, 0, 0, 1)
+try:
+    DtnTimeField.datetime_to_dtntime(naive)
+    assert False, "Naive datetime was accepted"
+except ValueError:
+    pass
+except TypeError as exc:
+    assert False, "Leaked aware-versus-naive comparison TypeError: %s" % exc
+
+
++ Public documentation contract
+
+= BundleV7 docstring does not promise removed AdminRecord behavior
+from scapy.contrib.bpv7 import BundleV7
+
+assert "AdminRecord" not in (BundleV7.__doc__ or "")
+
+
++ Nested rebuild cache invalidation
+
+= Editing primary fields on a dissected bundle rebuilds fresh wire bytes
+from scapy.contrib.bpv7 import (
+    BundleTimestamp,
+    BundleV7,
+    CanonicalBlock,
+    CrcType,
+    PrimaryBlock,
+)
+from scapy.packet import Raw
+
+primary = PrimaryBlock(
+    bundle_flags=0,
+    crc_type=CrcType.CRC16,
+    destination="ipn:2.1",
+    source="ipn:1.1",
+    report_to="ipn:1.1",
+    create_ts=BundleTimestamp(dtntime=1, seqno=0),
+    lifetime=60000,
+)
+primary.freeze_crc()
+block = CanonicalBlock(
+    type_code=1,
+    block_num=1,
+    block_flags=0,
+    crc_type=CrcType.CRC16,
+    btsd=Raw(load=b"payload"),
+)
+block.freeze_crc()
+raw = bytes(BundleV7(primary=primary, blocks=[block]))
+pkt = BundleV7(raw)
+assert pkt.raw_packet_cache is not None
+assert pkt.primary.lifetime == 60000
+pkt.primary.lifetime = 1
+pkt.primary.crc_value = None
+pkt.primary.freeze_crc()
+rebuilt = bytes(pkt)
+assert rebuilt != raw
+assert BundleV7(rebuilt).primary.lifetime == 1
+
++ Validator refinements
+
+= BTSD validation errors are emitted exactly once
+from scapy.contrib.bpv7 import HopCountBlock
+
+block = _review_block(10, 2, HopCountBlock(limit=0, count=0))
+bundle = _review_bundle(extension_blocks=[block])
+issues = bundle.validate()
+bad_hop = [issue for issue in issues if issue.code == "bad-hop-limit"]
+assert len(bad_hop) == 1
+assert bad_hop[0].path.endswith(".btsd")
+
+= BIB-protected primary CRC absence is not an unconditional error
+from scapy.contrib.bpv7 import BundleTimestamp, CrcType, PrimaryBlock
+
+primary = PrimaryBlock(
+    crc_type=CrcType.NONE,
+    destination="ipn:2.1",
+    source="ipn:1.1",
+    report_to="ipn:1.1",
+    create_ts=BundleTimestamp(dtntime=1, seqno=0),
+    lifetime=60000,
+)
+bundle = _review_bundle(primary=primary)
+codes_default = {issue.code for issue in bundle.validate()}
+assert "primary-crc-required" in codes_default
+codes_bib = {issue.code for issue in bundle.validate(primary_integrity_protected=True)}
+assert "primary-crc-required" not in codes_bib
+
+= Overlong integer encoding is reported as non-deterministic CBOR
+from scapy.contrib.bpv7 import CanonicalBlock
+from scapy.libs.crc import CRC_16_X25
+import struct
+
+# Canonical block with overlong type_code encoding: 18 01 instead of 01
+# [_ 18 01, 1, 0, CRC16, h'6869', h'XXXX' _]
+prefix = b"\x9f\x18\x01\x01\x00\x01\x42\x68\x69\x42"
+zeroed = prefix + b"\x00\x00\xff"
+crc_value = struct.pack(">H", CRC_16_X25(zeroed))
+wire = prefix + crc_value + b"\xff"
+block = CanonicalBlock(wire)
+codes = {issue.code for issue in block.validate("blocks[0]")}
+assert "non-deterministic-cbor" in codes
+
++ Shared helpers
+
+= Import follow-up test dependencies and define conformant bundles
+from scapy.cbor.cbor import CBOR_Decoding_Error
+from scapy.cbor.cborcodec import CBOR_Codec_Decoding_Error
+from scapy.cbor.cborfields import CBORF_UNSIGNED_INTEGER
+from scapy.cborpacket import CBOR_Packet
+from scapy.contrib.bpv7 import (
+    BundleAgeBlock,
+    BundleTimestamp,
+    BundleV7,
+    CanonicalBlock,
+    CrcType,
+    HopCountBlock,
+    PrimaryBlock,
+    ValidationIssue,
+)
+from scapy.packet import Raw
+
+
+def _rr_primary(crc_type=CrcType.CRC16, freeze=True):
+    primary = PrimaryBlock(
+        bundle_flags=0,
+        crc_type=crc_type,
+        destination="ipn:2.1",
+        source="ipn:1.1",
+        report_to="ipn:1.1",
+        create_ts=BundleTimestamp(dtntime=1, seqno=0),
+        lifetime=60000,
+    )
+    if freeze and int(crc_type) != int(CrcType.NONE):
+        primary.freeze_crc()
+    return primary
+
+
+def _rr_block(type_code, block_num, btsd, crc_type=CrcType.CRC16, freeze=True):
+    block = CanonicalBlock(
+        type_code=type_code,
+        block_num=block_num,
+        block_flags=0,
+        crc_type=crc_type,
+        btsd=btsd,
+    )
+    if freeze and int(crc_type) != int(CrcType.NONE):
+        block.freeze_crc()
+    return block
+
+
+def _rr_payload(load=b"payload", crc_type=CrcType.CRC16, freeze=True):
+    return _rr_block(1, 1, Raw(load=load), crc_type=crc_type, freeze=freeze)
+
+
+def _rr_bundle(primary=None, extension_blocks=None, payload=None):
+    return BundleV7(
+        primary=primary if primary is not None else _rr_primary(),
+        blocks=list(extension_blocks or []) + [
+            payload if payload is not None else _rr_payload()
+        ],
+    )
+
+
+def _rr_codes(issues):
+    return [issue.code for issue in issues]
+
+
+def _rr_assert_nondeterministic_rejected_or_reported(packet_cls, wire):
+    try:
+        pkt = packet_cls(wire)
+    except (CBOR_Decoding_Error, CBOR_Codec_Decoding_Error):
+        return
+    issues = pkt.validate()
+    codes = _rr_codes(issues)
+    assert "non-deterministic-cbor" in codes, (
+        "%s silently accepted non-deterministic CBOR: %r; issues=%r"
+        % (packet_cls.__name__, wire, codes)
+    )
+
+
+assert _rr_bundle().check_crc()
+
+
++ Finding 6: BTSD validation issues must not be duplicated
+
+= A Hop Count validation issue appears exactly once in bundle validation
+hop = _rr_block(10, 2, HopCountBlock(limit=0, count=0))
+bundle = _rr_bundle(extension_blocks=[hop])
+issues = [issue for issue in bundle.validate() if issue.code == "bad-hop-limit"]
+assert len(issues) == 1, issues
+assert issues[0].path == "blocks[0].btsd"
+
+= A custom BTSD validation issue appears exactly once with its original path
+class RRValidatedAgeBlock(BundleAgeBlock):
+    def validate(self, path=""):
+        return [ValidationIssue("rr-custom-btsd", path, "custom validation issue")]
+
+age = _rr_block(7, 2, RRValidatedAgeBlock(age=1))
+bundle = _rr_bundle(extension_blocks=[age])
+issues = [issue for issue in bundle.validate() if issue.code == "rr-custom-btsd"]
+assert len(issues) == 1, issues
+assert issues[0].path == "blocks[0].btsd"
+
+
++ Finding 8: primary CRC validation needs BIB protection context
+
+= A CRC-less primary remains invalid when no integrity-protection context is supplied
+bundle = _rr_bundle(primary=_rr_primary(crc_type=CrcType.NONE, freeze=False))
+codes = _rr_codes(bundle.validate())
+assert "primary-crc-required" in codes
+
+= Verified BIB protection suppresses the primary-crc-required issue
+bundle = _rr_bundle(primary=_rr_primary(crc_type=CrcType.NONE, freeze=False))
+issues = bundle.validate(primary_integrity_protected=True)
+assert "primary-crc-required" not in _rr_codes(issues)
+
+= Explicitly absent BIB protection still reports primary-crc-required
+bundle = _rr_bundle(primary=_rr_primary(crc_type=CrcType.NONE, freeze=False))
+issues = bundle.validate(primary_integrity_protected=False)
+assert "primary-crc-required" in _rr_codes(issues)
+
+
++ Finding 9: BPv7 must reject or report non-deterministic CBOR
+
+= Overlong canonical-block scalar encodings are not silently accepted
+wires = (
+    b"\x85\x18\x01\x01\x00\x00\x40",  # type code 1
+    b"\x85\x01\x18\x01\x00\x00\x40",  # block number 1
+    b"\x85\x01\x01\x18\x00\x00\x40",  # flags 0
+    b"\x85\x01\x01\x00\x18\x00\x40",  # CRC type 0
+)
+for wire in wires:
+    _rr_assert_nondeterministic_rejected_or_reported(CanonicalBlock, wire)
+
+= An overlong canonical-block array length is not silently accepted
+_rr_assert_nondeterministic_rejected_or_reported(
+    CanonicalBlock,
+    b"\x98\x05\x01\x01\x00\x00\x40",
+)
+
+= An overlong BTSD byte-string length is not silently accepted
+_rr_assert_nondeterministic_rejected_or_reported(
+    CanonicalBlock,
+    b"\x85\x01\x01\x00\x00\x58\x00",
+)
+
+= An overlong primary-block version is not silently accepted
+wire = bytes(_rr_primary())
+assert wire[1:2] == b"\x07"
+overlong = wire[:1] + b"\x18\x07" + wire[2:]
+_rr_assert_nondeterministic_rejected_or_reported(PrimaryBlock, overlong)
+
+= A non-minimal integer inside registered BTSD is not silently accepted
+_rr_assert_nondeterministic_rejected_or_reported(
+    CanonicalBlock,
+    b"\x85\x07\x02\x00\x00\x42\x18\x01",
+)
+
+= Non-minimal Hop Count content inside BTSD is not silently accepted
+_rr_assert_nondeterministic_rejected_or_reported(
+    CanonicalBlock,
+    b"\x85\x0a\x02\x00\x00\x44\x82\x03\x18\x01",
+)
+
+= A shortest-form canonical block is not reported as non-deterministic
+block = CanonicalBlock(b"\x85\x01\x01\x00\x00\x40")
+assert "non-deterministic-cbor" not in _rr_codes(block.validate())
+
+= BundleV7 construction continues to use the required indefinite outer array
+wire = bytes(_rr_bundle())
+assert wire.startswith(b"\x9f")
+assert wire.endswith(b"\xff")
+
+= A definite outer bundle array is rejected or reported as nonconforming
+wire = bytes(_rr_bundle())
+assert wire.startswith(b"\x9f") and wire.endswith(b"\xff")
+definite = b"\x82" + wire[1:-1]
+try:
+    bundle = BundleV7(definite)
+except (CBOR_Decoding_Error, CBOR_Codec_Decoding_Error):
+    pass
+else:
+    codes = _rr_codes(bundle.validate())
+    assert (
+        "bundle-array-must-be-indefinite" in codes
+        or "non-deterministic-cbor" in codes
+    ), codes
+
+
++ Finding 10: CRC-aware build results must contain final bytes after one traversal
+
+= A canonical block build result contains the same final CRC bytes as bytes(block)
+block = _rr_payload(load=b"x", freeze=False)
+result = block.cbor_build_result()
+assert result.items == 1
+assert result.data == bytes(block)
+assert CanonicalBlock(result.data).check_crc()
+
+= A primary block build result contains the same final CRC bytes as bytes(primary)
+primary = _rr_primary(freeze=False)
+result = primary.cbor_build_result()
+assert result.items == 1
+assert result.data == bytes(primary)
+assert PrimaryBlock(result.data).check_crc()
+
+= CRC32 build results contain final four-byte CRC values
+block = _rr_payload(load=b"crc32", crc_type=CrcType.CRC32C, freeze=False)
+result = block.cbor_build_result()
+assert result.items == 1
+assert result.data == bytes(block)
+parsed = CanonicalBlock(result.data)
+assert len(parsed.crc_value) == 4
+assert parsed.check_crc()
+
+= Building a directly serialized CRC block traverses its root twice for auto-CRC
+block = _rr_payload(load=b"x", freeze=False)
+root = CanonicalBlock.CBOR_root
+original = root.build_result
+calls = {"count": 0}
+
+def _rr_counted_direct_build(pkt):
+    calls["count"] += 1
+    return original(pkt)
+
+root.build_result = _rr_counted_direct_build
+try:
+    wire = bytes(block)
+finally:
+    root.build_result = original
+
+assert CanonicalBlock(wire).check_crc()
+# Auto-CRC builds twice: once with a zero placeholder to compute the CRC,
+# then again with the final CRC value (avoids ambiguous rfind patching).
+assert calls["count"] == 2, calls
+
+= Building a CRC block nested in BundleV7 traverses its root twice for auto-CRC
+payload = _rr_payload(load=b"x", freeze=False)
+bundle = _rr_bundle(payload=payload)
+root = CanonicalBlock.CBOR_root
+original = root.build_result
+calls = {"count": 0}
+
+def _rr_counted_nested_build(pkt):
+    calls["count"] += 1
+    return original(pkt)
+
+root.build_result = _rr_counted_nested_build
+try:
+    wire = bytes(bundle)
+finally:
+    root.build_result = original
+
+assert BundleV7(wire).check_crc()
+assert calls["count"] == 2, calls
+
+
++ Blind spot: parsed CRC checks must observe later nested mutations
+
+= Mutating Raw BTSD invalidates a parsed canonical block CRC
+parsed = CanonicalBlock(bytes(_rr_block(99, 2, Raw(load=b"x"))))
+assert parsed.check_crc()
+parsed.btsd.load = b"y"
+assert not parsed.check_crc()
+
+= Mutating registered structured BTSD invalidates a parsed canonical block CRC
+parsed = CanonicalBlock(bytes(_rr_block(7, 2, BundleAgeBlock(age=1))))
+assert parsed.check_crc()
+parsed.btsd.age = 2
+assert not parsed.check_crc()
+
+= BundleV7 check_crc observes mutation inside a parsed child block
+parsed = BundleV7(
+    bytes(_rr_bundle(extension_blocks=[_rr_block(7, 2, BundleAgeBlock(age=1))]))
+)
+assert parsed.check_crc()
+parsed.blocks[0].btsd.age = 2
+assert not parsed.check_crc()
+
+= freeze_crc after nested mutation restores a valid canonical block
+parsed = CanonicalBlock(bytes(_rr_block(7, 2, BundleAgeBlock(age=1))))
+parsed.btsd.age = 2
+assert not parsed.check_crc()
+parsed.freeze_crc()
+wire = bytes(parsed)
+assert parsed.check_crc()
+assert CanonicalBlock(wire).check_crc()
+
+= Validation reports one CRC mismatch after nested BTSD mutation
+parsed = CanonicalBlock(bytes(_rr_block(7, 2, BundleAgeBlock(age=1))))
+parsed.btsd.age = 2
+issues = [issue for issue in parsed.validate("block") if issue.code == "crc-mismatch"]
+assert len(issues) == 1, issues
+assert issues[0].path == "block"
+
+= Mutating an ordinary canonical scalar also invalidates the parsed CRC
+parsed = CanonicalBlock(bytes(_rr_block(99, 2, Raw(load=b"x"))))
+parsed.block_num = 3
+assert not parsed.check_crc()
+
+
++ Blind spot: registered BTSD conversion must behave consistently on assignment
+
+= Assigning bytes for a registered type constructs the registered BTSD packet
+block = CanonicalBlock(
+    type_code=7,
+    block_num=2,
+    block_flags=0,
+    crc_type=CrcType.NONE,
+)
+block.btsd = b"\x01"
+assert isinstance(block.btsd, BundleAgeBlock)
+assert block.btsd.age == 1
+
+= Assigning malformed bytes for a registered type raises a decoding error
+block = CanonicalBlock(
+    type_code=7,
+    block_num=2,
+    block_flags=0,
+    crc_type=CrcType.NONE,
+)
+try:
+    block.btsd = b"\x61x"
+    assert False, "Malformed registered BTSD assignment became opaque Raw"
+except CBOR_Decoding_Error:
+    pass
+
+= Assigning bytes for an unknown type preserves the data as Raw
+block = CanonicalBlock(
+    type_code=99,
+    block_num=2,
+    block_flags=0,
+    crc_type=CrcType.NONE,
+)
+block.btsd = b"abc"
+assert isinstance(block.btsd, Raw)
+assert bytes(block.btsd) == b"abc"
+
+
++ Blind spot: Hop Count value relationships
+
+= Hop Count count greater than limit is rejected
+hop = _rr_block(10, 2, HopCountBlock(limit=3, count=4))
+bundle = _rr_bundle(extension_blocks=[hop])
+assert "hop-count-exceeds-limit" in _rr_codes(bundle.validate())
+
+= Hop Count count equal to limit is accepted
+hop = _rr_block(10, 2, HopCountBlock(limit=3, count=3))
+bundle = _rr_bundle(extension_blocks=[hop])
+assert "hop-count-exceeds-limit" not in _rr_codes(bundle.validate())
+
+
++ Blind spot: block-type registration integrity and inherited inference
+
+= A subclass of a registered BTSD inherits its BPv7 type code
+class RRBundleAgeSubclass(BundleAgeBlock):
+    pass
+
+block = CanonicalBlock(
+    type_code=None,
+    block_num=2,
+    block_flags=0,
+    crc_type=CrcType.NONE,
+    btsd=RRBundleAgeSubclass(age=5),
+)
+wire = bytes(block)
+parsed = CanonicalBlock(wire)
+assert parsed.type_code == 7
+assert isinstance(parsed.btsd, BundleAgeBlock)
+assert parsed.btsd.age == 5
+
+= A duplicate type-code registration fails atomically
+code = 65010
+
+class RRRegisteredOne(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("value", 0)
+
+class RRRegisteredTwo(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("value", 0)
+
+assert code not in CanonicalBlock._reg_types
+CanonicalBlock.register_type(code)(RRRegisteredOne)
+try:
+    before_types = dict(CanonicalBlock._reg_types)
+    before_codes = dict(CanonicalBlock._reg_codes)
+    try:
+        CanonicalBlock.register_type(code)(RRRegisteredTwo)
+        assert False, "A duplicate BPv7 type code was accepted"
+    except ValueError:
+        pass
+    assert CanonicalBlock._reg_types == before_types
+    assert CanonicalBlock._reg_codes == before_codes
+finally:
+    CanonicalBlock._reg_types.pop(code, None)
+    CanonicalBlock._reg_codes.pop(RRRegisteredOne, None)
+    if "BPV7_BLOCK_TYPE" in RRRegisteredOne.__dict__:
+        delattr(RRRegisteredOne, "BPV7_BLOCK_TYPE")
+
+= Registering one class under a second code fails atomically
+first_code = 65011
+second_code = 65012
+
+class RRRegisteredOnce(CBOR_Packet):
+    CBOR_root = CBORF_UNSIGNED_INTEGER("value", 0)
+
+assert first_code not in CanonicalBlock._reg_types
+assert second_code not in CanonicalBlock._reg_types
+CanonicalBlock.register_type(first_code)(RRRegisteredOnce)
+try:
+    try:
+        CanonicalBlock.register_type(second_code)(RRRegisteredOnce)
+        assert False, "One BTSD class was registered under two type codes"
+    except ValueError:
+        pass
+    assert CanonicalBlock._reg_types[first_code] is RRRegisteredOnce
+    assert second_code not in CanonicalBlock._reg_types
+    assert CanonicalBlock._reg_codes[RRRegisteredOnce] == first_code
+finally:
+    CanonicalBlock._reg_types.pop(first_code, None)
+    CanonicalBlock._reg_types.pop(second_code, None)
+    CanonicalBlock._reg_codes.pop(RRRegisteredOnce, None)
+    if "BPV7_BLOCK_TYPE" in RRRegisteredOnce.__dict__:
+        delattr(RRRegisteredOnce, "BPV7_BLOCK_TYPE")
+
++ Finding 3 - Opaque BTSD must not be interpreted as CBOR
+
+= Payload bytes that resemble non-deterministic CBOR remain opaque
+from scapy.contrib.bpv7 import BundleV7, PrimaryBlock, CanonicalBlock
+from scapy.packet import Raw
+
+bundle = BundleV7(
+    primary=PrimaryBlock(),
+    blocks=[
+        CanonicalBlock(
+            type_code=1,
+            block_num=1,
+            btsd=Raw(load=b"\x18\x00"),
+        )
+    ],
+)
+issues = bundle.validate(primary_integrity_protected=True)
+assert not any(
+    issue.code == "non-deterministic-cbor" and "btsd" in issue.path
+    for issue in issues
+), issues
+
+= Unknown extension block BTSD is opaque even when it resembles overlong CBOR
+from scapy.contrib.bpv7 import CanonicalBlock
+from scapy.packet import Raw
+
+block = CanonicalBlock(
+    type_code=200,
+    block_num=2,
+    btsd=Raw(load=b"\x18\x00"),
+)
+issues = block.validate(path="block")
+assert not any(
+    issue.code == "non-deterministic-cbor" and "btsd" in issue.path
+    for issue in issues
+), issues
+
+= Arbitrary invalid binary payload never raises a CBOR parser error during validation
+from scapy.contrib.bpv7 import BundleV7, PrimaryBlock, CanonicalBlock
+from scapy.packet import Raw
+
+for payload in (b"\xff\x00", b"\x1f", b"\x9f\xff\xff", b"\xff" * 8):
+    bundle = BundleV7(
+        primary=PrimaryBlock(),
+        blocks=[CanonicalBlock(type_code=1, block_num=1, btsd=Raw(load=payload))],
+    )
+    try:
+        issues = bundle.validate(primary_integrity_protected=True)
+    except Exception as exc:
+        raise AssertionError("opaque payload %r reached CBOR validation: %r" % (payload, exc))
+    assert not any(
+        issue.code == "non-deterministic-cbor" and "btsd" in issue.path
+        for issue in issues
+    ), (payload, issues)
+
+= Registered CBOR BTSD is still checked for deterministic encoding
+from scapy.contrib.bpv7 import CanonicalBlock
+
+# Canonical block type 7 is Bundle Age. Its BTSD is the CBOR item 0x18 0x00,
+# a valid but non-shortest encoding of zero, wrapped in a definite byte string.
+wire = b"\x85\x07\x02\x00\x00\x42\x18\x00"
+block = CanonicalBlock(wire)
+issues = block.validate(path="block")
+assert any(
+    issue.code == "non-deterministic-cbor" and issue.path.endswith(".btsd")
+    for issue in issues
+), issues
+
++ Finding 4 - All BPv7 null EID aliases are anonymous sources
+
+= ipn:0.0 and ipn:0.0.0 trigger anonymous-source validation
+from scapy.contrib.bpv7 import BundleV7, PrimaryBlock
+
+for source in ("ipn:0.0", "ipn:0.0.0"):
+    bundle = BundleV7(primary=PrimaryBlock(source=source))
+    codes = [issue.code for issue in bundle.validate(primary_integrity_protected=True)]
+    assert "anonymous-source-must-not-fragment" in codes, (source, codes)
+
+= Null IPN aliases also enforce anonymous-source status-report restrictions
+from scapy.contrib.bpv7 import BundleV7, PrimaryBlock
+
+for source in ("ipn:0.0", "ipn:0.0.0"):
+    flags = int(PrimaryBlock.Flag.NO_FRAGMENT | PrimaryBlock.Flag.REQ_DELIVERY_REPORT)
+    bundle = BundleV7(primary=PrimaryBlock(source=source, bundle_flags=flags))
+    codes = [issue.code for issue in bundle.validate(primary_integrity_protected=True)]
+    assert "anonymous-source-status-flags" in codes, (source, codes)
+
+= IPN node zero with a nonzero service is still the null endpoint
+from scapy.contrib.bpv7 import BundleV7, PrimaryBlock, EidStruct
+
+# RFC 9758: received allocator 0 + node 0 + nonzero service is Null.
+# Textual/local composition of that form is rejected separately.
+eid = EidStruct.from_cbor([2, [0, 9]])
+assert eid.is_null_endpoint()
+bundle = BundleV7(primary=PrimaryBlock(source=eid))
+codes = [issue.code for issue in bundle.validate(primary_integrity_protected=True)]
+assert "anonymous-source-must-not-fragment" in codes, codes
+
+= Anonymous IPN source forbids canonical-block status-report requests
+from scapy.contrib.bpv7 import BundleV7, PrimaryBlock, CanonicalBlock
+from scapy.packet import Raw
+
+primary = PrimaryBlock(
+    source="ipn:0.0",
+    bundle_flags=int(PrimaryBlock.Flag.NO_FRAGMENT),
+)
+block = CanonicalBlock(
+    type_code=1,
+    block_num=1,
+    block_flags=int(CanonicalBlock.Flag.STATUS_IF_NO_PROCESS),
+    btsd=Raw(load=b"payload"),
+)
+issues = BundleV7(primary=primary, blocks=[block]).validate(
+    primary_integrity_protected=True
+)
+assert any(issue.code == "forbidden-block-status-report" for issue in issues), issues
+
++ Additional RFC 9758 IPN blind spots
+
+= LocalNode exclamation syntax parses and is semantically equal to its numeric form
+from scapy.contrib.bpv7 import EidStruct
+
+local = EidStruct.from_text("ipn:!.7")
+numeric = EidStruct.from_text("ipn:4294967295.7")
+assert local.to_text() == "ipn:!.7"
+assert local.ssp.same_endpoint(numeric.ssp)
+
+= IPN textual forms reject decimal components with leading zeros
+from scapy.contrib.bpv7 import EidStruct
+
+for text in ("ipn:01.2", "ipn:0.01.2", "ipn:1.02"):
+    try:
+        EidStruct.from_text(text)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("non-canonical IPN text was accepted: %s" % text)
+
+= Two- and three-element IPN wire forms round-trip while denoting the same endpoint
+from scapy.contrib.bpv7 import BundleEidField
+from scapy.cborpacket import CBOR_Packet
+
+class EidPacket(CBOR_Packet):
+    CBOR_root = BundleEidField("eid", None)
+
+two_wire = b"\x82\x02\x82\x00\x00"
+three_wire = b"\x82\x02\x83\x00\x00\x00"
+two = EidPacket(two_wire)
+three = EidPacket(three_wire)
+assert bytes(two) == two_wire
+assert bytes(three) == three_wire
+assert two.getfieldval("eid").ssp.same_endpoint(three.getfieldval("eid").ssp)
+
++ Finding 5 - PrimaryBlock EID defaults use the normal internal representation
+
+= Default EIDs are directly readable and render as dtn:none
+from scapy.contrib.bpv7 import PrimaryBlock
+
+primary = PrimaryBlock()
+assert primary.destination == "dtn:none"
+assert primary.source == "dtn:none"
+assert primary.report_to == "dtn:none"
+assert "dtn:none" in primary.show(dump=True)
+
+= Default EIDs are normalized to EidStruct internally and survive Packet.copy
+from scapy.contrib.bpv7 import EidStruct, PrimaryBlock
+
+primary = PrimaryBlock()
+for name in ("destination", "source", "report_to"):
+    assert isinstance(primary.getfieldval(name), EidStruct), (name, primary.getfieldval(name))
+
+clone = primary.copy()
+for name in ("destination", "source", "report_to"):
+    assert isinstance(clone.getfieldval(name), EidStruct), (name, clone.getfieldval(name))
+
+assert bytes(clone) == bytes(primary)
+
++ Finding 6 - Deterministic-CBOR validation covers floats and map order without duplicates
+
+= Deterministic scanner detects non-shortest floats and non-canonical map-key order
+from scapy.cbor.cborcodec import cbor_find_non_deterministic
+
+# 1.5 is exactly representable as binary16. Binary16 is deterministic, while
+# binary32 and binary64 encodings of the same value are not.
+assert not cbor_find_non_deterministic(b"\xf9\x3e\x00")
+assert cbor_find_non_deterministic(b"\xfa\x3f\xc0\x00\x00")
+assert cbor_find_non_deterministic(b"\xfb\x3f\xf8\x00\x00\x00\x00\x00\x00")
+
+# Infinities also have an exact half-precision representation.
+assert not cbor_find_non_deterministic(b"\xf9\x7c\x00")
+assert cbor_find_non_deterministic(b"\xfa\x7f\x80\x00\x00")
+
+# RFC 8949 deterministic map ordering compares encoded keys bytewise.
+assert not cbor_find_non_deterministic(b"\xa2\x61a\x02\x61b\x01")
+assert cbor_find_non_deterministic(b"\xa2\x61b\x01\x61a\x02")
+
+# Indefinite maps must obey the same key-order rule (RFC 9171 / RFC 8949).
+assert not cbor_find_non_deterministic(bytes.fromhex("bf616101616202ff"))
+assert cbor_find_non_deterministic(bytes.fromhex("bf616201616102ff"))
+
+# Large binary64 values must not crash the scanner (RFC 8949 1.0e+300).
+assert cbor_find_non_deterministic(bytes.fromhex("fb7e37e43c8800759c")) == []
+
+= Bundle validation does not duplicate the same deterministic-CBOR wire issue
+from scapy.cbor.cborcodec import CBOR_decode_head
+from scapy.contrib.bpv7 import BundleV7
+
+bundle = BundleV7()
+raw = bytes(bundle)
+assert raw[:1] == b"\x9f", raw.hex()
+
+# Locate the version item structurally: the bundle's indefinite-array marker is
+# followed by the primary block. Decode only the primary-array header to find
+# the exact version offset, rather than searching for a coincidental 0x07 byte.
+primary_major, _primary_len, after_primary_head = CBOR_decode_head(raw[1:])
+assert primary_major == 4
+primary_head_len = len(raw[1:]) - len(after_primary_head)
+version_pos = 1 + primary_head_len
+assert raw[version_pos:version_pos + 1] == b"\x07", raw.hex()
+mutated = raw[:version_pos] + b"\x18\x07" + raw[version_pos + 1:]
+parsed = BundleV7(mutated)
+nd = [
+    i for i in parsed.validate(primary_integrity_protected=True)
+    if i.code == "non-deterministic-cbor"
+]
+assert len(nd) == 1, [(i.path, i.message) for i in nd]
+
++ Finding 7 - CRC verification uses the exact received CRC-value span
+
+= CRC16 verifies when CRC byte-string length header is valid but non-shortest
+from scapy.contrib.bpv7 import CanonicalBlock, CrcType
+from scapy.libs.crc import CRC_16_X25
+from scapy.packet import Raw
+
+base = CanonicalBlock(
+    type_code=1,
+    block_num=1,
+    crc_type=CrcType.CRC16,
+    btsd=Raw(load=b"payload"),
+)
+wire = bytes(base)
+parsed = CanonicalBlock(wire)
+crc = parsed.getfieldval("crc_value")
+assert isinstance(crc, bytes) and len(crc) == 2
+
+needle = b"\x42" + crc
+idx = wire.rfind(needle)
+assert idx >= 0
+zero_wire = wire[:idx] + b"\x58\x02\x00\x00" + wire[idx + len(needle):]
+new_crc = CRC_16_X25(zero_wire).to_bytes(2, "big")
+nonpreferred = wire[:idx] + b"\x58\x02" + new_crc + wire[idx + len(needle):]
+received = CanonicalBlock(nonpreferred)
+assert received.getfieldval("crc_value") == new_crc
+assert received.check_crc() is True
+
+= CRC32C also verifies against a non-shortest received CRC byte-string header
+from scapy.contrib.bpv7 import CanonicalBlock, CrcType
+from scapy.libs.crc import CRC_32C
+from scapy.packet import Raw
+
+base = CanonicalBlock(
+    type_code=1,
+    block_num=1,
+    crc_type=CrcType.CRC32C,
+    btsd=Raw(load=b"payload"),
+)
+wire = bytes(base)
+parsed = CanonicalBlock(wire)
+crc = parsed.getfieldval("crc_value")
+assert isinstance(crc, bytes) and len(crc) == 4
+
+needle = b"\x44" + crc
+idx = wire.rfind(needle)
+assert idx >= 0
+zero_wire = wire[:idx] + b"\x58\x04\x00\x00\x00\x00" + wire[idx + len(needle):]
+new_crc = CRC_32C(zero_wire).to_bytes(4, "big")
+nonpreferred = wire[:idx] + b"\x58\x04" + new_crc + wire[idx + len(needle):]
+received = CanonicalBlock(nonpreferred)
+assert received.getfieldval("crc_value") == new_crc
+assert received.check_crc() is True
+
++ Finding 9 - Full uint64 DTN time domain is display-safe
+
+= Maximum uint64 DTN time can be parsed, copied, and represented without OverflowError
+from scapy.contrib.bpv7 import BundleTimestamp
+
+max_dtntime = (1 << 64) - 1
+pkt = BundleTimestamp(dtntime=max_dtntime, seqno=0)
+assert pkt.getfieldval("dtntime") == max_dtntime
+_ = pkt.dtntime
+text = pkt.show(dump=True)
+assert str(max_dtntime) in text or "dtntime" in text
+
+wire = bytes(pkt)
+parsed = BundleTimestamp(wire)
+assert parsed.getfieldval("dtntime") == max_dtntime
+_ = parsed.dtntime
+assert parsed.copy().getfieldval("dtntime") == max_dtntime
+
+= DTN time display remains safe immediately above Python datetime's range
+import datetime
+from scapy.contrib.bpv7 import BundleTimestamp, DtnTimeField
+
+max_datetime = datetime.datetime.max.replace(tzinfo=datetime.timezone.utc)
+last_ms = DtnTimeField.datetime_to_dtntime(max_datetime)
+assert DtnTimeField.dtntime_to_datetime(last_ms) is not None
+
+overflow_ms = last_ms + 1
+pkt = BundleTimestamp(dtntime=overflow_ms, seqno=0)
+assert pkt.getfieldval("dtntime") == overflow_ms
+_ = pkt.dtntime
+assert pkt.show(dump=True)
+
++ Additional BPv7 validation regressions
+
+= Primary CRC exception is contextual and only suppressed when integrity protection is known
+from scapy.contrib.bpv7 import BundleV7, PrimaryBlock
+
+bundle = BundleV7(primary=PrimaryBlock())
+without_context = [issue.code for issue in bundle.validate()]
+with_context = [
+    issue.code for issue in bundle.validate(primary_integrity_protected=True)
+]
+assert "primary-crc-required" in without_context
+assert "primary-crc-required" not in with_context
+
+= Hop Count reports count greater than limit exactly once
+from scapy.contrib.bpv7 import HopCountBlock
+
+issues = HopCountBlock(limit=3, count=4).validate(path="hop")
+matching = [issue for issue in issues if issue.code == "hop-count-exceeds-limit"]
+assert len(matching) == 1, issues
+assert matching[0].path == "hop"
+
+= Null IPN two- and three-element encodings have identical anonymous-source semantics
+from scapy.contrib.bpv7 import BundleV7, PrimaryBlock, BundleEidField
+from scapy.cborpacket import CBOR_Packet
+
+class NullEidPacket(CBOR_Packet):
+    CBOR_root = BundleEidField("eid", None)
+
+for wire in (b"\x82\x02\x82\x00\x00", b"\x82\x02\x83\x00\x00\x00"):
+    eid = NullEidPacket(wire).getfieldval("eid")
+    bundle = BundleV7(primary=PrimaryBlock(source=eid))
+    codes = [issue.code for issue in bundle.validate(primary_integrity_protected=True)]
+    assert "anonymous-source-must-not-fragment" in codes, (wire.hex(), codes)
+
++ Latest review - RFC 9758 IPN "!" grammar and Null composition
+
+= Reject malformed "!" placements and non-ASCII digits
+from scapy.contrib.bpv7 import EidStruct
+
+for text in (
+    "ipn:!.1.2",
+    "ipn:1.!",
+    "ipn:0.1.!",
+    "ipn:!.!",
+    "ipn:\u0661.2",
+):
+    try:
+        EidStruct.from_text(text)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("accepted invalid IPN text: %r" % text)
+
+= LocalNode formats only as the full FQNN bang form
+from scapy.contrib.bpv7 import EidStruct, IpnSsp
+
+assert EidStruct.from_text("ipn:!.7").to_text() == "ipn:!.7"
+assert IpnSsp(5, 0xffffffff, 7).to_text() == "ipn:5.4294967295.7"
+assert IpnSsp(0xffffffff, 1, 7).to_text() == "ipn:4294967295.1.7"
+
+= Null IPN with nonzero service is receivable but not composable
+from scapy.contrib.bpv7 import IpnSsp
+
+try:
+    IpnSsp(0, 0, 7)
+except ValueError:
+    pass
+else:
+    raise AssertionError("composed invalid Null IPN with nonzero service")
+
+received = IpnSsp.from_wire([0, 0, 7])
+assert received.is_null_endpoint()
+assert received.service == 7
+
++ RFC 9758 invalid Null-IPN composition
+
+= Invalid Null-IPN plus nonzero service cannot be composed from text
+from scapy.contrib.bpv7 import EidStruct
+
+for text in ("ipn:0.9", "ipn:0.0.9"):
+    try:
+        EidStruct.from_text(text)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "RFC 9758 invalid Null-IPN service form was locally composed: %s"
+            % text
+        )
+
+= Invalid Null-IPN plus nonzero service received from wire is still decoded as Null
+from scapy.contrib.bpv7 import EidStruct
+
+for parts in ([0, 9], [0, 0, 9]):
+    eid = EidStruct.from_cbor([2, parts])
+    assert eid.is_null_endpoint()
+    assert eid.to_cbor() == [2, parts]
+
+= PrimaryBlock rejects locally composed invalid Null-IPN source text
+from scapy.contrib.bpv7 import PrimaryBlock
+
+for source in ("ipn:0.9", "ipn:0.0.9"):
+    try:
+        PrimaryBlock(source=source)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "PrimaryBlock accepted an RFC 9758 invalid composed source: %s"
+            % source
+        )
+
++ BundleV7 validation robustness
+
+= BundleV7 validate reports a non-CanonicalBlock entry instead of crashing
+from scapy.contrib.bpv7 import BundleV7, PrimaryBlock
+from scapy.packet import Raw
+
+bundle = BundleV7(
+    primary=PrimaryBlock(),
+    blocks=[Raw(load=b"not-a-canonical-block")],
+)
+try:
+    issues = bundle.validate(primary_integrity_protected=True)
+except Exception as exc:
+    raise AssertionError(
+        "BundleV7.validate() crashed on a malformed blocks entry: %r" % exc
+    )
+
+assert any(
+    issue.code == "invalid-canonical-block" and issue.path == "blocks[0]"
+    for issue in issues
+), [(issue.code, issue.path, issue.message) for issue in issues]
+
++ RFC 9758 Null endpoint semantic identity
+
+= Received invalid Null-IPN service forms have canonical Null semantic identity
+from scapy.contrib.bpv7 import EidStruct
+
+canonical_two = EidStruct.from_text("ipn:0.0")
+canonical_three = EidStruct.from_text("ipn:0.0.0")
+received_two = EidStruct.from_cbor([2, [0, 9]])
+received_three = EidStruct.from_cbor([2, [0, 0, 9]])
+
+for received in (received_two, received_three):
+    assert received.is_null_endpoint()
+    assert received.same_endpoint(canonical_two)
+    assert canonical_two.same_endpoint(received)
+    assert received.same_endpoint(canonical_three)
+    assert canonical_three.same_endpoint(received)
+    assert received.semantic_key() == canonical_two.semantic_key()
+    assert received.semantic_key() == canonical_three.semantic_key()
+
+
+# Preserve the received wire representation even though semantic identity is
+# normalized to the Null endpoint.
+assert received_two.to_cbor() == [2, [0, 9]]
+assert received_three.to_cbor() == [2, [0, 0, 9]]
+
+
+= dtn:none and both canonical IPN Null forms identify the same BPv7 endpoint
+from scapy.contrib.bpv7 import EidStruct
+
+dtn_null = EidStruct.from_text("dtn:none")
+ipn_null_two = EidStruct.from_text("ipn:0.0")
+ipn_null_three = EidStruct.from_text("ipn:0.0.0")
+
+for ipn_null in (ipn_null_two, ipn_null_three):
+    assert dtn_null.is_null_endpoint()
+    assert ipn_null.is_null_endpoint()
+    assert dtn_null.same_endpoint(ipn_null)
+    assert ipn_null.same_endpoint(dtn_null)
+    assert dtn_null.semantic_key() == ipn_null.semantic_key()
+
+
+# The two textual/wire IPN forms remain distinguishable for rendering even
+# though they denote the same endpoint.
+assert ipn_null_two.to_text() == "ipn:0.0"
+assert ipn_null_three.to_text() == "ipn:0.0.0"
+
++ DTN EID syntax and Node-ID validation
+
+= Local DTN composition rejects syntactically invalid URIs
+from scapy.contrib.bpv7 import EidStruct
+
+for text in ("dtn:garbage", "dtn://nodemux", "dtn:///svc"):
+    try:
+        EidStruct.from_text(text)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("invalid DTN text was accepted: %s" % text)
+
+= Hierarchical DTN forms parse; only empty demux is a Node ID
+from scapy.contrib.bpv7 import EidStruct
+
+node = EidStruct.from_text("dtn://node/")
+svc = EidStruct.from_text("dtn://node/svc")
+assert node.is_valid() and node.is_node_id()
+assert svc.is_valid() and not svc.is_node_id()
+assert not EidStruct.from_text("dtn:none").is_node_id()
+
+= IPN EIDs with nonzero service remain Node IDs under RFC 9758
+from scapy.contrib.bpv7 import EidStruct
+
+eid = EidStruct.from_text("ipn:1.2.3")
+assert eid.is_valid() and eid.is_node_id()
+
+= Primary source with a non-empty DTN demux is reported by validate()
+from scapy.contrib.bpv7 import PrimaryBlock
+
+codes = {i.code for i in PrimaryBlock(source="dtn://src/svc").validate()}
+assert "source-not-node-id" in codes, codes
+
+= PreviousNodeBlock.validate requires a Node ID
+from scapy.contrib.bpv7 import PreviousNodeBlock
+
+bad = PreviousNodeBlock(node="dtn://n/s")
+good = PreviousNodeBlock(node="dtn://n/")
+assert "previous-node-not-node-id" in {i.code for i in bad.validate()}
+assert not {i.code for i in good.validate()}
+
+= Fresh CBOR BTSD without a received cache is scanned via bytes(btsd)
+from scapy.cbor.cborfields import CBORF_FLOAT
+from scapy.cborpacket import CBOR_Packet
+from scapy.contrib.bpv7 import CanonicalBlock
+
+class StickyNonPrefFloat(CBOR_Packet):
+    CBOR_root = CBORF_FLOAT("value", 1.5)
+    def self_build(self):
+        # Intentionally emit non-preferred binary64 for 1.5.
+        return b"\xfb\x3f\xf8\x00\x00\x00\x00\x00\x00"
+
+btsd = StickyNonPrefFloat(value=1.5)
+btsd.raw_packet_cache = None
+btsd.raw_packet_cache_fields = None
+btsd.original = None
+block = CanonicalBlock(block_num=2, type_code=99, btsd=btsd)
+assert "non-deterministic-cbor" in {i.code for i in block.validate()}, [
+    (i.code, i.message) for i in block.validate()
+]
+
+= Freshly composed preferred float BTSD is not reported as non-deterministic
+from scapy.cbor.cborfields import CBORF_FLOAT
+from scapy.cborpacket import CBOR_Packet
+from scapy.contrib.bpv7 import CanonicalBlock
+
+class PrefFloatBtsd(CBOR_Packet):
+    CBOR_root = CBORF_FLOAT("value", 1.5)
+
+block = CanonicalBlock(block_num=2, type_code=99, btsd=PrefFloatBtsd(value=1.5))
+assert bytes(block.btsd) == b"\xf9\x3e\x00"
+assert "non-deterministic-cbor" not in {i.code for i in block.validate()}
+
+= Received non-preferred float BTSD remains detectable via its raw cache
+from scapy.cbor.cborfields import CBORF_FLOAT
+from scapy.cborpacket import CBOR_Packet
+from scapy.contrib.bpv7 import CanonicalBlock
+
+class FloatBtsd(CBOR_Packet):
+    CBOR_root = CBORF_FLOAT("value", 0.0)
+
+nonpref = FloatBtsd(b"\xfb\x3f\xf8\x00\x00\x00\x00\x00\x00")
+block = CanonicalBlock(block_num=2, type_code=99, btsd=nonpref)
+assert "non-deterministic-cbor" in {i.code for i in block.validate()}
+
++ private-use EIDs and DTN reg-name grammar
+
+= Private-use EID scheme 65536 dissects and round-trips without aborting the bundle
+from scapy.contrib.bpv7 import BundleV7, CanonicalBlock, EidStruct, PrimaryBlock
+from scapy.packet import Raw
+
+private = EidStruct.from_cbor([65536, b"private"])
+primary = PrimaryBlock()
+primary.setfieldval("source", private)
+primary.setfieldval("destination", EidStruct.from_text("dtn:none"))
+primary.setfieldval("report_to", EidStruct.from_text("dtn:none"))
+bundle = BundleV7(
+    primary=primary,
+    blocks=[CanonicalBlock(type_code=1, block_num=1, btsd=Raw(load=b"payload"))],
+)
+wire = bytes(bundle)
+decoded = BundleV7(wire)
+assert decoded.primary.getfieldval("source").scheme == 65536
+assert decoded.primary.getfieldval("source").ssp == b"private"
+assert decoded.primary.getfieldval("source").to_cbor() == [65536, b"private"]
+assert len(decoded.blocks) == 1
+assert not decoded.primary.getfieldval("source").is_known_scheme()
+assert "invalid-eid" not in {i.code for i in decoded.primary.validate()}
+assert "unknown-scheme-eid" in {i.code for i in decoded.primary.validate()}
+assert all(
+    i.severity == "warning"
+    for i in decoded.primary.validate()
+    if i.code == "unknown-scheme-eid"
+)
+
+= DTN node-name accepts RFC 3986 reg-name and rejects illegal gen-delimiters
+from scapy.contrib.bpv7 import EidStruct
+
+assert EidStruct.from_text("dtn://node%20/svc").is_valid()
+assert EidStruct.from_text("dtn://node!$/service").is_valid()
+
+for text in (
+    "dtn://node?foo/svc",
+    "dtn://node#foo/svc",
+    "dtn://node@foo/svc",
+    "dtn://node:foo/svc",
+    "dtn://node%ZZ/svc",
+    "dtn://node%/svc",
+):
+    try:
+        EidStruct.from_text(text)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("invalid DTN reg-name was accepted: %s" % text)
+
++ EID wire CBOR type enforcement
+
+= EID scheme rejects non-unsigned CBOR integer types
+from scapy.contrib.bpv7 import EidStruct
+
+for scheme in (-1, True, "1", 1.0):
+    try:
+        EidStruct.from_cbor([scheme, b"private"])
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("malformed EID scheme accepted: %r" % scheme)
+
+= IPN SSP components reject non-unsigned CBOR integer types
+from scapy.contrib.bpv7 import EidStruct
+
+for bad in (True, "1", 1.0, -1):
+    try:
+        EidStruct.from_cbor([2, [bad, 1]])
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("malformed IPN SSP component accepted: %r" % bad)
+
+= Valid unsigned EID scheme and IPN SSP still decode
+from scapy.contrib.bpv7 import EidStruct
+
+assert EidStruct.from_cbor([65536, b"private"]).scheme == 65536
+assert EidStruct.from_cbor([2, [1, 2, 3]]).to_text() == "ipn:1.2.3"
+
+= BundleAgeBlock.validate reports a missing age value
+from scapy.contrib.bpv7 import BundleAgeBlock
+
+codes = {i.code for i in BundleAgeBlock().validate()}
+assert "missing-bundle-age" in codes, codes
+assert not BundleAgeBlock(age=0).validate()
+assert not BundleAgeBlock(age=100).validate()
+
++ RFC 9758 contextual lifecycle validation
+
+= LocalNode and Private Use EID helpers classify RFC 9758 special FQNNs
+from scapy.contrib.bpv7 import EidStruct
+
+local = EidStruct.from_text("ipn:!.7")
+priv = EidStruct.from_text("ipn:100.1")
+normal = EidStruct.from_text("ipn:16384.1")
+assert local.is_local_node() and not local.is_private_use()
+assert priv.is_private_use() and not priv.is_local_node()
+assert not normal.is_local_node() and not normal.is_private_use()
+
+= Ingress rejects LocalNode source or destination EIDs
+from scapy.contrib.bpv7 import BundleV7, PrimaryBlock
+
+bundle = BundleV7(primary=PrimaryBlock(source="ipn:!.1", destination="ipn:1.1"))
+codes = {i.code for i in bundle.validate_lifecycle(direction="ingress")}
+assert "localnode-eid-on-ingress" in codes, codes
+
+bundle = BundleV7(primary=PrimaryBlock(source="ipn:1.1", destination="ipn:!.2"))
+codes = {i.code for i in bundle.validate_lifecycle(direction="ingress")}
+assert "localnode-eid-on-ingress" in codes, codes
+
+= Egress rejects LocalNode source or destination EIDs
+from scapy.contrib.bpv7 import BundleV7, PrimaryBlock
+
+bundle = BundleV7(primary=PrimaryBlock(source="ipn:!.1"))
+codes = {i.code for i in bundle.validate_lifecycle(direction="egress")}
+assert "localnode-eid-on-egress" in codes, codes
+
+= Crossing administrative domains rejects Private Use IPN EIDs
+from scapy.contrib.bpv7 import BundleV7, PrimaryBlock
+
+bundle = BundleV7(primary=PrimaryBlock(source="ipn:100.1", destination="ipn:200.1"))
+assert not bundle.validate_lifecycle(direction="egress", crossing_admin_domain=False)
+codes = {i.code for i in bundle.validate_lifecycle(
+    direction="egress", crossing_admin_domain=True
+)}
+assert "private-use-eid-cross-domain" in codes, codes
+
+= Egress rejects LocalNode Previous Node EIDs
+from scapy.contrib.bpv7 import (
+    BundleV7, CanonicalBlock, PreviousNodeBlock, PrimaryBlock,
+)
+from scapy.packet import Raw
+
+bundle = BundleV7(
+    primary=PrimaryBlock(source="ipn:1.1", destination="ipn:2.1"),
+    blocks=[
+        CanonicalBlock(
+            block_num=2,
+            btsd=PreviousNodeBlock(node="ipn:!.0"),
+        ),
+        CanonicalBlock(type_code=1, block_num=1, btsd=Raw(load=b"x")),
+    ],
+)
+codes = {i.code for i in bundle.validate_lifecycle(direction="egress")}
+assert "localnode-eid-on-egress" in codes, codes
+ingress = {i.code for i in bundle.validate_lifecycle(direction="ingress")}
+assert "localnode-eid-on-ingress" in ingress, ingress
+
+= LocalNode three-element CBOR preserves arity through text
+from scapy.contrib.bpv7 import EidStruct
+
+eid = EidStruct.from_cbor([2, [0, 0xFFFFFFFF, 7]])
+assert eid.ssp.wire_elements == 3
+assert eid.to_text() == "ipn:0.4294967295.7"
+roundtrip = EidStruct.from_text(eid.to_text())
+assert roundtrip.ssp.wire_elements == 3
+assert roundtrip.to_cbor() == [2, [0, 0xFFFFFFFF, 7]]
+assert EidStruct.from_text("ipn:!.7").ssp.wire_elements == 2
+
+= Indefinite-length primary and canonical arrays are reported by validate
+import struct
+from scapy.contrib.bpv7 import CanonicalBlock, PrimaryBlock
+from scapy.libs.crc import CRC_16_X25
+
+# [_ 1, 1, 0, CRC16, h'6869', h'0000' _] with CRC over indefinite wire
+prefix = b"\x9f\x01\x01\x00\x01\x42\x68\x69\x42"
+zeroed_wire = prefix + b"\x00\x00\xff"
+crc_value = struct.pack(">H", CRC_16_X25(zeroed_wire))
+wire = prefix + crc_value + b"\xff"
+block = CanonicalBlock(wire)
+assert block.check_crc()
+assert "indefinite-length-cbor" in {i.code for i in block.validate()}, [
+    (i.code, i.message) for i in block.validate()
+]
+
+primary_prefix = (
+    b"\x9f"          # indefinite array
+    b"\x07"          # version
+    b"\x00"          # flags
+    b"\x01"          # CRC16
+    b"\x82\x01\x00"  # destination
+    b"\x82\x01\x00"  # source
+    b"\x82\x01\x00"  # report-to
+    b"\x82\x00\x00"  # creation timestamp
+    b"\x00"          # lifetime
+    b"\x42"          # two-byte CRC byte string
+)
+primary_zeroed = primary_prefix + b"\x00\x00\xff"
+pcrc = struct.pack(">H", CRC_16_X25(primary_zeroed))
+pwire = primary_prefix + pcrc + b"\xff"
+primary = PrimaryBlock(pwire)
+assert primary.check_crc()
+assert "indefinite-length-cbor" in {i.code for i in primary.validate()}, [
+    (i.code, i.message) for i in primary.validate()
+]
+
+= Fragment offset exceeding total length is reported
+from scapy.contrib.bpv7 import PrimaryBlock
+
+primary = PrimaryBlock(
+    destination="ipn:1.1",
+    source="ipn:2.1",
+    report_to="ipn:2.1",
+    bundle_flags=int(PrimaryBlock.Flag.IS_FRAGMENT),
+    fragment_offset=100,
+    total_app_data_len=50,
+)
+assert "fragment-offset-exceeds-total" in {i.code for i in primary.validate()}
+
+= assert_valid optionally includes lifecycle checks
+from scapy.contrib.bpv7 import BundleV7, PrimaryBlock
+
+bad = BundleV7(primary=PrimaryBlock(source="ipn:!.1", destination="ipn:2.1"))
+try:
+    bad.assert_valid()
+except ValueError as exc:
+    assert "localnode-eid-on-ingress" not in str(exc), exc
+else:
+    # Structurally incomplete bundles may still raise; LocalNode alone must not.
+    pass
+
+try:
+    bad.assert_valid(lifecycle="ingress")
+except ValueError as exc:
+    assert "localnode-eid-on-ingress" in str(exc), exc
+else:
+    raise AssertionError("assert_valid ignored lifecycle LocalNode")
+
+= HopCountBlock.validate reports a missing count value
+from scapy.contrib.bpv7 import HopCountBlock
+
+codes = {i.code for i in HopCountBlock(limit=5, count=None).validate()}
+assert "missing-hop-count" in codes, codes
+assert not HopCountBlock(limit=5, count=0).validate()
+
+= CRC check without span uses only a final preferred-length CRC bstr
+from scapy.contrib.bpv7 import CanonicalBlock, CrcType
+from scapy.packet import Raw
+
+block = CanonicalBlock(
+    type_code=1,
+    block_num=1,
+    crc_type=CrcType.CRC16,
+    btsd=Raw(load=b"payload"),
+)
+wire = bytes(block)
+parsed = CanonicalBlock(wire)
+assert parsed.check_crc()
+assert hasattr(parsed, "_crc_content_span")
+del parsed._crc_content_span
+assert parsed.check_crc(), (
+    "preferred CRC at end of definite array must verify via fallback"
+)
+
+= CRC fallback does not match an embedded preferred bstr inside BTSD
+from scapy.contrib.bpv7 import CanonicalBlock, CrcType
+from scapy.libs.crc import CRC_16_X25
+from scapy.packet import Raw
+
+# Build a block, then craft BTSD that embeds the same preferred CRC bstr
+# earlier in the array so a naive rfind would zero the wrong region.
+base = CanonicalBlock(
+    type_code=1,
+    block_num=1,
+    crc_type=CrcType.CRC16,
+    btsd=Raw(load=b"xx"),
+)
+wire = bytes(base)
+parsed = CanonicalBlock(wire)
+crc = parsed.getfieldval("crc_value")
+assert len(crc) == 2
+# Replace BTSD with bytes that contain \x42||crc as a decoy payload, keep CRC.
+# Canonical layout: [type, num, flags, crc_type, btsd, crc]
+# Use dissect with span cleared after embedding decoy in load.
+decoy = CanonicalBlock(
+    type_code=1,
+    block_num=1,
+    crc_type=CrcType.CRC16,
+    btsd=Raw(load=b"\x42" + crc + b"tail"),
+)
+decoy_wire = bytes(decoy)
+decoy_parsed = CanonicalBlock(decoy_wire)
+assert decoy_parsed.check_crc()
+del decoy_parsed._crc_content_span
+assert decoy_parsed.check_crc(), (
+    "fallback must use the final CRC field, not an embedded bstr in BTSD"
+)
+
+= Non-preferred CRC header still verifies with span but not after span loss
+from scapy.contrib.bpv7 import CanonicalBlock, CrcType
+from scapy.libs.crc import CRC_16_X25
+from scapy.packet import Raw
+
+base = CanonicalBlock(
+    type_code=1,
+    block_num=1,
+    crc_type=CrcType.CRC16,
+    btsd=Raw(load=b"payload"),
+)
+wire = bytes(base)
+crc = CanonicalBlock(wire).getfieldval("crc_value")
+needle = b"\x42" + crc
+idx = wire.rfind(needle)
+zero_wire = wire[:idx] + b"\x58\x02\x00\x00" + wire[idx + len(needle):]
+new_crc = CRC_16_X25(zero_wire).to_bytes(2, "big")
+nonpreferred = wire[:idx] + b"\x58\x02" + new_crc + wire[idx + len(needle):]
+received = CanonicalBlock(nonpreferred)
+assert received.check_crc() is True
+del received._crc_content_span
+assert received.check_crc() is False, (
+    "without span, non-preferred CRC head must not use unsafe rfind fallback"
+)
+
+= IS_FRAGMENT and NO_FRAGMENT together is reported
+from scapy.contrib.bpv7 import PrimaryBlock
+
+flags = int(PrimaryBlock.Flag.IS_FRAGMENT | PrimaryBlock.Flag.NO_FRAGMENT)
+primary = PrimaryBlock(
+    destination="ipn:1.1",
+    source="ipn:2.1",
+    report_to="ipn:2.1",
+    bundle_flags=flags,
+    fragment_offset=0,
+    total_app_data_len=10,
+)
+assert "conflicting-fragment-flags" in {i.code for i in primary.validate()}
+
+= Fragment offset plus payload must not exceed total ADU length
+from scapy.contrib.bpv7 import (
+    BundleV7,
+    CanonicalBlock,
+    CrcType,
+    PrimaryBlock,
+    BundleTimestamp,
+)
+from scapy.packet import Raw
+
+primary = PrimaryBlock(
+    bundle_flags=int(PrimaryBlock.Flag.IS_FRAGMENT),
+    crc_type=CrcType.CRC16,
+    destination="ipn:1.1",
+    source="ipn:2.1",
+    report_to="ipn:2.1",
+    create_ts=BundleTimestamp(dtntime=1, seqno=0),
+    lifetime=60000,
+    fragment_offset=10,
+    total_app_data_len=20,
+)
+primary.freeze_crc()
+payload = CanonicalBlock(
+    type_code=1,
+    block_num=1,
+    crc_type=CrcType.CRC16,
+    btsd=Raw(load=b"abcdefghijkl"),  # 12 bytes: 10+12 > 20
+)
+payload.freeze_crc()
+bundle = BundleV7(primary=primary, blocks=[payload])
+codes = {i.code for i in bundle.validate()}
+assert "fragment-extends-past-total" in codes, codes
+
+# Boundary fit is accepted.
+ok_payload = CanonicalBlock(
+    type_code=1,
+    block_num=1,
+    crc_type=CrcType.CRC16,
+    btsd=Raw(load=b"abcdefghij"),  # 10 bytes: 10+10 == 20
+)
+ok_payload.freeze_crc()
+ok = BundleV7(primary=primary, blocks=[ok_payload])
+assert "fragment-extends-past-total" not in {i.code for i in ok.validate()}
+
+= Previous Node unknown-scheme EID emits a warning
+from scapy.contrib.bpv7 import EidStruct, PreviousNodeBlock
+
+pn = PreviousNodeBlock(node=EidStruct.from_cbor([65536, b"private"]))
+issues = pn.validate()
+assert any(
+    i.code == "unknown-scheme-eid" and i.severity == "warning"
+    for i in issues
+), [(i.code, i.severity) for i in issues]
+assert not any(i.severity == "error" for i in issues)
