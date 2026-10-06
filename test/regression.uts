@@ -297,10 +297,12 @@ try:
     # 1. Open with libpcap
     reader = open_pcap(fname, offline=True)
     # 2. Read packet
-    reader.next()
+    _, data = reader.next()
     # 3. Check the header lengths
     assert reader.header.contents.len == 1034
     assert reader.header.contents.caplen == 34
+    # 4. Only the captured bytes are returned (GHSA-c547-xwrv-q9jm)
+    assert data == raw(pkt)
 finally:
     try:
         reader.close()
