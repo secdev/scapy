@@ -121,3 +121,17 @@ assert isinstance(IGMP(raw(IGMPv3_MQ())), IGMPv3)
 
 pkt = IGMPv3_MR(records=[IGMPv3_MR_Group(maddr="127.0.0.1")])
 assert pkt.summary() == 'IGMPv3 Version 3 - Membership Report'
+
+= IGMPv3 - legacy contrib stack is one report
+
+load_contrib("igmpv3")
+from scapy.contrib.igmpv3 import IGMPv3mr, IGMPv3gr
+group = "232.1.1.12"
+sources = ["10.0.0.1", "10.0.0.2"]
+legacy = IGMPv3()/IGMPv3mr(records=[IGMPv3gr(rtype=1, maddr=group, srcaddrs=sources)])
+current = IGMPv3_MR(records=[IGMPv3_MR_Group(rtype=1, maddr=group, srcaddrs=sources)])
+assert bytes(legacy) == bytes(current)
+assert bytes(legacy)[0] == 0x22
+legacy_ip = IP(src="192.168.10.2", dst="224.0.0.22")/IGMPv3()/IGMPv3mr(records=[IGMPv3gr(rtype=1, maddr=group, srcaddrs=sources)])
+assert bytes(legacy_ip[IGMPv3]) == bytes(current)
+assert IGMPv3_MR in legacy_ip
