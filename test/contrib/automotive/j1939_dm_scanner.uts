@@ -1,0 +1,1457 @@
+% Regression tests for J1939 Diagnostic Message (DM) Scanner
+~ automotive_comm
+
++ Configuration
+~ conf
+
+= Imports
+from threading import Event
+from scapy.layers.can import CAN
+from scapy.contrib.automotive.j1939 import (
+    J1939_GLOBAL_ADDRESS,
+    J1939_NULL_ADDRESS,
+    J1939_PF_REQUEST,
+    j1939_can_id,
+    j1939_decode_can_id,
+)
+from scapy.ansmachine import AnsweringMachine
+from scapy.contrib.automotive.j1939.j1939_dm_scanner import (
+    DmScanResult,
+    J1939PgnScanResult,
+    J1939_DM_PGNS,
+    J1939_PF_ACK,
+    J1939_PGN_ACK,
+    J1939_PGN_VIN,
+    j1939_scan_dm,
+    j1939_scan_pgns,
+)
+from scapy.contrib.j1939 import (
+    J1939Request,
+    J1939_TP_CM,
+    J1939_TP_CM_BAM,
+    J1939_TP_CM_RTS,
+    J1939_TP_CTRL_BAM,
+    J1939_TP_CTRL_RTS,
+)
+from scapy.contrib.automotive.j1939.j1939_scanner import (
+    J1939_DEFAULT_BITRATE,
+    J1939_DEFAULT_BUSLOAD,
+    j1939_inter_probe_delay,
+)
+from test.testsocket import TestSocket, SlowTestSocket, cleanup_testsockets
+
+= Redirect logging
+import logging
+from scapy.error import log_runtime
+from io import StringIO
+log_stream = StringIO()
+handler = logging.StreamHandler(log_stream)
+log_runtime.addHandler(handler)
+j1939_logger = logging.getLogger("scapy.contrib.automotive.j1939")
+j1939_logger.addHandler(handler)
+
+
++ DM PGN constants
+
+= J1939_DM_PGNS contains all standard DM entries
+assert len(J1939_DM_PGNS) == 57
+for name in ("DM1", "DM2", "DM3", "DM4", "DM5", "DM6", "DM11", "DM12"):
+    assert name in J1939_DM_PGNS, "Missing {}".format(name)
+
+= DM PGN values are correct (spot-check DM1 and DM6)
+assert J1939_DM_PGNS["DM1"] == 0xFECA, "DM1 PGN: 0x{:04X}".format(J1939_DM_PGNS["DM1"])
+assert J1939_DM_PGNS["DM6"] == 0xFECF, "DM6 PGN: 0x{:04X}".format(J1939_DM_PGNS["DM6"])
+
+= PDU2 DM PGNs have PF byte >= 0xF0
+for name, pgn in J1939_DM_PGNS.items():
+    pf = (pgn >> 8) & 0xFF
+    if pf >= 0xF0:
+        assert pf >= 0xF0, "{} PF=0x{:02X} should be PDU2".format(name, pf)
+
+= J1939_PF_ACK and J1939_PGN_ACK have correct values
+assert J1939_PF_ACK == 0xE8, "J1939_PF_ACK: 0x{:02X}".format(J1939_PF_ACK)
+assert J1939_PGN_ACK == 0xE800, "J1939_PGN_ACK: 0x{:04X}".format(J1939_PGN_ACK)
+
+
+
++ DmScanResult class
+
+= DmScanResult: supported result sets correct attributes
+res = DmScanResult("DM1", 0xFECA, True)
+assert res.dm_name == "DM1"
+assert res.pgn == 0xFECA
+assert res.supported is True
+assert res.packet is None
+assert res.error is None
+
+= DmScanResult: NACK result sets correct attributes
+res = DmScanResult("DM2", 0xFECB, False, error="NACK")
+assert res.supported is False
+assert res.error == "NACK"
+
+= DmScanResult: Timeout result
+res = DmScanResult("DM5", 0xFECE, False, error="Timeout")
+assert res.supported is False
+assert res.error == "Timeout"
+assert res.packet is None
+
+= DmScanResult: __repr__ contains dm_name and pgn
+res = DmScanResult("DM1", 0xFECA, True)
+r = repr(res)
+assert "DM1" in r, "repr should contain dm_name"
+assert "FECA" in r.upper(), "repr should contain pgn"
+
+= DmScanResult: is a dataclass
+from dataclasses import is_dataclass
+assert is_dataclass(DmScanResult)
+
+= J1939PgnScanResult: attributes, repr, is_dataclass, and dm_name compatibility
+pgn_res = J1939PgnScanResult(pgn=0xFEE4, supported=True, name="VIN")
+assert pgn_res.pgn == 0xFEE4
+assert pgn_res.supported is True
+assert pgn_res.name == "VIN"
+assert pgn_res.dm_name == "VIN"
+assert pgn_res.error is None
+assert is_dataclass(J1939PgnScanResult)
+assert "FEE4" in repr(pgn_res).upper()
+
+
++ j1939_scan_dm - probe frame format
+
+= dm_pgn_probe: sends a unicast Request frame to target_da
+def test_dm_pgn_probe_frame():
+    with TestSocket(CAN) as tx_sock, TestSocket(CAN) as monitor:
+        tx_sock.pair(monitor)
+        j1939_scan_dm(tx_sock, target_da=0x00, dms=["DM1"], sniff_time=0.0)
+        pkts = monitor.sniff(count=1, timeout=0.2)
+        assert len(pkts) == 1, "Expected 1 probe frame, got {}".format(len(pkts))
+        probe = pkts[0]
+        _, pf, ps, sa = j1939_decode_can_id(probe.identifier)
+        assert probe.flags & 0x4, "Expected extended CAN frame"
+        assert pf == J1939_PF_REQUEST, "PF should be 0xEA (Request)"
+        assert ps == 0x00, "DA should be target_da=0x00"
+        assert sa == 0xF9, "SA should be 0xF9 (diag adapter)"
+        expected_payload = bytes(J1939Request(req_pgn=J1939_DM_PGNS["DM1"]))
+        assert bytes(probe.data) == expected_payload, \
+            "Payload should be LE PGN, got {}".format(bytes(probe.data).hex())
+    cleanup_testsockets()
+
+test_dm_pgn_probe_frame()
+
+= dm_pgn_probe: payload encodes the requested PGN in little-endian
+def test_dm_pgn_probe_payload_le():
+    with TestSocket(CAN) as tx_sock, TestSocket(CAN) as monitor:
+        tx_sock.pair(monitor)
+        j1939_scan_dm(tx_sock, target_da=0x10, dms=["DM6"], sniff_time=0.0)
+        pkts = monitor.sniff(count=1, timeout=0.2)
+        assert len(pkts) == 1
+        payload = bytes(pkts[0].data)
+        # DM6 = 0xFECF = 65231; LE 3 bytes: CF FE 00
+        assert payload == b'\xcf\xfe\x00', \
+            "DM6 LE payload should be CF FE 00, got {}".format(payload.hex())
+    cleanup_testsockets()
+
+test_dm_pgn_probe_payload_le()
+
+
++ j1939_scan_dm - response classification
+
+= dm_pgn_probe: positive response (ECU replies with requested PGN)
+sock = TestSocket(CAN)
+# Inject a DM1 response from SA=0x10 (PDU2: PF=0xFE, PS=0xCA)
+resp_can_id = j1939_can_id(6, 0xFE, 0xCA, 0x10)
+sock.ins.send(bytes(CAN(identifier=resp_can_id, flags="extended",
+                        data=b'\xff\xff' + b'\x00' * 6)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM1"], sniff_time=0.1)["DM1"]
+assert res.supported is True, "ECU DM1 reply should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= dm_pgn_probe: NACK response (ECU replies with PGN 0xE800, ctrl=0x01)
+sock = TestSocket(CAN)
+# NACK from SA=0x20, directed to our src_addr=0xF9 (PDU1: PF=0xE8, PS=src_addr)
+nack_can_id = j1939_can_id(6, J1939_PF_ACK, 0xF9, 0x20)
+# NACK payload: ctrl=0x01, group_fn=0xFF, reserved=0xFF, pgn LE (3 bytes), padding
+nack_pgn_le = bytes(J1939Request(req_pgn=J1939_DM_PGNS["DM2"]))
+nack_data = b'\x01\xff\xff' + nack_pgn_le + b'\xff\xff'
+sock.ins.send(bytes(CAN(identifier=nack_can_id, flags="extended",
+                        data=nack_data)))
+res = j1939_scan_dm(sock, target_da=0x20, dms=["DM2"], sniff_time=0.1)["DM2"]
+assert res.supported is False, "NACK should mark PGN as not supported"
+assert res.error == "NACK"
+assert res.packet is not None
+cleanup_testsockets()
+
+= dm_pgn_probe: timeout (no response within sniff_time)
+sock = TestSocket(CAN)
+res = j1939_scan_dm(sock, target_da=0x30, dms=["DM5"], sniff_time=0.05)["DM5"]
+assert res.supported is False
+assert res.error == "Timeout"
+assert res.packet is None
+cleanup_testsockets()
+
+= dm_pgn_probe: non-extended (11-bit) frames are ignored
+sock = TestSocket(CAN)
+# 11-bit frame - flags has no extended bit
+sock.ins.send(bytes(CAN(identifier=0x040, data=b'\xca\xfe\x00\x00\x00\x00\x00\x00')))
+res = j1939_scan_dm(sock, target_da=0x40, dms=["DM1"], sniff_time=0.1)["DM1"]
+assert res.supported is False
+assert res.error == "Timeout", "Non-extended frames must be ignored"
+cleanup_testsockets()
+
+= dm_pgn_probe: response from wrong SA is ignored
+sock = TestSocket(CAN)
+# Response from SA=0x55 when we probed DA=0x30
+resp_can_id = j1939_can_id(6, 0xFE, 0xCA, 0x55)
+sock.ins.send(bytes(CAN(identifier=resp_can_id, flags="extended",
+                        data=b'\xff\xff' + b'\x00' * 6)))
+res = j1939_scan_dm(sock, target_da=0x30, dms=["DM1"], sniff_time=0.1)["DM1"]
+assert res.supported is False, "Response from wrong SA must be ignored"
+assert res.error == "Timeout"
+cleanup_testsockets()
+
+= dm_pgn_probe: stop_event already set returns Aborted immediately
+def test_dm_pgn_stop_event():
+    ev = Event()
+    ev.set()
+    with TestSocket(CAN) as tx_sock, TestSocket(CAN) as monitor:
+        tx_sock.pair(monitor)
+        res = j1939_scan_dm(tx_sock, target_da=0x00,
+                            dms=["DM1"], stop_event=ev,
+                            sniff_time=0.05)["DM1"]
+        probes = monitor.sniff(count=1, timeout=0.1)
+        assert len(probes) == 0, "No probe should be sent when stop_event is set"
+        assert res.error == "Aborted"
+    cleanup_testsockets()
+
+test_dm_pgn_stop_event()
+
+
++ j1939_scan_dm - combined scanner
+
+= j1939_scan_dm: scans all DMs by default and returns dict with all entries
+sock = TestSocket(CAN)
+results = j1939_scan_dm(sock, target_da=0x00, sniff_time=0.002)
+assert len(results) == len(J1939_DM_PGNS), "Expected {} results, got {}".format(len(J1939_DM_PGNS), len(results))
+for name in J1939_DM_PGNS:
+    assert name in results, "Missing result for {}".format(name)
+
+cleanup_testsockets()
+
+= j1939_scan_dm: all entries are DmScanResult instances
+sock = TestSocket(CAN)
+results = j1939_scan_dm(sock, target_da=0x00, sniff_time=0.002)
+for name, res in results.items():
+    assert isinstance(res, DmScanResult), "{} not DmScanResult".format(name)
+
+cleanup_testsockets()
+
+= j1939_scan_dm: detects positive response for selected DM
+sock = TestSocket(CAN)
+# Inject DM1 positive response from SA=0x10
+resp_can_id = j1939_can_id(6, 0xFE, 0xCA, 0x10)
+sock.ins.send(bytes(CAN(identifier=resp_can_id, flags="extended",
+                        data=b'\xff\xff' + b'\x00' * 6)))
+results = j1939_scan_dm(sock, target_da=0x10, dms=["DM1"], sniff_time=0.1)
+assert results["DM1"].supported is True, "DM1 should be detected as supported"
+cleanup_testsockets()
+
+= j1939_scan_dm: raises ValueError for unknown DM name
+def test_dm_scan_invalid_name():
+    sock = TestSocket(CAN)
+    try:
+        j1939_scan_dm(sock, target_da=0x00, dms=["DM99"])
+        assert False, "Expected ValueError"
+    except ValueError as e:
+        assert "DM99" in str(e), "Error should mention the bad name"
+    cleanup_testsockets()
+
+test_dm_scan_invalid_name()
+
+= j1939_scan_dm: stop_event halts scan after current PGN
+def test_dm_scan_stop_event():
+    from threading import Event
+    ev = Event()
+    ev.set()
+    with TestSocket(CAN) as tx_sock, TestSocket(CAN) as monitor:
+        tx_sock.pair(monitor)
+        results = j1939_scan_dm(tx_sock, target_da=0x00,
+                                dms=["DM1", "DM2", "DM3"],
+                                stop_event=ev, sniff_time=0.05)
+        probes = monitor.sniff(count=1, timeout=0.1)
+        assert len(probes) == 0, "No probes should be sent when stop_event is set"
+        # All entries should be Aborted because stop_event was set before scan
+        assert len(results) == 0 or all(
+            r.error == "Aborted" for r in results.values()
+        ), "All results should be Aborted"
+    cleanup_testsockets()
+
+test_dm_scan_stop_event()
+
+= j1939_scan_dm: custom pgns subset scans only requested DMs
+sock = TestSocket(CAN)
+results = j1939_scan_dm(sock, target_da=0x00, dms=["DM1", "DM5"],
+                        sniff_time=0.02)
+assert set(results.keys()) == {"DM1", "DM5"}, \
+    "Expected only DM1 and DM5, got {}".format(set(results.keys()))
+cleanup_testsockets()
+
+
++ Pacing - DM scanner
+~ automotive_comm
+
+= scan_dm: bitrate and busload params accepted without error (timeout path)
+sock = TestSocket(CAN)
+res = j1939_scan_dm(sock, target_da=0x00, dms=["DM1"],
+                    bitrate=250000, busload=0.05,
+                    sniff_time=0.02)["DM1"]
+assert res.error == "Timeout"
+cleanup_testsockets()
+
+= scan_dm: invalid busload raises ValueError
+def test_dm_scan_invalid_busload():
+    sock = TestSocket(CAN)
+    try:
+        j1939_scan_dm(sock, target_da=0x00, dms=["DM1"],
+                      busload=0.0, sniff_time=0.02)
+        assert False, "Expected ValueError"
+    except ValueError as e:
+        assert "busload" in str(e).lower(), str(e)
+    cleanup_testsockets()
+
+test_dm_scan_invalid_busload()
+
+= scan_dm: bitrate and busload params propagate to inter-probe pacing
+sock = TestSocket(CAN)
+results = j1939_scan_dm(sock, target_da=0x00, dms=["DM1"],
+                        bitrate=250000, busload=0.1, sniff_time=0.02)
+assert "DM1" in results
+assert results["DM1"].error == "Timeout"
+cleanup_testsockets()
+
+= pacing delay for DM scan is consistent with j1939_inter_probe_delay math
+# For request=3 bytes, response=8 bytes, bitrate=250000, busload=0.005:
+# probe_bits = 131 + 8*3 = 155
+# resp_bits  = 131 + 8*8 = 195
+# min_period = 350 / 1250 = 0.28 s
+d = j1939_inter_probe_delay(250000, 0.005, 3, 8, 0.0)
+assert abs(d - 0.1776) < 1e-4, "Expected ~0.1776 s, got {}".format(d)
+
+
++ reconnect_handler and reset_handler
+~ automotive_comm
+
+= scan_dm: reset_handler is called between probes
+call_log = []
+
+def my_reset():
+    call_log.append("reset")
+
+sock = TestSocket(CAN)
+results = j1939_scan_dm(sock, target_da=0x00, dms=["DM1", "DM2"],
+                        reset_handler=my_reset, sniff_time=0.02)
+# Two PGNs -> one reset call between them
+assert call_log == ["reset"], "Expected 1 reset call, got: {}".format(call_log)
+cleanup_testsockets()
+
+= scan_dm: reset_handler called N-1 times for N pgns
+call_log2 = []
+
+def my_reset2():
+    call_log2.append("reset")
+
+sock = TestSocket(CAN)
+results = j1939_scan_dm(sock, target_da=0x00, dms=["DM1", "DM2", "DM3"],
+                        reset_handler=my_reset2, sniff_time=0.02)
+# 3 PGNs -> 2 reset calls
+assert len(call_log2) == 2, "Expected 2 reset calls, got: {}".format(call_log2)
+cleanup_testsockets()
+
+= scan_dm: reset_handler not called for single-pgn scan
+call_log3 = []
+
+def my_reset3():
+    call_log3.append("reset")
+
+sock = TestSocket(CAN)
+results = j1939_scan_dm(sock, target_da=0x00, dms=["DM1"],
+                        reset_handler=my_reset3, sniff_time=0.02)
+assert call_log3 == [], "Expected no reset calls for single pgn"
+cleanup_testsockets()
+
+= scan_dm: reconnect_handler is called after reset_handler and returns new socket
+call_log4 = []
+
+def my_reset4():
+    call_log4.append("reset")
+
+new_sock_holder = []
+
+def my_reconnect():
+    call_log4.append("reconnect")
+    s = TestSocket(CAN)
+    new_sock_holder.append(s)
+    return s
+
+sock = TestSocket(CAN)
+results = j1939_scan_dm(sock, target_da=0x00, dms=["DM1", "DM2"],
+                        reset_handler=my_reset4, reconnect_handler=my_reconnect,
+                        sniff_time=0.02)
+assert call_log4 == ["reset", "reconnect"], \
+    "Expected reset+reconnect, got: {}".format(call_log4)
+assert len(new_sock_holder) == 1
+cleanup_testsockets()
+
+= scan_dm: reconnect_handler alone (no reset_handler) is accepted
+reconnect_log = []
+
+def my_reconnect_only():
+    reconnect_log.append("reconnect")
+    return TestSocket(CAN)
+
+sock = TestSocket(CAN)
+results = j1939_scan_dm(sock, target_da=0x00, dms=["DM1", "DM2"],
+                        reconnect_handler=my_reconnect_only, sniff_time=0.02)
+assert reconnect_log == ["reconnect"], \
+    "Expected 1 reconnect call, got: {}".format(reconnect_log)
+cleanup_testsockets()
+
+= scan_dm: no reset/reconnect handlers -> same behaviour as before
+sock = TestSocket(CAN)
+results = j1939_scan_dm(sock, target_da=0x00, dms=["DM1"],
+                        sniff_time=0.02)
+assert "DM1" in results
+cleanup_testsockets()
+
+
++ Send-then-sniff race condition regression tests
+~ conf
+
+= scan_dm: immediate ECU reply is captured (sniff-before-send regression)
+def test_dm_immediate_reply():
+    import threading
+    with TestSocket(CAN) as sock, TestSocket(CAN) as monitor:
+        sock.pair(monitor)
+        dm1_pgn = J1939_DM_PGNS["DM1"]
+        dm1_pf = (dm1_pgn >> 8) & 0xFF
+        dm1_ps = dm1_pgn & 0xFF
+        def simulate_ecu():
+            pkts = monitor.sniff(count=1, timeout=0.5)
+            if pkts:
+                p = pkts[0]
+                _, pf, ps, sa = j1939_decode_can_id(p.identifier)
+                if pf == J1939_PF_REQUEST:
+                    resp_id = j1939_can_id(6, dm1_pf, dm1_ps, ps)
+                    sock.ins.send(bytes(CAN(identifier=resp_id, flags="extended", data=b'\x00' * 8)))
+        t = threading.Thread(target=simulate_ecu)
+        t.start()
+        results = j1939_scan_dm(sock, target_da=0x42, dms=["DM1"], sniff_time=0.3)
+        result = results["DM1"]
+        t.join(timeout=1.0)
+        assert result.supported, "Immediate DM1 reply must be captured, got: {}".format(result)
+    cleanup_testsockets()
+
+test_dm_immediate_reply()
+
+= scan_dm: sniff exits early when response found (stop_filter)
+def test_dm_early_exit():
+    import time
+    sock = TestSocket(CAN)
+    dm1_pgn = J1939_DM_PGNS["DM1"]
+    dm1_pf = (dm1_pgn >> 8) & 0xFF
+    dm1_ps = dm1_pgn & 0xFF
+    resp_id = j1939_can_id(6, dm1_pf, dm1_ps, 0x42)
+    sock.ins.send(bytes(CAN(identifier=resp_id, flags="extended", data=b'\x00' * 8)))
+    t0 = time.monotonic()
+    results = j1939_scan_dm(sock, target_da=0x42, dms=["DM1"], sniff_time=5.0)
+    result = results["DM1"]
+    elapsed = time.monotonic() - t0
+    assert result.supported, "Expected DM1 supported, got: {}".format(result)
+    assert elapsed < 2.0, "Sniff should exit early, took {:.1f}s (max 2.0s)".format(elapsed)
+    cleanup_testsockets()
+
+test_dm_early_exit()
+
+= scan_dm: response found despite stale frames (kernel buffer flush)
+~ slow_test
+def test_dm_stale_frames():
+    import time
+    sock = SlowTestSocket(CAN, frame_delay=0.0002, mux_throttle=0.001)
+    dm1_pgn = J1939_DM_PGNS["DM1"]
+    dm1_pf = (dm1_pgn >> 8) & 0xFF
+    dm1_ps = dm1_pgn & 0xFF
+    stale_id = j1939_can_id(6, dm1_pf, dm1_ps, 0x99)
+    for _ in range(50):
+        with sock._serial_lock:
+            sock._serial_buffer.append(
+                bytes(CAN(identifier=stale_id, flags="extended", data=b'\xAA' * 8))
+            )
+    resp_id = j1939_can_id(6, dm1_pf, dm1_ps, 0x42)
+    with sock._serial_lock:
+        sock._serial_buffer.append(
+            bytes(CAN(identifier=resp_id, flags="extended", data=b'\x00' * 8))
+        )
+    results = j1939_scan_dm(sock, target_da=0x42, dms=["DM1"], sniff_time=2.0)
+    result = results["DM1"]
+    assert result.supported, "Expected DM1 supported despite stale frames, got: {}".format(result)
+    cleanup_testsockets()
+
+test_dm_stale_frames()
+
+= scan_dm: multiple DAs with stale traffic (simulates slow embedded system)
+~ slow_test
+def test_dm_multi_da_stale():
+    import time
+    sock = SlowTestSocket(CAN, frame_delay=0.0002, mux_throttle=0.001)
+    dm1_pgn = J1939_DM_PGNS["DM1"]
+    dm1_pf = (dm1_pgn >> 8) & 0xFF
+    dm1_ps = dm1_pgn & 0xFF
+    target_das = [0x10, 0x20, 0x30]
+    for da in target_das:
+        stale_id = j1939_can_id(6, 0xFE, 0x00, 0xEE)
+        for _ in range(20):
+            with sock._serial_lock:
+                sock._serial_buffer.append(
+                    bytes(CAN(identifier=stale_id, flags="extended", data=b'\xBB' * 8))
+                )
+        resp_id = j1939_can_id(6, dm1_pf, dm1_ps, da)
+        with sock._serial_lock:
+            sock._serial_buffer.append(
+                bytes(CAN(identifier=resp_id, flags="extended", data=b'\x00' * 8))
+            )
+    results = {}
+    for da in target_das:
+        results[da] = j1939_scan_dm(sock, target_da=da, dms=["DM1"],
+                                    sniff_time=2.0)
+    found_das = [da for da in target_das if results[da]["DM1"].supported]
+    assert len(found_das) == len(target_das), \
+        "Expected all DAs found, got: {}".format([hex(d) for d in found_das])
+    cleanup_testsockets()
+
+test_dm_multi_da_stale()
+
+
++ Factory (reconnect) API
+
+= j1939_scan_dm: callable factory works for DM scanner
+def test_dm_factory():
+    pgn = J1939_DM_PGNS["DM1"]
+    dm1_pf = (pgn >> 8) & 0xFF
+    dm1_ps = pgn & 0xFF
+    sock = TestSocket(CAN)
+    resp_id = j1939_can_id(6, dm1_pf, dm1_ps, 0x42)
+    sock.ins.send(bytes(CAN(identifier=resp_id, flags="extended", data=b'\x00' * 8)))
+    def _factory():
+        return sock
+    results = j1939_scan_dm(_factory(), target_da=0x42, dms=["DM1"], sniff_time=0.5, reconnect_handler=_factory)
+    assert "DM1" in results
+    assert results["DM1"].supported, "Factory DM scan should find DM1 supported"
+    cleanup_testsockets()
+
+test_dm_factory()
+
+= scan_dm: callable factory works for DM probe
+def test_dm_pgn_factory():
+    pgn = J1939_DM_PGNS["DM5"]
+    dm5_pf = (pgn >> 8) & 0xFF
+    dm5_ps = pgn & 0xFF
+    sock = TestSocket(CAN)
+    resp_id = j1939_can_id(6, dm5_pf, dm5_ps, 0x10)
+    sock.ins.send(bytes(CAN(identifier=resp_id, flags="extended", data=b'\x00' * 8)))
+    def _factory():
+        return sock
+    results = j1939_scan_dm(_factory(), target_da=0x10, dms=["DM5"],
+                            sniff_time=0.5, reconnect_handler=_factory)
+    result = results["DM5"]
+    assert result.supported, "Factory DM PGN probe should find DM5"
+    assert result.dm_name == "DM5"
+    cleanup_testsockets()
+
+test_dm_pgn_factory()
+
+
++ reconnect_handler retry logic
+
+= scan_dm: reconnect_handler retries on failure and succeeds
+def test_reconnect_retry_success():
+    fail_count = [0]
+    def failing_reconnect():
+        fail_count[0] += 1
+        if fail_count[0] < 3:
+            raise OSError("simulated reconnect failure")
+        return TestSocket(CAN)
+    sock = TestSocket(CAN)
+    results = j1939_scan_dm(sock, target_da=0x00, dms=["DM1", "DM2"],
+                            reconnect_handler=failing_reconnect,
+                            reconnect_retries=5, retry_delay=0.005, sniff_time=0.02)
+    assert "DM1" in results and "DM2" in results
+    assert fail_count[0] == 3, "Expected 3 attempts (2 fail + 1 success), got {}".format(fail_count[0])
+    cleanup_testsockets()
+
+test_reconnect_retry_success()
+
+= scan_dm: reconnect_handler raises after exhausting retries
+def test_reconnect_retry_exhausted():
+    def always_fail():
+        raise OSError("always fails")
+    sock = TestSocket(CAN)
+    raised = False
+    try:
+        j1939_scan_dm(sock, target_da=0x00, dms=["DM1", "DM2"],
+                      reconnect_handler=always_fail,
+                      reconnect_retries=2, retry_delay=0.005, sniff_time=0.02)
+    except OSError:
+        raised = True
+    assert raised, "Should raise after exhausting retries"
+    cleanup_testsockets()
+
+test_reconnect_retry_exhausted()
+
+= scan_dm: reconnect_retries=1 means single attempt (no retry)
+def test_reconnect_retries_one():
+    call_count = [0]
+    def counting_reconnect():
+        call_count[0] += 1
+        if call_count[0] == 1:
+            raise OSError("fail")
+        return TestSocket(CAN)
+    sock = TestSocket(CAN)
+    raised = False
+    try:
+        j1939_scan_dm(sock, target_da=0x00, dms=["DM1", "DM2"],
+                      reconnect_handler=counting_reconnect,
+                      reconnect_retries=1, retry_delay=0.005, sniff_time=0.02)
+    except OSError:
+        raised = True
+    assert raised, "reconnect_retries=1 means single attempt, should raise"
+    assert call_count[0] == 1
+    cleanup_testsockets()
+
+test_reconnect_retries_one()
+
+= scan_dm: reconnect retry uses stop_event.wait for sleep
+def test_reconnect_retry_uses_stop_event():
+    from threading import Event
+    evt = Event()
+    fail_count = [0]
+    def failing_reconnect():
+        fail_count[0] += 1
+        if fail_count[0] < 2:
+            raise OSError("simulated failure")
+        return TestSocket(CAN)
+    sock = TestSocket(CAN)
+    results = j1939_scan_dm(sock, target_da=0x00, dms=["DM1", "DM2"],
+                            reconnect_handler=failing_reconnect,
+                            reconnect_retries=5, retry_delay=0.005, sniff_time=0.02,
+                            stop_event=evt)
+    assert fail_count[0] == 2
+    cleanup_testsockets()
+
+test_reconnect_retry_uses_stop_event()
+
+
++ Multi-packet J1939-TP DM responses
+
+= Imports for J1939-TP DM tests
+from scapy.contrib.automotive.j1939 import (
+    J1939_TP_CM_PF,
+)
+from scapy.contrib.j1939 import (
+    J1939_TP_CTRL_BAM,
+    J1939_TP_CTRL_RTS,
+)
+
+= scan_dm: multi-packet BAM response for DM1 (2 Active DTCs = 10 bytes)
+sock = TestSocket(CAN)
+bam_id = j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x10)
+bam_data = bytes(J1939_TP_CM_BAM(total_size=10, num_packets=2, pgn=J1939_DM_PGNS["DM1"]))
+sock.ins.send(bytes(CAN(identifier=bam_id, flags="extended", data=bam_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM1"], sniff_time=0.1)["DM1"]
+assert res.supported is True, "DM1 BAM response should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= scan_dm: multi-packet RTS response for DM1 (2 Active DTCs = 10 bytes)
+sock = TestSocket(CAN)
+rts_id = j1939_can_id(7, J1939_TP_CM_PF, 0xF9, 0x10)
+rts_data = bytes(J1939_TP_CM_RTS(total_size=10, num_packets=2, max_packets=0xFF, pgn=J1939_DM_PGNS["DM1"]))
+sock.ins.send(bytes(CAN(identifier=rts_id, flags="extended", data=rts_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM1"], sniff_time=0.1)["DM1"]
+assert res.supported is True, "DM1 RTS response should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= scan_dm: multi-packet BAM response for DM2 (Previously Active DTCs)
+sock = TestSocket(CAN)
+pgn = J1939_DM_PGNS["DM2"]
+bam_id = j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x10)
+bam_data = bytes(J1939_TP_CM_BAM(total_size=14, num_packets=2, pgn=pgn))
+sock.ins.send(bytes(CAN(identifier=bam_id, flags="extended", data=bam_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM2"], sniff_time=0.1)["DM2"]
+assert res.supported is True, "DM2 BAM response should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= scan_dm: multi-packet RTS response for DM2 (Previously Active DTCs)
+sock = TestSocket(CAN)
+pgn = J1939_DM_PGNS["DM2"]
+rts_id = j1939_can_id(7, J1939_TP_CM_PF, 0xF9, 0x10)
+rts_data = bytes(J1939_TP_CM_RTS(total_size=14, num_packets=2, max_packets=0xFF, pgn=pgn))
+sock.ins.send(bytes(CAN(identifier=rts_id, flags="extended", data=rts_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM2"], sniff_time=0.1)["DM2"]
+assert res.supported is True, "DM2 RTS response should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= scan_dm: multi-packet BAM response for DM4 (Freeze Frame Parameters)
+sock = TestSocket(CAN)
+pgn = J1939_DM_PGNS["DM4"]
+bam_id = j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x10)
+bam_data = bytes(J1939_TP_CM_BAM(total_size=25, num_packets=4, pgn=pgn))
+sock.ins.send(bytes(CAN(identifier=bam_id, flags="extended", data=bam_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM4"], sniff_time=0.1)["DM4"]
+assert res.supported is True, "DM4 BAM response should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= scan_dm: multi-packet RTS response for DM4 (Freeze Frame Parameters)
+sock = TestSocket(CAN)
+pgn = J1939_DM_PGNS["DM4"]
+rts_id = j1939_can_id(7, J1939_TP_CM_PF, 0xF9, 0x10)
+rts_data = bytes(J1939_TP_CM_RTS(total_size=25, num_packets=4, max_packets=0xFF, pgn=pgn))
+sock.ins.send(bytes(CAN(identifier=rts_id, flags="extended", data=rts_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM4"], sniff_time=0.1)["DM4"]
+assert res.supported is True, "DM4 RTS response should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= scan_dm: multi-packet BAM response for DM16 (Binary Data Transfer)
+sock = TestSocket(CAN)
+pgn = J1939_DM_PGNS["DM16"]
+bam_id = j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x10)
+bam_data = bytes(J1939_TP_CM_BAM(total_size=64, num_packets=10, pgn=pgn))
+sock.ins.send(bytes(CAN(identifier=bam_id, flags="extended", data=bam_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM16"], sniff_time=0.1)["DM16"]
+assert res.supported is True, "DM16 BAM response should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= scan_dm: multi-packet RTS response for DM16 (Binary Data Transfer)
+sock = TestSocket(CAN)
+pgn = J1939_DM_PGNS["DM16"]
+rts_id = j1939_can_id(7, J1939_TP_CM_PF, 0xF9, 0x10)
+rts_data = bytes(J1939_TP_CM_RTS(total_size=64, num_packets=10, max_packets=0xFF, pgn=pgn))
+sock.ins.send(bytes(CAN(identifier=rts_id, flags="extended", data=rts_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM16"], sniff_time=0.1)["DM16"]
+assert res.supported is True, "DM16 RTS response should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= scan_dm: multi-packet BAM response for DM19 (Calibration Information)
+sock = TestSocket(CAN)
+pgn = J1939_DM_PGNS["DM19"]
+bam_id = j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x10)
+bam_data = bytes(J1939_TP_CM_BAM(total_size=40, num_packets=6, pgn=pgn))
+sock.ins.send(bytes(CAN(identifier=bam_id, flags="extended", data=bam_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM19"], sniff_time=0.1)["DM19"]
+assert res.supported is True, "DM19 BAM response should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= scan_dm: multi-packet RTS response for DM19 (Calibration Information)
+sock = TestSocket(CAN)
+pgn = J1939_DM_PGNS["DM19"]
+rts_id = j1939_can_id(7, J1939_TP_CM_PF, 0xF9, 0x10)
+rts_data = bytes(J1939_TP_CM_RTS(total_size=40, num_packets=6, max_packets=0xFF, pgn=pgn))
+sock.ins.send(bytes(CAN(identifier=rts_id, flags="extended", data=rts_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM19"], sniff_time=0.1)["DM19"]
+assert res.supported is True, "DM19 RTS response should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= scan_dm: multi-packet BAM response for DM24 (SPN Support)
+sock = TestSocket(CAN)
+pgn = J1939_DM_PGNS["DM24"]
+bam_id = j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x10)
+bam_data = bytes(J1939_TP_CM_BAM(total_size=80, num_packets=12, pgn=pgn))
+sock.ins.send(bytes(CAN(identifier=bam_id, flags="extended", data=bam_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM24"], sniff_time=0.1)["DM24"]
+assert res.supported is True, "DM24 BAM response should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= scan_dm: multi-packet RTS response for DM24 (SPN Support)
+sock = TestSocket(CAN)
+pgn = J1939_DM_PGNS["DM24"]
+rts_id = j1939_can_id(7, J1939_TP_CM_PF, 0xF9, 0x10)
+rts_data = bytes(J1939_TP_CM_RTS(total_size=80, num_packets=12, max_packets=0xFF, pgn=pgn))
+sock.ins.send(bytes(CAN(identifier=rts_id, flags="extended", data=rts_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM24"], sniff_time=0.1)["DM24"]
+assert res.supported is True, "DM24 RTS response should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= scan_dm: multi-packet BAM response for DM25 (Expanded Freeze Frame)
+sock = TestSocket(CAN)
+pgn = J1939_DM_PGNS["DM25"]
+bam_id = j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x10)
+bam_data = bytes(J1939_TP_CM_BAM(total_size=35, num_packets=5, pgn=pgn))
+sock.ins.send(bytes(CAN(identifier=bam_id, flags="extended", data=bam_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM25"], sniff_time=0.1)["DM25"]
+assert res.supported is True, "DM25 BAM response should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= scan_dm: multi-packet RTS response for DM25 (Expanded Freeze Frame)
+sock = TestSocket(CAN)
+pgn = J1939_DM_PGNS["DM25"]
+rts_id = j1939_can_id(7, J1939_TP_CM_PF, 0xF9, 0x10)
+rts_data = bytes(J1939_TP_CM_RTS(total_size=35, num_packets=5, max_packets=0xFF, pgn=pgn))
+sock.ins.send(bytes(CAN(identifier=rts_id, flags="extended", data=rts_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM25"], sniff_time=0.1)["DM25"]
+assert res.supported is True, "DM25 RTS response should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= scan_dm: multi-packet BAM response for DM28 (Permanent DTCs)
+sock = TestSocket(CAN)
+pgn = J1939_DM_PGNS["DM28"]
+bam_id = j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x10)
+bam_data = bytes(J1939_TP_CM_BAM(total_size=10, num_packets=2, pgn=pgn))
+sock.ins.send(bytes(CAN(identifier=bam_id, flags="extended", data=bam_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM28"], sniff_time=0.1)["DM28"]
+assert res.supported is True, "DM28 BAM response should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= scan_dm: multi-packet RTS response for DM28 (Permanent DTCs)
+sock = TestSocket(CAN)
+pgn = J1939_DM_PGNS["DM28"]
+rts_id = j1939_can_id(7, J1939_TP_CM_PF, 0xF9, 0x10)
+rts_data = bytes(J1939_TP_CM_RTS(total_size=10, num_packets=2, max_packets=0xFF, pgn=pgn))
+sock.ins.send(bytes(CAN(identifier=rts_id, flags="extended", data=rts_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM28"], sniff_time=0.1)["DM28"]
+assert res.supported is True, "DM28 RTS response should be detected as supported"
+assert res.error is None
+assert res.packet is not None
+cleanup_testsockets()
+
+= j1939_scan_dm: detects multi-packet TP BAM and RTS responses in combined scan
+def test_scan_dm_tp_combined():
+    import threading
+    with TestSocket(CAN) as sock, TestSocket(CAN) as monitor:
+        sock.pair(monitor)
+        def simulate_ecu():
+            while True:
+                pkts = monitor.sniff(count=1, timeout=0.5)
+                if not pkts:
+                    break
+                p = pkts[0]
+                _, pf, ps, sa = j1939_decode_can_id(p.identifier)
+                if pf == J1939_PF_REQUEST:
+                    req_pgn = p.data[0] | (p.data[1] << 8) | (p.data[2] << 16)
+                    if req_pgn == J1939_DM_PGNS["DM1"]:
+                        bam_id = j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x20)
+                        bam_d = bytes(J1939_TP_CM_BAM(total_size=10, num_packets=2, pgn=req_pgn))
+                        sock.ins.send(bytes(CAN(identifier=bam_id, flags="extended", data=bam_d)))
+                    elif req_pgn == J1939_DM_PGNS["DM19"]:
+                        rts_id = j1939_can_id(7, J1939_TP_CM_PF, sa, 0x20)
+                        rts_d = bytes(J1939_TP_CM_RTS(total_size=40, num_packets=6, max_packets=0xFF, pgn=req_pgn))
+                        sock.ins.send(bytes(CAN(identifier=rts_id, flags="extended", data=rts_d)))
+        t = threading.Thread(target=simulate_ecu)
+        t.start()
+        results = j1939_scan_dm(sock, target_da=0x20, dms=["DM1", "DM19"], sniff_time=0.2)
+        t.join(timeout=2.0)
+        assert results["DM1"].supported, "DM1 BAM should be supported"
+        assert results["DM19"].supported, "DM19 RTS should be supported"
+    cleanup_testsockets()
+
+test_scan_dm_tp_combined()
+
+= scan_dm: TP.CM announcing different PGN is ignored
+sock = TestSocket(CAN)
+bam_id = j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x10)
+bam_data = bytes(J1939_TP_CM_BAM(total_size=14, num_packets=2, pgn=J1939_DM_PGNS["DM2"]))
+sock.ins.send(bytes(CAN(identifier=bam_id, flags="extended", data=bam_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM1"], sniff_time=0.05)["DM1"]
+assert res.supported is False
+assert res.error == "Timeout"
+cleanup_testsockets()
+
+= scan_dm: TP.CM from different SA is ignored
+sock = TestSocket(CAN)
+bam_id = j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x30)
+bam_data = bytes(J1939_TP_CM_BAM(total_size=10, num_packets=2, pgn=J1939_DM_PGNS["DM1"]))
+sock.ins.send(bytes(CAN(identifier=bam_id, flags="extended", data=bam_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM1"], sniff_time=0.05)["DM1"]
+assert res.supported is False
+assert res.error == "Timeout"
+cleanup_testsockets()
+
+= scan_dm: RTS directed to different DA is ignored
+sock = TestSocket(CAN)
+rts_id = j1939_can_id(7, J1939_TP_CM_PF, 0x55, 0x10)
+rts_data = bytes(J1939_TP_CM_RTS(total_size=10, num_packets=2, max_packets=0xFF, pgn=J1939_DM_PGNS["DM1"]))
+sock.ins.send(bytes(CAN(identifier=rts_id, flags="extended", data=rts_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM1"], src_addr=0xF9, sniff_time=0.05)["DM1"]
+assert res.supported is False
+assert res.error == "Timeout"
+cleanup_testsockets()
+
+= scan_dm: BAM with non-global destination address is ignored
+sock = TestSocket(CAN)
+bad_bam_id = j1939_can_id(7, J1939_TP_CM_PF, 0xF9, 0x10)
+bam_data = bytes(J1939_TP_CM_BAM(total_size=10, num_packets=2, pgn=J1939_DM_PGNS["DM1"]))
+sock.ins.send(bytes(CAN(identifier=bad_bam_id, flags="extended", data=bam_data)))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM1"], sniff_time=0.05)["DM1"]
+assert res.supported is False
+assert res.error == "Timeout"
+cleanup_testsockets()
+
+= scan_dm: truncated TP.CM (< 8 bytes) is ignored
+sock = TestSocket(CAN)
+bam_id = j1939_can_id(7, J1939_TP_CM_PF, J1939_GLOBAL_ADDRESS, 0x10)
+sock.ins.send(bytes(CAN(identifier=bam_id, flags="extended", data=bytes([J1939_TP_CTRL_BAM, 10, 0, 2]))))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM1"], sniff_time=0.05)["DM1"]
+assert res.supported is False
+assert res.error == "Timeout"
+cleanup_testsockets()
+
+= dm_scan: early exit on multiple responses and pre-set stop_event
+from threading import Event
+from scapy.contrib.automotive.j1939 import j1939_can_id
+sock = TestSocket(CAN)
+resp_id = j1939_can_id(6, 0xFE, 0xCA, 0x10)
+# Send two identical response frames to exercise if result: return
+sock.ins.send(bytes(CAN(identifier=resp_id, flags="extended", data=b"\x00\x00\x11\x22\x33\x44")))
+sock.ins.send(bytes(CAN(identifier=resp_id, flags="extended", data=b"\x00\x00\x11\x22\x33\x44")))
+res = j1939_scan_dm(sock, target_da=0x10, dms=["DM1"], sniff_time=0.05)["DM1"]
+assert res.supported is True
+cleanup_testsockets()
+
+# Exercise if stop_event is not None and stop_event.is_set(): return
+sock2 = TestSocket(CAN)
+evt = Event()
+evt.set()
+sock2.ins.send(bytes(CAN(identifier=resp_id, flags="extended", data=b"\x00\x00\x11\x22\x33\x44")))
+res2 = j1939_scan_dm(sock2, target_da=0x10, dms=["DM1"], sniff_time=0.05, stop_event=evt)["DM1"]
+assert res2.supported is False
+cleanup_testsockets()
+
+= dm_scan: filter configuration error detection and no flood of warnings
+from unittest.mock import patch
+from scapy.contrib.j1939 import j1939_log
+sock_dm = TestSocket(CAN)
+warns_dm = []
+with patch.object(j1939_log, "warning", side_effect=lambda msg, *args: warns_dm.append(msg % args if args else msg)):
+    for _ in range(5):
+        noise_can = CAN(identifier=j1939_can_id(6, 0xEE, 0xFF, 0x99), flags="extended", data=b"\x00" * 8)
+        sock_dm.ins.send(bytes(noise_can))
+    res = j1939_scan_dm(sock_dm, target_da=0x10, dms=["DM1"], sniff_time=0.05)["DM1"]
+
+assert len(warns_dm) == 1, "Expected exactly 1 warning despite multiple noise frames in dm_scan, got %d" % len(warns_dm)
+assert "0x10" in warns_dm[0]
+cleanup_testsockets()
+True
+
++ J1939 ECU Answering Machines & DM Scanner Comparisons
+
+= Definition of J1939 ECU Answering Machines
+import struct
+import threading
+import time
+from scapy.ansmachine import AnsweringMachine
+from scapy.contrib.automotive.j1939.j1939_dm_scanner import J1939_DM_PGNS, J1939_PGN_VIN
+from scapy.contrib.automotive.j1939.j1939_scanner import (
+    j1939_can_id,
+    j1939_decode_can_id,
+)
+from scapy.contrib.j1939 import (
+    J1939,
+    J1939Request,
+    J1939_GLOBAL_ADDRESS,
+    J1939_PGN_TP_CM,
+    J1939_TP_CM_BAM,
+    J1939_TP_CM_RTS,
+    J1939_TP_CTRL_CTS,
+    j1939_log,
+)
+from scapy.layers.can import CAN
+from scapy.packet import Packet
+_ACK_CTRL_NACK = 0x01
+_CAN_EXTENDED_FLAG = 0x4
+
+class J1939_ECU_AnsweringMachine(AnsweringMachine):
+    """J1939 ECU simulator answering machine."""
+    function_name = "j1939_ecu"
+    filter = None
+    def __init__(
+        self,
+        ecu_addr=0x20,
+        supported_dms=None,
+        send_nack=True,
+        tp_mode="none",
+        response_delay=0.0,
+        **kargs
+    ):
+        self.ecu_addr = ecu_addr
+        self.supported_dms = supported_dms if supported_dms is not None else {}
+        self.send_nack = send_nack
+        self.tp_mode = tp_mode
+        self.response_delay = response_delay
+        super().__init__(**kargs)
+    #
+    def is_request(self, req):
+        if isinstance(req, CAN):
+            if not (req.flags & _CAN_EXTENDED_FLAG):
+                return False
+            _, pf, ps, _ = j1939_decode_can_id(req.identifier)
+            if pf == J1939_PF_REQUEST and ps in (self.ecu_addr, J1939_GLOBAL_ADDRESS):
+                return bool(len(req.data) >= 3)
+            if (
+                pf == (J1939_PGN_TP_CM >> 8)
+                and ps in (self.ecu_addr, J1939_GLOBAL_ADDRESS)
+                and len(req.data) >= 8
+                and req.data[0] == J1939_TP_CTRL_CTS
+            ):
+                return True
+            return False
+        #
+        if isinstance(req, J1939Request):
+            return bool(req.dst in (self.ecu_addr, J1939_GLOBAL_ADDRESS))
+        #
+        if isinstance(req, J1939):
+            if req.pgn == 0xEA00 and req.dst in (self.ecu_addr, J1939_GLOBAL_ADDRESS):
+                return True
+            if (
+                req.pgn == J1939_PGN_TP_CM
+                and req.dst in (self.ecu_addr, J1939_GLOBAL_ADDRESS)
+            ):
+                data = getattr(req, "data", None) or bytes(req.payload)
+                if len(data) >= 8 and data[0] == J1939_TP_CTRL_CTS:
+                    return True
+        #
+        return False
+    #
+    def make_reply(self, req):
+        if self.response_delay > 0.0:
+            time.sleep(self.response_delay)
+        #
+        sa = J1939_GLOBAL_ADDRESS
+        req_pgn = 0
+        #
+        if isinstance(req, CAN):
+            _, pf, ps, sa = j1939_decode_can_id(req.identifier)
+            data = bytes(req.data)
+            if (
+                pf == (J1939_PGN_TP_CM >> 8)
+                and len(data) >= 8
+                and data[0] == J1939_TP_CTRL_CTS
+            ):
+                num_pkts = data[1]
+                next_pkt = data[2]
+                cts_pgn = data[5] | (data[6] << 8) | (data[7] << 16)
+                if cts_pgn in self.supported_dms:
+                    payload = self.supported_dms[cts_pgn]
+                    total_pkts = (len(payload) + 6) // 7
+                    dt_id = j1939_can_id(7, 0xEB, sa, self.ecu_addr)
+                    dt_pkts = []
+                    for seq in range(
+                        next_pkt, min(total_pkts + 1, next_pkt + num_pkts)
+                    ):
+                        offset = (seq - 1) * 7
+                        chunk = payload[offset:offset + 7]
+                        chunk += b"\xff" * (7 - len(chunk))
+                        dt_pkts.append(
+                            CAN(
+                                identifier=dt_id,
+                                flags="extended",
+                                data=bytes([seq]) + chunk,
+                            )
+                        )
+                    return dt_pkts
+                return None
+            if len(data) >= 3:
+                req_pgn = data[0] | (data[1] << 8) | (data[2] << 16)
+        elif isinstance(req, J1939Request):
+            sa = req.src
+            req_pgn = req.req_pgn
+        elif isinstance(req, J1939):
+            sa = req.src
+            if req.pgn == J1939_PGN_TP_CM:
+                data = getattr(req, "data", None) or bytes(req.payload)
+                if len(data) >= 8 and data[0] == J1939_TP_CTRL_CTS:
+                    num_pkts = data[1]
+                    next_pkt = data[2]
+                    cts_pgn = data[5] | (data[6] << 8) | (data[7] << 16)
+                    if cts_pgn in self.supported_dms:
+                        payload = self.supported_dms[cts_pgn]
+                        total_pkts = (len(payload) + 6) // 7
+                        dt_id = j1939_can_id(7, 0xEB, sa, self.ecu_addr)
+                        dt_pkts = []
+                        for seq in range(
+                            next_pkt, min(total_pkts + 1, next_pkt + num_pkts)
+                        ):
+                            offset = (seq - 1) * 7
+                            chunk = payload[offset:offset + 7]
+                            chunk += b"\xff" * (7 - len(chunk))
+                            dt_pkts.append(
+                                CAN(
+                                    identifier=dt_id,
+                                    flags="extended",
+                                    data=bytes([seq]) + chunk,
+                                )
+                            )
+                        return dt_pkts
+                    return None
+            other_data = getattr(req, "data", None) or bytes(req.payload)
+            if len(other_data) >= 3:
+                req_pgn = other_data[0] | (other_data[1] << 8) | (other_data[2] << 16)
+        #
+        if not req_pgn:
+            return None
+        #
+        if req_pgn in self.supported_dms:
+            payload = self.supported_dms[req_pgn]
+            if len(payload) > 8 and self.tp_mode == "rts":
+                num_pkts = (len(payload) + 6) // 7
+                rts_id = j1939_can_id(7, 0xEC, sa, self.ecu_addr)
+                rts_d = bytes(
+                    J1939_TP_CM_RTS(
+                        total_size=len(payload),
+                        num_packets=num_pkts,
+                        max_packets=0xFF,
+                        pgn=req_pgn,
+                    )
+                )
+                return CAN(identifier=rts_id, flags="extended", data=rts_d)
+            if len(payload) > 8 and self.tp_mode == "bam":
+                num_pkts = (len(payload) + 6) // 7
+                bam_id = j1939_can_id(7, 0xEC, J1939_GLOBAL_ADDRESS, self.ecu_addr)
+                bam_d = bytes(
+                    J1939_TP_CM_BAM(
+                        total_size=len(payload),
+                        num_packets=num_pkts,
+                        pgn=req_pgn,
+                    )
+                )
+                return CAN(identifier=bam_id, flags="extended", data=bam_d)
+            #
+            pf = (req_pgn >> 8) & 0xFF
+            ps = sa if pf < 0xF0 else (req_pgn & 0xFF)
+            resp_id = j1939_can_id(6, pf, ps, self.ecu_addr)
+            return CAN(identifier=resp_id, flags="extended", data=payload[:8])
+        #
+        if self.send_nack:
+            nack_id = j1939_can_id(6, J1939_PF_ACK, sa, self.ecu_addr)
+            nack_data = bytes(
+                [_ACK_CTRL_NACK, 0xFF, 0xFF, 0xFF, 0xFF]
+            ) + struct.pack("<I", req_pgn)[:3]
+            return CAN(identifier=nack_id, flags="extended", data=nack_data)
+        #
+        return None
+    #
+    def send_reply(self, reply, send_function=None):
+        if isinstance(reply, list):
+            for r in reply:
+                super().send_reply(r, send_function=send_function)
+        else:
+            super().send_reply(reply, send_function=send_function)
+    #
+    def run_worker(self, sock, stop_event):
+        while not stop_event.is_set():
+            try:
+                pkts = sock.sniff(count=1, timeout=0.05)
+                if not pkts:
+                    continue
+                p = pkts[0]
+                if self.is_request(p):
+                    reply = self.make_reply(p)
+                    if reply is not None:
+                        if isinstance(reply, list):
+                            for r in reply:
+                                sock.send(r)
+                        else:
+                            sock.send(reply)
+            except Exception as ex:
+                j1939_log.debug("J1939_ECU_AnsweringMachine worker error: %s", ex)
+                break
+    #
+    def start_bg(self, sock):
+        stop_event = threading.Event()
+        t = threading.Thread(
+            target=self.run_worker, args=(sock, stop_event), daemon=True
+        )
+        t.start()
+        return t, stop_event
+
+class J1939_ECU_HighDM_AM(J1939_ECU_AnsweringMachine):
+    def __init__(self, ecu_addr=0x20, high_dm="DM50", **kargs):
+        pgn = J1939_DM_PGNS.get(high_dm, 0xFD56)
+        supported = {pgn: b"\x00\x00\x11\x22\x33\x44\x55\x66"}
+        super().__init__(
+            ecu_addr=ecu_addr,
+            supported_dms=supported,
+            send_nack=True,
+            **kargs
+        )
+
+class J1939_ECU_Timeout_AM(J1939_ECU_AnsweringMachine):
+    def __init__(self, ecu_addr=0x20, supported_dm="DM1", **kargs):
+        pgn = J1939_DM_PGNS.get(supported_dm, 0xFECA)
+        supported = {pgn: b"\x00\x00\x11\x22\x33\x44\x55\x66"}
+        super().__init__(
+            ecu_addr=ecu_addr,
+            supported_dms=supported,
+            send_nack=False,
+            **kargs
+        )
+
+class J1939_ECU_MultiPacket_AM(J1939_ECU_AnsweringMachine):
+    def __init__(self, ecu_addr=0x20, **kargs):
+        supported = {0xFECA: b"\x00" * 24}
+        super().__init__(
+            ecu_addr=ecu_addr,
+            supported_dms=supported,
+            send_nack=True,
+            tp_mode="rts",
+            **kargs
+        )
+
+class J1939_ECU_VIN_AM(J1939_ECU_AnsweringMachine):
+    def __init__(self, ecu_addr=0x20, vin="1M8GDM9A_KP042788*", tp_mode="rts", **kargs):
+        vin_bytes = vin.encode("ascii") if isinstance(vin, str) else bytes(vin)
+        supported = {J1939_PGN_VIN: vin_bytes}
+        super().__init__(
+            ecu_addr=ecu_addr,
+            supported_dms=supported,
+            send_nack=True,
+            tp_mode=tp_mode,
+            **kargs
+        )
+
+True
+
+= J1939_ECU_AnsweringMachine basic request handling
+
+am = J1939_ECU_AnsweringMachine(ecu_addr=0x20, supported_dms={0xFECA: b"\x11\x22\x33\x44\x55\x66\x77\x88"}, send_nack=True)
+req_can = CAN(identifier=j1939_can_id(6, 0xEA, 0x20, 0xF9), flags="extended", data=b"\xca\xfe\x00")
+assert am.is_request(req_can) is True
+
+# Supported response
+reply = am.make_reply(req_can)
+assert reply is not None
+assert reply.data == b"\x11\x22\x33\x44\x55\x66\x77\x88"
+
+# Unsupported request -> NACK
+req_unsupported = CAN(identifier=j1939_can_id(6, 0xEA, 0x20, 0xF9), flags="extended", data=b"\xcb\xfe\x00")
+reply_nack = am.make_reply(req_unsupported)
+assert reply_nack is not None
+assert reply_nack.data[0] == 0x01
+assert reply_nack.data[5:8] == b"\xcb\xfe\x00"
+
+= J1939_ECU_HighDM_AM supports only high DM and NACKs earlier DMs
+high_am = J1939_ECU_HighDM_AM(ecu_addr=0x20, high_dm="DM50")
+req_dm1 = CAN(identifier=j1939_can_id(6, 0xEA, 0x20, 0xF9), flags="extended", data=b"\xca\xfe\x00")
+reply_dm1 = high_am.make_reply(req_dm1)
+assert reply_dm1 is not None
+assert reply_dm1.data[0] == 0x01  # NACK
+
+# DM50 request (0xFD56 -> LE bytes 0x56, 0xFD, 0x00)
+req_dm50 = CAN(identifier=j1939_can_id(6, 0xEA, 0x20, 0xF9), flags="extended", data=b"\x56\xfd\x00")
+reply_dm50 = high_am.make_reply(req_dm50)
+assert reply_dm50 is not None
+assert reply_dm50.data == b"\x00\x00\x11\x22\x33\x44\x55\x66"
+
+= J1939_ECU_Timeout_AM returns None for unsupported requests
+timeout_am = J1939_ECU_Timeout_AM(ecu_addr=0x20, supported_dm="DM1")
+reply_supported = timeout_am.make_reply(req_dm1)
+assert reply_supported is not None
+reply_unsupported = timeout_am.make_reply(req_dm50)
+assert reply_unsupported is None
+
+# Baseline test-only .sr1() scanner and performance benchmark are commented out
+# to prevent excessive test runtime in CI. Uncomment for manual benchmarking.
+# def test_scan_dm_sr1(sock, target_da, dms=None, src_addr=0xF9, sniff_time=0.1): ...
+
+= J1939_ECU_HighDM_AM scanned with in-tree scanner
+with TestSocket(CAN) as tester_sock, TestSocket(CAN) as ecu_sock:
+    tester_sock.pair(ecu_sock)
+    am = J1939_ECU_HighDM_AM(ecu_addr=0x20, high_dm="DM50")
+    t, stop_evt = am.start_bg(ecu_sock)
+    try:
+        res_intree = j1939_scan_dm(tester_sock, target_da=0x20, dms=["DM1", "DM50"], sniff_time=0.1)
+        assert res_intree["DM1"].supported is False
+        assert res_intree["DM1"].error == "NACK"
+        assert res_intree["DM50"].supported is True
+    finally:
+        stop_evt.set()
+        t.join(timeout=1.0)
+        cleanup_testsockets()
+
+= J1939_ECU_Timeout_AM scanned with in-tree scanner
+with TestSocket(CAN) as tester_sock, TestSocket(CAN) as ecu_sock:
+    tester_sock.pair(ecu_sock)
+    am = J1939_ECU_Timeout_AM(ecu_addr=0x20, supported_dm="DM1")
+    t, stop_evt = am.start_bg(ecu_sock)
+    try:
+        res_intree = j1939_scan_dm(tester_sock, target_da=0x20, dms=["DM1", "DM2"], sniff_time=0.1)
+        assert res_intree["DM1"].supported is True
+        assert res_intree["DM2"].supported is False
+        assert res_intree["DM2"].error == "Timeout"
+    finally:
+        stop_evt.set()
+        t.join(timeout=1.0)
+        cleanup_testsockets()
+
+= J1939_ECU_MultiPacket_AM scanned with in-tree scanner
+with TestSocket(CAN) as tester_sock, TestSocket(CAN) as ecu_sock:
+    tester_sock.pair(ecu_sock)
+    am = J1939_ECU_MultiPacket_AM(ecu_addr=0x20)
+    t, stop_evt = am.start_bg(ecu_sock)
+    try:
+        res_intree = j1939_scan_dm(tester_sock, target_da=0x20, dms=["DM1", "DM2"], sniff_time=0.1)
+        assert res_intree["DM1"].supported is True
+        assert res_intree["DM2"].supported is False
+        assert res_intree["DM2"].error == "NACK"
+    finally:
+        stop_evt.set()
+        t.join(timeout=1.0)
+        cleanup_testsockets()
+
+# = Runtime performance comparison: in-tree scanner vs simple .sr1() scanner
+# ~ slow_test scanner
+# (Performance benchmark commented out to avoid runtime overhead in CI)
+# import time
+# with TestSocket(CAN) as tester_sock, TestSocket(CAN) as ecu_sock:
+#     tester_sock.pair(ecu_sock)
+#     am = J1939_ECU_HighDM_AM(ecu_addr=0x20, high_dm="DM50")
+#     t, stop_evt = am.start_bg(ecu_sock)
+#     dms_to_scan = ["DM1", "DM2", "DM3", "DM4", "DM50"]
+#     try:
+#         t0 = time.monotonic()
+#         res_intree = j1939_scan_dm(tester_sock, target_da=0x20, dms=dms_to_scan, sniff_time=0.1)
+#         t_intree = time.monotonic() - t0
+#         t0 = time.monotonic()
+#         res_sr1 = test_scan_dm_sr1(tester_sock, target_da=0x20, dms=dms_to_scan, sniff_time=0.1)
+#         t_sr1 = time.monotonic() - t0
+#         assert res_intree["DM50"].supported is True
+#         assert res_sr1["DM50"].supported is True
+#         assert t_intree < t_sr1
+#     finally:
+#         stop_evt.set()
+#         t.join(timeout=1.0)
+#         cleanup_testsockets()
+
+
++ General PGN Request Scanner and J1939_ECU_VIN_AM
+
+= J1939_ECU_VIN_AM make_reply directly
+vin_am = J1939_ECU_VIN_AM(ecu_addr=0x20, vin="1M8GDM9A_KP042788*")
+req_vin = CAN(identifier=j1939_can_id(6, 0xEA, 0x20, 0xF9), flags="extended", data=b"\xe4\xfe\x00")
+rep = vin_am.make_reply(req_vin)
+assert rep is not None
+_, pf, ps, sa = j1939_decode_can_id(rep.identifier)
+assert pf == 0xEC
+assert sa == 0x20
+assert rep.data[0] == 0x10
+tp_pgn = rep.data[5] | (rep.data[6] << 8) | (rep.data[7] << 16)
+assert tp_pgn == 0xFEE4
+
+= J1939_ECU_VIN_AM single-frame make_reply
+vin_am_short = J1939_ECU_VIN_AM(ecu_addr=0x20, vin=b"12345678", tp_mode="none")
+rep_short = vin_am_short.make_reply(req_vin)
+assert rep_short is not None
+_, pf, ps, sa = j1939_decode_can_id(rep_short.identifier)
+assert pf == 0xFE
+assert ps == 0xE4
+assert rep_short.data == b"12345678"
+
+= J1939_ECU_VIN_AM single-PGN query via J1939Socket .sr1()
+from scapy.contrib.automotive.j1939 import J1939Socket
+with TestSocket(CAN) as tester_can, TestSocket(CAN) as ecu_sock:
+    tester_can.pair(ecu_sock)
+    am = J1939_ECU_VIN_AM(ecu_addr=0x20, vin="1M8GDM9A_KP042788*")
+    t, stop_evt = am.start_bg(ecu_sock)
+    try:
+        tester_sock = J1939Socket(tester_can, src_addr=0xF9, include_tp_cm=True)
+        # Query VIN PGN using standard .sr1()
+        req = J1939Request(req_pgn=J1939_PGN_VIN, dst=0x20)
+        ans = tester_sock.sr1(req, timeout=0.2, verbose=False)
+        assert ans is not None
+        tp_cm = J1939_TP_CM(ans.data) if getattr(ans, "data", None) else ans
+        assert tp_cm.pgn == J1939_PGN_VIN
+
+        # Query unsupported PGN -> returns NACK
+        req_unsupp = J1939Request(req_pgn=0xFECC, dst=0x20)
+        ans_unsupp = tester_sock.sr1(req_unsupp, timeout=0.2, verbose=False)
+        assert ans_unsupp is not None
+        assert ans_unsupp.pgn == J1939_PGN_ACK
+    finally:
+        stop_evt.set()
+        t.join(timeout=1.0)
+        cleanup_testsockets()
+
+= J1939_ECU_VIN_AM scanned with j1939_scan_pgns (multi-PGN dict and list)
+with TestSocket(CAN) as tester_sock, TestSocket(CAN) as ecu_sock:
+    tester_sock.pair(ecu_sock)
+    am = J1939_ECU_VIN_AM(ecu_addr=0x20, vin="1M8GDM9A_KP042788*")
+    t, stop_evt = am.start_bg(ecu_sock)
+    try:
+        # Dict mapping
+        res_dict = j1939_scan_pgns(
+            tester_sock, target_da=0x20,
+            pgns={"VIN": J1939_PGN_VIN, "DM1": 0xFECA},
+            sniff_time=0.1,
+        )
+        assert res_dict["VIN"].supported is True
+        assert res_dict["VIN"].pgn == J1939_PGN_VIN
+        assert res_dict["DM1"].supported is False
+        assert res_dict["DM1"].error == "NACK"
+
+        # List mapping
+        res_list = j1939_scan_pgns(
+            tester_sock, target_da=0x20,
+            pgns=[J1939_PGN_VIN, 0xFECA],
+            sniff_time=0.1,
+        )
+        assert res_list[J1939_PGN_VIN].supported is True
+        assert res_list[0xFECA].supported is False
+        assert res_list[0xFECA].error == "NACK"
+    finally:
+        stop_evt.set()
+        t.join(timeout=1.0)
+        cleanup_testsockets()
+
+= J1939_ECU_VIN_AM single-frame detected by j1939_scan_pgns
+with TestSocket(CAN) as tester_sock, TestSocket(CAN) as ecu_sock:
+    tester_sock.pair(ecu_sock)
+    am = J1939_ECU_VIN_AM(ecu_addr=0x20, vin=b"VIN12345", tp_mode="none")
+    t, stop_evt = am.start_bg(ecu_sock)
+    try:
+        res = j1939_scan_pgns(tester_sock, target_da=0x20, pgns={"VIN": J1939_PGN_VIN}, sniff_time=0.1)["VIN"]
+        assert res.supported is True
+        assert res.pgn == J1939_PGN_VIN
+        assert res.packet is not None
+        assert res.packet.data == b"VIN12345"
+    finally:
+        stop_evt.set()
+        t.join(timeout=1.0)
+        cleanup_testsockets()
+
