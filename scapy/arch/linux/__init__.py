@@ -11,7 +11,6 @@ Linux specific functions.
 from fcntl import ioctl
 from select import select
 
-import ctypes
 import os
 import socket
 import struct
@@ -38,7 +37,6 @@ from scapy.interfaces import (
     network_name,
     resolve_iface,
 )
-from scapy.libs.structures import sock_fprog
 from scapy.packet import Packet, Padding
 from scapy.supersocket import SuperSocket
 
@@ -126,6 +124,12 @@ def attach_filter(sock, bpf_filter, iface):
     :param bpf_filter: the bpf string filter to compile
     :param iface: the interface used to compile
     """
+    try:
+        import ctypes
+        from scapy.libs.structures import sock_fprog
+    except OSError:
+        raise Scapy_Exception("ctypes is not available")
+
     bp = compile_filter(bpf_filter, iface)
     if conf.use_pypy and sys.pypy_version_info <= (7, 3, 2):  # type: ignore
         # PyPy < 7.3.2 has a broken behavior

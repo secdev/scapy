@@ -8,7 +8,6 @@ SuperSocket.
 """
 
 from select import select, error as select_error
-import ctypes
 import errno
 import socket
 import struct
@@ -73,18 +72,6 @@ PACKET_AUXDATA = 8
 ETH_P_8021Q = 0x8100
 TP_STATUS_VLAN_VALID = 1 << 4
 TP_STATUS_VLAN_TPID_VALID = 1 << 6
-
-
-class tpacket_auxdata(ctypes.Structure):
-    _fields_ = [
-        ("tp_status", ctypes.c_uint),
-        ("tp_len", ctypes.c_uint),
-        ("tp_snaplen", ctypes.c_uint),
-        ("tp_mac", ctypes.c_ushort),
-        ("tp_net", ctypes.c_ushort),
-        ("tp_vlan_tci", ctypes.c_ushort),
-        ("tp_vlan_tpid", ctypes.c_ushort),
-    ]  # type: List[Tuple[str, Any]]
 
 
 # SuperSocket
@@ -162,23 +149,26 @@ class SuperSocket(metaclass=_SuperSocket_metaclass):
                 if (cmsg_lvl == SOL_PACKET and cmsg_type == PACKET_AUXDATA):
                     # Parse AUXDATA
                     try:
-                        auxdata = tpacket_auxdata.from_buffer_copy(cmsg_data)
-                    except ValueError:
+                        # tpacket_auxdata fields, in order:
+                        # tp_status, tp_len, tp_snaplen, tp_mac, tp_net,
+                        # tp_vlan_tci, tp_vlan_tpid
+                        tp_status, _, _, _, _, tp_vlan_tci, tp_vlan_tpid = \
+                            struct.unpack("=IIIHHHH", cmsg_data[:20])
+                    except struct.error:
                         # Note: according to Python documentation, recvmsg()
-                        #       can return a truncated message. A ValueError
+                        #       can return a truncated message. A struct.error
                         #       exception likely indicates that Auxiliary
                         #       Data is not supported by the Linux kernel.
                         return pkt, sa_ll, timestamp
-                    if auxdata.tp_vlan_tci != 0 or \
-                            auxdata.tp_status & TP_STATUS_VLAN_VALID:
+                    if tp_vlan_tci != 0 or tp_status & TP_STATUS_VLAN_VALID:
                         # Insert VLAN tag
                         tpid = ETH_P_8021Q
-                        if auxdata.tp_status & TP_STATUS_VLAN_TPID_VALID:
-                            tpid = auxdata.tp_vlan_tpid
+                        if tp_status & TP_STATUS_VLAN_TPID_VALID:
+                            tpid = tp_vlan_tpid
                         tag = struct.pack(
                             "!HH",
                             tpid,
-                            auxdata.tp_vlan_tci
+                            tp_vlan_tci
                         )
                         pkt = pkt[:12] + tag + pkt[12:]
                 elif cmsg_lvl == socket.SOL_SOCKET and \
