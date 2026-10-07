@@ -232,8 +232,15 @@ if conf.use_pcap:
                         elif family == socket.AF_LINK:
                             # Special case: MAC
                             # (AF_LINK is mostly BSD specific)
-                            val = ap.contents.sa_data
-                            mac = str2mac(bytes(bytearray(val[:6])))
+                            # https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/net/if_dl.h#L93-L112
+                            # https://github.com/freebsd/freebsd-src/blob/ab7249c288a4d7d09c88f4de705b58a2afbf35f9/sys/net/if_dl.h#L55-L68
+                            # https://github.com/illumos/illumos-gate/blob/6a2df4aa5381599179ab6afb3165db81960dee35/usr/src/uts/common/net/if_dl.h#L65-L76
+                            # https://github.com/NetBSD/src/blob/bc2d21a8880597d1affe4ec581e0b65637258dc4/sys/net/if_dl.h#L78-L91
+                            # https://github.com/openbsd/src/blob/ce063bbc9d6190c8ba255f11feb6910dc3541f29/sys/net/if_dl.h#L56-L70
+                            sockaddr_dl = ccast(ap, POINTER(c_ubyte))
+                            nlen = sockaddr_dl[5]
+                            alen = sockaddr_dl[6]
+                            mac = str2mac(bytes(sockaddr_dl[8 + nlen:8 + nlen + alen]))
                             a = a.contents.next
                             continue
                         else:
@@ -491,7 +498,7 @@ if conf.use_pcap:
             for ifname, dat in conf.cache_pcapiflist.items():
                 description, ips, flags, mac, itype = dat
                 i += 1
-                if LINUX or BSD or SOLARIS and not mac:
+                if (LINUX or BSD or SOLARIS) and not mac:
                     from scapy.arch.unix import get_if_raw_hwaddr
                     try:
                         itype, _mac = get_if_raw_hwaddr(ifname)
