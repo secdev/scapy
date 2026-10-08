@@ -1549,9 +1549,11 @@ assert remote.data == b""
 
 = CAN XL constants
 
-from scapy.layers.can import CAN, CANFD, CANXL, CANXL_MTU, CANXL_HDR_SIZE, \
-    CANXL_MAX_DLEN, CANXL_MIN_DLEN, CANXL_XLF, CANXL_FDF, CANXL_IDE, \
-    CANXL_SEC, CANXL_RRS
+from scapy.layers.can import (
+    CAN, CANFD, CANXL,
+    CANXL_FDF, CANXL_HDR_SIZE, CANXL_IDE, CANXL_MAX_DLEN,
+    CANXL_MIN_DLEN, CANXL_MTU, CANXL_RRS, CANXL_SEC, CANXL_XLF,
+)
 
 assert CANXL_HDR_SIZE == 12
 assert CANXL_MTU == 2060

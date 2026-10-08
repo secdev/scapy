@@ -11,9 +11,11 @@
 
 conf.contribs['CAN'] = {'swap-bytes': False, 'remove-padding': True}
 load_layer("can", globals_dict=globals())
-from scapy.layers.can import CANXL, CANXL_MTU, CANXL_HDR_SIZE, \
-    CANXL_MAX_DLEN, CANXL_MIN_DLEN, CANXL_XLF, CANXL_FDF, CANXL_SEC, \
-    CANXL_RRS
+from scapy.layers.can import (
+    CANXL,
+    CANXL_FDF, CANXL_HDR_SIZE, CANXL_MAX_DLEN, CANXL_MIN_DLEN,
+    CANXL_MTU, CANXL_RRS, CANXL_SEC, CANXL_XLF,
+)
 from test.testsocket import TestSocket, cleanup_testsockets
 
 ############
