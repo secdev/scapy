@@ -22,7 +22,7 @@ from scapy.data import SO_TIMESTAMPNS
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, warning, log_runtime
 from scapy.packet import Packet
-from scapy.layers.can import CAN, CANFD, CANXL, CAN_MTU, CAN_FD_MTU, CANXL_MTU
+from scapy.layers.can import CAN, CANXL, CAN_MTU, CAN_FD_MTU, CANXL_MTU
 from scapy.compat import raw
 
 from typing import (
@@ -214,8 +214,9 @@ class NativeCANSocket(SuperSocket):
 
         # CAN XL: the kernel expects exactly HDR_SIZE + len bytes, so no padding.
         if not isinstance(x, CANXL):
-            # CAN/CANFD: pad to correct MTU per frame type
-            mtu = CAN_FD_MTU if isinstance(x, CANFD) else CAN_MTU
+            # CAN/CANFD: pad to the frame size the socket was opened with, so
+            # that a classic CAN frame sent on an fd socket stays a CAN FD frame
+            mtu = CAN_FD_MTU if self.fd else CAN_MTU
             bs = bs + b"\x00" * (mtu - len(bs))
 
         return super(NativeCANSocket, self).send(bs)  # type: ignore
