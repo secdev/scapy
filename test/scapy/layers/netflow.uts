@@ -460,6 +460,36 @@ dataFS = NetflowDataflowsetV9(
 pkt = netflow_header / flowset / dataFS
 assert raw(pkt) == b'\x00\n\x00>\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x01\x00\x00\x05\x00\x01\x00\x01\x00\x02\x00\x04\x00\x04\x00\x01\x00\x08\x00\x04\x00\x0c\x00\x04\x01\x00\x00\x14\x12\x00\x00\x00\x00\x06\xc0\xa8\x00\n\xc0\xa8\x00\x0b\x00\x00'
 
+= NetflowV10/IPFIX - dateTimeSeconds fields use 4 octets
+
+flowset = NetflowFlowsetV9(
+    templates=[
+        NetflowTemplateV9(
+            templateID=256,
+            template_fields=[
+                NetflowTemplateFieldV9(fieldType="flowStartSeconds"),
+                NetflowTemplateFieldV9(fieldType="flowEndSeconds"),
+                NetflowTemplateFieldV9(fieldType="IN_BYTES"),
+            ]
+        )
+    ],
+    flowSetID=2,
+)
+recordClass = GetNetflowRecordV9(flowset)
+dataFS = NetflowDataflowsetV9(
+    templateID=256,
+    records=[
+        recordClass(
+            flowStartSeconds=1700000000,
+            flowEndSeconds=1700000060,
+            IN_BYTES=123,
+        )
+    ],
+)
+
+assert [tmpl.fieldLength for tmpl in flowset.templates[0].template_fields] == [4, 4, 4]
+assert raw(dataFS.records[0]) == b'\x65\x53\xf1\x00\x65\x53\xf1\x3c\x00\x00\x00\x7b'
+
 = Netflow9 - Build and dissect more int fields
 
 template_flowset = NetflowFlowsetV9(
