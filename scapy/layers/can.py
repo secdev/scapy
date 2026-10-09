@@ -271,29 +271,31 @@ class CANXL(CAN):
                    ['sec', 'rrs', 'res_f2', 'res_f3',
                     'res_f4', 'ide', 'fdf', 'xlf']),
         XByteField('sdt', 0),
-        # Auto-computed from the payload in post_build.
+        # Computed from the payload in post_build when left at None.
         # ISO 11898-1:2024 defines this as an 11-bit field (range 1-2048),
         # but Linux struct canxl_frame uses a full 16-bit field.
         # For kernel compatibility we use a 16-bit field; post_build warns
         # if the computed length falls outside the valid range.
-        LEShortField('length', 0),
+        LEShortField('length', None),
         XLEIntField('af', 0),
         # NO data field - payload carried as sub-layers
     ]
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
-        # Auto-compute length from payload
-        length = len(pay)
-        if length < CANXL_MIN_DLEN:
-            log_runtime.warning(
-                "CAN XL payload length %d is below the minimum of %d",
-                length, CANXL_MIN_DLEN)
-        elif length > CANXL_MAX_DLEN:
-            log_runtime.warning(
-                "CAN XL payload length %d exceeds the ISO 11898-1 "
-                "maximum of %d (11-bit field)", length, CANXL_MAX_DLEN)
-        pkt = pkt[:6] + struct.pack('<H', length) + pkt[8:]
+        # Compute the length from the payload only when it was not set
+        # explicitly, so that a value given by the user reaches the wire.
+        if self.length is None:
+            length = len(pay)
+            if length < CANXL_MIN_DLEN:
+                log_runtime.warning(
+                    "CAN XL payload length %d is below the minimum of %d",
+                    length, CANXL_MIN_DLEN)
+            elif length > CANXL_MAX_DLEN:
+                log_runtime.warning(
+                    "CAN XL payload length %d exceeds the ISO 11898-1 "
+                    "maximum of %d (11-bit field)", length, CANXL_MAX_DLEN)
+            pkt = pkt[:6] + struct.pack('<H', length) + pkt[8:]
         # ISO 11898-1:2024: enforce XLF=1, FDF=1, IDE=0
         if pkt[4] & CANXL_IDE:
             log_runtime.warning(

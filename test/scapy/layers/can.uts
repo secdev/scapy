@@ -1578,7 +1578,7 @@ assert int(pkt.flags) == 0xC0   # XLF+FDF set by default (ISO 11898-1)
 assert pkt.flags.xlf == 1
 assert pkt.flags.fdf == 1
 assert pkt.flags.ide == 0
-assert pkt.length == 0
+assert pkt.length is None   # computed from the payload in post_build
 
 = CAN XL build with default ISO flags (XLF+FDF, IDE=0)
 
@@ -1644,6 +1644,16 @@ assert not (wire[4] & CANXL_IDE)  # post_build must clear IDE
 pkt = CANXL(flags=0xE0) / b'\xaa'
 wire = raw(pkt)
 assert not (wire[4] & CANXL_IDE)  # IDE forced clear
+
+= CAN XL explicit length is sent unchanged
+
+# Left at None the length is computed from the payload
+assert CANXL(raw(CANXL() / b'\x01\x02')).length == 2
+
+# A length given by the user reaches the wire even if it does not match
+wire = raw(CANXL(length=0x40) / b'\x01\x02')
+assert wire[6:8] == b'\x40\x00'
+assert CANXL(wire).length == 0x40
 
 ############
 ############
