@@ -62,6 +62,14 @@ with no_debug_dissector():
     p = IPv6(raw(IPv6()/UDP()/Raw(load="somedata")))
     assert p.chksum == 0x45cb
 
+= UDP checksum includes encapsulated frame padding
+pkt_data = bytes.fromhex("ffffffffffffffffffffffff8100000086dd60000000010e1100000000000000000000000000000000000000000000000000000000000000000018bd2118010e01a8738a32362d5473c879f89f16a8f9cd673fec8d6b000d9a2976054be71268024a7817f64d63fad1d4eb2db918f004c198dc03e7ec4e836ca554e1b4f0c157c61728ae722bd55eac05d698f04a0df32b8d21f031ae70a7ad530d027915763af0e736fa6d61a334289b3aef64855b44ed09f02de48485a3337575d409561fe192bca02214a8a5b10cc66c756992eadaeaf56f8eeeb58c18cce9f36fd8983ff7890dedc28ed254080c180231440188d5afc32bff2193a8f94a1b683b1e850a613eaf42ccd37e5af706d93b11e31649a1b9f39c613ce5a4263fcfe7873da6fdd9d09c90f15b687efc3342189cbac70ab686d1dc5f000015128c4d3400080000034584f14d8e217811d6cee444")
+p = Ether(pkt_data)
+received = p[UDP].chksum
+del p[UDP].chksum
+rebuilt = Ether(raw(p))
+received == 0x1a8 and rebuilt[UDP].chksum == received
+
 ########### IPv6ExtHdrRouting Class ###########################
 
 = IPv6ExtHdrRouting Class - No address - build
