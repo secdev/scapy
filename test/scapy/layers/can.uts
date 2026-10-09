@@ -1632,18 +1632,18 @@ assert len(wire) == CANXL_HDR_SIZE + 2048
 # len field LE at bytes 6-7 = 0x0800  (len=2048)
 assert wire[6:8] == b'\x00\x08', wire[6:8].hex()
 
-= CAN XL ISO flags enforced even when cleared or wrong
+= CAN XL explicit flags are sent unchanged
 
-pkt = CANXL(flags=0x00) / b'\xaa'
-wire = raw(pkt)
-assert wire[4] & CANXL_XLF        # post_build must set XLF
-assert wire[4] & CANXL_FDF        # post_build must set FDF
-assert not (wire[4] & CANXL_IDE)  # post_build must clear IDE
+# The default follows ISO 11898-1: XLF=1, FDF=1, IDE=0
+wire = raw(CANXL() / b'\xaa')
+assert wire[4] == CANXL_XLF | CANXL_FDF
 
-# Even if IDE is explicitly set, post_build clears it
-pkt = CANXL(flags=0xE0) / b'\xaa'
-wire = raw(pkt)
-assert not (wire[4] & CANXL_IDE)  # IDE forced clear
+# A value given by the user reaches the wire, it is not corrected
+wire = raw(CANXL(flags=0x00) / b'\xaa')
+assert wire[4] == 0x00
+
+wire = raw(CANXL(flags=0xE0) / b'\xaa')
+assert wire[4] == 0xE0
 
 = CAN XL explicit length is sent unchanged
 

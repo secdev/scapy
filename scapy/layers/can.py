@@ -296,13 +296,6 @@ class CANXL(CAN):
                     "CAN XL payload length %d exceeds the ISO 11898-1 "
                     "maximum of %d (11-bit field)", length, CANXL_MAX_DLEN)
             pkt = pkt[:6] + struct.pack('<H', length) + pkt[8:]
-        # ISO 11898-1:2024: enforce XLF=1, FDF=1, IDE=0
-        if pkt[4] & CANXL_IDE:
-            log_runtime.warning(
-                "CAN XL frame has IDE set; clearing it "
-                "(IDE is always 0 for CAN XL per ISO 11898-1)")
-        flags = (pkt[4] | CANXL_XLF | CANXL_FDF) & ~CANXL_IDE
-        pkt = pkt[:4] + bytes([flags]) + pkt[5:]
         if conf.contribs['CAN']['swap-bytes']:
             pkt = CAN.inv_endianness(pkt)
         return pkt + pay

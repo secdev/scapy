@@ -13,8 +13,8 @@ conf.contribs['CAN'] = {'swap-bytes': False, 'remove-padding': True}
 load_layer("can", globals_dict=globals())
 from scapy.layers.can import (
     CANXL,
-    CANXL_FDF, CANXL_HDR_SIZE, CANXL_MAX_DLEN, CANXL_MIN_DLEN,
-    CANXL_MTU, CANXL_RRS, CANXL_SEC, CANXL_XLF,
+    CANXL_FDF, CANXL_HDR_SIZE, CANXL_IDE, CANXL_MAX_DLEN,
+    CANXL_MIN_DLEN, CANXL_MTU, CANXL_RRS, CANXL_SEC, CANXL_XLF,
 )
 from test.testsocket import TestSocket, cleanup_testsockets
 
@@ -103,15 +103,26 @@ with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
 ############
 + ISO flag enforcement through TestSocket
 
-= CAN XL flags enforced after send/recv (XLF+FDF set, IDE cleared)
+= CAN XL explicit flags survive send/recv
 
 with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
     s1.pair(s2)
-    # Intentionally set wrong flags: IDE on, XLF/FDF off
-    s1.send(CANXL(flags=0x20) / b'\xBB')
+    # An explicit value is not corrected. XLF has to stay set, it is what
+    # identifies the frame as CAN XL on the receiving side.
+    s1.send(CANXL(flags=CANXL_XLF | CANXL_IDE) / b'\xBB')
     rx = s2.recv()
     assert isinstance(rx, CANXL)
-    # post_build enforces correct flags
+    assert rx.flags.xlf == 1
+    assert rx.flags.ide == 1
+    assert rx.flags.fdf == 0
+
+= CAN XL default flags after send/recv (XLF+FDF set, IDE cleared)
+
+with TestSocket(CAN) as s1, TestSocket(CAN) as s2:
+    s1.pair(s2)
+    s1.send(CANXL() / b'\xBB')
+    rx = s2.recv()
+    assert isinstance(rx, CANXL)
     assert rx.flags.xlf == 1
     assert rx.flags.fdf == 1
     assert rx.flags.ide == 0
