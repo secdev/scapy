@@ -1655,6 +1655,18 @@ wire = raw(CANXL(length=0x40) / b'\x01\x02')
 assert wire[6:8] == b'\x40\x00'
 assert CANXL(wire).length == 0x40
 
+= CAN XL respects the remove-padding configuration
+
+trailing = raw(CANXL() / b'\x01\x02') + b'\x00' * 6
+
+conf.contribs['CAN']['remove-padding'] = True
+assert bytes(CANXL(trailing).payload) == b'\x01\x02'
+
+conf.contribs['CAN']['remove-padding'] = False
+assert bytes(CANXL(trailing).payload) == b'\x01\x02' + b'\x00' * 6
+
+conf.contribs['CAN']['remove-padding'] = True
+
 ############
 ############
 

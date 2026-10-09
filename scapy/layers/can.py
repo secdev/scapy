@@ -303,12 +303,10 @@ class CANXL(CAN):
     def extract_padding(self, p):
         # type: (bytes) -> Tuple[bytes, Optional[bytes]]
         data_len = min(int(self.length), CANXL_MAX_DLEN) if self.length else 0
-        # Return None (not p[data_len:]) as the padding element so
-        # that trailing bytes beyond the stated length are silently
-        # dropped rather than preserved as a Padding layer.  CAN XL
-        # frames from a native socket have exact-length data; any
-        # trailing garbage is safely discarded.
-        return p[:data_len], None
+        if conf.contribs['CAN']['remove-padding']:
+            return p[:data_len], None
+        else:
+            return p[:data_len], p[data_len:]
 
     # -- ISO 11898-1:2024 property accessors ---------------------------------
 
