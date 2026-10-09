@@ -214,10 +214,11 @@ class NativeCANSocket(SuperSocket):
 
         # CAN XL: the kernel expects exactly HDR_SIZE + len bytes, so no padding.
         if not isinstance(x, CANXL):
-            # CAN/CANFD: pad to the frame size the socket was opened with, so
-            # that a classic CAN frame sent on an fd socket stays a CAN FD frame
-            mtu = CAN_FD_MTU if self.fd else CAN_MTU
-            bs = bs + b"\x00" * (mtu - len(bs))
+            # This is a classic CAN or CAN FD frame. Pad it to the frame size
+            # the socket was opened with; on an xl socket self.MTU is the CAN XL
+            # receive size, which is not a valid size for such a frame.
+            classic_mtu = CAN_MTU if self.xl else self.MTU
+            bs = bs + b"\x00" * (classic_mtu - len(bs))
 
         return super(NativeCANSocket, self).send(bs)  # type: ignore
 
