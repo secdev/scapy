@@ -35,7 +35,6 @@ from scapy.fields import (
     XLongField,
     XShortField,
 )
-from scapy.packet import Packet
 
 
 class AvtpStreamType(Enum):
@@ -928,9 +927,8 @@ class AvtpNtscfHeader(_AvtpAlternativeHeader):
             version = 0
 
         if version not in (0, 1):
-            warning(
-                f"Unsupported AVTP NTSCF version {version}. Defaulting to AVTP common header."
-            )
+            warning(f"Unsupported AVTP NTSCF version {version}. \
+                Defaulting to AVTP common header.")
 
         return {
             0: AvtpNtscfHeaderV0,
@@ -1012,9 +1010,8 @@ class AvtpTscfHeader(AvtpCommonStreamHeader):
             version = 0
 
         if version not in (0, 1):
-            warning(
-                f"Unsupported AVTP TSCF version {version}. Defaulting to AVTP common header."
-            )
+            warning(f"Unsupported AVTP TSCF version {version}. \
+                Defaulting to AVTP common header.")
 
         return {
             0: AvtpTscfHeaderV0,
