@@ -681,6 +681,15 @@ s = b'`\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00
 p = IPv6(s)
 assert IPv6ExtHdrHopByHop in p and PadN in p and Jumbo in p and ICMPv6EchoRequest in p
 
+= IPv6ExtHdrHopByHop - Jumbo option lookup on truncated payload
+hdr = raw(IPv6(nh=0, plen=0))
+# No Jumbo option in the payload
+p0 = IPv6(hdr + b"\x3b\x00\x01\x00\x00\x00\x00\x00\x00\x00")
+assert IPv6ExtHdrHopByHop in p0
+# Jumbo option type found, but its value is truncated
+p1 = IPv6(hdr + b"\x3b\x00\x01\x00\x00\x00\xc2\x04\x00\x00")
+assert IPv6ExtHdrHopByHop in p1
+
 = IPv6ExtHdrHopByHop - Instantiation with Pad1 option
 raw(IPv6ExtHdrHopByHop(options=[Pad1()])) == b';\x00\x00\x01\x03\x00\x00\x00'
 
