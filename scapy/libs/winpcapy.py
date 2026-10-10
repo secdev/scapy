@@ -124,16 +124,6 @@ if BSD:
                     ("sin6_addr", 16 * c_ubyte),
                     ("sin6_scope", c_uint32)]
 
-    class sockaddr_dl(Structure):
-        _fields_ = [("sdl_len", c_ubyte),
-                    ("sdl_family", c_ubyte),
-                    ("sdl_index", c_ushort),
-                    ("sdl_type", c_ubyte),
-                    ("sdl_nlen", c_ubyte),
-                    ("sdl_alen", c_ubyte),
-                    ("sdl_slen", c_ubyte),
-                    ("sdl_data", 46 * c_ubyte)]
-
 else:
     # https://github.com/torvalds/linux/blob/master/include/linux/socket.h
     # https://docs.microsoft.com/en-us/windows/win32/winsock/sockaddr-2
