@@ -23,8 +23,8 @@ from scapy.compat import raw
 from scapy.consts import LINUX
 from scapy.arch.common import compile_filter, free_filter
 from scapy.config import conf
-from scapy.data import MTU, ETH_P_ALL, SOL_PACKET, SO_ATTACH_FILTER, \
-    SO_TIMESTAMPNS
+from scapy.data import MTU, ETH_P_ALL, ETH_P_IP, ETH_P_IPV6, SOL_PACKET, \
+    SO_ATTACH_FILTER, SO_TIMESTAMPNS
 from scapy.error import (
     ScapyInvalidPlatformException,
     Scapy_Exception,
@@ -201,6 +201,26 @@ def _flush_fd(fd):
             break
 
 
+def _guess_packet_protocol(sx, default):
+    # type: (bytes, int) -> int
+    if sx:
+        version = sx[0] >> 4
+        if version == 4:
+            return ETH_P_IP
+        if version == 6:
+            return ETH_P_IPV6
+    return default
+
+
+def _get_packet_protocol(x, sx, default):
+    # type: (Any, bytes, int) -> int
+    if isinstance(x, Packet):
+        proto = conf.l3types.layer2num.get(type(x))
+        if proto is not None:
+            return proto
+    return _guess_packet_protocol(sx, default)
+
+
 class L2Socket(SuperSocket):
     desc = "read/write packets at layer 2 using Linux PF_PACKET sockets"
 
@@ -293,6 +313,27 @@ class L2Socket(SuperSocket):
 
     def send(self, x):
         # type: (Packet) -> int
+        if self.lvl == 3:
+            sx = raw(x)
+            sdto = (
+                self.iface,
+                _get_packet_protocol(x, sx, self.type),
+            )
+            try:
+                x.sent_time = time.time()
+            except AttributeError:
+                pass
+            try:
+                if self.outs:
+                    return self.outs.sendto(sx, sdto)
+                return 0
+            except socket.error as msg:
+                if msg.errno == 22 and len(sx) < conf.min_pkt_size:
+                    sx += b"\x00" * (conf.min_pkt_size - len(sx))
+                    if self.outs:
+                        return self.outs.sendto(sx, sdto)
+                    return 0
+                raise
         try:
             return SuperSocket.send(self, x)
         except socket.error as msg:
@@ -350,11 +391,14 @@ class L3PacketSocket(L2Socket):
         iff = x.route()[0]
         if iff is None:
             iff = network_name(conf.iface)
+        elif isinstance(iff, NetworkInterface):
+            iff = network_name(iff)
         type_x = type(x)
+        sdto = (iff, conf.l3types.layer2num.get(type_x, self.type))
         if iff not in self.send_socks:
             self.send_socks[iff] = L3PacketSocket(
                 iface=iff,
-                type=conf.l3types.layer2num.get(type_x, self.type),
+                type=sdto[1],
                 filter=self.filter,
                 promisc=self.promisc,
             )
@@ -369,22 +413,28 @@ class L3PacketSocket(L2Socket):
             sx = bytes(sock.LL() / x)
         else:
             sx = bytes(x)
+        sdto = (iff, _get_packet_protocol(x, sx, sdto[1]))
         # Now send.
         try:
             x.sent_time = time.time()
         except AttributeError:
             pass
         try:
-            return fd.send(sx)
+            return fd.sendto(sx, sdto)
         except socket.error as msg:
             if msg.errno == 22 and len(sx) < conf.min_pkt_size:
-                return fd.send(
-                    sx + b"\x00" * (conf.min_pkt_size - len(sx))
+                return fd.sendto(
+                    sx + b"\x00" * (conf.min_pkt_size - len(sx)),
+                    sdto,
                 )
             elif conf.auto_fragment and msg.errno == 90:
                 i = 0
                 for p in x.fragment():
-                    i += fd.send(bytes(self.LL() / p))
+                    if sock.lvl == 2:
+                        sx = bytes(sock.LL() / p)
+                    else:
+                        sx = bytes(p)
+                    i += fd.sendto(sx, sdto)
                 return i
             else:
                 raise
