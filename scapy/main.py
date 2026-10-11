@@ -445,23 +445,6 @@ def list_contrib(name=None,  # type: Optional[str]
         return None
 
 
-##############################
-#  Session saving/restoring  #
-##############################
-
-def update_ipython_session(session):
-    # type: (Dict[str, Any]) -> None
-    """Updates IPython session with a custom one"""
-    if "_oh" not in session:
-        session["_oh"] = session["Out"] = {}
-        session["In"] = {}
-    try:
-        from IPython import get_ipython
-        get_ipython().user_ns.update(session)
-    except Exception:
-        pass
-
-
 def _scapy_prestart_builtins():
     # type: () -> Dict[str, Any]
     """Load Scapy prestart and return all builtins"""
@@ -527,14 +510,10 @@ def init_session(mydict=None,  # type: Optional[Union[Dict[str, Any], None]]
     scapy_builtins.update(_scapy_exts())
 
     SESSION = {"conf": conf}  # type: Dict[str, Any]
-
     SESSION.update(scapy_builtins)
-    SESSION["_scpybuiltins"] = scapy_builtins.keys()
-    builtins.__dict__["scapy_session"] = SESSION
 
     if mydict is not None:
-        builtins.__dict__["scapy_session"].update(mydict)
-        update_ipython_session(mydict)
+        SESSION.update(mydict)
     if ret:
         return SESSION
     return None

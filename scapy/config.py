@@ -963,7 +963,6 @@ class Conf(ConfClass):
     This object contains the configuration of Scapy.
     """
     version: str = ReadOnlyAttribute("version", VERSION)
-    session: str = ""  #: filename where the session will be saved
     interactive = False
     #: can be "ipython", "bpython", "ptpython", "ptipython", "python" or "auto".
     #: Default: Auto
