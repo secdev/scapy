@@ -671,6 +671,36 @@ _dot11_addr_meaning = [
     ],
 ]
 
+# 802.11-2024 9.3.5: Table 9-77
+# invalid combinations may throw KeyError
+_dot11_mesh_addr_meaning = [
+    [  # no extension
+        [  # toDs = 0
+            ["DA", "TA", "SA=Mesh SA", None],  # fromDs 0
+            ["DA", "TA", "SA=Mesh SA", None]   # fromDs 1
+        ],
+        {1: ["RA", "TA", "DA=Mesh DA", "SA=Mesh SA"]}
+    ],
+    [  # addr4
+        [["RA", "TA", "DA=Mesh DA", None],
+         ["DA", "TA", "Mesh SA", "SA"]]
+    ],
+    # addr5&6
+    {1: {1: ["RA", "TA", "Mesh DA", "Mesh SA"]}}  # to_ds 1 from_ds 1
+]
+
+
+def _get_dot11_mesh_addr_meaning(FCField, payload, idx):
+    ext_mode = 0
+    to_ds = FCField.to_DS
+    from_ds = FCField.from_DS
+    if payload.Mesh_Control_Present:
+        ext_mode = payload.Mesh_Control_Field.Address_Extension_Mode
+    try:
+        return _dot11_mesh_addr_meaning[ext_mode][to_ds][from_ds][idx]
+    except KeyError:
+        return None
+
 
 class _Dot11MacField(MACField):
     """
@@ -757,7 +787,7 @@ class Dot11(Packet):
     def guess_payload_class(self, payload):
         if self.type == 0x02 and (
                 0x08 <= self.subtype <= 0xF and self.subtype != 0xD):
-            return Dot11QoS
+            return Dot11MeshQoS if _dot11qos_is_mesh(payload) else Dot11QoS
         elif hasattr(self.FCfield, "protected") and self.FCfield.protected:
             # When a frame is handled by encryption, the Protected Frame bit
             # (previously called WEP bit) is set to 1, and the Frame Body
@@ -797,6 +827,8 @@ class Dot11(Packet):
                 return ["RA", "NAV-SA", "NAV-DA"][index]
             return _dot11_addr_meaning[1][index]
         elif self.type == 2:  # Data
+            if isinstance(self.payload, Dot11MeshQoS):
+                return _get_dot11_mesh_addr_meaning(self.FCfield, self.payload, index)
             meaning = _dot11_addr_meaning[2][index][
                 self.FCfield.to_DS
             ][self.FCfield.from_DS]
@@ -843,6 +875,7 @@ class Dot11FCS(Dot11):
 
 class Dot11QoS(Packet):
     name = "802.11 QoS"
+    # see 802.11-2024 9.2.4.5.1 and Table 9-10
     fields_desc = [BitField("A_MSDU_Present", 0, 1),
                    BitField("Ack_Policy", 0, 2),
                    BitField("EOSP", 0, 1),
@@ -854,6 +887,75 @@ class Dot11QoS(Packet):
             if self.underlayer.FCfield.protected:
                 return Dot11Encrypted
         return Packet.guess_payload_class(self, payload)
+
+
+def _dot11qos_is_mesh(payload):
+    # 2 byte normal QoS header + 6 byte (minimum) Mesh Control field
+    if len(payload) < 8:
+        return False
+    last_octet = orb(payload[1])
+    # Mesh Control Flag 1, reserved bits of both last octet
+    # and first octet of mesh control field 0
+    return last_octet & 1 and last_octet & 0xF8 == 0 and orb(payload[2]) & 0xFC == 0
+
+
+# 802.11-2024 9.2.4.8.3
+class Dot11MeshControl(Packet):
+    name = "802.11 Mesh Control field"
+    fields_desc = [
+        BitField("reserved", 0, 6),
+        BitEnumField("Address_Extension_Mode", 0, 2,
+                     {0: "none", 1: "address4", 2: "address5_6", 3: "reserved"}),
+        ByteField("Mesh_TTL", 0),
+        LEIntField("Mesh_Sequence_Number", 0),
+        # 802.11-2024 Table 9-35
+        ConditionalField(
+            _Dot11MacField("addr4", ETHER_ANY, 4),
+            lambda pkt: pkt.Address_Extension_Mode == 1
+        ),
+        ConditionalField(
+            _Dot11MacField("addr5", ETHER_ANY, 5),
+            lambda pkt: pkt.Address_Extension_Mode == 2
+        ),
+        ConditionalField(
+            _Dot11MacField("addr6", ETHER_ANY, 6),
+            lambda pkt: pkt.Address_Extension_Mode == 2
+        )
+    ]
+
+    def address_meaning(self, index):
+        if index not in [4, 5, 6]:
+            raise ValueError("Wrong index: should be [4, 5, 6]")
+        # see 802.11-2024 9.3.5 and Table 9-77
+        if index == 4:
+            return "SA"
+        elif index == 5:
+            return "DA"
+        elif index == 6:
+            return "SA"
+        return None
+
+    def guess_payload_class(self, payload):
+        return conf.padding_layer
+
+
+class Dot11MeshQoS(Dot11QoS):
+    name = "802.11 Mesh QoS"
+    fields_desc = Dot11QoS.fields_desc[:-1] + [
+        BitField("reserved", 0, 5),
+        BitField("RSPI", 0, 1),
+        BitField("Mesh_Power_Save_Level", 0, 1),
+        BitField("Mesh_Control_Present", 0, 1),
+        ConditionalField(
+            PacketField("Mesh_Control_Field", Dot11MeshControl(), Dot11MeshControl),
+            lambda pkt: (
+                # 802.11-2024 9.2.4.8.2 -- Mesh Control field is encrypted
+                False if isinstance(pkt.underlayer, Dot11)
+                and pkt.underlayer.FCfield.protected
+                else pkt.Mesh_Control_Present
+            )
+        )
+    ]
 
 
 capability_list = ["res8", "res9", "short-slot", "res11",
@@ -2422,7 +2524,6 @@ class Dot11CCMP(Dot11Encrypted):
 
 bind_top_down(RadioTap, Dot11FCS, present=2, Flags=16)
 bind_top_down(Dot11, Dot11QoS, type=2, subtype=0xc)
-
 bind_layers(PrismHeader, Dot11,)
 bind_layers(Dot11, LLC, type=2)
 bind_layers(Dot11QoS, LLC,)
