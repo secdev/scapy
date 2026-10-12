@@ -11,7 +11,6 @@ TODO:
     - add documentation for ioevent, as_supersocket...
 """
 
-import ctypes
 import itertools
 import logging
 import os
@@ -50,11 +49,15 @@ from typing import (
     Set,
     Tuple,
     Type,
+    TYPE_CHECKING,
     TypeVar,
     Union,
     cast,
 )
 from scapy.compat import DecoratorCallable
+
+if WINDOWS or TYPE_CHECKING:
+    import ctypes
 
 
 # winsock.h
