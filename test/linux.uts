@@ -340,17 +340,90 @@ test_read_routes()
 
 from scapy.arch.linux import L3PacketSocket
 
-import socket
 from unittest import mock
 
 @mock.patch("scapy.arch.linux.socket.socket.sendto")
 def test_L3PacketSocket_sendto_python3(mock_sendto):
-    mock_sendto.side_effect = OSError(22, 2807)
+    mock_sendto.side_effect = [OSError(22, 2807), conf.min_pkt_size]
     l3ps = L3PacketSocket()
-    l3ps.send(IP(dst="8.8.8.8")/ICMP())
+    try:
+        assert l3ps.send(IP(dst="8.8.8.8")/ICMP()) == conf.min_pkt_size
+        assert mock_sendto.call_count == 2
+    finally:
+        l3ps.close()
     return True
 
 assert test_L3PacketSocket_sendto_python3()
+
+= AF_PACKET raw L3 send protocol
+~ linux
+
+from scapy.arch.linux import L2Socket, L3PacketSocket
+from scapy.compat import raw
+from scapy.data import ETH_P_ALL, ETH_P_IP, ETH_P_IPV6
+
+from unittest import mock
+
+def test_L3PacketSocket_sendto_ipv4_padding_protocol():
+    pkt = IP(dst="8.8.8.8")/ICMP()
+    pkt.route = lambda: ("ppp0", None, None)
+    sx = raw(pkt)
+    padded_sx = sx + b"\x00" * (conf.min_pkt_size - len(sx))
+    l3ps = object.__new__(L3PacketSocket)
+    l3ps.filter = None
+    l3ps.iface = "ppp0"
+    l3ps.LL = IP
+    l3ps.lvl = 3
+    l3ps.outs = mock.Mock()
+    l3ps.outs.sendto.side_effect = [OSError(22, 2807), len(padded_sx)]
+    l3ps.promisc = False
+    l3ps.send_socks = {"ppp0": l3ps}
+    l3ps.type = ETH_P_ALL
+    assert l3ps.send(pkt) == len(padded_sx)
+    assert l3ps.outs.sendto.mock_calls == [
+        mock.call(sx, ("ppp0", ETH_P_IP)),
+        mock.call(padded_sx, ("ppp0", ETH_P_IP)),
+    ]
+    return True
+
+def test_L3PacketSocket_sendto_ipv6_protocol():
+    pkt = IPv6(dst="ff02::1")/ICMPv6EchoRequest()
+    pkt.route = lambda: ("ppp0", None, None)
+    l3ps = object.__new__(L3PacketSocket)
+    l3ps.filter = None
+    l3ps.iface = "ppp0"
+    l3ps.LL = IPv6
+    l3ps.lvl = 3
+    l3ps.outs = mock.Mock()
+    l3ps.outs.sendto.return_value = len(raw(pkt))
+    l3ps.promisc = False
+    l3ps.send_socks = {"ppp0": l3ps}
+    l3ps.type = ETH_P_ALL
+    assert l3ps.send(pkt) == len(raw(pkt))
+    l3ps.outs.sendto.assert_called_once_with(
+        raw(pkt),
+        ("ppp0", ETH_P_IPV6),
+    )
+    return True
+
+def test_L2Socket_sendto_raw_l3_protocol():
+    pkt = IPv6(dst="ff02::1")/ICMPv6EchoRequest()
+    l2s = object.__new__(L2Socket)
+    l2s.iface = "ppp0"
+    l2s.lvl = 3
+    l2s.outs = mock.Mock()
+    l2s.outs.sendto.return_value = len(raw(pkt))
+    l2s.type = ETH_P_ALL
+    assert l2s.send(pkt) == len(raw(pkt))
+    l2s.outs.sendto.assert_called_once_with(
+        raw(pkt),
+        ("ppp0", ETH_P_IPV6),
+    )
+    return True
+
+assert test_L3PacketSocket_sendto_ipv4_padding_protocol()
+assert test_L3PacketSocket_sendto_ipv6_protocol()
+assert test_L2Socket_sendto_raw_l3_protocol()
 
 = Test _interface_selection
 ~ netaccess linux needs_root
