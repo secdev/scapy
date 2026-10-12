@@ -457,30 +457,30 @@ assert BERcodec_STRING.enc(b"x", uper_max=10) == BERcodec_STRING.enc(b"x")
 BERcodec_SEQUENCE.enc(BERcodec_INTEGER.enc(1), uper_min=0) == BERcodec_SEQUENCE.enc(BERcodec_INTEGER.enc(1))
 
 + ASN.1 codec tagging contract
-= BER tagging is exposed on the codec
-assert ASN1_Codecs.BER.tagging_enc(b"\x02\x01\x05", implicit_tag=0xA0) == b"\xa0\x01\x05"
-diff, payload = ASN1_Codecs.BER.tagging_dec(
-    b"\xa0\x01\x05", hidden_tag=2, implicit_tag=0xA0
-)
+= BER hooks the tagging of a field
+tagging_enc = ASN1_Codecs.BER.hook("tagging_enc")
+
+assert tagging_enc(b"\x02\x01\x05", implicit_tag=0xA0) == b"\xa0\x01\x05"
+
+assert ASN1_Codecs.hooks[ASN1_Codecs.BER]["tagging_enc"] is tagging_enc
+
+tagging_dec = ASN1_Codecs.BER.hook("tagging_dec")
+
+diff, payload = tagging_dec(b"\xa0\x01\x05", hidden_tag=2, implicit_tag=0xA0)
+
 diff is None and payload == b"\x02\x01\x05"
 
-= identity tagging for PER-style codecs
-def _id_tagging_enc(s, **kwargs):
-    return s
+= a codec that hooks no tagging leaves the encoding alone
+class _NoHooks:
+    ASN1_codec = ASN1_Codecs.CER
 
-def _id_tagging_dec(s, **kwargs):
-    return None, s
+assert ASN1_Codecs.CER.hook("tagging_enc") is None
 
-ASN1_Codecs.PER.register_tagging(_id_tagging_enc, _id_tagging_dec)
-try:
-    assert ASN1_Codecs.PER.tagging_enc(b"\x02\x01\x05", implicit_tag=0xA0) == b"\x02\x01\x05"
-    diff, payload = ASN1_Codecs.PER.tagging_dec(
-        b"\x02\x01\x05", hidden_tag=2, explicit_tag=0xA1
-    )
-    assert diff is None and payload == b"\x02\x01\x05"
-finally:
-    del ASN1_Codecs.PER._tagging_enc
-    del ASN1_Codecs.PER._tagging_dec
+fld = ASN1F_INTEGER("n", 0, explicit_tag=0xA0)
+
+assert fld._tagging_enc(_NoHooks(), b"\x02\x01\x05", explicit_tag=0xA0) == b"\x02\x01\x05"
+
+fld._tagging_dec(_NoHooks(), b"\x02\x01\x05", explicit_tag=0xA0) == (None, b"\x02\x01\x05")
 
 = field _codec_kwargs and object-enc hooks
 class P(ASN1_Packet):
@@ -513,3 +513,191 @@ class ExtraPkt(ASN1_Packet):
 # BER enc swallows unknown kwargs; round-trip still works.
 assert raw(ExtraPkt(n=7)) == b"\x02\x01\x07"
 ExtraPkt(raw(ExtraPkt(n=7))).n.val == 7
+
+= field codec_opts storage
+plain = ASN1F_INTEGER("n", 0)
+
+assert plain.codec_opts == {}
+
+assert plain._codec_kwargs(type("P", (), {"ASN1_codec": ASN1_Codecs.BER})()) == {
+    "size_len": None,
+}
+
+constrained = ASN1F_INTEGER(
+    "n", 0, size_len=1, oer_unsigned=True, uper_min=0, uper_max=255,
+)
+
+assert constrained.codec_opts == {
+    "oer_unsigned": True,
+    "uper_min": 0,
+    "uper_max": 255,
+}
+
+# Constraints live in codec_opts only: they must not become field attributes.
+assert not hasattr(constrained, "oer_unsigned")
+
+assert not hasattr(constrained, "uper_min")
+
+kwargs = constrained._codec_kwargs(
+    type("P", (), {"ASN1_codec": ASN1_Codecs.BER})()
+)
+
+assert kwargs["size_len"] == 1
+
+assert kwargs["oer_unsigned"] is True
+
+assert kwargs["uper_min"] == 0
+
+assert kwargs["uper_max"] == 255
+
+# BER still encodes with constraints present in kwargs.
+class ConstrainedBer(ASN1_Packet):
+    ASN1_codec = ASN1_Codecs.BER
+    ASN1_root = ASN1F_INTEGER(
+        "n", 0, size_len=1, oer_unsigned=True, uper_min=0, uper_max=255,
+    )
+
+assert raw(ConstrainedBer(n=5)) == b"\x02\x81\x01\x05"
+
+assert ConstrainedBer(raw(ConstrainedBer(n=5))).n.val == 5
+
+True
+
+= CHOICE order properties
+choice = ASN1F_CHOICE(
+    "c", ASN1_INTEGER(0), ASN1F_INTEGER, ASN1F_STRING,
+)
+
+assert choice.choice_order == [2, 4]
+
+assert choice.choice_list[0] is ASN1F_INTEGER
+
+assert choice.choice_list[1] is ASN1F_STRING
+
+True
+
++ ASN.1 BER build and dissect extras
+
+= import helpers
+from scapy.packet import raw
+
+= prepare helpers
+def _roundtrip(cls, pkt):
+    # type: (type, ASN1_Packet) -> ASN1_Packet
+    return cls(raw(pkt))
+
+def _record_kwargs():
+    # type: () -> dict
+    return dict(
+        id=42,
+        flag=True,
+        label=b"hi",
+        extra=7,
+        values=[1, 2, 3],
+    )
+
+def _asn1_int(val):
+    # type: (Any) -> int
+    return val.val if hasattr(val, "val") else val
+
+def _asn1_int(val):
+    # type: (Any) -> int
+    return val.val if hasattr(val, "val") else val
+
+def _assert_record(decoded):
+    # type: (ASN1_Packet) -> None
+    assert decoded.id.val == 42
+    assert decoded.flag.val == 1
+    assert decoded.label.val == b"hi"
+    assert decoded.extra.val == 7
+    assert [x.val for x in decoded.values] == [1, 2, 3]
+
+def _assert_record_empty(decoded):
+    # type: (ASN1_Packet) -> None
+    assert decoded.id.val == 1
+    assert decoded.flag.val == 0
+    assert decoded.label.val == b""
+    assert decoded.extra is None
+    assert [x.val for x in decoded.values] == []
+
+def _dissect(cls, data_hex):
+    # type: (Type[ASN1_Packet], str) -> ASN1_Packet
+    return cls(bytes.fromhex(data_hex))
+
+def _roundtrip(cls, pkt):
+    # type: (type, ASN1_Packet) -> ASN1_Packet
+    return cls(raw(pkt))
+
+= ber record build roundtrip
+pkt = BERRecord(**_record_kwargs())
+
+assert len(raw(pkt)) > 0
+
+decoded = _roundtrip(BERRecord, pkt)
+
+assert decoded.id.val == 42
+
+assert decoded.flag.val == 1
+
+assert decoded.label.val == b"hi"
+
+assert decoded.extra.val == 7
+
+assert [x.val for x in decoded.values] == [1, 2, 3]
+
+True
+
+= ber field dissect
+tagged = _dissect(BERTaggedInteger, "a103020105")
+
+assert tagged.n.val == 5
+
+fixed = _dissect(BERFixedFields, "300d02810200c80483000003414243")
+
+assert fixed.n.val == 200
+
+assert fixed.s.val == b"ABC"
+
+present = _dissect(BEROptionalField, "3008020101a003020107")
+
+assert present.id.val == 1
+
+assert present.extra.val == 7
+
+absent = _dissect(BEROptionalField, "3003020101")
+
+assert absent.id.val == 1
+
+assert absent.extra is None
+
+seqof = _dissect(BERSequenceOfIntegers, "3009020101020102020103")
+
+assert [x.val for x in seqof.values] == [1, 2, 3]
+
+as_int = _dissect(BERChoiceField, "020163")
+
+assert as_int.c.val == 99
+
+as_str = _dissect(BERChoiceField, "040178")
+
+assert as_str.c.val == b"x"
+
+True
+
+= ber record dissect
+decoded = _dissect(
+    BERRecord,
+    "301a02012a01010104026869"
+    "a003020107"
+    "3009020101020102020103",
+
+)
+
+_assert_record(decoded)
+
+empty = _dissect(BERRecord, "300a02010101010004003000")
+
+_assert_record_empty(empty)
+
+True
+
