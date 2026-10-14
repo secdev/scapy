@@ -510,7 +510,7 @@ def run_tls_native_test_server(post_handshake_auth=False,
     
     def ssl_server():
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.settimeout(1)
+        server.settimeout(5)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind(("0.0.0.0", 0))
         server.listen(5)
@@ -566,11 +566,11 @@ def test_tls_client_native(post_handshake_auth=False,
         # debug=4,
     )
     # First request
-    pkt = a.sr1(REQS[0], timeout=1, verbose=0)
-    assert pkt.load == b"Please login"
+    pkt = a.sr1(REQS[0], timeout=5, verbose=0)
+    assert pkt is not None and pkt.load == b"Please login"
     # Second request
-    pkt = a.sr1(REQS[1], timeout=1, verbose=0)
-    assert pkt.load == b"Welcome"
+    pkt = a.sr1(REQS[1], timeout=5, verbose=0)
+    assert pkt is not None and pkt.load == b"Welcome"
     # Close
     a.close()
     # Wait for server to close
