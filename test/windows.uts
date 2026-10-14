@@ -21,6 +21,14 @@ a = ObjectPipe()
 a.send("test")
 assert select_objects([a], 0) == [a]
 
+if WINDOWS:
+    class _NegFileno(object):
+        def fileno(self):
+            return -1
+
+    neg = _NegFileno()
+    assert set(select_objects([neg, a], 0)) == {neg, a}
+
 ############
 ############
 + Windows arch unit tests
