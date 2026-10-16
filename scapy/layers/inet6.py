@@ -364,7 +364,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             jumbo_len = None
             idx = 0
             offset = 4 * idx + 2
-            while offset <= len(data):
+            while offset + 6 <= len(data):
                 opt_type = data[offset]
                 if opt_type == 0xc2:  # Jumbo option
                     jumbo_len = struct.unpack("I", data[offset + 2:offset + 2 + 4])[0]  # noqa: E501
