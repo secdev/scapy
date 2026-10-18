@@ -1745,7 +1745,9 @@ class smbclient(CLIUtil):
                 # Discard . and ..
                 continue
             remote = directory / x[0]
-            local = dest / x[0]
+            # The file name comes from the server: resolve it so that '..' or
+            # symlinks cannot escape the local root.
+            local = (dest / x[0]).resolve()
             # Word of caution: this check ONLY works because root and local have been
             # resolve(). Be careful
             if root not in local.parents and local != root:
@@ -1776,7 +1778,7 @@ class smbclient(CLIUtil):
             dirpar, dirname = self._parsepath(file)
             return file, self._getr(
                 dirpar / dirname,  # Remotely
-                self.localpwd / dirname,  # Locally
+                (self.localpwd / dirname).resolve(),  # Locally
                 None,
                 _verb=_verb,
             )
