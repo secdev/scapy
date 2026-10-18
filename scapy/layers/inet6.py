@@ -3446,7 +3446,7 @@ class AS_resolver6(AS_resolver_riswhois):
 
         _, asn, desc = AS_resolver_riswhois._resolve_one(self, addr)
 
-        if asn.startswith("AS"):
+        if asn and asn.startswith("AS"):
             try:
                 asn = int(asn[2:])
             except ValueError:
