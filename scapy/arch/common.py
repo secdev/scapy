@@ -7,7 +7,6 @@
 Functions common to different architectures
 """
 
-import ctypes
 import re
 import socket
 
@@ -15,7 +14,6 @@ from scapy.config import conf
 from scapy.data import MTU, ARPHRD_TO_DLT, DLT_RAW_ALT, DLT_RAW
 from scapy.error import Scapy_Exception, warning
 from scapy.interfaces import network_name, resolve_iface, NetworkInterface
-from scapy.libs.structures import bpf_program
 from scapy.pton_ntop import inet_pton
 from scapy.utils import decode_locale_str
 
@@ -24,8 +22,12 @@ import scapy
 from typing import (
     List,
     Optional,
+    TYPE_CHECKING,
     Union,
 )
+
+if TYPE_CHECKING:
+    from scapy.libs.structures import bpf_program
 
 # From if.h
 _iff_flags = [
@@ -68,13 +70,20 @@ def compile_filter(filter_exp,  # type: str
                    linktype=None,  # type: Optional[int]
                    promisc=False  # type: bool
                    ):
-    # type: (...) -> bpf_program
+    # type: (...) -> 'bpf_program'
     """Asks libpcap to parse the filter, then build the matching
     BPF bytecode.
 
     :param iface: if provided, use the interface to compile
     :param linktype: if provided, use the linktype to compile
     """
+    try:
+        import ctypes
+    except OSError:
+        raise ImportError(
+            "ctypes is not available. Cannot compile filter !"
+        )
+    from scapy.libs.structures import bpf_program
     try:
         from scapy.libs.winpcapy import (
             PCAP_ERRBUF_SIZE,
@@ -141,11 +150,22 @@ def compile_filter(filter_exp,  # type: str
     return bpf
 
 
-def free_filter(bp: bpf_program) -> None:
+def free_filter(bp: 'bpf_program') -> None:
     """
     Free a bpf_program created with compile_filter
     """
-    from scapy.libs.winpcapy import pcap_freecode
+    try:
+        import ctypes
+    except OSError:
+        raise ImportError(
+            "ctypes is not available. Cannot free filter !"
+        )
+    try:
+        from scapy.libs.winpcapy import pcap_freecode
+    except OSError:
+        raise ImportError(
+            "libpcap is not available. Cannot free filter !"
+        )
     pcap_freecode(ctypes.byref(bp))
 
 
