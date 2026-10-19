@@ -237,27 +237,62 @@ assert (LOCALPATH / "fileScapy").exists()
 assert (LOCALPATH / "sub").exists()
 assert (LOCALPATH / "sub" / "secret").exists()
 
-+ SMB2 Client local checks
++ SMB2 Client against a hostile Scapy server
+~ linux smbclient smbserver
 
 = smbclient: recursive get rejects a server-provided file name escaping the destination
 
-# Simulate a hostile server whose directory listing contains '../evil'
-cli = smbclient.__new__(smbclient)
-cli.current_tree = 1
-cli.ls_cache = {}
+# A hostile SMB server: its directory listing contains a file named '../evil'
+
+class HostileSMBServer(SMB_Server):
+   def lookup_folder(self, handle, filter, offset, cls):
+      files = super().lookup_folder(handle, filter, offset, cls)
+      if offset == 0:
+         files.insert(0, cls(
+            FileName="../evil",
+            **self.current_handles[self.lookup_file("loot")][1],
+         ))
+      return files
+   def lookup_file(self, fname, **kwargs):
+      if isinstance(fname, str) and fname.replace("\\", "/").split("/")[-1] == "evil":
+         fname = "loot"  # serve some content for the hostile name
+      return super().lookup_file(fname, **kwargs)
+
+SHAREPATH = pathlib.Path(get_temp_dir())
+(SHAREPATH / "loot").write_bytes(b"pwnd")
+
 LOCALPATH = pathlib.Path(get_temp_dir())
-cli.localpwd = LOCALPATH / "dl"
-cli.localpwd.mkdir()
-attrs = FILE_ID_BOTH_DIR_INFORMATION(FileAttributes="FILE_ATTRIBUTE_ARCHIVE").FileAttributes
-cli.ls = lambda parent=None: [("../evil", attrs, 4, 0)]
-cli._get_file = lambda file, fd: fd.write(b"data")
+(LOCALPATH / "dl").mkdir()
 
+srv = HostileSMBServer.spawn(
+   port=12345,
+   iface=conf.loopback_name,
+   bg=True,
+   verb=0,
+   shares=[SMBShare("test", SHAREPATH)],
+   readonly=True,
+   ssp=None,
+)
 try:
-    cli.get(".", r=True, _verb=False)
-    assert False, "path traversal was not rejected"
-except FileNotFoundError:
-    pass
+   cli = smbclient("localhost", "guest", port=12345, guest=True, cli=False, debug=4, MAX_DIALECT=0x0311)
+   try:
+      cli.use("test")
+      cli.lcd(str(LOCALPATH / "dl"))
+      try:
+         cli.get(".", r=True)
+         rejected = False
+      except FileNotFoundError:
+         rejected = True
+   finally:
+      cli.close()
+finally:
+   try:
+      srv.shutdown(socket.SHUT_RDWR)
+   except OSError:
+      pass
+   srv.close()
 
+assert rejected, "path traversal was not rejected"
 assert not (LOCALPATH / "evil").exists()
 assert not (LOCALPATH / "dl" / "evil").exists()
 
