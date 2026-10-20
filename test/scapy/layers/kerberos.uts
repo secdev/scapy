@@ -1894,6 +1894,45 @@ try:
 except ValueError:
     pass
 
+= GSS_Accept_sec_context rejects expired tickets and stale authenticators
+
+from datetime import datetime, timedelta, timezone
+from scapy.layers.gssapi import GSS_S_COMPLETE, GSS_S_DEFECTIVE_CREDENTIAL
+from scapy.layers.kerberos import EncryptedData, EncryptionKey, EncTicketPart, KRB_ERROR, PrincipalName, TransitedEncoding
+
+srvkey = Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=b"S" * 32)
+tktkey = Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=b"K" * 32)
+now = datetime(2024, 3, 5, 16, 52, 55, tzinfo=timezone.utc)
+
+def make_ap_req(endtime, ctime):
+    st = KRB_Ticket(realm="DOMAIN.LOCAL", sname=PrincipalName.fromSPN("cifs/dc1"), encPart=EncryptedData())
+    st.encPart.encrypt(srvkey, EncTicketPart(
+        transited=TransitedEncoding(trType=ASN1_INTEGER(0), contents=ASN1_STRING(b"")),
+        key=EncryptionKey.fromKey(tktkey),
+        crealm="DOMAIN.LOCAL",
+        cname=PrincipalName.fromUPN("User1@DOMAIN.LOCAL"),
+        authtime=ASN1_GENERALIZED_TIME(endtime - timedelta(hours=10)),
+        starttime=ASN1_GENERALIZED_TIME(endtime - timedelta(hours=10)),
+        endtime=ASN1_GENERALIZED_TIME(endtime),
+    ))
+    krbcli = KerberosSSP(UPN="User1@DOMAIN.LOCAL", SPN="cifs/dc1", ST=KRB_Ticket(bytes(st)), KEY=tktkey)
+    with mock.patch('scapy.layers.kerberos.datetime', mock.MagicMock(now=lambda tz=None: ctime)):
+        _, tok, _ = krbcli.GSS_Init_sec_context(None, req_flags=0)
+    return tok
+
+krbsrv = KerberosSSP(SPN="cifs/dc1", KEY=srvkey)
+with mock.patch('scapy.layers.kerberos.datetime', date_mock):
+    _, tok, status = krbsrv.GSS_Accept_sec_context(None, make_ap_req(now + timedelta(hours=1), now))
+    assert status == GSS_S_COMPLETE
+    # Expired ticket
+    _, tok, status = krbsrv.GSS_Accept_sec_context(None, make_ap_req(now - timedelta(days=1), now))
+    assert status == GSS_S_DEFECTIVE_CREDENTIAL
+    assert tok.innerToken.root.errorCode == "KRB_AP_ERR_TKT_EXPIRED"
+    # Stale (replayed) authenticator
+    _, tok, status = krbsrv.GSS_Accept_sec_context(None, make_ap_req(now + timedelta(hours=1), now - timedelta(hours=1)))
+    assert status == GSS_S_DEFECTIVE_CREDENTIAL
+    assert tok.innerToken.root.errorCode == "KRB_AP_ERR_SKEW"
+
 = Create client and server KerberosSSP (raw)
 
 client = KerberosSSP(
