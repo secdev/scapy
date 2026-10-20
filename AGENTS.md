@@ -31,6 +31,26 @@ A layer is a `Packet` subclass with a `fields_desc` list. For packet, field, bin
 - Be especially careful about CPU and memory costs in Scapy core code such as
   `scapy/packet.py`; packet initialization is a hot path.
 
+## Reviewing changes
+
+For code reviews and re-reviews, use
+[`scapy-code-review`](.github/skills/scapy-code-review/SKILL.md). Apply its
+checklist only when relevant.
+
+- Establish the actual base and head revisions. Read the original code,
+  related callers, existing tests, review discussion, and subsequent fixes.
+- Verify findings from a concrete trigger through the affected code to its
+  observable consequence. Separate pre-existing issues from regressions and
+  label untested conclusions as code-inspection only.
+- For protocol changes, check wire details against a specification or
+  independent packet bytes; round-trip tests alone can preserve symmetric
+  encoding mistakes. Preserve Scapy's ability to craft explicit malformed
+  values.
+- Keep findings concise, actionable, linked to the affected lines, and within
+  the user's requested scope. Do not report speculative style preferences.
+- For possible security vulnerabilities, follow `SECURITY.md` and its private
+  reporting process; do not post vulnerability details in a public review.
+
 ## Preparing commits, pull requests or advisories messages
 
 Follow [`CONTRIBUTING.md`'s guidance on AI-assisted reports and PRs](CONTRIBUTING.md#ai-assisted-reports-and-prs) and [submitting pull requests](CONTRIBUTING.md#submitting-pull-requests).
