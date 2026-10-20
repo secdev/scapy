@@ -14,20 +14,7 @@ Perform focused, maintainer-style code reviews of Scapy changes. Prioritize real
 3. For a GitHub PR, inspect the PR discussion, inline review comments, review summaries, and subsequent commits. Treat specific **human** maintainer comments as strong signals for what to investigate, but validate each against the code. Automated and AI-generated reviews are leads, not proof. Do not infer authorship from comment length.
 4. In a re-review, trace each material existing comment through **original behavior -> comment -> committed fix -> current behavior**. Do not re-report an issue that has been fixed.
 
-Useful commands when a local checkout and `gh` are available:
-
-```sh
-gh pr view NUMBER --repo secdev/scapy --json title,body,baseRefName,headRefName
-gh pr diff NUMBER --repo secdev/scapy
-gh api --paginate repos/secdev/scapy/pulls/NUMBER/comments
-gh api --paginate repos/secdev/scapy/pulls/NUMBER/reviews
-gh api --paginate repos/secdev/scapy/issues/NUMBER/comments
-git diff --stat BASE...HEAD
-git diff BASE...HEAD -- path/to/file.py
-git show BASE:path/to/file.py
-```
-
-Use whichever source is actually available. Do not claim to have read inline comments, compared revisions, or executed commands that were inaccessible.
+Use the available repository and GitHub interfaces to inspect PR metadata, diffs, discussion, review comments, and revisions. Do not claim to have read comments, compared revisions, or executed checks that were inaccessible.
 
 ## 2. Apply the review rules
 
