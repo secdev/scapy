@@ -1145,7 +1145,6 @@ class Conf(ConfClass):
         'rtp',
         'sctp',
         'sixlowpan',
-        'skinny',
         'smb',
         'smb2',
         'smbclient',
