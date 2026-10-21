@@ -2357,3 +2357,15 @@ p
 assert p.indent == 0xf
 assert p.pcount == 4
 assert [p.x for p in p.plist] == [0x41, 0x42, 0x43, 0x44]
+
+############
+############
++ ConditionalField __getattr__
+
+= ConditionalField __getattr__ has no try/except AttributeError wrapper
+~ core field
+import inspect
+from scapy import fields
+
+src = inspect.getsource(fields.ConditionalField.__getattr__)
+assert "except AttributeError" not in src
