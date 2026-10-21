@@ -2016,7 +2016,7 @@ assert len(tmp) == 3
 assert [l[1] for l in tmp] == ['AS24776', 'AS36459', 'AS26496']
 
 = AS resolver - IPv6
-~ netaccess IP as_resolvers
+~ netaccess IP as_resolvers disabled
 * This test retries on failure because it often fails
 
 def _test():
