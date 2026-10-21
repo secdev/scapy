@@ -72,7 +72,11 @@ from typing import (
 
 # Missing attributes
 if not hasattr(socket, "PF_ROUTE"):
-    socket.PF_ROUTE = 17
+    # https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/sys/socket.h#L408
+    # https://github.com/freebsd/freebsd-src/blob/c6d7a2478c9eeb38ed1284e4ee1ff64c75ca8b09/sys/sys/socket.h#L243
+    # https://github.com/NetBSD/src/blob/5418d593532823da70a8aa69828bd2c26e07c980/sys/sys/socket.h#L247
+    # https://github.com/openbsd/src/blob/74bf4f178707d7daa0f177d9db18893aa18b8a42/sys/sys/socket.h#L186
+    socket.PF_ROUTE = 34 if NETBSD else 17
 
 # ctypes definitions
 
