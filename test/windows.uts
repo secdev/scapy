@@ -21,6 +21,34 @@ a = ObjectPipe()
 a.send("test")
 assert select_objects([a], 0) == [a]
 
+if WINDOWS:
+    class _NegFileno(object):
+        def fileno(self):
+            return -1
+    neg = _NegFileno()
+    assert select_objects([neg], 0) == [neg]
+    assert set(select_objects([a, neg], 0)) == {neg, a}
+    b = ObjectPipe()
+    b.send("test2")
+    assert set(select_objects([neg, a, b], 0)) == {neg, a, b}
+    unreadable = ObjectPipe()
+    readable = ObjectPipe()
+    readable.send("readable")
+    for order in [
+        [neg, unreadable, readable],
+        [unreadable, neg, readable],
+        [unreadable, readable, neg],
+        [readable, unreadable, neg],
+        [readable, neg, unreadable],
+        [neg, readable, unreadable],
+    ]:
+        res = select_objects(order, 0)
+        assert unreadable not in res
+        assert set(res) == {neg, readable}
+    unreadable.close()
+    readable.close()
+    b.close()
+
 ############
 ############
 + Windows arch unit tests

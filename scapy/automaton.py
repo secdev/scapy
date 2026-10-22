@@ -92,33 +92,38 @@ def select_objects(inputs, remain):
         return select.select(inputs, [], [], remain)[0]
     inputs = list(inputs)
     events = []
+    events_to_inputs = []
     created = []
     results = set()
     for i in inputs:
-        if getattr(i, "__selectable_force_select__", False):
-            # Native socket.socket object. We would normally use select.select.
-            evt = ctypes.windll.ws2_32.WSACreateEvent()
-            created.append(evt)
-            res = ctypes.windll.ws2_32.WSAEventSelect(
-                ctypes.c_void_p(i.fileno()),
-                evt,
-                FD_READ
-            )
-            if res == 0:
-                # Was a socket
-                events.append(evt)
-            else:
-                # Fallback to normal event
-                events.append(i.fileno())
-        elif i.fileno() < 0:
+        fno = i.fileno()
+        if fno < 0:
             # Special case: On Windows, we consider that an object that returns
             # a negative fileno (impossible), is always readable. This is used
             # in very few places but important (e.g. PcapReader), where we have
             # no valid fileno (and will stop on EOFError).
             results.add(i)
             remain = 0
+            continue
+        if getattr(i, "__selectable_force_select__", False):
+            # Native socket.socket object. We would normally use select.select.
+            evt = ctypes.windll.ws2_32.WSACreateEvent()
+            created.append(evt)
+            res = ctypes.windll.ws2_32.WSAEventSelect(
+                ctypes.c_void_p(fno),
+                evt,
+                FD_READ
+            )
+            if res == 0:
+                # Was a socket
+                event = evt
+            else:
+                # Fallback to normal event
+                event = fno
         else:
-            events.append(i.fileno())
+            event = fno
+        events.append(event)
+        events_to_inputs.append(i)
     if events:
         # 0xFFFFFFFF = INFINITE
         remainms = int(remain * 1000 if remain is not None else 0xFFFFFFFF)
@@ -140,7 +145,7 @@ def select_objects(inputs, remain):
                 remainms
             )
         if res != 0xFFFFFFFF and res != 0x00000102:  # Failed or Timeout
-            results.add(inputs[res])
+            results.add(events_to_inputs[res])
             if len(events) > 1:
                 # Now poll the others, if any
                 for i, evt in enumerate(events):
@@ -149,7 +154,7 @@ def select_objects(inputs, remain):
                         0  # poll: don't wait
                     )
                     if res == 0:
-                        results.add(inputs[i])
+                        results.add(events_to_inputs[i])
     # Cleanup created events, if any
     for evt in created:
         ctypes.windll.ws2_32.WSACloseEvent(evt)
