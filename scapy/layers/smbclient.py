@@ -995,7 +995,7 @@ class SMB_SOCKET(SuperSocket):
                     )
                     for x in res.files
                     # strip invalid file names
-                    if b"/" not in x.FileName
+                    if "/" not in x.FileName
                 ]
             )
         return results
