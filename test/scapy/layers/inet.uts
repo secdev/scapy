@@ -401,6 +401,14 @@ mac2 = calc_tcp_md5_hash(p2[TCP], b"12345")
 assert mac0 != mac1
 assert mac1 == mac2
 
+= TCP options: MD5 rejects non-TCP layers
+p = IP() / UDP()
+try:
+    calc_tcp_md5_hash(p[UDP], b"12345")
+    assert False, "calc_tcp_md5_hash accepted a UDP layer"
+except TypeError:
+    pass
+
 = TCP options: MD5 IPv4 (depends on default values)
 p = IP() / TCP()
 mac = calc_tcp_md5_hash(p[TCP], b"12345")
