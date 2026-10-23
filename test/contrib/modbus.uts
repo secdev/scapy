@@ -430,6 +430,18 @@ raw(ModbusPDU11ReportSlaveIdRequest()) == b'\x11'
 = ModbusPDU11ReportSlaveIdResponse minimal parameters
 raw(ModbusPDU11ReportSlaveIdResponse(byteCount=3, slaveId="ID")) == b'\x11\x03\x49\x44\x00'
 
+= ModbusPDU11ReportSlaveIdResponse byteCount computed
+raw(ModbusPDU11ReportSlaveIdResponse(slaveId="ID", runIdicatorStatus=0xff)) == b'\x11\x03\x49\x44\xff'
+
+= ModbusPDU11ReportSlaveIdResponse default
+raw(ModbusPDU11ReportSlaveIdResponse()) == b'\x11\x01\x00'
+
+= ModbusPDU11ReportSlaveIdResponse dissection
+p = ModbusADUResponse(b'\x00\x01\x00\x00\x00\x06\xff\x11\x03\x49\x44\xff')
+assert p[ModbusPDU11ReportSlaveIdResponse].slaveId == b'ID'
+assert p[ModbusPDU11ReportSlaveIdResponse].runIdicatorStatus == 0xff
+assert not p[ModbusPDU11ReportSlaveIdResponse].payload
+
 = ModbusPDU11ReportSlaveIdError
 raw(ModbusPDU11ReportSlaveIdError()) == b'\x91\x01'
 
