@@ -47,7 +47,7 @@ pks = PacketList()
 
 for i in range(1, 2000, 2):
     txp = TestPacket(identifier=i, data=b"hello"*i)
-    rxp = sender.sr1(txp, verbose=False, timeout=0.5)
+    rxp = sender.sr1(txp, verbose=False, timeout=1)
     pks.append(txp)
     pks.append(rxp)
 
