@@ -3593,10 +3593,14 @@ class UTCTimeField(Field[float, int]):
         x += self.delta
         # To make negative timestamps work on all plateforms (e.g. Windows),
         # we need a trick.
-        t = (
-            datetime.datetime(1970, 1, 1) +
-            datetime.timedelta(seconds=x)
-        ).strftime(self.strf)
+        try:
+            t = (
+                datetime.datetime(1970, 1, 1) +
+                datetime.timedelta(seconds=x)
+            ).strftime(self.strf)
+        except OverflowError:
+            # Outside of the years datetime supports (1 to 9999)
+            return "%d" % x
         return "%s (%d)" % (t, int(x))
 
     def i2m(self, pkt, x):

@@ -399,6 +399,10 @@ assert p.sprintf("%Time%") == 'Mon, 01 Jan 1601 00:00:00  (-11644473600)'
 p = TestUTCTimeField(Time=133587912345678900)
 assert p.sprintf("%Time%") == 'Sun, 28 Apr 2024 15:20:34  (1714317634)'
 
+p = TestUTCTimeField(Time=0xffffffffffffffff)
+assert p.sprintf("%Time%") == '1833029933770'
+p.show(dump=True)
+
 ############
 ############
 + Tests on FieldListField
