@@ -60,6 +60,7 @@ This checklist combines recurring maintainer-review concerns with requirements i
 - A bug-fix test should fail on the pre-fix code, pass with the fix, and assert the failing behavior directly.
 - For protocol additions, cover independent incoming bytes, expected serialized bytes, bindings, computed values, and meaningful malformed/truncated cases.
 - In UTScapy `.uts`, the final expression determines pass/fail; use explicit `assert` for conditions before it and never use the variable `_`.
+- Tests should be added next to other tests that touch similar components, if possible.
 - Add to the existing campaign. Keep tests deterministic; mock external services and hardware unless live interoperability is the behavior under test.
 - If relevant and feasible, cross-check with Wireshark, a third-party dissector, or hardware captures.
 
