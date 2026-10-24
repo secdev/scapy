@@ -429,6 +429,7 @@ class tlsSession(object):
         self.server_key = None
         self.server_rsa_key = None
         self.server_cert_verify_valid = None
+        self.server_kx_sig_valid = None
         # self.server_ecdsa_key = None
 
         # A dictionary containing keys extracted from a NSS Keys Log using
