@@ -6,6 +6,7 @@ This checklist combines recurring maintainer-review concerns with requirements i
 
 - Match the file's existing conventions and analogous layers before introducing helpers, subclasses, abstractions, redundant fallback paths, or new state.
 - Do not add a helper used once for a trivial condition. Prefer two straightforward statements over an opaque generic framework.
+- If a function is only ever used once, it likely should be merged with it's caller. It's okay to have big functions as long as they are properly commented, in steps.
 - Check if duplicate logic should instead live in an existing parent class or a built-in field.
 
 ## 2. Scapy-native packet representation
