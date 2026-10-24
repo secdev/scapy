@@ -139,12 +139,24 @@ class ENIPUnknownCommand(Packet):
 # List services (0x0004)
 
 
-class ENIPListServicesItem(Packet):
+class _ENIPListItem(Packet):
+    """Item whose itemLength counts every byte after the length field"""
+
+    def post_build(self, pkt, pay):
+        if self.itemLength is None:
+            pkt = pkt[:2] + struct.pack("<H", len(pkt) - 4) + pkt[4:]
+        return pkt + pay
+
+    def extract_padding(self, s):
+        return b"", s
+
+
+class ENIPListServicesItem(_ENIPListItem):
     """List Services Item Field"""
     name = "ENIPListServicesItem"
     fields_desc = [
         LEShortEnumField("itemTypeCode", 0, _typeIdList),
-        LEFieldLenField("itemLength", 0),
+        LEShortField("itemLength", None),
         LEShortField("protocolVersion", 0),
         XLEShortField("flag", 0),  # TODO: detail with BitFields
         StrFixedLenField("serviceName", None, 16),
@@ -155,7 +167,7 @@ class ENIPListServices(Packet):
     """List Services Command Field"""
     name = "ENIPListServices"
     fields_desc = [
-        FieldLenField("itemCount", 0, count_of="items"),
+        LEFieldLenField("itemCount", None, count_of="items"),
         PacketListField("items", None, ENIPListServicesItem),
     ]
 
@@ -163,12 +175,12 @@ class ENIPListServices(Packet):
 # List identity (0x0063)
 
 
-class ENIPListIdentityItem(Packet):
+class ENIPListIdentityItem(_ENIPListItem):
     """List Identity Item Fields"""
     name = "ENIPListIdentityReplyItem"
     fields_desc = [
         LEShortEnumField("itemTypeCode", 0, _typeIdList),
-        LEFieldLenField("itemLength", 0),
+        LEShortField("itemLength", None),
         LEShortField("protocolVersion", 0),
         # Socket address
         ShortField("sinFamily", 0),
@@ -183,7 +195,8 @@ class ENIPListIdentityItem(Packet):
         ByteField("revisionMinor", 0),
         LEShortField("status", 0),
         XLEIntField("serialNumber", 0),
-        ByteField("productNameLength", 0),
+        FieldLenField("productNameLength", None, length_of="productName",
+                      fmt="B"),
         StrLenField("productName", None,
                     length_from=lambda pkt: pkt.productNameLength),
         ByteField("state", 0)
@@ -194,7 +207,7 @@ class ENIPListIdentity(Packet):
     """List identity request and response"""
     name = "ENIPListIdentity"
     fields_desc = [
-        FieldLenField("itemCount", 0, count_of="items"),
+        LEFieldLenField("itemCount", None, count_of="items"),
         PacketListField("items", None, ENIPListIdentityItem)
     ]
 
@@ -207,17 +220,20 @@ class ENIPListInterfacesItem(Packet):
     name = "ENIPListInterfacesItem"
     fields_desc = [
         LEShortEnumField("itemTypeCode", 0, _typeIdList),
-        FieldLenField("itemLength", 0, length_of="itemData"),
+        LEFieldLenField("itemLength", None, length_of="itemData"),
         # TODO: Could be detailed
         StrLenField("itemData", "", length_from=lambda pkt: pkt.itemLength),
     ]
+
+    def extract_padding(self, s):
+        return b"", s
 
 
 class ENIPListInterfaces(Packet):
     """List Interfaces Command Field"""
     name = "ENIPListInterfaces"
     fields_desc = [
-        FieldLenField("itemCount", 0, count_of="items"),
+        LEFieldLenField("itemCount", None, count_of="items"),
         PacketListField("items", None, ENIPListInterfacesItem),
     ]
 
