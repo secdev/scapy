@@ -60,21 +60,21 @@ from typing import (
     Any,
     AnyStr,
     Callable,
-    cast,
     Dict,
     IO,
     Iterator,
     List,
+    Literal,
     Optional,
-    overload,
-    Tuple,
     TYPE_CHECKING,
+    Tuple,
     Type,
     Union,
+    cast,
+    overload,
 )
 from scapy.compat import (
     DecoratorCallable,
-    Literal,
 )
 
 if TYPE_CHECKING:

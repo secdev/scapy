@@ -38,12 +38,10 @@ from typing import (
     Any,
     Dict,
     List,
+    Literal,
     Optional,
     Union,
     overload,
-)
-from scapy.compat import (
-    Literal,
 )
 
 LAYER_ALIASES = {
