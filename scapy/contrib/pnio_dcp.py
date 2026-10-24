@@ -18,9 +18,10 @@ from scapy.fields import (
     MultiEnumField,
     MultipleTypeField,
     PacketListField,
-    PadField,
+    RawVal,
     ShortEnumField,
     ShortField,
+    StrFixedLenField,
     StrLenField,
     XByteField,
     XIntField,
@@ -172,6 +173,17 @@ BLOCK_QUALIFIERS.update({i: "reserved" for i in range(0x0002, 0x00ff)})
 
 # GENERIC DCP BLOCK
 
+def dcp_block_padding_length(pkt):
+    """
+    A DCP block of odd length is followed by one padding byte. While the
+    block is built, dcp_block_length may still be None (computed field).
+    """
+    length = pkt.get_field("dcp_block_length").i2m(pkt, pkt.dcp_block_length)
+    if isinstance(length, RawVal):
+        length = int.from_bytes(bytes(length), "big")
+    return length % 2
+
+
 # DCP RESPONSE BLOCKS
 
 class DCPBaseBlock(Packet):
@@ -198,14 +210,13 @@ class DCPIPBlock(Packet):
         ByteEnumField("option", 1, DCP_OPTIONS),
         MultiEnumField("sub_option", 2, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
-        LenField("dcp_block_length", None),
+        LenField("dcp_block_length", 14),
         ShortEnumField("block_info", 1, IP_BLOCK_INFOS),
         IPField("ip", "192.168.0.2"),
         IPField("netmask", "255.255.255.0"),
         IPField("gateway", "192.168.0.1"),
-        PadField(StrLenField("padding", b"\x00",
-                             length_from=lambda p: p.dcp_block_length % 2), 1,
-                 padwith=b"\x00")
+        StrFixedLenField("padding", b"",
+                         length_from=dcp_block_padding_length)
     ]
 
     def extract_padding(self, s):
@@ -217,16 +228,16 @@ class DCPFullIPBlock(Packet):
         ByteEnumField("option", 1, DCP_OPTIONS),
         MultiEnumField("sub_option", 3, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
-        LenField("dcp_block_length", None),
+        FieldLenField("dcp_block_length", None, length_of="dnsaddr",
+                      adjust=lambda p, x: x + 14),
         ShortEnumField("block_info", 1, IP_BLOCK_INFOS),
         IPField("ip", "192.168.0.2"),
         IPField("netmask", "255.255.255.0"),
         IPField("gateway", "192.168.0.1"),
-        FieldListField("dnsaddr", [], IPField("", "0.0.0.0"),
+        FieldListField("dnsaddr", ["0.0.0.0"] * 4, IPField("", "0.0.0.0"),
                        count_from=lambda x: 4),
-        PadField(StrLenField("padding", b"\x00",
-                             length_from=lambda p: p.dcp_block_length % 2), 1,
-                 padwith=b"\x00")
+        StrFixedLenField("padding", b"",
+                         length_from=dcp_block_padding_length)
     ]
 
     def extract_padding(self, s):
@@ -238,12 +249,11 @@ class DCPMACBlock(Packet):
         ByteEnumField("option", 1, DCP_OPTIONS),
         MultiEnumField("sub_option", 1, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
-        FieldLenField("dcp_block_length", None),
+        LenField("dcp_block_length", 8),
         ShortEnumField("block_info", 0, BLOCK_INFOS),
         MACField("mac", "00:00:00:00:00:00"),
-        PadField(StrLenField("padding", b"\x00",
-                             length_from=lambda p: p.dcp_block_length % 2), 1,
-                 padwith=b"\x00")
+        StrFixedLenField("padding", b"",
+                         length_from=dcp_block_padding_length)
     ]
 
     def extract_padding(self, s):
@@ -257,13 +267,14 @@ class DCPManufacturerSpecificBlock(Packet):
         ByteEnumField("option", 2, DCP_OPTIONS),
         MultiEnumField("sub_option", 1, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
-        FieldLenField("dcp_block_length", None),
+        FieldLenField("dcp_block_length", None,
+                      length_of="device_vendor_value",
+                      adjust=lambda p, x: x + 2),
         ShortEnumField("block_info", 0, BLOCK_INFOS),
         StrLenField("device_vendor_value", "et200sp",
                     length_from=lambda x: x.dcp_block_length - 2),
-        PadField(StrLenField("padding", b"\x00",
-                             length_from=lambda p: p.dcp_block_length % 2), 1,
-                 padwith=b"\x00")
+        StrFixedLenField("padding", b"",
+                         length_from=dcp_block_padding_length)
     ]
 
     def extract_padding(self, s):
@@ -281,9 +292,8 @@ class DCPNameOfStationBlock(Packet):
         ShortEnumField("block_info", 0, BLOCK_INFOS),
         StrLenField("name_of_station", "et200sp",
                     length_from=lambda x: x.dcp_block_length - 2),
-        PadField(StrLenField("padding", b"\x00",
-                             length_from=lambda p: p.dcp_block_length % 2), 1,
-                 padwith=b"\x00")
+        StrFixedLenField("padding", b"",
+                         length_from=dcp_block_padding_length)
     ]
 
     def extract_padding(self, s):
@@ -295,13 +305,12 @@ class DCPDeviceIDBlock(Packet):
         ByteEnumField("option", 2, DCP_OPTIONS),
         MultiEnumField("sub_option", 3, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
-        LenField("dcp_block_length", None),
+        LenField("dcp_block_length", 6),
         ShortEnumField("block_info", 0, BLOCK_INFOS),
         XShortField("vendor_id", 0x002a),
         XShortField("device_id", 0x0313),
-        PadField(StrLenField("padding", b"\x00",
-                             length_from=lambda p: p.dcp_block_length % 2), 1,
-                 padwith=b"\x00")
+        StrFixedLenField("padding", b"",
+                         length_from=dcp_block_padding_length)
     ]
 
     def extract_padding(self, s):
@@ -317,9 +326,8 @@ class DCPDeviceRoleBlock(Packet):
         ShortEnumField("block_info", 0, BLOCK_INFOS),
         ByteEnumField("device_role_details", 1, DCP_DEVICE_ROLES),
         XByteField("reserved", 0x00),
-        PadField(StrLenField("padding", b"\x00",
-                             length_from=lambda p: p.dcp_block_length % 2), 1,
-                 padwith=b"\x00")
+        StrFixedLenField("padding", b"",
+                         length_from=dcp_block_padding_length)
     ]
 
     def extract_padding(self, s):
@@ -343,15 +351,15 @@ class DCPDeviceOptionsBlock(Packet):
         ByteEnumField("option", 2, DCP_OPTIONS),
         MultiEnumField("sub_option", 5, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
-        LenField("dcp_block_length", None),
+        FieldLenField("dcp_block_length", None, length_of="device_options",
+                      adjust=lambda p, x: x + 2),
         ShortEnumField("block_info", 0, BLOCK_INFOS),
 
         PacketListField("device_options", [], DeviceOption,
                         length_from=lambda p: p.dcp_block_length - 2),
 
-        PadField(StrLenField("padding", b"\x00",
-                             length_from=lambda p: p.dcp_block_length % 2), 1,
-                 padwith=b"\x00")
+        StrFixedLenField("padding", b"",
+                         length_from=dcp_block_padding_length)
     ]
 
     def extract_padding(self, s):
@@ -368,9 +376,8 @@ class DCPAliasNameBlock(Packet):
         ShortEnumField("block_info", 0, BLOCK_INFOS),
         StrLenField("alias_name", "et200sp",
                     length_from=lambda x: x.dcp_block_length - 2),
-        PadField(StrLenField("padding", b"\x00",
-                             length_from=lambda p: p.dcp_block_length % 2), 1,
-                 padwith=b"\x00")
+        StrFixedLenField("padding", b"",
+                         length_from=dcp_block_padding_length)
     ]
 
     def extract_padding(self, s):
@@ -386,9 +393,8 @@ class DCPDeviceInstanceBlock(Packet):
         ShortEnumField("block_info", 0, BLOCK_INFOS),
         XByteField("device_instance_high", 0x00),
         XByteField("device_instance_low", 0x01),
-        PadField(StrLenField("padding", b"\x00",
-                             length_from=lambda p: p.dcp_block_length % 2), 1,
-                 padwith=b"\x00")
+        StrFixedLenField("padding", b"",
+                         length_from=dcp_block_padding_length)
     ]
 
     def extract_padding(self, s):
@@ -400,13 +406,12 @@ class DCPOEMIDBlock(Packet):
         ByteEnumField("option", 2, DCP_OPTIONS),
         MultiEnumField("sub_option", 8, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
-        LenField("dcp_block_length", None),
+        LenField("dcp_block_length", 6),
         ShortEnumField("block_info", 0, BLOCK_INFOS),
         XShortField("vendor_id", 0x002a),
         XShortField("device_id", 0x0313),
-        PadField(StrLenField("padding", b"\x00",
-                             length_from=lambda p: p.dcp_block_length % 2), 1,
-                 padwith=b"\x00")
+        StrFixedLenField("padding", b"",
+                         length_from=dcp_block_padding_length)
     ]
 
     def extract_padding(self, s):
@@ -423,9 +428,8 @@ class DCPControlBlock(Packet):
         MultiEnumField("response_sub_option", 2, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
         ByteEnumField("block_error", 0, BLOCK_ERRORS),
-        PadField(StrLenField("padding", b"\x00",
-                             length_from=lambda p: p.dcp_block_length % 2), 1,
-                 padwith=b"\x00")
+        StrFixedLenField("padding", b"",
+                         length_from=dcp_block_padding_length)
     ]
 
     def extract_padding(self, s):
@@ -440,7 +444,7 @@ class DCPDeviceInitiativeBlock(Packet):
         ByteEnumField("option", 6, DCP_OPTIONS),
         MultiEnumField("sub_option", 1, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
-        FieldLenField("dcp_block_length", None, length_of="device_initiative"),
+        LenField("dcp_block_length", 4),
         ShortEnumField("block_info", 0, BLOCK_INFOS),
         ShortField("device_initiative", 1),
     ]
