@@ -29,6 +29,7 @@ This checklist combines recurring maintainer-review concerns with requirements i
 - Check existing public field names, methods, parameters, defaults, repr, and decoding behavior.
 - Avoid unintended default changes for existing users. Avoid needless aliases for names introduced only in the same PR.
 - Test user-supplied atypical values: Scapy must support deliberately malformed packets, not normalize everything automatically.
+- You can suggest using `deprecated_fields` (see `packet.py`) if one of the change is a simple field rename, as that option allows to redirect old names to a newer variant.
 
 ## 5. Untrusted input and robustness
 
