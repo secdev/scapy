@@ -15,6 +15,7 @@ This checklist combines recurring maintainer-review concerns with requirements i
 - Prefer `bind_layers()` for the normal bidirectional binding contract. Know when `bind_bottom_up` or `bind_top_down` is intentionally one-sided.
 - Override `guess_payload_class()` only for dispatch that bindings cannot express. Use `dispatch_hook()` for initial packet-class dispatch, if necessary.
 - Before writing a custom field, examine existing fields and conversion hooks (`h2i`, `i2m`, `m2i`, `addfield`, `getfield`).
+- If you see the use of the `struct` module to parse data (not within a `Packet`'s methods), wonder if a `Packet` could have been used instead.
 
 ## 3. Wire-format correctness
 
