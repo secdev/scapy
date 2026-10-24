@@ -178,7 +178,6 @@ MC4CAQAwBQYDK2VwBCIEIGu36oadjA6raCmwtImfAWI/DSCENM/uQCsUaClVoUTZ
 """)
 
 = PrivKey class: Importing PEM-encoded MLDSA private key - seed
-~ needs_py39plus
 
 # from RFC9881
 y = PrivKey("""

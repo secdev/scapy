@@ -18,10 +18,10 @@ from typing import (
     Any,
     List,
     Optional,
+    Protocol,
     Tuple,
     cast,
 )
-from scapy.compat import Protocol
 
 
 class ColorTable:
