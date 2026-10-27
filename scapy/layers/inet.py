@@ -1444,6 +1444,10 @@ overlap_fragsize: the fragment size of the overlapping packet"""
     return qfrag + fragment(p, fragsize)
 
 
+class MissingFragments(Exception):
+    pass
+
+
 class BadFragments(ValueError):
     def __init__(self, *args, **kwargs):
         self.frags = kwargs.pop("frags", None)
@@ -1455,13 +1459,11 @@ def _defrag_iter_and_check_offsets(frags):
     Internal generator used in _defrag_ip_pkt
     """
     offset = 0
-    for pkt, o, length in frags:
-        if offset != o:
-            if offset > o:
-                op = ">"
-            else:
-                op = "<"
-            warning("Fragment overlap (%i %s %i) on %r" % (offset, op, o, pkt))
+    for pkt, o, length, mf in frags:
+        if offset < o:
+            raise MissingFragments
+        elif offset > o:
+            warning("Fragment overlap (%i > %i) on %r" % (offset, o, pkt))
             raise BadFragments
         offset += length
         yield bytes(pkt[IP].payload)
@@ -1483,17 +1485,20 @@ def _defrag_ip_pkt(pkt, frags):
             fraglen = len(ip.payload)
         else:
             fraglen = ip.len - (ip.ihl << 2)
-        # (pkt, frag offset, frag len)
-        frags[uid].append((pkt, ip.frag << 3, fraglen))
-        if not ip.flags.MF:  # no more fragments = last fragment
-            curfrags = sorted(frags[uid], key=lambda x: x[1])  # sort by offset
+        # (pkt, frag offset, frag len, LF)
+        curfrags = frags[uid]
+        lf = (curfrags and curfrags[-1][3]) or not ip.flags.MF
+        curfrags.append((pkt, ip.frag << 3, fraglen, not ip.flags.MF))
+        if lf:  # last fragment
+            curfrags.sort(key=lambda x: x[1])  # sort by offset
             try:
                 data = b"".join(_defrag_iter_and_check_offsets(curfrags))
+            except MissingFragments:
+                return True, None
             except ValueError:
                 # bad fragment
-                badfrags = frags[uid]
                 del frags[uid]
-                raise BadFragments(frags=badfrags)
+                raise BadFragments(frags=curfrags)
             # re-build initial packet without fragmentation
             p = curfrags[0][0].copy()
             pay_class = p[IP].payload.__class__
@@ -1533,9 +1538,9 @@ def _defrag_logic(plist, complete=False):
             )
         except BadFragments as ex:
             if complete:
-                final.extend(ex.frags)
+                final.extend(t[0] for t in ex.frags)
             else:
-                badfrag.extend(ex.frags)
+                badfrag.extend(t[0] for t in ex.frags)
             continue
         if complete and defragmented_value:
             final.append(defragmented_value)
@@ -1544,6 +1549,12 @@ def _defrag_logic(plist, complete=False):
                 final.append(defragmented_value)
             else:
                 notfrag.append(defragmented_value)
+    # Missing fragments
+    for lst in frags.values():
+        if complete:
+            final.extend(t[0] for t in lst)
+        else:
+            badfrag.extend(t[0] for t in lst)
     # Return
     if complete:
         if hasattr(plist, "listname"):
