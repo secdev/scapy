@@ -1090,13 +1090,16 @@ class Cert(metaclass=_CertMaker):
 
         self.pubkey = PubKey(bytes(tbsCert.subjectPublicKeyInfo))
         self.subjectAltName = None
+        self.cA = False
+        self.pathLenConstraint = None
 
         if tbsCert.extensions:
             for extn in tbsCert.extensions:
                 if extn.extnID.oidname == "basicConstraints":
-                    self.cA = False
                     if extn.extnValue.cA:
                         self.cA = not (extn.extnValue.cA.val == 0)
+                    if extn.extnValue.pathLenConstraint is not None:
+                        self.pathLenConstraint = extn.extnValue.pathLenConstraint.val
                 elif extn.extnID.oidname == "keyUsage":
                     self.keyUsage = extn.extnValue.get_keyUsage()
                 elif extn.extnID.oidname == "extKeyUsage":
@@ -1874,6 +1877,26 @@ class CertTree(CertList):
                     "Certificate %s is outside its validity period "
                     "(%s to %s) !" % (
                         c.subject_str, c.notBefore_str, c.notAfter_str
+                    )
+                )
+        # Every certificate that issued another one in the chain must be a
+        # CA, and may bound the number of CAs below it (RFC 5280 sect 6.1.4
+        # (k) to (m)). The chain goes from the certificate right below the
+        # root down to cert, and ends with the root, which is trusted as is
+        # so that a non-CA certificate can still be pinned.
+        intermediates = chain[:-2]
+        for i, c in enumerate(intermediates):
+            if not c.cA:
+                raise ValueError(
+                    "Certificate %s is not a CA but issued %s !" % (
+                        c.subject_str, chain[i + 1].subject_str
+                    )
+                )
+            if c.pathLenConstraint is not None and \
+                    len(intermediates) - i - 1 > c.pathLenConstraint:
+                raise ValueError(
+                    "Certificate %s allows at most %d CA below it !" % (
+                        c.subject_str, c.pathLenConstraint
                     )
                 )
         if hostname is not None and not cert.matchesHostname(hostname):
