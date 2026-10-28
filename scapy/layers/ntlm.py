@@ -655,9 +655,8 @@ class Single_Host_Data(Packet):
             },
         ),
         XStrFixedLenField("MachineID", b"", length=32),
-        # KB 5068222 - still waiting for [MS-KILE] update (oct. 2025)
         ConditionalField(
-            XStrFixedLenField("PermanentMachineID", None, length=32),
+            XStrFixedLenField("CrossBootMachineID", None, length=32),
             lambda pkt: pkt.Size is None or pkt.Size > 48,
         ),
     ]
@@ -1726,7 +1725,7 @@ class NTLMSSP(SSP):
                         AvId="MsvAvSingleHost",
                         Value=Single_Host_Data(
                             MachineID=os.urandom(32),
-                            PermanentMachineID=os.urandom(32),
+                            CrossBootMachineID=os.urandom(32),
                         ),
                     ),
                 ]

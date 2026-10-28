@@ -242,7 +242,7 @@ class SPNEGO_negTokenResp(ASN1_Packet):
         ASN1F_optional(
             ASN1F_PACKET("mechListMIC", None, SPNEGO_MechListMIC, explicit_tag=0xA3)
         ),
-        # [MS-SPNG] Late Fallback Mechanism
+        # [MS-SPNG] sect 2.2.2 - Late Fallback Mechanism
         ASN1F_optional(
             ASN1F_SEQUENCE_OF("mechTypes", None, SPNEGO_MechType, explicit_tag=0xA4)
         ),
@@ -1012,7 +1012,7 @@ class SPNEGOSSP(SSP):
         # Build the SSP
         return cls(ssps)
 
-    # [MS-SPNG] Late Fallback Mechanism
+    # [MS-SPNG] 3.1.5.1 - Late Fallback Mechanism
     _LATE_FALLBACK_INITIATOR = ASN1_OID("0.0.99.99.99.99.99.99.99.99")
     _LATE_FALLBACK_ACCEPTOR = ASN1_OID("0.0.115.115.115.115.115.115.115.115")
 
