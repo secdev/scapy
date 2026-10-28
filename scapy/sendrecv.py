@@ -33,7 +33,8 @@ from scapy.plist import (
     QueryAnswer,
     SndRcvList,
 )
-from scapy.error import log_runtime, log_interactive, Scapy_Exception
+from scapy.error import log_runtime, log_interactive, \
+    Scapy_Exception, ScapyNotRunningException
 from scapy.base_classes import Gen, SetGen, ScopedIP
 from scapy.sessions import DefaultSession
 from scapy.supersocket import SuperSocket, IterSocket
@@ -1399,7 +1400,7 @@ class AsyncSniffer(object):
                 return self.results
             return None
         else:
-            raise Scapy_Exception("Not running ! (check .running attr)")
+            raise ScapyNotRunningException("Not running ! (check .running attr)")
 
     def join(self, *args, **kwargs):
         # type: (*Any, **Any) -> None
