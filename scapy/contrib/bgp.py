@@ -1370,6 +1370,10 @@ class BGPPACommunity(Packet):
     name = "COMMUNITIES"
     fields_desc = [IntEnumField("community", 0, well_known_communities)]
 
+    def default_payload_class(self, payload):
+        # The attribute value is a list of 4-byte communities
+        return BGPPACommunity
+
 
 #
 # ORIGINATOR_ID

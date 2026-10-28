@@ -538,6 +538,20 @@ raw(BGPPACommunity(community = 0xFFFFFF01)) == b'\xff\xff\xff\x01'
 a = BGPPACommunity(b'\xff\xff\xff\x01')
 a.community == 0xFFFFFF01
 
+= BGPPACommunity - Dissection of multiple communities (RFC 1997)
+a = BGPPathAttr(b'\xc0\x08\x0c\xfc\x00\x00\x0b\xfc\x00\x00\x15\xff\xff\xff\x01')
+a.attr_len == 12
+a.attribute.community == 0xFC00000B
+a.attribute.payload.community == 0xFC000015
+a.attribute.payload.payload.community == 0xFFFFFF01
+not a.haslayer(Raw)
+
+= BGPPACommunity - Build and dissect multiple communities
+a = BGPPathAttr(type_flags=0xc0, type_code=8, attribute=BGPPACommunity(community=0xFC00000B) / BGPPACommunity(community=0xFFFFFF01))
+assert raw(a) == b'\xc0\x08\x08\xfc\x00\x00\x0b\xff\xff\xff\x01'
+a = BGPPathAttr(raw(a))
+a.attribute.payload.community == 0xFFFFFF01
+
 
 ############################ BGPPAOriginatorID ###############################
 + BGPPAOriginatorID class tests
