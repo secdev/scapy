@@ -39,6 +39,10 @@ class ScapyNoDstMacException(Scapy_Exception):
     pass
 
 
+class ScapyNotRunningException(Scapy_Exception):
+    pass
+
+
 class ScapyFreqFilter(logging.Filter):
     def __init__(self):
         # type: () -> None
