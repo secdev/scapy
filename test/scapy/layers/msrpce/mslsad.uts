@@ -1,4 +1,5 @@
 % MS-LSAD tests
+~ needs_scapy_rpc
 
 + [MS-LSAD] build and dissection tests
 
