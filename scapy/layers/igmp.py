@@ -159,6 +159,10 @@ class IGMP(Packet):
             elif typ == 0x32:
                 return IGMPv3_MRT
 
+        # IGMPv3() has no raw bytes yet. Keep that class; falling through to
+        # IGMP_MQ made the pre-2.8 stack IGMPv3()/IGMPv3mr() a v1/v2 query.
+        if issubclass(cls, IGMPv3):
+            return cls
         return IGMP_MQ
 
     def answers(self, other):
@@ -251,6 +255,41 @@ class IGMPv3(IGMP):
             return self.underlayer.sprintf(f"IGMPv3: %IP.src% > %IP.dst% %{t}.type%")
         else:
             return self.sprintf(f"IGMPv3 %{t}.type%")
+
+    def _stacked_full_message(self, payload):
+        """True when payload is already a complete IGMPv3 message.
+
+        contrib.igmpv3 aliases IGMPv3mr to IGMPv3_MR. Code written for 2.7
+        still does IGMPv3()/IGMPv3mr(), which used to be one report. IGMPv3_MR
+        already includes the header, so keep that message and drop this one.
+        """
+        return (
+            type(self) is IGMPv3
+            and isinstance(payload, IGMPv3)
+            and type(payload) is not IGMPv3
+        )
+
+    def add_payload(self, payload):
+        # IP()/IGMPv3()/IGMPv3_MR() lands here: IP.add_payload delegates to us.
+        if self._stacked_full_message(payload) and self.underlayer is not None:
+            under = self.underlayer
+            under.remove_payload()
+            under.add_payload(payload)
+            return
+        super(IGMPv3, self).add_payload(payload)
+
+    def __div__(self, other):
+        if isinstance(other, Packet) and self._stacked_full_message(other):
+            other = other.copy()
+            if self.underlayer is not None:
+                under = self.underlayer.copy()
+                under.remove_payload()
+                under.add_payload(other)
+                return under
+            return other
+        return super(IGMPv3, self).__div__(other)
+
+    __truediv__ = __div__
 
 
 class IGMPv3_MQ(IGMPv3):
