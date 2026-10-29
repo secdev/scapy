@@ -280,6 +280,49 @@ assert p[DCPNameOfStationBlock].block_info == 0x00
 assert p[DCPNameOfStationBlock].name_of_station == b'device'
 
 
+= DCP response blocks crafting computes the block length and padding
+
+# Block bytes as in the Identify responses parsed above
+assert raw(DCPNameOfStationBlock(name_of_station="device")) == bytes.fromhex("020200080000646576696365")
+assert raw(DCPIPBlock(ip="192.168.1.14", gateway="192.168.1.14")) == bytes.fromhex("0102000e0001c0a8010effffff00c0a8010e")
+assert raw(DCPDeviceIDBlock()) == bytes.fromhex("020300060000002a0313")
+assert raw(DCPDeviceOptionsBlock(device_options=[DeviceOption(option=2, sub_option=7)])) == bytes.fromhex("0205000400000207")
+assert raw(DCPDeviceRoleBlock()) == bytes.fromhex("0204000400000100")
+assert raw(DCPDeviceInitiativeBlock(device_initiative=0)) == bytes.fromhex("0601000400000000")
+assert raw(DCPManufacturerSpecificBlock(device_vendor_value="ET200SP")) == bytes.fromhex("0201000900004554323030535000")
+assert raw(DCPDeviceInstanceBlock()) == bytes.fromhex("0207000400000001")
+assert raw(DCPOEMIDBlock(vendor_id=0x011e, device_id=0xffff)) == bytes.fromhex("020800060000011effff")
+
+# Blocks that only appear in crafted packets
+assert raw(DCPMACBlock(mac="00:0e:cf:12:34:56")) == bytes.fromhex("010100080000000ecf123456")
+assert raw(DCPFullIPBlock(dnsaddr=["1.2.3.4", "5.6.7.8"] + ["0.0.0.0"] * 2)) == bytes.fromhex("0103001e0001c0a80002ffffff00c0a80001" "0102030405060708" "0000000000000000")
+assert raw(DCPFullIPBlock()) == bytes.fromhex("0103001e0001c0a80002ffffff00c0a80001" + "00" * 16)
+assert DCPFullIPBlock(raw(DCPFullIPBlock())).dnsaddr == ["0.0.0.0"] * 4
+assert raw(DCPAliasNameBlock(alias_name="port-001.plc")) == bytes.fromhex("0206000e0000706f72742d3030312e706c63")
+assert raw(DCPAliasNameBlock(alias_name="plc")) == bytes.fromhex("020600050000706c6300")
+assert raw(DCPControlBlock()) == bytes.fromhex("0504000302020000")
+
+# A user-set padding is written only after an odd-length block
+assert raw(DCPAliasNameBlock(alias_name="plc", padding=b"Z")) == bytes.fromhex("020600050000706c635a")
+assert raw(DCPAliasNameBlock(alias_name="plcs", padding=b"Z")) == bytes.fromhex("020600060000706c6373")
+assert raw(DCPAliasNameBlock(alias_name="plc", dcp_block_length=RawVal(b"\x00\x05"))) == bytes.fromhex("020600050000706c6300")
+assert raw(DCPAliasNameBlock(alias_name="plcs", dcp_block_length=RawVal(b"\x00\x06"))) == bytes.fromhex("020600060000706c6373")
+
+= DCP Identify Response crafting with several blocks
+
+p = ProfinetDCP(service_id=DCP_SERVICE_ID_IDENTIFY, service_type=DCP_RESPONSE) / \
+    DCPNameOfStationBlock(name_of_station="plc-1") / \
+    DCPIPBlock(ip="192.168.0.10", netmask="255.255.255.0", gateway="192.168.0.1") / \
+    DCPDeviceIDBlock() / \
+    DCPDeviceRoleBlock()
+
+assert raw(p) == bytes.fromhex("05010100000100000030" "020200070000706c632d3100" "0102000e0001c0a8000affffff00c0a80001" "020300060000002a0313" "0204000400000100")
+p = ProfinetDCP(raw(p))
+assert [type(b) for b in p.dcp_blocks] == [DCPNameOfStationBlock, DCPIPBlock, DCPDeviceIDBlock, DCPDeviceRoleBlock]
+assert p[DCPNameOfStationBlock].name_of_station == b"plc-1"
+assert p[DCPIPBlock].ip == "192.168.0.10"
+
+
 = DCP Set Full IP Suite Request crafting
 
 p = ProfinetIO(frameID=DCP_GET_SET_FRAME_ID) / ProfinetDCP(service_id=DCP_SERVICE_ID_SET, service_type=DCP_REQUEST, option=1, sub_option=3, ip='192.168.1.171', netmask='255.255.255.0', gateway='192.168.1.1', dnsaddr=['1.2.3.4', '5.6.7.8'], dcp_data_length=40, dcp_block_length=30)
