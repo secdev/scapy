@@ -1,4 +1,5 @@
 % MS-WMI Tests
+~ needs_scapy_rpc
 
 + [MS-WMI] build and dissection tests
 
