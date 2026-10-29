@@ -474,7 +474,17 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_SERVERKEYEXCHANGE(self):
-        pass
+        if (not self.cur_session.prcs.key_exchange.anonymous and
+                not self.cur_session.server_kx_sig_valid):
+            raise self.INVALID_SERVERKEYEXCHANGE()
+
+    @ATMT.state()
+    def INVALID_SERVERKEYEXCHANGE(self):
+        self.vprint("Invalid ServerKeyExchange signature!")
+        self.add_record()
+        self.add_msg(TLSAlert(level=2, descr=51))
+        self.flush_records()
+        raise self.FINAL(reason=self.INVALID_SERVERKEYEXCHANGE)
 
     def should_handle_CertificateRequest(self):
         """
