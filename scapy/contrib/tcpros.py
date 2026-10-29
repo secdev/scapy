@@ -25,6 +25,28 @@ from scapy.packet import Packet, Raw, PacketListField
 from scapy.config import conf
 
 
+def tcpros_iter_field_lengths(data, start=0):
+    """Iterate over the lengths of the ``[4-byte length + value]`` fields.
+
+    The fields are read in place with ``struct.unpack_from``: slicing the
+    buffer for every field copies the whole remainder, which makes the
+    traversal quadratic in the number of fields.
+
+    Args:
+        data: buffer holding the field list.
+        start: offset of the first field length in ``data``.
+
+    Yields:
+        the length of each field, in order.
+    """
+    end = len(data)
+    offset = start
+    while offset < end:
+        field_len = struct.unpack_from("<I", data, offset)[0]
+        yield field_len
+        offset += 4 + field_len
+
+
 class TCPROS(Packet):
     """
     TCPROS is a transport layer for ROS Messages and Services. It uses standard
@@ -97,15 +119,13 @@ class TCPROS(Packet):
             # TCPROS encoding format:
             #  [4-byte field length + field=value ]*
             flag_encoding_format_subfields = True
-            while remain:
-                field_len_bytes = struct.unpack("<I", remain[:4])[0]
-                current = remain[4:4 + field_len_bytes]
-                remain = remain[4 + field_len_bytes:]
-
-                if int(field_len_bytes) != len(current):
+            offset = 4
+            for field_len in tcpros_iter_field_lengths(payload, 4):
+                if field_len > len(payload) - offset - 4:
                     # print("BREAKING - int(field_len_bytes) != len(current)")
                     flag_encoding_format_subfields = False
                     break
+                offset += 4 + field_len
 
         if (
             "callerid" in string_payload and
@@ -214,14 +234,9 @@ class TCPROSHeader(Packet):
             print("total_length: " + str(total_length))
             print("total_header_length: " + str(total_header_length))
         remain = raw(s)[4:total_header_length]
-        while remain:
-            field_len_bytes = struct.unpack("<I", remain[:4])[0]
-            remain = remain[4 + field_len_bytes:]
+        for field_len in tcpros_iter_field_lengths(remain):
             if conf.debug_dissector:
-                print("field_len_bytes: " + str(field_len_bytes))
-                current = remain[:4 + field_len_bytes]
-                print("current: " + str(current))
-                print("remain: " + str(remain))
+                print("field_len_bytes: " + str(field_len))
             self.nfields += 1
         return s
 
@@ -288,14 +303,9 @@ class TCPROSBody(Packet):
             total_length = len(s)
             print("total_length: " + str(total_length))
             print("total_header_length: " + str(total_header_length))
-        while remain:
-            field_len_bytes = struct.unpack("<I", remain[:4])[0]
-            remain = remain[4 + field_len_bytes:]
+        for field_len in tcpros_iter_field_lengths(remain):
             if conf.debug_dissector:
-                print("field_len_bytes: " + str(field_len_bytes))
-                current = remain[:4 + field_len_bytes]
-                print("current: " + str(current))
-                print("remain: " + str(remain))
+                print("field_len_bytes: " + str(field_len))
             self.nfields_body += 1
         return s
 
