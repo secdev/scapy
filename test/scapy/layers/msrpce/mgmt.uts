@@ -1,5 +1,5 @@
 % C706 MGMT tests
-~ needs_py39plus
+~ needs_scapy_rpc
 
 + C706 MGMT test vectors
 

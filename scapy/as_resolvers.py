@@ -24,17 +24,20 @@ class AS_resolver:
     server = None
     options = "-k"  # type: Optional[str]
 
-    def __init__(self, server=None, port=43, options=None):
-        # type: (Optional[str], int, Optional[str]) -> None
+    def __init__(self, server=None, port=43, options=None, timeout=5):
+        # type: (Optional[str], int, Optional[str], Optional[float]) -> None
         if server is not None:
             self.server = server
         self.port = port
         if options is not None:
             self.options = options
+        self.timeout = timeout
 
     def _start(self):
         # type: () -> None
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if self.timeout is not None:
+            self.s.settimeout(self.timeout)
         self.s.connect((self.server, self.port))
         if self.options:
             self.s.send(self.options.encode("utf8") + b"\n")
@@ -42,7 +45,11 @@ class AS_resolver:
 
     def _stop(self):
         # type: () -> None
-        self.s.close()
+        if hasattr(self, "s") and self.s:
+            try:
+                self.s.close()
+            except OSError:
+                pass
 
     def _parse_whois(self, txt):
         # type: (bytes) -> Tuple[Optional[str], str]
@@ -75,13 +82,15 @@ class AS_resolver:
                 ):
         # type: (...) -> List[Tuple[str, Optional[str], str]]
         self._start()
-        ret = []  # type: List[Tuple[str, Optional[str], str]]
-        for ip in ips:
-            ip, asn, desc = self._resolve_one(ip)
-            if asn is not None:
-                ret.append((ip, asn, desc))
-        self._stop()
-        return ret
+        try:
+            ret = []  # type: List[Tuple[str, Optional[str], str]]
+            for ip in ips:
+                ip, asn, desc = self._resolve_one(ip)
+                if asn is not None:
+                    ret.append((ip, asn, desc))
+            return ret
+        finally:
+            self._stop()
 
 
 class AS_resolver_riswhois(AS_resolver):
@@ -103,19 +112,23 @@ class AS_resolver_cymru(AS_resolver):
                 ):
         # type: (...) -> List[Tuple[str, Optional[str], str]]
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((self.server, self.port))
-        s.send(
-            b"begin\r\n" +
-            b"\r\n".join(ip.encode() for ip in ips) +
-            b"\r\nend\r\n"
-        )
-        r = b""
-        while True:
-            line = s.recv(8192)
-            if line == b"":
-                break
-            r += line
-        s.close()
+        if self.timeout is not None:
+            s.settimeout(self.timeout)
+        try:
+            s.connect((self.server, self.port))
+            s.send(
+                b"begin\r\n" +
+                b"\r\n".join(ip.encode() for ip in ips) +
+                b"\r\nend\r\n"
+            )
+            r = b""
+            while True:
+                line = s.recv(8192)
+                if line == b"":
+                    break
+                r += line
+        finally:
+            s.close()
 
         return self.parse(r)
 
@@ -136,14 +149,15 @@ class AS_resolver_cymru(AS_resolver):
 
 
 class AS_resolver_multi(AS_resolver):
-    def __init__(self, *reslist):
-        # type: (*AS_resolver) -> None
-        AS_resolver.__init__(self)
+    def __init__(self, *reslist, **kargs):
+        # type: (*AS_resolver, **Any) -> None
+        timeout = kargs.get("timeout", 5)
+        AS_resolver.__init__(self, timeout=timeout)
         if reslist:
             self.resolvers_list = reslist
         else:
-            self.resolvers_list = (AS_resolver_radb(),
-                                   AS_resolver_cymru())
+            self.resolvers_list = (AS_resolver_radb(timeout=timeout),
+                                   AS_resolver_cymru(timeout=timeout))
 
     def resolve(self, *ips):
         # type: (*Any) -> List[Tuple[str, Optional[str], str]]

@@ -50,6 +50,7 @@ from typing import (
     Dict,
     Iterator,
     List,
+    Literal,
     Optional,
     Tuple,
     Type,
@@ -57,7 +58,6 @@ from typing import (
     cast,
     overload,
 )
-from scapy.compat import Literal
 
 conf.use_pcap = True
 

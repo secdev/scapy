@@ -1,0 +1,72 @@
+% Skinny contrib
++ Loading
+= Skinny is contrib-only
+~ contrib skinny
+from scapy.config import conf
+"skinny" not in conf.load_layers
+
++ Building
+= Preserve message names and compute length
+~ contrib skinny
+from scapy.compat import raw
+from scapy.contrib.skinny import Skinny, SkinnyMessageKeepAliveAck
+pkt = Skinny(msg="KeepAliveAckMessage") / SkinnyMessageKeepAliveAck()
+raw(pkt) == b"\x04\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00"
+
+= Build with a legacy message name
+~ contrib skinny
+from scapy.compat import raw
+from scapy.contrib.skinny import Skinny
+from scapy.layers.inet import IP, TCP
+p = raw(IP(src="127.0.0.1") / TCP() / Skinny(msg="ServiceURLStatMessage"))
+expected = bytes.fromhex(
+    "450000340001000040067cc17f0000017f00000107d007d0"
+    "0000000000000000500220004f3300000400000000000000"
+    "2f010000"
+)
+assert p == expected
+assert IP(p)[Skinny].msg == 303
+
+= Preserve old core layer bytes with explicit length
+~ contrib skinny
+from scapy.compat import raw
+from scapy.contrib.skinny import Skinny
+from scapy.layers.inet import IP, TCP
+p = raw(IP(src="127.0.0.1") / TCP() / Skinny(len=0, msg="ServiceURLStatMessage"))
+expected = bytes.fromhex(
+    "450000340001000040067cc17f0000017f00000107d007d0"
+    "000000000000000050022000533300000000000000000000"
+    "2f010000"
+)
+assert p == expected
+assert IP(p)[Skinny].msg == 303
+
+= Dissect old core layer bytes
+~ contrib skinny
+from scapy.contrib.skinny import Skinny
+from scapy.layers.inet import IP
+old = bytes.fromhex(
+    "450000340001000040067cc17f0000017f00000107d007d0"
+    "000000000000000050022000533300000000000000000000"
+    "2f010000"
+)
+IP(old)[Skinny].len == 0 and IP(old)[Skinny].msg == 303
+
++ Dissection
+= Decode TCP/2000 after loading contrib
+~ contrib skinny
+from scapy.compat import raw
+from scapy.layers.inet import IP, TCP
+from scapy.layers.l2 import Ether
+from scapy.contrib.skinny import Skinny, SkinnyMessageCallState
+skinny = Skinny(msg="CallStateMessage") / SkinnyMessageCallState(
+    state=1,
+    instance=2,
+    callid=3,
+    unknown1=4,
+    unknown2=5,
+    unknown3=6,
+)
+decoded = Ether(raw(Ether() / IP() / TCP(dport=2000) / skinny))
+decoded[TCP].payload.__class__ is Skinny and decoded[Skinny].msg == 0x0111 and \
+    decoded[SkinnyMessageCallState].callid == 3

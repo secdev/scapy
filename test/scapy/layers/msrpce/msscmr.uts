@@ -1,5 +1,5 @@
 % MS-SCMR tests
-~ needs_py39plus
+~ needs_scapy_rpc
 
 + [MS-SCMR] build and dissection tests
 

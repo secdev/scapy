@@ -2349,14 +2349,20 @@ assert _abort_found, "Expected ABORT frame after bad seq number"
 # Start a BAM session but deliver no DT; after T1 (750 ms) the session
 # should be silently discarded and rx_state reset to idle.
 
-with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
-    cans.pair(stim)
-    with J1939SoftSocket(cans, src_addr=0x00) as sock:
-        bam = J1939_TP_CM_BAM(total_size=14, num_packets=2, pgn=0xFECA)
-        stim.send(J1939_CAN(priority=6, pdu_format=0xEC, pdu_specific=0xFF,
-                             src=0x03, data=bytes(bam)))
-        # Wait longer than T1 (750 ms); no DT delivered.
-        pkts = sock.sniff(count=1, timeout=1.5)
+import scapy.contrib.j1939 as _j1939_mod
+_saved_T1 = _j1939_mod._J1939_TP_T1
+try:
+    _j1939_mod._J1939_TP_T1 = 0.1
+    with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+        cans.pair(stim)
+        with J1939SoftSocket(cans, src_addr=0x00) as sock:
+            bam = J1939_TP_CM_BAM(total_size=14, num_packets=2, pgn=0xFECA)
+            stim.send(J1939_CAN(priority=6, pdu_format=0xEC, pdu_specific=0xFF,
+                                 src=0x03, data=bytes(bam)))
+            # Wait longer than T1 (100 ms); no DT delivered.
+            pkts = sock.sniff(count=1, timeout=0.25)
+finally:
+    _j1939_mod._J1939_TP_T1 = _saved_T1
 
 assert len(pkts) == 0, "No message should be delivered after BAM timeout"
 
@@ -2886,20 +2892,26 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
 # After _J1939_TP_T3 (1.25 s) without a CTS the TX state machine must
 # discard the session and accept a fresh message.
 
-with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
-    cans.pair(stim)
-    with J1939SoftSocket(cans, src_addr=0x01) as sock:
-        # Unicast send → triggers RTS
-        sock.send(J1939(bytes(range(9)), pgn=0xEF00, dst=0x02, priority=6))
-        # Consume the RTS; respond with nothing (simulate dead peer)
-        _to_rts = stim.sniff(count=1, timeout=2)
-        assert _to_rts, "No RTS received"
-        # Wait > T3 = 1.25 s for the TX state machine to reset
-        time.sleep(1.4)
-        # After timeout, the socket should accept a new single-frame message
-        sock.send(J1939(b'\xAB', pgn=0xFECA,
-                        dst=_socket.J1939_NO_ADDR, priority=6))
-        _to_pkts = stim.sniff(count=1, timeout=2)
+import scapy.contrib.j1939 as _j1939_mod
+_saved_T3 = _j1939_mod._J1939_TP_T3
+try:
+    _j1939_mod._J1939_TP_T3 = 0.1
+    with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
+        cans.pair(stim)
+        with J1939SoftSocket(cans, src_addr=0x01) as sock:
+            # Unicast send → triggers RTS
+            sock.send(J1939(bytes(range(9)), pgn=0xEF00, dst=0x02, priority=6))
+            # Consume the RTS; respond with nothing (simulate dead peer)
+            _to_rts = stim.sniff(count=1, timeout=2)
+            assert _to_rts, "No RTS received"
+            # Wait > T3 = 0.1 s for the TX state machine to reset
+            time.sleep(0.15)
+            # After timeout, the socket should accept a new single-frame message
+            sock.send(J1939(b'\xAB', pgn=0xFECA,
+                            dst=_socket.J1939_NO_ADDR, priority=6))
+            _to_pkts = stim.sniff(count=1, timeout=2)
+finally:
+    _j1939_mod._J1939_TP_T3 = _saved_T3
 
 assert len(_to_pkts) == 1, \
     "After TX timeout, new message should be sent; got %d frames" % len(_to_pkts)
@@ -2915,13 +2927,18 @@ assert _to_j.data == b'\xAB', \
 _big_payload = bytes(range(255))
 _big_npkts = (255 + 6) // 7   # = 37
 
-with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
-    cans.pair(peer)
-    with J1939SoftSocket(cans, src_addr=0x01) as sock:
-        sock.send(J1939(_big_payload, pgn=0xFECA,
-                        dst=_socket.J1939_NO_ADDR, priority=6))
-        # 1 BAM + 37 DT frames; 50 ms spacing → up to ~1.9 s
-        _big_pkts = peer.sniff(count=_big_npkts + 1, timeout=5)
+_saved_BAM_DELAY = _j1939_mod._J1939_TP_BAM_DELAY
+try:
+    _j1939_mod._J1939_TP_BAM_DELAY = 0.005
+    with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
+        cans.pair(peer)
+        with J1939SoftSocket(cans, src_addr=0x01) as sock:
+            sock.send(J1939(_big_payload, pgn=0xFECA,
+                            dst=_socket.J1939_NO_ADDR, priority=6))
+            # 1 BAM + 37 DT frames; 5 ms spacing → ~0.2 s
+            _big_pkts = peer.sniff(count=_big_npkts + 1, timeout=5)
+finally:
+    _j1939_mod._J1939_TP_BAM_DELAY = _saved_BAM_DELAY
 
 assert len(_big_pkts) == _big_npkts + 1, \
     "255-byte BAM: expected %d frames, got %d" % (_big_npkts + 1, len(_big_pkts))
@@ -3074,9 +3091,11 @@ assert len(_lo_ack_frames) == 0, \
 import scapy.contrib.j1939 as _j1939_mod
 _saved_T1 = _j1939_mod._J1939_TP_T1
 _saved_T2 = _j1939_mod._J1939_TP_T2
+_saved_ext = _j1939_mod._J1939_TP_DT_TIMEOUT_EXTENSION
 try:
     _j1939_mod._J1939_TP_T1 = 0.1
     _j1939_mod._J1939_TP_T2 = 0.1
+    _j1939_mod._J1939_TP_DT_TIMEOUT_EXTENSION = 1
 
     with TestSocket(CAN) as cans, TestSocket(CAN) as stim:
         cans.pair(stim)
@@ -3086,16 +3105,18 @@ try:
                                  data=bytes(J1939_TP_CM_BAM(total_size=9,
                                                              num_packets=2,
                                                              pgn=0xFECA))))
-            time.sleep(1.4)
+            time.sleep(0.15)
             # Restore before post-timeout traffic so later timing is normal.
             _j1939_mod._J1939_TP_T1 = _saved_T1
             _j1939_mod._J1939_TP_T2 = _saved_T2
+            _j1939_mod._J1939_TP_DT_TIMEOUT_EXTENSION = _saved_ext
             stim.send(J1939_CAN(priority=6, pdu_format=0xFE, pdu_specific=0xCA,
                                  src=0x0B, data=b'\x42'))
             _timeout_pkts = sock.sniff(count=1, timeout=1)
 finally:
     _j1939_mod._J1939_TP_T1 = _saved_T1
     _j1939_mod._J1939_TP_T2 = _saved_T2
+    _j1939_mod._J1939_TP_DT_TIMEOUT_EXTENSION = _saved_ext
 
 assert len(_timeout_pkts) == 1, \
     "After inactivity timeout state should be IDLE; new msg not received"
@@ -3421,7 +3442,7 @@ assert _dpf_pkts[0].pgn == _dpf_pgn, \
 
 = J1939SoftSocket – SlowTestSocket imports
 
-from test.testsocket import SlowTestSocket
+from test.testsocket import SlowTestSocket, TestSocket
 
 = J1939SoftSocket – BAM receive via SlowTestSocket (serial-buffer path)
 # J1939SoftSocket uses a SlowTestSocket as its CAN socket.  Frames injected
@@ -3483,6 +3504,77 @@ _slbt_reassembled = b''.join(
 )[:20]
 assert _slbt_reassembled == _slbt_payload, \
     "BAM TX SlowTestSocket payload mismatch: %r" % _slbt_reassembled
+
+= J1939SoftSocket – BAM transmit via SlowTestSocket under slcan-like backlog (race amplification)
+# Stress the close/send race window by repeatedly running BAM TX over a
+# slcan-like SlowTestSocket profile with background backlog queued ahead of
+# the J1939 socket receive loop.
+
+_slra_failures = []
+for _slra_iter in range(2):
+    with SlowTestSocket(
+            CAN,
+            frame_delay=0.0025,
+            mux_throttle=0.001,
+            serial_timeout=0.1,
+            read_time_limit=0.02,
+            interface_name="slcan",
+    ) as slow_cans, TestSocket(CAN) as peer:
+        slow_cans.pair(peer)
+        # Pre-fill the serial buffer with unrelated PDU1 traffic so can_recv
+        # must drain a realistic slcan backlog before and during shutdown.
+        for _slra_bg in range(200):
+            peer.send(J1939_CAN(priority=6, pdu_format=0x01,
+                                pdu_specific=0x99, src=0x50,
+                                data=bytes(8)))
+        with J1939SoftSocket(slow_cans, src_addr=0x31) as sock:
+            _slra_payload = bytes(range(20))
+            sock.send(J1939(_slra_payload, pgn=0xFECA,
+                            dst=_socket.J1939_NO_ADDR, priority=6))
+        _slra_pkts = peer.sniff(count=4, timeout=8)
+        if len(_slra_pkts) != 4:
+            _slra_failures.append((int(_slra_iter), int(len(_slra_pkts))))
+            continue
+        _slra_reassembled = b''.join(
+            J1939_TP_DT(J1939_CAN(bytes(p)).data).data
+            for p in _slra_pkts[1:]
+        )[:20]
+        if _slra_reassembled != _slra_payload:
+            _slra_failures.append((int(_slra_iter), -1))
+
+assert not _slra_failures, \
+    "slcan-like BAM TX race stress failures (iter, frames): %r" % _slra_failures
+
+= J1939SoftSocket – scheduler lifecycle under rapid close/reopen
+# Mirrors the ISO-TP close/reopen scheduler verification style: each cycle
+# closes one socket and immediately opens another on the same CAN adapter.
+# The second send must not be orphaned.
+
+import socket as _socket
+
+_sl_sched_failures = []
+for _sls_iter in range(1):
+    with SlowTestSocket(
+            CAN,
+            frame_delay=0.0025,
+            mux_throttle=0.001,
+            serial_timeout=0.1,
+            read_time_limit=0.02,
+            interface_name="slcan",
+    ) as slow_cans, TestSocket(CAN) as peer:
+        slow_cans.pair(peer)
+        with J1939SoftSocket(slow_cans, src_addr=0x32) as sock:
+            sock.send(J1939(bytes(range(20)), pgn=0xFECA,
+                            dst=_socket.J1939_NO_ADDR, priority=6))
+        with J1939SoftSocket(slow_cans, src_addr=0x33) as sock2:
+            sock2.send(J1939(bytes(range(20)), pgn=0xFECA,
+                             dst=_socket.J1939_NO_ADDR, priority=6))
+        _sls_pkts = peer.sniff(count=8, timeout=3.0)
+        if len(_sls_pkts) != 8:
+            _sl_sched_failures.append((int(_sls_iter), int(len(_sls_pkts))))
+
+assert not _sl_sched_failures, \
+    "close/reopen scheduler failures (iter, frames): %r" % _sl_sched_failures
 
 = J1939SoftSocket – BAM receive via SlowTestSocket with background CAN traffic
 # Background PDU1 frames (unicast to a different address) are injected into
@@ -4190,6 +4282,7 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
             "num_packets=%d" % _rb_ann.num_packets
         assert _rb_ann.total_size == 1785, \
             "total_size=%d" % _rb_ann.total_size
+        sock.close(timeout=0)
 
 = An abort from a former peer does not kill an unrelated broadcast
 # tx_peer_sa used to survive _tx_reset(), so a node that took part in an
@@ -4292,6 +4385,7 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
                                                      pgn=0xFECA)))
         assert len(_rb_dts(_rb_drain(peer, 0.4))) == 3, \
             "the session must survive a foreign-PGN acknowledgement"
+        sock.close(timeout=0)
 
 = An announcement that cannot describe a message is refused
 
@@ -4467,7 +4561,9 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
 
 import scapy.contrib.j1939 as _rb_mod
 _rb_saved_ext = _rb_mod._J1939_TP_DT_TIMEOUT_EXTENSION
+_rb_saved_t2 = _rb_mod._J1939_TP_T2
 _rb_mod._J1939_TP_DT_TIMEOUT_EXTENSION = 0
+_rb_mod._J1939_TP_T2 = 0.1
 try:
     with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
         cans.pair(peer)
@@ -4476,9 +4572,9 @@ try:
                                                          num_packets=2,
                                                          max_packets=0xFF,
                                                          pgn=0xFECA)))
-            _rb_drain(peer, 0.3)
+            _rb_drain(peer, 0.2)
             peer.send(_rb_dt(0x10, 0x20, 1, b'\x01' * 7))
-            _rb_late = _rb_drain(peer, 2.0)
+            _rb_late = _rb_drain(peer, 0.4)
             assert _rb_cms(_rb_late, J1939_TP_CTRL_ABORT), \
                 "a stalled reception must be aborted"
             assert J1939_TP_CM_ABORT(
@@ -4487,6 +4583,7 @@ try:
             assert not sock.impl.rx_sessions, "the session must be gone"
 finally:
     _rb_mod._J1939_TP_DT_TIMEOUT_EXTENSION = _rb_saved_ext
+    _rb_mod._J1939_TP_T2 = _rb_saved_t2
 
 = close(timeout=0) gives up on a transfer deliberately
 # The derived budget protects a transfer by default; a caller in a hurry
@@ -4606,6 +4703,7 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
         _rb_time.sleep(0.15)
         assert sock.impl.tx_state == _rb_j1939._J1939_TX_RTS_WAIT_CTS, \
             "premature EOM ACK must not complete the transfer"
+        sock.close(timeout=0)
 
 = EOM ACK after a partial DT block is ignored
 
@@ -4623,6 +4721,7 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
         _rb_time.sleep(0.15)
         assert sock.impl.tx_state == _rb_j1939._J1939_TX_RTS_WAIT_CTS, \
             "ACK before all DTs are sent must be ignored"
+        sock.close(timeout=0)
 
 = Stale same-PGN EOM ACK with wrong size is ignored
 
@@ -4640,6 +4739,7 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
         _rb_time.sleep(0.15)
         assert sock.impl.tx_state == _rb_j1939._J1939_TX_RTS_WAIT_CTS, \
             "ACK with the wrong total_size must not finish TX"
+        sock.close(timeout=0)
 
 = Stale same-PGN EOM ACK with wrong packet count is ignored
 
@@ -4656,6 +4756,7 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
         _rb_time.sleep(0.15)
         assert sock.impl.tx_state == _rb_j1939._J1939_TX_RTS_WAIT_CTS, \
             "ACK with the wrong num_packets must not finish TX"
+        sock.close(timeout=0)
 
 = BAM addressed to local unicast is ignored
 
@@ -4692,6 +4793,7 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
         assert sock.impl.tx_state == _rb_j1939._J1939_TX_RTS_WAIT_CTS
         assert not _rb_dts(_rb_drain(peer, 0.2)), \
             "broadcast CTS must not authorise DT frames"
+        sock.close(timeout=0)
 
 = Broadcast EOM ACK must not complete TX
 
@@ -4709,6 +4811,7 @@ with TestSocket(CAN) as cans, TestSocket(CAN) as peer:
         _rb_time.sleep(0.15)
         assert sock.impl.tx_state == _rb_j1939._J1939_TX_RTS_WAIT_CTS, \
             "broadcast EOM ACK must not complete TX"
+        sock.close(timeout=0)
 
 = Broadcast ABORT must not terminate a directed session
 

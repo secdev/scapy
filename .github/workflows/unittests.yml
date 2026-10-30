@@ -100,67 +100,79 @@ jobs:
 
   utscapy:
     name: ${{ matrix.os }} ${{ matrix.installmode }} ${{ matrix.python }} ${{ matrix.mode }} ${{ matrix.flags }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
     needs: [commit, spdx]
-    timeout-minutes: 20
+    timeout-minutes: 30
     continue-on-error: ${{ matrix.allow-failure == 'true' }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python: ["3.8", "3.9", "3.10", "3.11", "3.13"]
+        runner: [ubuntu-26.04]
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         mode: [non_root]
         installmode: ['']
         flags: [" -K scanner"]
         allow-failure: ['false']
+        # See https://github.com/actions/runner-images for availability
         include:
-          # Python 3.7
-          - os: ubuntu-22.04
-            python: "3.7"
+          # Python 3.9
+          - os: ubuntu-24.04
+            runner: ubuntu-24.04
+            python: "3.9"
             mode: non_root
             flags: " -K scanner"
           # Linux root tests on last version
           - os: ubuntu-latest
+            runner: ubuntu-24.04
             python: "3.14"
             mode: root
             flags: " -K scanner"
           # PyPy tests: root only
           # - os: ubuntu-latest
+          #   runner: ubuntu-24.04
           #   python: "pypy3.11"
           #   mode: root
           #   flags: " -K scanner"
           # Libpcap test
           - os: ubuntu-latest
+            runner: ubuntu-24.04
             python: "3.14"
             mode: root
             installmode: 'libpcap'
             flags: " -K scanner"
           # macOS tests
           - os: macos-14
+            runner: macos-14
             python: "3.14"
             mode: both
             flags: " -K scanner"
           # windows tests
           - os: windows-latest
+            runner: windows-latest
             python: "3.14"
             mode: root
             flags: " -K scanner"
           # Scanner tests
           - os: ubuntu-latest
+            runner: ubuntu-24.04
             python: "3.14"
             mode: root
             allow-failure: 'true'
             flags: " -k scanner"
           # - os: ubuntu-latest
+          #   runner: ubuntu-24.04
           #   python: "pypy3.11"
           #   mode: root
           #   flags: " -k scanner"
           - os: macos-14
+            runner: macos-14
             python: "3.14"
             mode: both
             allow-failure: 'true'
             flags: " -k scanner"
           - os: windows-latest
+            runner: windows-latest
             python: "3.14"
             mode: both
             allow-failure: 'true'
