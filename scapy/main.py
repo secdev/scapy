@@ -46,6 +46,7 @@ from typing import (
 
 LAYER_ALIASES = {
     "tls": "tls.all",
+    "quic": "quic.all",
     "msrpce": "msrpce.all",
 }
 
