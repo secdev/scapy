@@ -825,6 +825,76 @@ try:
 except ValueError:
     pass
 
+= CertTree class : verify rejects an issuer that is not a CA
+
+# srv_cert.pem is CA:FALSE. A certificate for another name signed with its
+# key must not chain up to the CA through it.
+pki_ca = Cert(scapy_path("/test/scapy/layers/tls/pki/ca_cert.pem"))
+pki_ca_key = PrivKey(scapy_path("/test/scapy/layers/tls/pki/ca_key.pem"))
+pki_srv = Cert(scapy_path("/test/scapy/layers/tls/pki/srv_cert.pem"))
+pki_srv_key = PrivKey(scapy_path("/test/scapy/layers/tls/pki/srv_key.pem"))
+# The test PKI expired in September 2026
+in2025 = (2025, 1, 1, 0, 0, 0, 2, 1, 0)
+
+assert not pki_srv.cA
+CertTree([pki_srv], pki_ca).verify(pki_srv, now=in2025)
+
+forged = Cert(scapy_path("/test/scapy/layers/tls/pki/srv_cert.pem"))
+forged.x509Cert.tbsCertificate.issuer = pki_srv.x509Cert.tbsCertificate.subject
+forged.x509Cert.tbsCertificate.subject[-1].rdn[0].value = ASN1_PRINTABLE_STRING(b"victim.example")
+forged.setSubjectPublicKeyFromPrivateKey(PrivKeyECDSA())
+forged = Cert(pki_srv_key.resignCert(forged))
+assert forged.isIssuer(pki_srv)
+
+try:
+    CertTree([forged, pki_srv], pki_ca).verify(forged, hostname="victim.example", now=in2025)
+    assert False
+except ValueError:
+    pass
+
+= CertTree class : verify checks pathLenConstraint
+
+# Make a sub CA out of srv_cert.pem, with pathLenConstraint 0
+subca_key = PrivKeyECDSA()
+subca = Cert(scapy_path("/test/scapy/layers/tls/pki/srv_cert.pem"))
+subca.x509Cert.tbsCertificate.subject[-1].rdn[0].value = ASN1_PRINTABLE_STRING(b"Scapy Test Sub CA")
+subca_bc = next(x for x in subca.x509Cert.tbsCertificate.extensions if x.extnID.oidname == "basicConstraints")
+subca_bc.extnValue.cA = ASN1_BOOLEAN(0xff)
+subca_bc.extnValue.pathLenConstraint = ASN1_INTEGER(0)
+subca.setSubjectPublicKeyFromPrivateKey(subca_key)
+subca = Cert(pki_ca_key.resignCert(subca))
+assert subca.cA and subca.pathLenConstraint == 0
+
+# A CA below it, which issues a certificate
+subsubca_key = PrivKeyECDSA()
+subsubca = Cert(subca.der)
+subsubca.x509Cert.tbsCertificate.issuer = subca.x509Cert.tbsCertificate.subject
+subsubca.x509Cert.tbsCertificate.subject[-1].rdn[0].value = ASN1_PRINTABLE_STRING(b"Scapy Test Sub Sub CA")
+subsubca.setSubjectPublicKeyFromPrivateKey(subsubca_key)
+subsubca = Cert(subca_key.resignCert(subsubca))
+
+leaf = Cert(scapy_path("/test/scapy/layers/tls/pki/srv_cert.pem"))
+leaf.x509Cert.tbsCertificate.issuer = subsubca.x509Cert.tbsCertificate.subject
+leaf.setSubjectPublicKeyFromPrivateKey(PrivKeyECDSA())
+leaf = Cert(subsubca_key.resignCert(leaf))
+
+# The sub sub CA is the only CA under the sub CA: fine
+CertTree([subca], pki_ca).verify(subsubca, now=in2025)
+
+# The leaf has two CAs between it and the root: too many for the sub CA
+try:
+    CertTree([subca, subsubca], pki_ca).verify(leaf, now=in2025)
+    assert False
+except ValueError:
+    pass
+
+# With pathLenConstraint 1 the same chain is accepted
+subca_bc = next(x for x in subca.x509Cert.tbsCertificate.extensions if x.extnID.oidname == "basicConstraints")
+subca_bc.extnValue.pathLenConstraint = ASN1_INTEGER(1)
+subca = Cert(pki_ca_key.resignCert(subca))
+assert subca.pathLenConstraint == 1
+CertTree([subca, subsubca], pki_ca).verify(leaf, now=in2025)
+
 = Test GeneralizedTime
 
 data = b"MHAwXAIBADANBgkqhkiG9w0BAQ0FADAAMCIYDzIwMTExMDA2MDgzOTU2WhgPMjA0NjEwMDYwODM5NTZaMAAwHDANBgkqhkiG9w0BAQEFAAMLADAIAgEAAgMBAAGjAjAAMA0GCSqGSIb3DQEBDQUAAwEA"
