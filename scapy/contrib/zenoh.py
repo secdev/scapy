@@ -652,13 +652,14 @@ def _flag_or_value(flag, name):
 
 
 class ZenohPacket(Packet):
-    """Base tracking nested network and payload fields in message lists."""
+    """Base tracking nested fields and retained wire bytes in packet lists."""
 
     def _raw_packet_cache_field_value(self, fld, val, copy=False):
-        if fld.name == "messages":
-            # Include nested payload edits and explicitly retained wire bytes.
-            return [bytes(msg) for msg in val]
-        return super()._raw_packet_cache_field_value(fld, val, copy)
+        value = super()._raw_packet_cache_field_value(fld, val, copy)
+        if fld.holds_packets and fld.islist:
+            # Retain field-state checks as well as explicit child encodings.
+            return value, [bytes(child) for child in val]
+        return value
 
 
 class _ZenohMsg(ZenohPacket):
@@ -1612,8 +1613,9 @@ class ZenohPut(_ZenohMsg):
     def mysummary(self):
         # The key expression of the enclosing message tells what was written,
         # so ask for its summary to be kept.
-        if zenoh_sliced_payload(self):
-            return "ZenohPut %d slices" % len(self.slices), _summary_parents()
+        slices = self.slices
+        if slices is not None:
+            return "ZenohPut %d slices" % len(slices), _summary_parents()
         return "ZenohPut %d bytes" % len(self.data or b""), _summary_parents()
 
 

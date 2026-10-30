@@ -183,6 +183,13 @@ assert raw(pkt) == b'\x84\x01\x02'
 pkt = ZenohKeepAlive(extensions=[Raw(b'\x81')])
 assert raw(pkt) == b'\x84\x81'
 
+= Extensions: equal replacements retain their explicit wire encoding
+pkt = ZenohKeepAlive(bytes.fromhex('84 21 01'))
+replacement = ZenohExtension(bytes.fromhex('21 81 00'))
+assert pkt.extensions[0] == replacement
+pkt.extensions[0] = replacement
+assert raw(pkt) == bytes.fromhex('84 21 81 00')
+
 
 ############
 ############
@@ -233,6 +240,13 @@ hello = ZenohHello(zid=b'\x01', locators=[ZenohLocator(locator='tcp/a:1'), Zenoh
 parsed = ZenohHello(raw(hello))
 assert parsed.num_locators == 2
 assert [x.locator for x in parsed.locators] == ['tcp/a:1', 'udp/b:2']
+
+= ZenohHello: equal locator replacements retain their wire encoding
+pkt = ZenohHello(bytes.fromhex('22 09 01 01 01 01 78'))
+replacement = ZenohLocator(bytes.fromhex('81 00 78'))
+assert pkt.locators[0] == replacement
+pkt.locators[0] = replacement
+assert raw(pkt) == bytes.fromhex('22 09 01 01 01 81 00 78')
 
 = Scouting: UDP port 7446 dispatches on the message ID
 pkt = IP()/UDP(sport=45678, dport=ZENOH_PORT_SCOUTING)/ZenohScout()
@@ -611,6 +625,22 @@ for cls, prefix in [(ZenohFrame, b''), (ZenohBatch, b''),
         del pkt.len
     expected = frame_data.replace(b'\x00\x03xyz', b'\x00\x83\x00xyz')
     assert raw(pkt) == (b'\x0f\x00' if prefix else b'') + expected
+
+= ZenohPut: equal slice replacements retain their explicit wire encoding
+data = bytes.fromhex('81 12 01 00 01 78')
+expected = bytes.fromhex('81 12 01 00 81 00 78')
+for cls, prefix in [(ZenohPut, b''),
+                    (ZenohFrame, b'\x05\x00\x1d\x00'),
+                    (ZenohBatch, b'\x05\x00\x1d\x00'),
+                    (ZenohStreamBatch, b'\x0a\x00\x05\x00\x1d\x00')]:
+    pkt = cls(prefix + data)
+    replacement = ZenohSlice(bytes.fromhex('00 81 00 78'))
+    assert pkt[ZenohPut].slices[0] == replacement
+    pkt[ZenohPut].slices[0] = replacement
+    if cls is ZenohStreamBatch:
+        del pkt.len
+        prefix = b'\x0b\x00' + prefix[2:]
+    assert raw(pkt) == prefix + expected
 
 = ZenohDel: optional timestamp
 assert raw(ZenohDel()) == b'\x02'
@@ -1009,6 +1039,12 @@ for i in range(len(data) + 1):
 ############
 ############
 + Summaries
+
+= Fuzzed sliced Put summaries handle volatile extension encodings
+random.seed(0)
+pkt = fuzz(ZenohPut(extensions=[ZenohExtension(eid=2, mandatory=1)],
+                    slices=[ZenohSlice(data=b'x')]))
+assert pkt.summary().startswith('ZenohPut ')
 
 = Messages have a readable summary
 assert 'ZenohScout' in ZenohScout().summary()
