@@ -1791,6 +1791,46 @@ assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[13].size_index
 assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[13].data == 63
 assert pkt[SDP_Hdr].parameters[0].continuation_state.count == 0
 
+= SDP_DataElement - null, boolean, integers and UUIDs
+
+e = SDP_DataElement(data_type=0, size_index=0)
+assert raw(e) == b"\x00"
+e = SDP_DataElement(raw(e))
+assert e.data_type == 0 and e.get_data_size() == 0
+
+e = SDP_DataElement(data_type=5, size_index=0, data=1)
+assert raw(e) == hex_bytes("2801")
+assert SDP_DataElement(raw(e)).data == 1
+
+e = SDP_DataElement(data_type=2, size_index=1, data=0xfffe)
+assert raw(e) == hex_bytes("11fffe")
+e = SDP_DataElement(raw(e))
+assert e.data_type == 2 and e.data == 0xfffe
+
+e = SDP_DataElement(data_type=3, size_index=4, data=b"\x00" * 15 + b"\x01")
+assert raw(e) == hex_bytes("1c" + "00" * 15 + "01")
+assert SDP_DataElement(raw(e)).data == b"\x00" * 15 + b"\x01"
+
+= SDP_DataElement - text string and URL with 1, 2 and 4 bytes size fields
+
+for data_type, header in ((4, 0x20), (8, 0x40)):
+    for size_index, size_bytes in ((5, "03"), (6, "0003"), (7, "00000003")):
+        e = SDP_DataElement(data_type=data_type, size_index=size_index, data=b"abc")
+        expected = "%02x%s616263" % (header | size_index, size_bytes)
+        assert raw(e) == hex_bytes(expected)
+        e = SDP_DataElement(raw(e))
+        assert e.size == 3
+        assert e.data == b"abc"
+
+= SDP_DataElement - sequence with a 2 bytes size field
+
+e = SDP_DataElement(data_type=6, size_index=6,
+                    data=[SDP_DataElement(data_type=1, size_index=1, data=1)])
+assert raw(e) == hex_bytes("3600030900" "01")
+e = SDP_DataElement(raw(e))
+assert e.size == 3
+assert e.data[0].data == 1
+
 = SDP error response
 
 pkt = SDP_Hdr(pdu_id=1, transaction_id=1, parameters=[SDP_Error_Response(error_code=3)])

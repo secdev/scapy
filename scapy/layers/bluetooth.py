@@ -953,22 +953,19 @@ class SDP_DataElement(Packet):
             MultipleTypeField(
                 [
                     (
-                        FieldLenField("size", 0, fmt="B", length_of="data"),
-                        (lambda pkt: pkt.size_index == 5,
-                         lambda pkt, val: True)  # Don't check val
+                        FieldLenField("size", None, fmt="B", length_of="data"),
+                        lambda pkt: pkt.size_index == 5
                     ),
                     (
-                        FieldLenField("size", 0, fmt="H", length_of="data"),
-                        (lambda pkt: pkt.size_index == 6,
-                         lambda pkt, val: True)  # Don't check val
+                        FieldLenField("size", None, fmt="H", length_of="data"),
+                        lambda pkt: pkt.size_index == 6
                     ),
                     (
-                        FieldLenField("size", 0, fmt="I", length_of="data"),
-                        (lambda pkt: pkt.size_index == 7,
-                         lambda pkt, val: True)  # Don't check val
+                        FieldLenField("size", None, fmt="I", length_of="data"),
+                        lambda pkt: pkt.size_index == 7
                     ),
                 ],
-                FieldLenField("size", 0, length_of="data"),
+                FieldLenField("size", None, length_of="data"),
             ),
             lambda pkt: 5 <= pkt.size_index <= 7
         ),
@@ -995,8 +992,8 @@ class SDP_DataElement(Packet):
                     ),
                     (
                         # Text string
-                        StrFixedLenField("data", "",
-                                         length_from=lambda pkt: pkt.get_data_size()),
+                        StrLenField("data", "",
+                                    length_from=lambda pkt: pkt.get_data_size()),
                         lambda pkt: pkt.data_type == 4 and 5 <= pkt.size_index <= 7
                     ),
                     (
@@ -1015,13 +1012,13 @@ class SDP_DataElement(Packet):
                     ),
                     (
                         # URL
-                        StrFixedLenField("data", "",
-                                         length_from=lambda pkt: pkt.get_data_size()),
+                        StrLenField("data", "",
+                                    length_from=lambda pkt: pkt.get_data_size()),
                         lambda pkt: pkt.data_type == 8 and 5 <= pkt.size_index <= 7
                     ),
                 ],
-                StrFixedLenField("data", "",
-                                 length_from=lambda pkt: pkt.get_data_size()),
+                StrLenField("data", "",
+                            length_from=lambda pkt: pkt.get_data_size()),
             ),
             lambda pkt: 5 <= pkt.size_index <= 7 or pkt.get_data_size() > 0
         ),
@@ -1035,21 +1032,6 @@ class SDP_DataElement(Packet):
         if self.size_index in SDP_FIXED_SIZES:
             return SDP_FIXED_SIZES[self.size_index]
         return self.size
-
-    def post_build(self, p, pay):
-        size_index = p[0] & 0b0111
-        size = len(p[2:])
-
-        if size_index == 5:
-            p = p[:1] + struct.pack(">B", size) + p[2:]
-
-        if size_index == 6:
-            p = p[:1] + struct.pack(">H", size) + p[2:]
-
-        if size_index == 7:
-            p = p[:1] + struct.pack(">I", size) + p[2:]
-
-        return p + pay
 
     def extract_padding(self, s):
         return b"", s
