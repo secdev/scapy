@@ -81,6 +81,18 @@ assert hci_cmd_hold_mode.ogf == 0x02
 assert hci_cmd_hold_mode.ocf == 0x01
 assert hci_cmd_hold_mode.len == 6
 
+# HCI_Cmd_Switch_Role
+hci_cmd_swith_role = HCI_Command_Hdr() / HCI_Cmd_Switch_Role()
+assert hci_cmd_swith_role.ogf == 0x02
+assert hci_cmd_swith_role.ocf == 0x0B
+assert hci_cmd_swith_role.len == None
+
+# parsing
+hci_cmd_swith_role = HCI_Command_Hdr(raw(hci_cmd_swith_role))
+assert hci_cmd_swith_role.ogf == 0x02
+assert hci_cmd_swith_role.ocf == 0x0B
+assert hci_cmd_swith_role.len == 7
+
 # HCI_Cmd_Set_Event_Mask
 hci_cmd_set_event_mask = HCI_Command_Hdr() / HCI_Cmd_Set_Event_Mask()
 assert hci_cmd_set_event_mask.ogf == 0x03
@@ -105,6 +117,30 @@ assert hci_cmd_read_bd_addr.ogf == 0x04
 assert hci_cmd_read_bd_addr.ocf == 0x09
 assert hci_cmd_read_bd_addr.len == 0
 
+# HCI_Cmd_Read_Simple_Pairing_Mode
+hci_cmd_read_simple_pairing_mode = HCI_Command_Hdr() / HCI_Cmd_Read_Simple_Pairing_Mode()
+assert hci_cmd_read_simple_pairing_mode.ogf == 0x03
+assert hci_cmd_read_simple_pairing_mode.ocf == 0x55
+assert hci_cmd_read_simple_pairing_mode.len == None
+
+# parsing
+hci_cmd_read_simple_pairing_mode = HCI_Command_Hdr(raw(hci_cmd_read_simple_pairing_mode))
+assert hci_cmd_read_simple_pairing_mode.ogf == 0x03
+assert hci_cmd_read_simple_pairing_mode.ocf == 0x55
+assert hci_cmd_read_simple_pairing_mode.len == 0
+
+# HCI_Cmd_Write_Simple_Pairing_Mode
+hci_cmd_write_simple_pairing_mode = HCI_Command_Hdr() / HCI_Cmd_Write_Simple_Pairing_Mode()
+assert hci_cmd_write_simple_pairing_mode.ogf == 0x03
+assert hci_cmd_write_simple_pairing_mode.ocf == 0x56
+assert hci_cmd_write_simple_pairing_mode.len == None
+
+# parsing
+hci_cmd_write_simple_pairing_mode = HCI_Command_Hdr(raw(hci_cmd_write_simple_pairing_mode))
+hci_cmd_write_simple_pairing_mode.show()
+assert hci_cmd_write_simple_pairing_mode.ogf == 0x03
+assert hci_cmd_write_simple_pairing_mode.ocf == 0x56
+assert hci_cmd_write_simple_pairing_mode.len == 1
 
 # HCI_Cmd_Read_Link_Quality
 hci_cmd_read_link_quality = HCI_Command_Hdr() / HCI_Cmd_Read_Link_Quality()
@@ -143,6 +179,26 @@ hci_cmd_le_read_buffer_size_v1 = HCI_Command_Hdr(raw(hci_cmd_le_read_buffer_size
 assert hci_cmd_le_read_buffer_size_v1.ogf == 0x08
 assert hci_cmd_le_read_buffer_size_v1.ocf == 0x02
 assert hci_cmd_le_read_buffer_size_v1.len == 0
+
+# HCI_Event_Authentication_Complete
+hci_event_authentication_complete = HCI_Event_Hdr() / HCI_Event_Authentication_Complete()
+assert hci_event_authentication_complete.code == 0x06
+assert hci_event_authentication_complete.len == None
+
+# parsing
+hci_event_authentication_complete = HCI_Event_Hdr(raw(hci_event_authentication_complete))
+assert hci_event_authentication_complete.code == 0x06
+assert hci_event_authentication_complete.len == 0x03
+
+# HCI_Event_Role_Change
+hci_event_role_change = HCI_Event_Hdr() / HCI_Event_Role_Change()
+assert hci_event_role_change.code == 0x12
+assert hci_event_role_change.len == None
+
+# parsing
+hci_event_role_change = HCI_Event_Hdr(raw(hci_event_role_change))
+assert hci_event_role_change.code == 0x12
+assert hci_event_role_change.len == 0x08
 
 + Bluetooth Transport Layers
 
@@ -239,7 +295,7 @@ assert response[HCI_Cmd_Complete_Read_Local_Extended_Features].max_page == 2
 assert response[HCI_Cmd_Complete_Read_Local_Extended_Features].extended_features == 0
 assert response.answers(cmd)
 
-= LE Set Extended Scan Parameters
+= LE Set Extended Scan parameters
 
 cmd = HCI_Hdr(hex_bytes("0141200d00010500600060000020012001"))
 assert HCI_Command_Hdr in cmd
@@ -941,7 +997,7 @@ else:
 
 = Parse EIR_ServiceSolicitation16BitUUID and EIR_ServiceSolicitation128BitUUID
 
-d = hex_bytes("043e29020100013d1ef10747d81d0319000002010603140d181115d0002d121e4b0fa4994eceb531f40579aa") 
+d = hex_bytes("043e29020100013d1ef10747d81d0319000002010603140d181115d0002d121e4b0fa4994eceb531f40579aa")
 p = HCI_Hdr(d)
 assert p[EIR_ServiceSolicitation16BitUUID].svc_uuid == 0x180d
 assert p[EIR_ServiceSolicitation128BitUUID].svc_uuid == UUID('7905f431-b5ce-4e99-a40f-4b1e122d00d0')
@@ -1025,6 +1081,18 @@ assert b[EIR_CompleteLocalName].local_name == b"scapy"
 assert b[HCI_LE_Meta_Advertising_Report].addr == "a1:b2:c3:d4:e5:f6"
 
 assert a.summary() == "HCI Event / HCI_Event_Hdr / HCI_Event_LE_Meta / HCI_LE_Meta_Advertising_Reports"
+
+= L2CAP - ConfSet MTU
+p = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_ConfSet(type="mtu")/L2CAP_ConfSet_MTU(mtu=512)
+assert bytes(p) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x08\x01\x04\x00\x01\x02\x00\x02'
+
+= L2CAP - ConfSet Flush TimeOut
+p = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_ConfSet(type="flushtimeout")/L2CAP_ConfSet_FlushTimeOut(flushtimeout=1337)
+assert bytes(p) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x08\x01\x04\x00\x02\x029\x05'
+
+= L2CAP - ConfSet QoS
+p = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_ConfSet(type="QoS")/L2CAP_ConfSet_QoS()
+assert bytes(p) == b'\x02\x00\x00 \x00\x1c\x00\x05\x00\x08\x01\x18\x00\x03\x16\x00\x010\x00\x00\x000\x00\x00\x000\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff'
 
 = EIR_Hdr - HCI_LE_Meta_Advertising_Report (duplicate reports)
 # When duplicate reports are allowed, there are "Connectable Unidirected
@@ -1264,6 +1332,537 @@ for nt in range(5):
 pkt = HCI_Hdr(hex_bytes('0200260600020006000e02'))
 assert SM_Keypress_Notification in pkt
 assert pkt[SM_Keypress_Notification].notification_type == 0x02
+
+###
+# SDP tests
+###
+
+= SDP commands
+
+constate = SDP_Continuation(count=2, continuation_state_info=0xCAFE)
+attributes = SDP_DataElement(data_type=6, size_index=5,
+                data=[SDP_DataElement(data_type=1,size_index=2,data=0x0000_ffff)])
+search_pattern = SDP_DataElement(data_type=6, size_index=5,
+                data=[SDP_DataElement(data_type=3,size_index=1,data=b'\x10\x00')])
+parameters = (
+  SDP_Service_Search_Attr_Request(service_search_pattern=search_pattern,
+                              max_attribute_byte_count=0x1234,
+                              attribute_id_list=attributes,
+                              continuation_state=constate
+  )
+)
+
+pkt = (HCI_Hdr() / HCI_ACL_Hdr() / L2CAP_Hdr() / SDP_Hdr(pdu_id=6, transaction_id=0xFADE, parameters=parameters) )
+
+assert raw(pkt[SDP_Hdr]) == hex_bytes("06fade00113503191000123435050a0000ffff02cafe")
+
+pkt = SDP_Hdr(raw(pkt[SDP_Hdr]))
+req = pkt.parameters[0]
+assert pkt.pdu_id == 6
+assert pkt.transaction_id == 0xFADE
+assert pkt.parameter_length == 0x11
+assert isinstance(req, SDP_Service_Search_Attr_Request)
+assert req.service_search_pattern.data_type == 6
+assert req.service_search_pattern.size_index == 5
+assert req.service_search_pattern.size == 3
+assert req.service_search_pattern.data[0].data_type == 3
+assert req.service_search_pattern.data[0].size_index == 1
+assert req.service_search_pattern.data[0].data == b'\x10\x00'
+assert req.max_attribute_byte_count == 0x1234
+assert req.attribute_id_list.data_type == 6
+assert req.attribute_id_list.size_index == 5
+assert req.attribute_id_list.size == 5
+assert req.attribute_id_list.data[0].data_type == 1
+assert req.attribute_id_list.data[0].size_index == 2
+assert req.attribute_id_list.data[0].data == 0x0000_ffff
+assert req.continuation_state.count == 2
+assert req.continuation_state.continuation_state_info == 0xCAFE
+
+= SDP response
+
+pkt = SDP_Hdr(hex_bytes('070000019901963700000191370000002b0900000a000000000900000a0000000009000135031900010900053503191002090200350609010309010437000000690900000a00010000090001350619110e19110f0900020a0000440e09000435103506190100090017350619001709010409000535031910020900093508350619110e090106090100250e416476616e63656420417564696f09010225064d745669657709031109000337000000570900000a00010001090001350319110c09000435103506190100090017350619001709010409000535031910020900093508350619110e09010609000d35123510350619010009001b350619001709010409031109000237000000400900000a00010002090001350319110b09000435103506190100090019350619001909010309000535031910020900093508350619110d090103090311090003370000004d0900000a00010003090001350619111e191203090004350c3503190100350519000308130900053503191002090006350909656e09006a0901000900093508350619111e09010709031109003f00'))
+
+assert pkt[SDP_Hdr].pdu_id == 7
+assert pkt[SDP_Hdr].transaction_id == 0
+assert pkt[SDP_Hdr].parameter_length == 409
+assert pkt[SDP_Hdr].parameters[0].attribute_lists_byte_count == 406
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].size_index == 7
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].size == 401
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].size_index == 7
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].size == 43
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[0].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[0].data == 0
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[1].size_index == 2
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[1].data == 0
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[2].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[2].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[2].data == 0
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[3].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[3].size_index == 2
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[3].data == 0
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[4].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[4].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[4].data == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[5].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[5].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[5].size == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[5].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[5].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[5].data[0].data == b"\x00\x01"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[6].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[6].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[6].data == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[7].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[7].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[7].size == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[7].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[7].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[7].data[0].data == b"\x10\x02"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[8].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[8].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[8].data == 512
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[9].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[9].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[9].size == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[9].data[0].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[9].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[9].data[0].data == 259
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[9].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[9].data[1].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[0].data[9].data[1].data == 260
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].size_index == 7
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].size == 105
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[0].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[0].data == 0
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[1].size_index == 2
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[1].data == 65536
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[2].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[2].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[2].data == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[3].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[3].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[3].size == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[3].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[3].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[3].data[0].data == b"\x11\x0e"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[3].data[1].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[3].data[1].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[3].data[1].data == b"\x11\x0f"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[4].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[4].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[4].data == 2
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[5].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[5].size_index == 2
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[5].data == 17422
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[6].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[6].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[6].data == 4
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].size == 16
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[0].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[0].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[0].size == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[0].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[0].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[0].data[0].data == b"\x01\x00"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[0].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[0].data[1].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[0].data[1].data == 23
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[1].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[1].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[1].size == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[1].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[1].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[1].data[0].data == b"\x00\x17"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[1].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[1].data[1].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[7].data[1].data[1].data == 260
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[8].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[8].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[8].data == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[9].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[9].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[9].size == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[9].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[9].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[9].data[0].data == b"\x10\x02"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[10].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[10].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[10].data == 9
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[11].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[11].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[11].size == 8
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[11].data[0].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[11].data[0].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[11].data[0].size == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[11].data[0].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[11].data[0].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[11].data[0].data[0].data == b"\x11\x0e"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[11].data[0].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[11].data[0].data[1].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[11].data[0].data[1].data == 262
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[12].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[12].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[12].data == 256
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[13].data_type == 4
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[13].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[13].size == 14
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[13].data == b'Advanced Audio'
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[14].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[14].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[14].data == 258
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[15].data_type == 4
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[15].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[15].size == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[15].data == b'MtView'
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[16].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[16].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[16].data == 785
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[17].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[17].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[1].data[17].data == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].size_index == 7
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].size == 87
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[0].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[0].data == 0
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[1].size_index == 2
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[1].data == 65537
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[2].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[2].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[2].data == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[3].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[3].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[3].size == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[3].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[3].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[3].data[0].data == b"\x11\x0c"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[4].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[4].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[4].data == 4
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].size == 16
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[0].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[0].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[0].size == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[0].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[0].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[0].data[0].data == b"\x01\x00"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[0].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[0].data[1].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[0].data[1].data == 23
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[1].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[1].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[1].size == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[1].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[1].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[1].data[0].data == b"\x00\x17"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[1].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[1].data[1].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[5].data[1].data[1].data == 260
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[6].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[6].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[6].data == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[7].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[7].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[7].size == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[7].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[7].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[7].data[0].data == b"\x10\x02"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[8].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[8].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[8].data == 9
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[9].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[9].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[9].size == 8
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[9].data[0]
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[9].data[0].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[9].data[0].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[9].data[0].size == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[9].data[0].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[9].data[0].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[9].data[0].data[0].data == b"\x11\x0e"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[9].data[0].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[9].data[0].data[1].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[9].data[0].data[1].data == 262
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[10].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[10].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[10].data == 13
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].size == 18
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].size == 16
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[0].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[0].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[0].size == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[0].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[0].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[0].data[0].data == b"\x01\x00"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[0].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[0].data[1].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[0].data[1].data == 27
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[1].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[1].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[1].size == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[1].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[1].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[1].data[0].data == b"\x00\x17"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[1].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[1].data[1].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[11].data[0].data[1].data[1].data == 260
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[12].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[12].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[12].data == 785
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[13].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[13].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[2].data[13].data == 2
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].size_index == 7
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].size == 64
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[0].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[0].data == 0
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[1].size_index == 2
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[1].data == 65538
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[2].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[2].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[2].data == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[3].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[3].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[3].size == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[3].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[3].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[3].data[0].data == b"\x11\x0b"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[4].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[4].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[4].data == 4
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].size == 16
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[0].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[0].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[0].size == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[0].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[0].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[0].data[0].data == b"\x01\x00"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[0].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[0].data[1].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[0].data[1].data == 25
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[1].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[1].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[1].size == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[1].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[1].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[1].data[0].data == b"\x00\x19"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[1].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[1].data[1].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[5].data[1].data[1].data == 259
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[6].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[6].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[6].data == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[7].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[7].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[7].size == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[7].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[7].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[7].data[0].data == b"\x10\x02"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[8].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[8].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[8].data == 9
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[9].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[9].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[9].size == 8
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[9].data[0].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[9].data[0].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[9].data[0].size == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[9].data[0].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[9].data[0].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[9].data[0].data[0].data == b"\x11\x0d"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[9].data[0].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[9].data[0].data[1].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[9].data[0].data[1].data == 259
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[10].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[10].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[10].data == 785
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[11].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[11].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[3].data[11].data == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].size_index == 7
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].size == 77
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[0].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[0].data == 0
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[1].size_index == 2
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[1].data == 65539
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[2].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[2].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[2].data == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[3].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[3].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[3].size == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[3].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[3].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[3].data[0].data == b"\x11\x1e"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[3].data[1].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[3].data[1].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[3].data[1].data == b"\x12\x03"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[4].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[4].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[4].data == 4
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].size == 12
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].data[0].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].data[0].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].data[0].size == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].data[0].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].data[0].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].data[0].data[0].data == b"\x01\x00"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].data[1].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].data[1].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].data[1].size == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].data[1].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].data[1].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].data[1].data[0].data == b"\x00\x03"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].data[1].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].data[1].data[1].size_index == 0
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[5].data[1].data[1].data == 19
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[6].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[6].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[6].data == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[7].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[7].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[7].size == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[7].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[7].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[7].data[0].data == b"\x10\x02"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[8].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[8].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[8].data == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[9].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[9].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[9].size == 9
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[9].data[0].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[9].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[9].data[0].data == 25966
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[9].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[9].data[1].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[9].data[1].data == 106
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[9].data[2].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[9].data[2].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[9].data[2].data == 256
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[10].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[10].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[10].data == 9
+
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[11].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[11].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[11].size == 8
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[11].data[0].data_type == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[11].data[0].size_index == 5
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[11].data[0].size == 6
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[11].data[0].data[0].data_type == 3
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[11].data[0].data[0].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[11].data[0].data[0].data == b"\x11\x1e"
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[11].data[0].data[1].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[11].data[0].data[1].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[11].data[0].data[1].data == 263
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[12].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[12].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[12].data == 785
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[13].data_type == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[13].size_index == 1
+assert pkt[SDP_Hdr].parameters[0].attribute_lists[0].data[4].data[13].data == 63
+assert pkt[SDP_Hdr].parameters[0].continuation_state.count == 0
+
+= SDP error response
+
+pkt = SDP_Hdr(pdu_id=1, transaction_id=1, parameters=[SDP_Error_Response(error_code=3)])
+assert raw(pkt) == hex_bytes("0100010002" "0003")
+pkt = SDP_Hdr(raw(pkt))
+assert isinstance(pkt.parameters[0], SDP_Error_Response)
+assert pkt.parameters[0].error_code == 3
+
+= SDP_Service_Search_Request / SDP_Service_Search_Response
+
+pattern = SDP_DataElement(data_type=6, size_index=5,
+                data=[SDP_DataElement(data_type=3, size_index=1, data=b'\x01\x00')])
+pkt = SDP_Hdr(pdu_id=2, transaction_id=1, parameters=[
+  SDP_Service_Search_Request(service_search_pattern=pattern,
+                             max_service_record_count=3,
+                             continuation_state=SDP_Continuation())
+])
+assert raw(pkt) == hex_bytes("02000100083503190100000300")
+pkt = SDP_Hdr(raw(pkt))
+assert isinstance(pkt.parameters[0], SDP_Service_Search_Request)
+assert pkt.parameters[0].service_search_pattern.data[0].data == b'\x01\x00'
+assert pkt.parameters[0].max_service_record_count == 3
+
+pkt = SDP_Hdr(pdu_id=3, parameters=[
+  SDP_Service_Search_Response(total_service_record_count=2,
+                              service_record_handle_list=[0x10001, 0x10002],
+                              continuation_state=SDP_Continuation())
+])
+assert raw(pkt) == hex_bytes("030000000d00020002000100010001000200")
+pkt = SDP_Hdr(raw(pkt))
+assert isinstance(pkt.parameters[0], SDP_Service_Search_Response)
+assert pkt.parameters[0].current_service_record_count == 2
+assert pkt.parameters[0].service_record_handle_list == [0x10001, 0x10002]
+
+= SDP_Service_Attr_Request / SDP_Service_Attr_Response
+
+attr_list = SDP_DataElement(data_type=6, size_index=5,
+                data=[SDP_DataElement(data_type=1, size_index=1, data=0x0001)])
+pkt = SDP_Hdr(pdu_id=4, parameters=[
+  SDP_Service_Attr_Request(service_record_handle=0x10000,
+                           max_attribute_byte_count=0x100,
+                           attribute_id_list=attr_list,
+                           continuation_state=SDP_Continuation())
+])
+assert raw(pkt) == hex_bytes("040000000c000100000100350309000100")
+pkt = SDP_Hdr(raw(pkt))
+assert isinstance(pkt.parameters[0], SDP_Service_Attr_Request)
+assert pkt.parameters[0].service_record_handle == 0x10000
+assert pkt.parameters[0].attribute_id_list.data[0].data == 1
+
+pkt = SDP_Hdr(pdu_id=5, parameters=[
+  SDP_Service_Attr_Response(attribute_list=[attr_list],
+                            continuation_state=SDP_Continuation())
+])
+assert raw(pkt) == hex_bytes("05000000080005350309000100")
+pkt = SDP_Hdr(raw(pkt))
+assert isinstance(pkt.parameters[0], SDP_Service_Attr_Response)
+assert pkt.parameters[0].attribute_list_byte_count == 5
+assert pkt.parameters[0].attribute_list[0].data[0].data == 1
+
+= SDP_Service_Search_Attr_Response build
+
+pkt = SDP_Hdr(pdu_id=7, parameters=[
+  SDP_Service_Search_Attr_Response(attribute_lists=[attr_list],
+                                   continuation_state=SDP_Continuation())
+])
+assert raw(pkt) == hex_bytes("07000000080005350309000100")
+pkt = SDP_Hdr(raw(pkt))
+assert isinstance(pkt.parameters[0], SDP_Service_Search_Attr_Response)
+assert pkt.parameters[0].attribute_lists_byte_count == 5
+
+# pkt.show()
 
 
 + HCIMon tests
