@@ -11,6 +11,7 @@ from scapy.compat import raw
 from scapy.config import conf
 from scapy.layers.inet import IP, TCP, UDP
 from scapy.packet import Raw
+from scapy.sessions import TCPSession
 
 
 ############
@@ -171,6 +172,17 @@ assert ZenohKeepAlive(b'\x04').extensions == []
 = Extensions: an explicit Z flag is not overwritten
 assert raw(ZenohKeepAlive(flag_z=1)) == b'\x84'
 
+= Extensions: explicit continuation flags are not overwritten
+pkt = ZenohKeepAlive(extensions=[ZenohExtension(eid=1, more=1)])
+assert raw(pkt) == b'\x84\x81'
+pkt = ZenohKeepAlive(extensions=[
+    ZenohExtension(eid=1, more=0), ZenohExtension(eid=2)])
+assert raw(pkt) == b'\x84\x01\x02'
+
+= Extensions: raw extension bytes are not rewritten
+pkt = ZenohKeepAlive(extensions=[Raw(b'\x81')])
+assert raw(pkt) == b'\x84\x81'
+
 
 ############
 ############
@@ -236,6 +248,13 @@ assert ZenohHello in parsed
 = Scouting: an unknown scouting message ID falls back to Raw
 pkt = ZenohScouting(b'\x1f\x09')
 assert isinstance(pkt, Raw)
+
+= Scouting: concrete messages set the destination port only
+for cls in [ZenohScout, ZenohHello]:
+    pkt = UDP(sport=45678)/cls()
+    assert pkt.dport == ZENOH_PORT_SCOUTING
+    assert pkt.sport == 45678
+    assert cls in UDP(raw(pkt))
 
 
 ############
@@ -504,6 +523,95 @@ data = raw(put)
 assert data == b'\xe1\x01\x01\x01\x08\x01\x01x'
 assert raw(ZenohPut(data)) == data
 
+= ZenohPut: the Shm extension selects sliced payload framing
+# Zenoh 1.9.0 commons/zenoh-codec/src/core/zbuf.rs:
+# slice count, then a kind byte and a length-prefixed buffer per slice.
+data = bytes.fromhex('81 12 01 00 03 78 79 7a')
+pkt = ZenohPut(data)
+assert pkt.num_slices == 1
+assert pkt.slices[0].kind == 0
+assert pkt.slices[0].data == b'xyz'
+assert not pkt.payload
+pkt.clear_cache()
+assert raw(pkt) == data
+pkt = ZenohPut(extensions=[ZenohExtension(eid=2, mandatory=1)],
+               slices=[ZenohSlice(data=b'xyz')])
+assert raw(pkt) == data
+
+= ZenohPut: multiple slices leave the next network message intact
+data = bytes.fromhex('05 01 1d 01 81 12 02 00 01 78 00 02 79 7a 1a 07')
+frame = ZenohFrame(data)
+assert len(frame.messages) == 2
+put = frame.messages[0][ZenohPut]
+assert put.num_slices == 2
+assert [s.data for s in put.slices] == [b'x', b'yz']
+assert frame.messages[1].request_id == 7
+put.clear_cache()
+frame.clear_cache()
+assert raw(frame) == data
+
+= ZenohPut: sliced payloads retain shared-memory pointer descriptors
+data = bytes.fromhex('81 12 02 00 01 78 01 02 aa bb')
+pkt = ZenohPut(data)
+assert [s.kind for s in pkt.slices] == [0, 1]
+assert [s.data for s in pkt.slices] == [b'x', b'\xaa\xbb']
+pkt.clear_cache()
+assert raw(pkt) == data
+pkt.slices[0].data = b'yz'
+assert raw(pkt) == bytes.fromhex('81 12 02 00 02 79 7a 01 02 aa bb')
+
+= ZenohPut: empty sliced payload and multibyte slice length
+ext = ZenohExtension(eid=2, mandatory=1)
+assert raw(ZenohPut(extensions=[ext], slices=[])) == b'\x81\x12\x00'
+data = b'\x81\x12\x01\x00\x82\x01' + b'x' * 130
+pkt = ZenohPut(data)
+assert pkt.slices[0].data == b'x' * 130
+assert not pkt.payload
+pkt.clear_cache()
+assert raw(pkt) == data
+
+= ZenohPut: only the mandatory Unit Shm extension enables slices
+for ext in [ZenohExtension(eid=2),
+            ZenohExtension(eid=2, mandatory=1, enc='Z64', value=1),
+            ZenohExtension(eid=3, mandatory=1)]:
+    data = raw(ZenohPut(extensions=[ext], data=b'xyz'))
+    pkt = ZenohPut(data)
+    assert pkt.data == b'xyz'
+    assert pkt.slices is None
+    assert not pkt.payload
+
+= ZenohPut: slice edits invalidate enclosing frame and batch caches
+frame_data = bytes.fromhex('05 01 1d 01 81 12 01 00 03 78 79 7a 1a 07')
+for cls, prefix in [(ZenohFrame, b''), (ZenohBatch, b''),
+                    (ZenohStreamBatch, b'\x0e\x00')]:
+    pkt = cls(prefix + frame_data)
+    pkt[ZenohPut].slices[0].data = b'abc'
+    assert raw(pkt) == prefix + frame_data.replace(b'xyz', b'abc')
+    pkt = cls(prefix + frame_data)
+    pkt[ZenohPut].slices[0].kind = 1
+    expected = bytes.fromhex('05 01 1d 01 81 12 01 01 03 78 79 7a 1a 07')
+    assert raw(pkt) == prefix + expected
+    pkt = cls(prefix + frame_data)
+    pkt[ZenohPut].slices[0].data = b'abcd'
+    if cls is ZenohStreamBatch:
+        del pkt.len
+    expected = bytes.fromhex('05 01 1d 01 81 12 01 00 04 61 62 63 64 1a 07')
+    assert raw(pkt) == (b'\x0f\x00' if prefix else b'') + expected
+
+= ZenohPut: replacing an equal payload preserves its explicit wire encoding
+frame_data = bytes.fromhex('05 01 1d 01 81 12 01 00 03 78 79 7a 1a 07')
+replacement = ZenohPut(bytes.fromhex('81 12 01 00 83 00 78 79 7a'))
+for cls, prefix in [(ZenohFrame, b''), (ZenohBatch, b''),
+                    (ZenohStreamBatch, b'\x0e\x00')]:
+    pkt = cls(prefix + frame_data)
+    assert pkt[ZenohPut] == replacement
+    pkt[ZenohPush].remove_payload()
+    pkt[ZenohPush].add_payload(replacement.copy())
+    if cls is ZenohStreamBatch:
+        del pkt.len
+    expected = frame_data.replace(b'\x00\x03xyz', b'\x00\x83\x00xyz')
+    assert raw(pkt) == (b'\x0f\x00' if prefix else b'') + expected
+
 = ZenohDel: optional timestamp
 assert raw(ZenohDel()) == b'\x02'
 assert raw(ZenohDel(timestamp=(1, b'\x01'))) == b'\x22\x01\x01\x01'
@@ -578,6 +686,68 @@ data = raw(ZenohStreamBatch(messages=[ZenohKeepAlive()])) + b'\x20\x00\x04'
 parsed = ZenohStreamBatch(data)
 assert list(parsed.layers()).count(ZenohStreamBatch) == 1
 assert raw(parsed) == data
+
+= ZenohStreamBatch: TCP reassembly waits at every header and body split
+data = bytes.fromhex('0b 00 05 01 1d 01 01 05 68 65 6c 6c 6f')
+for cut in range(1, len(data)):
+    session = TCPSession(app=True)
+    assert session.process(data[:cut], ZenohStreamBatch) is None
+    pkt = session.process(data[cut:], ZenohStreamBatch)
+    assert pkt[ZenohPut].data == b'hello'
+    assert raw(pkt) == data
+    assert not session.data
+
+= ZenohStreamBatch: TCP reassembly retains a partial following batch
+first = b'\x01\x00\x04'
+second = b'\x02\x00\x03\x01'
+session = TCPSession(app=True)
+pkt = session.process(first + second[:3], ZenohStreamBatch)
+assert raw(pkt) == first
+assert isinstance(pkt.messages[0], ZenohKeepAlive)
+assert session.process(b'', ZenohStreamBatch) is None
+pkt = session.process(second[3:], ZenohStreamBatch)
+assert raw(pkt) == second
+assert pkt[ZenohClose].reason == 1
+assert not session.data
+
+= ZenohStreamBatch: TCP reassembly drains coalesced batches
+session = TCPSession(app=True)
+data = b'\x01\x00\x04'
+pkt = session.process(data * 3, ZenohStreamBatch)
+assert raw(pkt) == data * 3
+assert list(pkt.layers()).count(ZenohStreamBatch) == 3
+assert not session.data
+
+= ZenohStreamBatch: coalesced batches do not displace a partial third batch
+first = b'\x01\x00\x04\x02\x00\x03\x01'
+third = bytes.fromhex('0b 00 05 01 1d 01 01 05 68 65 6c 6c 6f')
+for cut in range(1, len(third)):
+    session = TCPSession()
+    segment = IP(src='192.0.2.1', dst='192.0.2.2')/TCP(
+        sport=45000, dport=ZENOH_PORT_TRANSPORT, seq=1000,
+        flags='A')/Raw(first + third[:cut])
+    pkt = session.process(IP(raw(segment)))
+    assert raw(pkt[ZenohStreamBatch]) == first
+    segment[TCP].seq = 1000 + len(first) + cut
+    segment[TCP].remove_payload()
+    segment[TCP].add_payload(Raw(third[cut:]))
+    pkt = session.process(IP(raw(segment)))
+    assert raw(pkt[ZenohStreamBatch]) == third
+    assert pkt[ZenohPut].data == b'hello'
+
+= ZenohStreamBatch: TCPSession reconstructs segmented IP/TCP packets
+data = bytes.fromhex('0b 00 05 01 1d 01 01 05 68 65 6c 6c 6f')
+session = TCPSession()
+for offset in range(len(data)):
+    segment = IP(src='192.0.2.1', dst='192.0.2.2')/TCP(
+        sport=45000, dport=ZENOH_PORT_TRANSPORT, seq=1 + offset,
+        flags='A')/Raw(data[offset:offset + 1])
+    pkt = session.process(IP(raw(segment)))
+    if offset < len(data) - 1:
+        assert pkt is None
+
+assert pkt[ZenohPut].data == b'hello'
+assert raw(pkt[ZenohStreamBatch]) == data
 
 = Transport messages: TCP port 7447 is a stream batch
 pkt = IP()/TCP(sport=45678, dport=ZENOH_PORT_TRANSPORT)/ZenohStreamBatch(messages=[ZenohKeepAlive()])

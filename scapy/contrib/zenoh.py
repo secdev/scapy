@@ -57,7 +57,7 @@ from scapy.fields import (
     XStrLenField,
 )
 from scapy.layers.inet import TCP, UDP
-from scapy.packet import Packet, bind_bottom_up, bind_layers
+from scapy.packet import Packet, bind_bottom_up, bind_layers, bind_top_down
 from scapy.volatile import RandBin, RandNum
 
 # ============================================================================
@@ -595,19 +595,19 @@ class ZenohExtension(Packet):
 class ZenohExtensionsField(PacketListField):
     """List of :class:`ZenohExtension`, chained through their ``more`` bit.
 
-    The ``more`` bit is a structural flag and is therefore recomputed while
-    building, just like a length field.
+    The ``more`` bit is computed while building unless explicitly supplied.
     """
 
     def addfield(self, pkt, s, val):
-        parts = [self.i2m(pkt, v) for v in val]
-        parts = [p for p in parts if p]
-        for i, part in enumerate(parts):
+        parts = [(v, self.i2m(pkt, v)) for v in val]
+        parts = [(v, p) for v, p in parts if p]
+        for i, (ext, part) in enumerate(parts):
             first = part[0]
-            if i < len(parts) - 1:
-                first |= 0x80
-            else:
-                first &= 0x7F
+            if isinstance(ext, ZenohExtension) and "more" not in ext.fields:
+                if i < len(parts) - 1:
+                    first |= 0x80
+                else:
+                    first &= 0x7F
             s += chb(first) + part[1:]
         return s
 
@@ -651,7 +651,17 @@ def _flag_or_value(flag, name):
     return _cond
 
 
-class _ZenohMsg(Packet):
+class ZenohPacket(Packet):
+    """Base tracking nested network and payload fields in message lists."""
+
+    def _raw_packet_cache_field_value(self, fld, val, copy=False):
+        if fld.name == "messages":
+            # Include nested payload edits and explicitly retained wire bytes.
+            return [bytes(msg) for msg in val]
+        return super()._raw_packet_cache_field_value(fld, val, copy)
+
+
+class _ZenohMsg(ZenohPacket):
     """Base class of all zenoh messages.
 
     Zenoh messages are siblings inside a batch or a frame, not enclosing
@@ -1529,6 +1539,27 @@ class ZenohDeclareFinal(_ZenohMsg):
 # Zenoh messages, the user facing payload of the network messages
 # ============================================================================
 
+class ZenohSlice(Packet):
+    """A raw buffer or shared-memory descriptor in a sliced Put payload."""
+    name = "ZenohSlice"
+    fields_desc = [
+        ByteEnumField("kind", 0, {0: "Raw", 1: "ShmPtr"}),
+        ZenohZBufField("data", b""),
+    ]
+
+    def extract_padding(self, s):
+        return b"", s
+
+
+def zenoh_sliced_payload(pkt):
+    """Whether the mandatory Unit Shm extension selects sliced framing."""
+    return any(
+        isinstance(ext, ZenohExtension) and ext.eid == 2 and
+        ext.mandatory == 1 and ext.enc == 0
+        for ext in pkt.extensions
+    )
+
+
 class ZenohPut(_ZenohMsg):
     """Put message, holding the published payload.
 
@@ -1548,7 +1579,9 @@ class ZenohPut(_ZenohMsg):
         +---------------+
 
     The payload is exposed as ``data``, since ``payload`` is reserved by
-    Scapy for the next layer.
+    Scapy for the next layer. When the Shm extension is present, ``slices``
+    instead holds :class:`ZenohSlice` objects, preserving raw buffers and
+    shared-memory descriptors without dereferencing the latter.
     """
     name = "ZenohPut"
     fields_desc = [
@@ -1561,7 +1594,17 @@ class ZenohPut(_ZenohMsg):
         ConditionalField(ZenohEncodingField("encoding", 0),
                          _flag_or_value("flag_e", "encoding")),
         _extensions_field(),
-        ZenohZBufField("data", b""),
+        ConditionalField(
+            ZenohZIntLenField("num_slices", None, count_of="slices"),
+            zenoh_sliced_payload,
+        ),
+        ConditionalField(
+            PacketListField("slices", [], ZenohSlice,
+                            count_from=lambda pkt: pkt.num_slices),
+            zenoh_sliced_payload,
+        ),
+        ConditionalField(ZenohZBufField("data", b""),
+                         lambda pkt: not zenoh_sliced_payload(pkt)),
     ]
     auto_flags = [("flag_t", "timestamp", 0, 0x20),
                   ("flag_e", "encoding", 0, 0x40)]
@@ -1569,6 +1612,8 @@ class ZenohPut(_ZenohMsg):
     def mysummary(self):
         # The key expression of the enclosing message tells what was written,
         # so ask for its summary to be kept.
+        if zenoh_sliced_payload(self):
+            return "ZenohPut %d slices" % len(self.slices), _summary_parents()
         return "ZenohPut %d bytes" % len(self.data or b""), _summary_parents()
 
 
@@ -1704,7 +1749,7 @@ class ZenohErr(_ZenohMsg):
 # Batches
 # ============================================================================
 
-class ZenohBatch(Packet):
+class ZenohBatch(ZenohPacket):
     """A batch of zenoh transport messages, as carried by one datagram.
 
     Datagram links keep the message boundaries themselves, so no length
@@ -1721,7 +1766,7 @@ class ZenohBatch(Packet):
         return "ZenohBatch %s" % " / ".join(m.name for m in self.messages)
 
 
-class ZenohStreamBatch(Packet):
+class ZenohStreamBatch(ZenohPacket):
     """A batch of zenoh transport messages on a stream link, e.g. TCP.
 
     Streams do not preserve message boundaries, so every batch is prefixed
@@ -1736,6 +1781,21 @@ class ZenohStreamBatch(Packet):
                         _next_transport_msg(remain),
                         length_from=lambda pkt: pkt.len),
     ]
+
+    @classmethod
+    def tcp_reassemble(cls, data, metadata, session):
+        end = 0
+        while len(data) - end >= 2:
+            length = int.from_bytes(data[end:end + 2], "little") + 2
+            if len(data) - end < length:
+                break
+            end += length
+        if not end:
+            return None
+        pkt = cls(data[:end])
+        if len(data) > end:
+            pkt.add_payload(conf.padding_layer(load=data[end:]))
+        return pkt
 
     def guess_payload_class(self, payload):
         # Several batches may share one segment, but a truncated batch is
@@ -1850,6 +1910,8 @@ def _summary_parents():
 # not set the source port as well.
 bind_layers(UDP, ZenohScouting, dport=ZENOH_PORT_SCOUTING)
 bind_bottom_up(UDP, ZenohScouting, sport=ZENOH_PORT_SCOUTING)
+bind_top_down(UDP, ZenohScout, dport=ZENOH_PORT_SCOUTING)
+bind_top_down(UDP, ZenohHello, dport=ZENOH_PORT_SCOUTING)
 
 bind_layers(UDP, ZenohBatch, dport=ZENOH_PORT_TRANSPORT)
 bind_bottom_up(UDP, ZenohBatch, sport=ZENOH_PORT_TRANSPORT)
