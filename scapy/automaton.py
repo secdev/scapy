@@ -144,7 +144,13 @@ def select_objects(inputs, remain):
                 False,
                 remainms
             )
-        if res != 0xFFFFFFFF and res != 0x00000102:  # Failed or Timeout
+        # ctypes' default signed c_int restype returns WAIT_FAILED as -1.
+        if res == -1 or res == 0xFFFFFFFF:
+            error = ctypes.WinError()
+            for evt in created:
+                ctypes.windll.ws2_32.WSACloseEvent(evt)
+            raise error
+        if res != 0x00000102:  # Timeout
             results.add(events_to_inputs[res])
             if len(events) > 1:
                 # Now poll the others, if any
@@ -153,6 +159,11 @@ def select_objects(inputs, remain):
                         ctypes.c_void_p(evt),
                         0  # poll: don't wait
                     )
+                    if res == -1 or res == 0xFFFFFFFF:
+                        error = ctypes.WinError()
+                        for created_evt in created:
+                            ctypes.windll.ws2_32.WSACloseEvent(created_evt)
+                        raise error
                     if res == 0:
                         results.add(events_to_inputs[i])
     # Cleanup created events, if any
