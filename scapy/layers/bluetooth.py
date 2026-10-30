@@ -10,11 +10,16 @@
 Bluetooth layers, sockets and send/receive functions.
 """
 
-import ctypes
 import socket
 import struct
 import select
-from ctypes import sizeof
+
+try:
+    import ctypes
+    from ctypes import sizeof
+except OSError:
+    ctypes = None
+    sizeof = None
 
 from scapy.config import conf
 from scapy.data import (
@@ -64,7 +69,7 @@ from scapy.supersocket import SuperSocket
 from scapy.sendrecv import sndrcv
 from scapy.data import MTU
 from scapy.consts import WINDOWS
-from scapy.error import warning
+from scapy.error import Scapy_Exception, warning
 
 
 ############
@@ -3576,12 +3581,16 @@ class BluetoothHCISocket(SuperSocket):
         return HCI_Hdr(self.ins.recv(x))
 
 
-class sockaddr_hci(ctypes.Structure):
-    _fields_ = [
-        ("sin_family", ctypes.c_ushort),
-        ("hci_dev", ctypes.c_ushort),
-        ("hci_channel", ctypes.c_ushort),
-    ]
+if ctypes is not None:
+    class sockaddr_hci(ctypes.Structure):
+        _fields_ = [
+            ("sin_family", ctypes.c_ushort),
+            ("hci_dev", ctypes.c_ushort),
+            ("hci_channel", ctypes.c_ushort),
+        ]
+else:
+    class sockaddr_hci(object):
+        pass
 
 
 class _BluetoothLibcSocket(SuperSocket):
@@ -3593,6 +3602,8 @@ class _BluetoothLibcSocket(SuperSocket):
         # Python socket and bind implementations do not allow us to pass down
         # the correct parameters. We must call libc functions directly via
         # ctypes.
+        if ctypes is None:
+            raise Scapy_Exception("ctypes is not available")
         sockaddr_hcip = ctypes.POINTER(sockaddr_hci)
         from ctypes.util import find_library
         libc = ctypes.cdll.LoadLibrary(find_library("c"))

@@ -898,6 +898,8 @@ assert pkt[Dot11EltVHTOperation].VHT_Operation_Info.channel_center1 == 50
 
 pkt = Dot11EltVHTOperation(b'\xc0\x05\x01*2\x00\x00')
 assert pkt[Dot11Elt::{"ID": 192}].len == 5
+assert raw(Dot11EltVHTOperation()) == b'\xc0\x05\x00$\x00\x00\x00'
+
 
 = Dot11EltHTOperation in isolation
 
@@ -968,6 +970,27 @@ assert pkt[Dot11HE6GOperationInfo].channel_center0 == 37
 assert pkt[Dot11HE6GOperationInfo].channel_center1 == 0
 assert pkt[Dot11HE6GOperationInfo].minimum_rate == 12
 assert raw(pkt) == data
+
+= Dot11EltHEOperation build tests
+
+pkt = Dot11EltHEOperation()
+assert raw(pkt) == b'\xff\x07$\x00\x00\x00\x00\x00\x00'
+
+pkt = Dot11EltHEOperation(six_g_op_info_present=1, he_6g_operation_info=None)
+assert raw(pkt) == b'\xff\x07$\x00\x00\x02\x00\x00\x00'
+
+pkt = Dot11EltHEOperation(
+    six_g_op_info_present=1,
+    he_6g_operation_info=Dot11HE6GOperationInfo(
+        primary_channel=5,
+        channel_width=2,
+        channel_center0=37,
+        channel_center1=0,
+        minimum_rate=12
+    )
+)
+assert raw(pkt) == b'\xff\x0c$\x00\x00\x02\x00\x00\x00\x05\x02%\x00\x0c'
+
 
 = Dot11EltEHTOperation without Operation Information in isolation
 

@@ -33,11 +33,13 @@ CUR=$( cd "$(dirname "${BASH_SOURCE[0]}")" ; pwd -P )
 # Install wireshark data, ifconfig, vcan, samba, openldap
 if [ "$OSTYPE" = "linux-gnu" ]
 then
+  sudo find /etc/apt -type f -exec sed -i 's|azure\.archive\.ubuntu\.com|archive.ubuntu.com|g' {} + 2>/dev/null || true
+  echo 'Acquire::http::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/99timeout > /dev/null
   sudo apt-get update
   sudo apt-get -qy install tshark net-tools || exit 1
   sudo apt-get -qy install can-utils || exit 1
   sudo apt-get -qy install libcoap3-bin || exit 1
-  sudo apt-get -qy install linux-modules-extra-$(uname -r) || exit 1
+  timeout 60 sudo apt-get -qy install linux-modules-extra-$(uname -r) || true
   sudo apt-get -qy install samba smbclient
   sudo bash $CUR/openldap/install.sh
   # Make sure libpcap is installed

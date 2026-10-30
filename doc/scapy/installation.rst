@@ -7,7 +7,7 @@ Download and Installation
 Overview
 ========
 
- 0. Install `Python 3.7+ <https://www.python.org/downloads/>`_.
+ 0. Install `Python 3.9+ <https://www.python.org/downloads/>`_.
  1. `Download and install Scapy. <#installing-scapy-v2-x>`_
  2. `Follow the platform-specific instructions (dependencies) <#platform-specific-instructions>`_.
  3. (Optional): `Install additional software for special features <#optional-software-for-special-features>`_.
@@ -20,17 +20,19 @@ Scapy versions
 
 .. note:: Scapy 2.5.0 was the last version to support Python 2.7 !
 
-+------------------+-------+-------+--------+
-| Scapy version    | 2.3.3 | 2.5.0 | >2.5.0 |
-+==================+=======+=======+========+
-| Python 2.2-2.6   | ✅    | ❌    | ❌     |
-+------------------+-------+-------+--------+
-| Python 2.7       | ✅    | ✅    | ❌     |
-+------------------+-------+-------+--------+
-| Python 3.4-3.6   | ❌    | ✅    | ❌     |
-+------------------+-------+-------+--------+
-| Python 3.7-3.14  | ❌    | ✅    | ✅     |
-+------------------+-------+-------+--------+
++------------------+-------+-------+--------+--------+
+| Scapy version    | 2.3.3 | 2.5.0 | >2.5.0 | >2.8.0 |
++==================+=======+=======+========+========+
+| Python 2.2-2.6   | ✅    | ❌    | ❌     | ❌     |
++------------------+-------+-------+--------+--------+
+| Python 2.7       | ✅    | ✅    | ❌     | ❌     |
++------------------+-------+-------+--------+--------+
+| Python 3.4-3.6   | ❌    | ✅    | ❌     | ❌     |
++------------------+-------+-------+--------+--------+
+| Python 3.7-3.8   | ❌    | ✅    | ✅     | ❌     |
++------------------+-------+-------+--------+--------+
+| Python 3.9-3.14  | ❌    | ✅    | ✅     |  ✅    |
++------------------+-------+-------+--------+--------+
 
 Installing Scapy v2.x
 =====================

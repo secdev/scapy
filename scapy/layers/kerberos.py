@@ -954,8 +954,7 @@ class LSAP_TOKEN_INFO_INTEGRITY(Packet):
             },
         ),
         MayEnd(XStrFixedLenField("MachineID", b"", length=32)),
-        # KB 5068222 - still waiting for [MS-KILE] update (oct. 2025)
-        XStrFixedLenField("PermanentMachineID", b"", length=32),
+        XStrFixedLenField("CrossBootMachineID", b"", length=32),
     ]
 
 
@@ -4038,6 +4037,8 @@ class KerberosClient(Automaton):
                     cksumtype=ChecksumType.RSA_MD4,
                 )
             else:
+                # Use subkey if available (=subkey), else TGT session key (=key).
+                # NB: undocumented right now -- gpo2
                 pasfux509.checksum.make(
                     self.subkey or self.key,
                     bytes(pasfux509.userId),
@@ -4065,8 +4066,9 @@ class KerberosClient(Automaton):
                         + paforuser.authPackage.val
                     ).encode()
                 )
+                # Always use TGT session key (=key)
                 paforuser.cksum.make(
-                    self.subkey or self.key,
+                    self.key,
                     S4UByteArray,
                     cksumtype=ChecksumType.HMAC_MD5,
                 )
@@ -5687,7 +5689,7 @@ class KerberosSSP(SSP):
                                             adData=KERB_AD_RESTRICTION_ENTRY(
                                                 restriction=LSAP_TOKEN_INFO_INTEGRITY(
                                                     MachineID=bytes(RandBin(32)),
-                                                    PermanentMachineID=bytes(
+                                                    CrossBootMachineID=bytes(
                                                         RandBin(32)
                                                     ),
                                                 )

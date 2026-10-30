@@ -1551,7 +1551,7 @@ class Dot11EltVHTOperation(Dot11Elt):
         ),
         FieldListField(
             "mcs_set",
-            [0x00],
+            [0x00] * 8,
             BitField('SS', 0x00, size=2),
             count_from=lambda x: 8
         )
@@ -1568,10 +1568,10 @@ class Dot11EltExtension(Dot11Elt):
     ID = 255
     fields_desc = [
         ByteEnumField("ID", 255, _dot11_id_enum),
-        ByteField("len", 0),
+        ByteField("len", None),
         ConditionalField(
             ByteField("ext_ID", 0),
-            lambda pkt: pkt.len > 0
+            lambda pkt: pkt.len is None or pkt.len > 0
         ),
     ]
 
@@ -1657,7 +1657,7 @@ class Dot11EltHEOperation(Dot11EltExtension):
         # Basic HE-MCS and NSS Set: 2B
         FieldListField(
             "basic_he_mcs_and_nss_set",
-            [0x00],
+            [0x00] * 8,
             BitField('SS', 0x00, size=2),
             count_from=lambda x: 8
         ),
@@ -1769,7 +1769,7 @@ class Dot11EltEHTOperation(Dot11EltExtension):
             ),
             lambda p: (
                 p.eht_operation_information_present == 1 and
-                p.len >= 9
+                (p.len is None or p.len >= 9)
             )),
 
         ConditionalField(
@@ -1777,7 +1777,7 @@ class Dot11EltEHTOperation(Dot11EltExtension):
             lambda p: (
                 p.eht_operation_information_present == 1 and
                 p.disabled_subchannel_bitmap_present == 1 and
-                p.len >= 11
+                (p.len is None or p.len >= 11)
             )),
     ]
 

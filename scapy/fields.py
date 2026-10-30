@@ -1590,9 +1590,11 @@ class _PacketFieldSingle(_PacketField[K]):
         # type: (...) -> Tuple[bytes, K]
         i = self.m2i(pkt, s)
         remain = b""
-        if conf.padding_layer in i:
-            r = i[conf.padding_layer]
-            del r.underlayer.payload
+        # Dissection always appends Padding last, so checking the topmost
+        # layer avoids a full recursive haslayer()+getlayer() lookup.
+        r = i.lastlayer()
+        if isinstance(r, conf.padding_layer):
+            del r.underlayer.payload  # type: ignore
             remain = r.load
         return remain, i  # type: ignore
 
@@ -1835,10 +1837,10 @@ class PacketListField(_PacketField[List[BasePacket]]):
                 p = conf.raw_layer(load=remain)
                 remain = b""
             else:
-                if conf.padding_layer in p:
-                    pad = p[conf.padding_layer]
+                pad = p.lastlayer()
+                if isinstance(pad, conf.padding_layer):
                     remain = pad.load
-                    del pad.underlayer.payload
+                    del pad.underlayer.payload  # type: ignore
                     if self.next_cls_cb is not None:
                         cls = self.next_cls_cb(pkt, lst, p, remain)
                         if cls is not None:
@@ -3591,10 +3593,14 @@ class UTCTimeField(Field[float, int]):
         x += self.delta
         # To make negative timestamps work on all plateforms (e.g. Windows),
         # we need a trick.
-        t = (
-            datetime.datetime(1970, 1, 1) +
-            datetime.timedelta(seconds=x)
-        ).strftime(self.strf)
+        try:
+            t = (
+                datetime.datetime(1970, 1, 1) +
+                datetime.timedelta(seconds=x)
+            ).strftime(self.strf)
+        except OverflowError:
+            # Outside of the years datetime supports (1 to 9999)
+            return "%d" % x
         return "%s (%d)" % (t, int(x))
 
     def i2m(self, pkt, x):

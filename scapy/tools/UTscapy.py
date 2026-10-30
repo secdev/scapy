@@ -1117,9 +1117,6 @@ def main():
         if VERB > 2:
             print(" " + arrow + " libpcap mode")
 
-    if sys.version_info < (3, 8):
-        KW_KO.append("needs_py38plus")
-
     KW_KO.append("disabled")
 
     if ANNOTATIONS_MODE:

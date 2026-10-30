@@ -994,6 +994,8 @@ class SMB_SOCKET(SuperSocket):
                         x.LastWriteTime,
                     )
                     for x in res.files
+                    # strip invalid file names
+                    if "/" not in x.FileName
                 ]
             )
         return results

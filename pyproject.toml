@@ -1,5 +1,5 @@
 [build-system]
-requires = [ "setuptools>=62.0.0" ]
+requires = [ "setuptools>=77.0.0" ]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -16,7 +16,7 @@ maintainers = [
     { name="Nils WEISS" },
 ]
 license = "GPL-2.0-only"
-requires-python = ">=3.7, <4"
+requires-python = ">=3.9, <4"
 description = "Scapy: interactive packet manipulation tool"
 keywords = [ "network" ]
 classifiers = [
@@ -29,8 +29,6 @@ classifiers = [
     "Intended Audience :: Telecommunications Industry",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

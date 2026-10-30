@@ -337,12 +337,14 @@ class ModbusPDU11ReportSlaveIdResponse(Packet):
     name = "Report Slave Id Response"
     fields_desc = [
         XByteField("funcCode", 0x11),
-        BitFieldLenField("byteCount", None, 8, length_of="slaveId"),
+        # byteCount covers slaveId and runIdicatorStatus
+        BitFieldLenField("byteCount", None, 8, length_of="slaveId",
+                         adjust=lambda pkt, x: x + 1),
         ConditionalField(StrLenField("slaveId", "",
-                                     length_from=lambda pkt: pkt.byteCount),
-                         lambda pkt: pkt.byteCount > 0),
+                                     length_from=lambda pkt: pkt.byteCount - 1),
+                         lambda pkt: pkt.byteCount != 0),
         ConditionalField(XByteField("runIdicatorStatus", 0x00),
-                         lambda pkt: pkt.byteCount > 0),
+                         lambda pkt: pkt.byteCount != 0),
     ]
 
 

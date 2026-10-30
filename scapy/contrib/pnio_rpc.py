@@ -18,7 +18,7 @@ from scapy.config import conf
 from scapy.fields import BitField, ByteField, BitEnumField, ByteEnumField, \
     ConditionalField, FieldLenField, FieldListField, IntField, IntEnumField, \
     LenField, MACField, PadField, PacketField, PacketListField, \
-    ShortEnumField, ShortField, StrFixedLenField, StrLenField, \
+    ShortEnumField, ShortField, StrField, StrFixedLenField, StrLenField, \
     UUIDField, XByteField, XIntField, XShortEnumField, XShortField
 from scapy.layers.dcerpc import DceRpc4, DceRpc4Payload
 from scapy.contrib.rtps.common_types import EField
@@ -1275,8 +1275,7 @@ class PRAL_AlarmItem(AlarmItem):
         XShortField("PRAL_ChannelProperties", 0),
         XShortField("PRAL_Reason", 0),
         XShortField("PRAL_ExtReason", 0),
-        StrLenField("PRAL_ReasonAddValue", "",
-                    length_from=lambda x:x.len - 10),
+        StrField("PRAL_ReasonAddValue", ""),
     ]
 
 

@@ -25,8 +25,6 @@ from typing import (
 __all__ = [
     # typing
     'DecoratorCallable',
-    'Literal',
-    'Protocol',
     'Self',
     'UserDict',
     # compat
@@ -73,17 +71,6 @@ def _FakeType(name, cls=object):
             # type: () -> str
             return "<Fake typing.%s>" % self.name
     return _FT(name)
-
-
-# Python 3.8 Only
-if sys.version_info >= (3, 8):
-    from typing import Literal
-    from typing import Protocol
-else:
-    Literal = _FakeType("Literal")
-
-    class Protocol:
-        pass
 
 
 # Python 3.9 Only
