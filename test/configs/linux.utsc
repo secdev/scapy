@@ -16,8 +16,7 @@
   ],
   "remove_testfiles": [
     "test/windows.uts",
-    "test/bpf.uts",
-    "test/scapy/layers/cbor_cbor2_interop.uts"
+    "test/bpf.uts"
   ],
   "breakfailed": true,
   "onlyfailed": true,
@@ -29,7 +28,6 @@
   "kw_ko": [
     "osx",
     "windows",
-    "ipv6",
-    "external_cbor2"
+    "ipv6"
   ]
 }

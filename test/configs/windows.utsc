@@ -15,8 +15,7 @@
   ],
   "remove_testfiles": [
     "test\\bpf.uts",
-    "test\\linux.uts",
-    "test\\scapy\\layers\\cbor_cbor2_interop.uts"
+    "test\\linux.uts"
   ],
   "breakfailed": true,
   "onlyfailed": true,
@@ -38,7 +37,6 @@
     "tap",
     "tun",
     "vcan_socket",
-    "zstd",
-    "external_cbor2"
+    "zstd"
   ]
 }

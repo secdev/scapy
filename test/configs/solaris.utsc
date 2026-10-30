@@ -19,8 +19,7 @@
     "test/windows.uts",
     "test/contrib/automotive/ecu_am.uts",
     "test/contrib/automotive/gm/gmlanutils.uts",
-    "test/contrib/isotpscan.uts",
-    "test/scapy/layers/cbor_cbor2_interop.uts"
+    "test/contrib/isotpscan.uts"
   ],
   "onlyfailed": true,
   "extensions": ["scapy-rpc"],
@@ -36,7 +35,6 @@
     "ipv6",
     "tap",
     "tun",
-    "vcan_socket",
-    "external_cbor2"
+    "vcan_socket"
   ]
 }

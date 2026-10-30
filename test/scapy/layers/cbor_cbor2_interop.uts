@@ -1329,6 +1329,19 @@ assert cbor2.loads(bytes(pkt)) == [{"x": [1, 2]}, 0]
 
 + Seeded randomized differential corpora
 
+= 512 seeded values agree with Scapy in all cbor2 encoding modes
+
+rng = random.Random(0xCB020301)
+for index in range(512):
+    value = rr_random_value(rng)
+    for options in ({}, {"canonical": True}, {"indefinite_containers": True}):
+        wire, obj = rr_assert_cbor2_value(value, **options)
+        pkt = RRCbor2AnyRoot(wire)
+        pkt.clear_cache()
+        expected = rr_norm_cbor2(rr_cbor2_load(wire))
+        actual = rr_norm_cbor2(rr_cbor2_load(bytes(pkt)))
+        assert actual == expected, (index, options, wire.hex(), expected, actual)
+
 = 256 canonical non-float values are byte-identical through generic Scapy
 
 rng = random.Random(0xCB020101)

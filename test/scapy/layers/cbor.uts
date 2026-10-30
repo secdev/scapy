@@ -6,7 +6,7 @@
 #
 # Interoperability / cbor2 differential tests live in:
 #   test/scapy/layers/cbor_cbor2_interop.uts
-# (requires: pip install -r test/scapy/layers/requirements-cbor2.txt)
+# (cbor2 is installed by the standard tox environment on Python >= 3.10)
 
 ########### CBOR Basic Types #######################################
 
