@@ -18,7 +18,7 @@ assert pkt[DTP].tlvlist[3].status == b'\x03'
 
 from unittest import mock
 
-def test_pkt(pkt):
+def test_pkt(pkt, iface=None):
     pkt = Ether(raw(pkt))
     assert DTP in pkt
     assert len(pkt[DTP].tlvlist) == 4

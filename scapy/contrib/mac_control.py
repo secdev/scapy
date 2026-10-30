@@ -30,7 +30,6 @@
 
 """
 
-from scapy.compat import orb
 from scapy.data import ETHER_TYPES
 from scapy.error import Scapy_Exception
 from scapy.fields import IntField, ByteField, ByteEnumField, ShortField, BitField  # noqa: E501
@@ -84,7 +83,7 @@ class MACControl(Packet):
     def guess_payload_class(self, payload):
 
         try:
-            op_code = (orb(payload[0]) << 8) + orb(payload[1])
+            op_code = (payload[0] << 8) + payload[1]
             return MAC_CTRL_CLASSES[op_code]
         except KeyError:
             pass

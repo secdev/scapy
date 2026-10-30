@@ -57,6 +57,7 @@ from scapy.packet import (
     bind_top_down,
 )
 from scapy.layers.inet import UDP
+from scapy.volatile import RandBin
 
 ###############################################################################
 if conf.crypto_valid:
@@ -91,7 +92,7 @@ class PSP(Packet):
         BitField("is_virt", 0, 1),
         BitField("one_bit", 1, 1),
         XIntField('spi', 0x00),
-        StrFixedLenField('iv', '\x00' * 8, 8),
+        StrFixedLenField('iv', RandBin(8), 8),
         ConditionalField(XIntField("virtkey", 0x00), lambda pkt: pkt.is_virt == 1),
         ConditionalField(XIntField("sectoken", 0x00), lambda pkt: pkt.is_virt == 1),
         XStrField('data', None),
@@ -120,7 +121,7 @@ class PSP(Packet):
         """
         cipher = self.sanitize_cipher()
         encrypt_start_offset = 16 + self.cryptoffset * 4
-        iv = struct.pack("!L", self.spi) + self.iv
+        iv = struct.pack("!L", self.spi) + bytes(self.iv)
         plain = b''
         to_encrypt = bytes(self.data)
         self.data = b''

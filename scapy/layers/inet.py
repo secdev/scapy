@@ -15,7 +15,7 @@ import select
 import socket
 from collections import defaultdict
 
-from scapy.utils import checksum, do_graph, incremental_label, \
+from scapy.utils import checksum, do_graph, graphviz_escape, incremental_label, \
     linehexdump, strxor, whois, colgen
 from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Gen, Net, _ScopedIP
@@ -40,7 +40,7 @@ from scapy.layers.l2 import (
     arpcachepoison,
     getmacbyip,
 )
-from scapy.compat import raw, chb, orb, bytes_encode, Optional
+from scapy.compat import raw, chb, bytes_encode, Optional
 from scapy.config import conf
 from scapy.fields import (
     BitEnumField,
@@ -160,7 +160,7 @@ class IPOption(Packet):
     @classmethod
     def dispatch_hook(cls, pkt=None, *args, **kargs):
         if pkt:
-            opt = orb(pkt[0]) & 0x1f
+            opt = pkt[0] & 0x1f
             if opt in cls.registered_ip_options:
                 return cls.registered_ip_options[opt]
         return cls
@@ -412,7 +412,7 @@ class TCPOptionsField(StrField):
     def m2i(self, pkt, x):
         opt = []
         while x:
-            onum = orb(x[0])
+            onum = x[0]
             if onum == 0:
                 opt.append(("EOL", None))
                 break
@@ -421,7 +421,7 @@ class TCPOptionsField(StrField):
                 x = x[1:]
                 continue
             try:
-                olen = orb(x[1])
+                olen = x[1]
             except IndexError:
                 olen = 0
             if olen < 2:
@@ -729,10 +729,12 @@ def calc_tcp_md5_hash(tcp, key):
 
     h = hashlib.md5()  # nosec
     tcp_bytes = bytes(tcp)
+    doff = tcp_bytes[12] >> 4
     h.update(tcp_pseudoheader(tcp))
     h.update(tcp_bytes[:16])
     h.update(b"\x00\x00")
-    h.update(tcp_bytes[18:])
+    h.update(tcp_bytes[18:20])
+    h.update(tcp_bytes[doff << 2:])
     h.update(key)
 
     return h.digest()
@@ -741,8 +743,9 @@ def calc_tcp_md5_hash(tcp, key):
 def sign_tcp_md5(tcp, key):
     # type: (TCP, bytes) -> None
     """Append TCP-MD5 signature to tcp packet"""
+    tcp.options = tcp.options + [('MD5', b'')]
     sig = calc_tcp_md5_hash(tcp, key)
-    tcp.options = tcp.options + [('MD5', sig)]
+    tcp.options[-1] = ('MD5', sig)
 
 
 class TCP(Packet):
@@ -765,7 +768,7 @@ class TCP(Packet):
         if dataofs is None:
             opt_len = len(self.get_field("options").i2m(self, self.options))
             dataofs = 5 + ((opt_len + 3) // 4)
-            dataofs = (dataofs << 4) | orb(p[12]) & 0x0f
+            dataofs = (dataofs << 4) | p[12] & 0x0f
             p = p[:12] + chb(dataofs & 0xff) + p[13:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
@@ -2057,7 +2060,10 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
             s += '\t\tcolor="#%s%s%s";' % col
             s += '\t\tnode [fillcolor="#%s%s%s",style=filled];' % col
             s += '\t\tfontsize = 10;'
-            s += '\t\tlabel = "%s\\n[%s]"\n' % (asn, ASDs[asn])
+            s += '\t\tlabel = "%s\\n[%s]"\n' % (
+                graphviz_escape(asn),
+                graphviz_escape(ASDs[asn]),
+            )
             for ip in ASNs[asn]:
 
                 s += '\t\t"%s";\n' % ip

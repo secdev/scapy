@@ -964,6 +964,8 @@ class DceRpc5(DceRpc):
     def tcp_reassemble(cls, data, _, session):
         if data[0:1] != b"\x05":
             return
+        if len(data) < 10:
+            return
         endian = struct.unpack("!B", data[4:5])[0] >> 4
         if endian not in [0, 1]:
             return
@@ -1157,6 +1159,7 @@ class DceRpc5BindNak(_DceRpcPayload):
             lambda pkt: pkt.fields.get("signature", None)
             or (
                 pkt.underlayer
+                and pkt.n_protocols
                 and pkt.underlayer.frag_len >= 24 + pkt.n_protocols * 2 + 16
             ),
         ),
@@ -2818,6 +2821,8 @@ class DceRpcSession(DefaultSession):
     def __init__(self, *args, **kwargs):
         self.rpc_bind_interface: Union[DceRpcInterface, ComInterface] = None
         self.rpc_bind_is_com: bool = False
+        self.rpc_bind_interface_commit: Union[DceRpcInterface, ComInterface] = None
+        self.rpc_bind_is_com_commit: bool = False
         self.ndr64 = False
         self.ndrendian = "little"
         self.support_header_signing = kwargs.pop("support_header_signing", True)
@@ -2837,10 +2842,22 @@ class DceRpcSession(DefaultSession):
                 self.sniffsspcontexts[ssp] = None
         super(DceRpcSession, self).__init__(*args, **kwargs)
 
-    def _up_pkt(self, pkt):
+    def commit_rpc_interface(self):
+        """
+        Called by the client/server when the current context is accepted
+        """
+        self.rpc_bind_interface = self.rpc_bind_interface_commit
+        self.rpc_bind_is_com = self.rpc_bind_is_com_commit
+        self.rpc_bind_interface_commit = None
+        self.rpc_bind_is_com_commit = False
+
+    def _up_pkt(self, pkt, commit=True):
         """
         Common function to handle the DCE/RPC session: what interfaces are bind,
         opnums, etc.
+
+        :param commit: whether to commit bind information immediately, or wait for the
+                       parent to call commit_rpc_interface().
         """
         opnum = None
         opts = {}
@@ -2851,17 +2868,21 @@ class DceRpcSession(DefaultSession):
                 if_uuid = ctx.abstract_syntax.if_uuid
                 if_version = ctx.abstract_syntax.if_version
                 try:
-                    self.rpc_bind_interface = DCE_RPC_INTERFACES[(if_uuid, if_version)]
-                    self.rpc_bind_is_com = False
+                    self.rpc_bind_interface_commit = DCE_RPC_INTERFACES[
+                        (if_uuid, if_version)
+                    ]
+                    self.rpc_bind_is_com_commit = False
                 except KeyError:
                     try:
-                        self.rpc_bind_interface = COM_INTERFACES[if_uuid]
-                        self.rpc_bind_is_com = True
+                        self.rpc_bind_interface_commit = COM_INTERFACES[if_uuid]
+                        self.rpc_bind_is_com_commit = True
                     except KeyError:
-                        self.rpc_bind_interface = None
+                        self.rpc_bind_interface_commit = None
                         log_runtime.warning(
                             "Unknown RPC interface %s. Try loading the IDL" % if_uuid
                         )
+                if commit:
+                    self.commit_rpc_interface()
         elif DceRpc5BindAck in pkt or DceRpc5AlterContextResp in pkt:
             # bind ack => is it NDR64
             for i, res in enumerate(pkt.results):
@@ -2967,6 +2988,15 @@ class DceRpcSession(DefaultSession):
                 if not body:
                     # It's the last one
                     pkt_frag.pfc_flags += "PFC_LAST_FRAG"
+                else:
+                    # [MS-RPCE] sect 2.2.2.13 - Verification Trailer
+                    # "only the last PDU of the request MUST have a verification
+                    # trailer"
+                    pkt_frag.vt_trailer = None
+
+                # Update payload for frag_len calculation
+                pkt_frag.payload.payload = conf.raw_layer(load=b"\x00" * len(cur))
+
                 yield pkt_frag, cur
         else:
             yield pkt, body
@@ -2986,11 +3016,22 @@ class DceRpcSession(DefaultSession):
     # message SHOULD be ignored.
     # Similarly the signature output SHOULD be ignored.
 
-    def in_pkt(self, pkt):
+    def in_pkt(self, pkt, commit=True):
         # Check for encrypted payloads
         body = None
         if conf.raw_layer in pkt.payload:
             body = bytes(pkt.payload[conf.raw_layer])
+        if (
+            self.sspcontext is not None
+            and self.auth_level
+            in (
+                RPC_C_AUTHN_LEVEL.PKT_INTEGRITY,
+                RPC_C_AUTHN_LEVEL.PKT_PRIVACY,
+            )
+            and isinstance(pkt.payload, (DceRpc5Request, DceRpc5Response))
+            and not (pkt.auth_verifier and pkt.auth_verifier.is_protected())
+        ):
+            raise ValueError("DCE/RPC packet protection is required !")
         # If we are doing passive sniffing
         if conf.dcerpc_session_enable and conf.winssps_passive:
             # We have Windows SSPs, and no current context
@@ -3117,7 +3158,7 @@ class DceRpcSession(DefaultSession):
             if not body:
                 return
         # Get opnum and options
-        opnum, opts = self._up_pkt(pkt)
+        opnum, opts = self._up_pkt(pkt, commit=commit)
         # Try to parse the payload
         if opnum is not None and self.rpc_bind_interface:
             # use opnum to parse the payload
@@ -3171,7 +3212,7 @@ class DceRpcSession(DefaultSession):
                 pkt /= payload
                 # If a request was encrypted, we need to re-register it once re-parsed.
                 if not is_response and self.auth_level == RPC_C_AUTHN_LEVEL.PKT_PRIVACY:
-                    self._up_pkt(pkt)
+                    self._up_pkt(pkt, commit=commit)
             elif not cls.fields_desc:
                 # Request class has no payload
                 pkt /= cls(ndr64=self.ndr64, ndrendian=self.ndrendian, **opts)

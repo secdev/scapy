@@ -59,6 +59,44 @@ try:
 except BER_Decoding_Error:
     pass
 
+= snmpwalk stops on endOfMibView
+~ SNMP ASN1
+
+from scapy.asn1.asn1 import ASN1_NULL
+from scapy.layers import snmp as snmp_module
+
+class WalkDidNotStop(Exception):
+    pass
+
+queries = []
+response = IP()/UDP()/SNMP(
+    version="v2c",
+    PDU=SNMPresponse(
+        varbindlist=[SNMPvarbind(oid=ASN1_OID("1.3"), endOfMibView=ASN1_NULL(0))],
+    ),
+)
+
+def end_of_mib_response(query, **kwargs):
+    oid = query[SNMPvarbind].oid
+    queries.append(getattr(oid, "val", oid))
+    if len(queries) > 3:
+        raise WalkDidNotStop
+    return response
+
+saved_sr1 = snmp_module.sr1
+snmp_module.sr1 = end_of_mib_response
+completed = True
+try:
+    try:
+        snmp_module.snmpwalk("198.51.100.20", oid="1.3")
+    except WalkDidNotStop:
+        completed = False
+finally:
+    snmp_module.sr1 = saved_sr1
+
+assert completed
+assert queries == ["1.3"]
+
 #= Test snmpwalk()
 #
 #~ netaccess

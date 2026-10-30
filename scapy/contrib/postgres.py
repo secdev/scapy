@@ -138,7 +138,7 @@ def determine_pg_field(pkt, lst, cur, remain):
     if key in pkt.cls_mapping:
         return pkt.cls_mapping[key]
     elif remain[0:1] == b"\x00" and len(remain) >= 4:
-        length = struct.unpack("!I", remain[0:3])[0]
+        length = struct.unpack("!I", remain[0:4])[0]
         if length == 0:
             return KeepAlive
         elif length == 8:
@@ -164,9 +164,9 @@ class _BasePostgres(Packet, TCPSession):
     fields_desc = [PacketListField("contents", [], next_cls_cb=determine_pg_field)]
 
     @classmethod
-    def tcp_reassemble(cls, data, metadata):
+    def tcp_reassemble(cls, data, metadata, session):
         if data and data[0:1] == b"\x00":
-            length = struct.unpack("!I", data[0:3])[0]
+            length = struct.unpack("!I", data[0:4])[0]
             if length == 8:
                 return SSLRequest(data)
             else:
@@ -780,7 +780,7 @@ class PostgresFrontend(_BasePostgres):
     cls_mapping = FRONTEND_TAG_TO_PACKET_CLS
 
     @classmethod
-    def tcp_reassemble(cls, data, metadata):
+    def tcp_reassemble(cls, data, metadata, session):
         msgs = PostgresFrontend(data)
         if msgs.contents and "Sync" in msgs.contents[-1]:
             return msgs
@@ -790,7 +790,7 @@ class PostgresBackend(_BasePostgres):
     cls_mapping = BACKEND_TAG_TO_PACKET_CLS
 
     @classmethod
-    def tcp_reassemble(cls, data, metadata):
+    def tcp_reassemble(cls, data, metadata, session):
         msgs = PostgresBackend(data)
         if msgs.contents and "ReadyForQuery" in msgs.contents[-1]:
             return msgs

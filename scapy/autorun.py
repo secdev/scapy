@@ -66,7 +66,7 @@ def autorun_commands(_cmds, my_globals=None, verb=None):
                 my_globals = _scapy_builtins()
             interp = ScapyAutorunInterpreter(locals=my_globals)
             try:
-                del builtins.__dict__["scapy_session"]["_"]
+                del builtins.__dict__["_"]
             except KeyError:
                 pass
             if verb is not None:
@@ -113,10 +113,7 @@ def autorun_commands(_cmds, my_globals=None, verb=None):
             pass
     finally:
         conf.verb = sv
-    try:
-        return builtins.__dict__["scapy_session"]["_"]
-    except KeyError:
-        return builtins.__dict__.get("_", None)
+    return builtins.__dict__.get("_", None)
 
 
 def autorun_commands_timeout(cmds, timeout=None, **kwargs):
@@ -128,18 +125,24 @@ def autorun_commands_timeout(cmds, timeout=None, **kwargs):
     if timeout is None:
         return autorun_commands(cmds, **kwargs)
 
-    q = Queue()  # type: Queue[Any]
+    q = Queue()  # type: Queue[Tuple[bool, Any]]
 
     def _runner():
         # type: () -> None
-        q.put(autorun_commands(cmds, **kwargs))
+        try:
+            q.put((False, autorun_commands(cmds, **kwargs)))
+        except BaseException as e:
+            q.put((True, e))
     th = threading.Thread(target=_runner)
     th.daemon = True
     th.start()
     th.join(timeout)
     if th.is_alive():
         raise StopAutorunTimeout
-    return q.get()
+    is_exc, result = q.get()
+    if is_exc:
+        raise result
+    return result
 
 
 class StringWriter(StringIO):
@@ -257,7 +260,18 @@ def autorun_get_html_interactive_session(cmds, **kargs):
 
     def to_html(s):
         # type: (str) -> str
-        return s.replace("<", "&lt;").replace(">", "&gt;").replace("#[#", "<").replace("#]#", ">")  # noqa: E501
+        s = s.replace("<", "&lt;").replace(">", "&gt;")
+        for css_class in (
+            "prompt", "not_printable", "layer_name", "field_name",
+            "field_value", "emph_field_name", "emph_field_value",
+            "packetlist_name", "packetlist_proto", "packetlist_value",
+            "fail", "success", "even", "odd", "left", "right",
+        ):
+            s = s.replace(
+                "#[#span class=%s#]#" % css_class,
+                "<span class=%s>" % css_class,
+            )
+        return s.replace("#[#/span#]#", "</span>")
     try:
         try:
             conf.color_theme = HTMLTheme2()

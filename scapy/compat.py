@@ -19,15 +19,12 @@ from typing import (
     Optional,
     TypeVar,
     TYPE_CHECKING,
-    Union,
 )
 
 # Very important: will issue typing errors otherwise
 __all__ = [
     # typing
     'DecoratorCallable',
-    'Literal',
-    'Protocol',
     'Self',
     'UserDict',
     # compat
@@ -37,7 +34,6 @@ __all__ = [
     'bytes_hex',
     'chb',
     'hex_bytes',
-    'orb',
     'plain_str',
     'raw',
     'StrEnum',
@@ -75,17 +71,6 @@ def _FakeType(name, cls=object):
             # type: () -> str
             return "<Fake typing.%s>" % self.name
     return _FT(name)
-
-
-# Python 3.8 Only
-if sys.version_info >= (3, 8):
-    from typing import Literal
-    from typing import Protocol
-else:
-    Literal = _FakeType("Literal")
-
-    class Protocol:
-        pass
 
 
 # Python 3.9 Only
@@ -157,14 +142,6 @@ def chb(x):
     # type: (int) -> bytes
     """Same than chr() but encode as bytes."""
     return struct.pack("!B", x)
-
-
-def orb(x):
-    # type: (Union[int, str, bytes]) -> int
-    """Return ord(x) when not already an int."""
-    if isinstance(x, int):
-        return x
-    return ord(x)
 
 
 def bytes_hex(x):

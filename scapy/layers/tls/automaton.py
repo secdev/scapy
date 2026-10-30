@@ -93,6 +93,9 @@ class _TLSAutomaton(Automaton):
         else:
             self.mykey = None
 
+        # Output of the automaton (final status)
+        self.final_reason = None
+
     def get_next_msg(self, socket_timeout=2, retry=2):
         """
         The purpose of the function is to make next message(s) available in
@@ -168,12 +171,21 @@ class _TLSAutomaton(Automaton):
 
         if (byte0 == 0x17 and
                 (self.cur_session.advertised_tls_version >= 0x0304 or
-                 self.cur_session.tls_version >= 0x0304)):
-            p = TLS13(self.remain_in, tls_session=self.cur_session)
+                 (self.cur_session.tls_version is not None and
+                  self.cur_session.tls_version >= 0x0304))):
+            p = TLS13(
+                self.remain_in,
+                tls_session=self.cur_session,
+                strict_integrity=True,
+            )
             self.remain_in = b""
             self.buffer_in += p.inner.msg
         else:
-            p = TLS(self.remain_in, tls_session=self.cur_session)
+            p = TLS(
+                self.remain_in,
+                tls_session=self.cur_session,
+                strict_integrity=True,
+            )
             self.cur_session = p.tls_session
             self.remain_in = b""
             if isinstance(p, SSLv2) and not p.msg:

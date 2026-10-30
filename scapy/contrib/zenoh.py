@@ -40,7 +40,7 @@ References:
   ``commons/zenoh-codec`` hold the normative wire format description)
 """
 
-from scapy.compat import chb, orb
+from scapy.compat import chb
 from scapy.config import conf
 from scapy.fields import (
     BitEnumField,
@@ -316,7 +316,7 @@ def zenoh_zint_decode(s):
     """
     value = 0
     for i in range(min(len(s), ZENOH_ZINT_MAX_LEN)):
-        b = orb(s[i])
+        b = s[i]
         if i == ZENOH_ZINT_MAX_LEN - 1:
             return value | (b << (7 * i)), i + 1
         value |= (b & 0x7F) << (7 * i)
@@ -603,7 +603,7 @@ class ZenohExtensionsField(PacketListField):
         parts = [self.i2m(pkt, v) for v in val]
         parts = [p for p in parts if p]
         for i, part in enumerate(parts):
-            first = orb(part[0])
+            first = part[0]
             if i < len(parts) - 1:
                 first |= 0x80
             else:
@@ -668,10 +668,10 @@ class _ZenohMsg(Packet):
             if flag in self.fields or len(p) <= index:
                 continue
             if _is_set(self.fields.get(name)):
-                p = p[:index] + chb(orb(p[index]) | mask) + p[index + 1:]
+                p = p[:index] + chb(p[index] | mask) + p[index + 1:]
         # The Z flag is bit 7 of the header byte of every zenoh message.
         if p and self.extensions and "flag_z" not in self.fields:
-            p = chb(orb(p[0]) | 0x80) + p[1:]
+            p = chb(p[0] | 0x80) + p[1:]
         return p + pay
 
     def extract_padding(self, s):
@@ -691,7 +691,7 @@ class _ZenohMsgWithBody(_ZenohMsg):
 def _guess_msg_class(payload, table):
     if not payload:
         return conf.padding_layer
-    return table.get(orb(payload[0]) & 0x1F, conf.raw_layer)
+    return table.get(payload[0] & 0x1F, conf.raw_layer)
 
 
 def _interest_option(pkt, mask):
@@ -716,7 +716,7 @@ class ZenohScouting(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            return _SCOUTING_MSG_CLASSES.get(orb(_pkt[0]) & 0x1F,
+            return _SCOUTING_MSG_CLASSES.get(_pkt[0] & 0x1F,
                                              conf.raw_layer)
         return cls
 
@@ -1741,7 +1741,7 @@ class ZenohStreamBatch(Packet):
         # Several batches may share one segment, but a truncated batch is
         # better left alone than dissected into nonsense.
         if len(payload) > 2:
-            length = orb(payload[0]) | (orb(payload[1]) << 8)
+            length = payload[0] | (payload[1] << 8)
             if 0 < length <= len(payload) - 2:
                 return ZenohStreamBatch
         return Packet.guess_payload_class(self, payload)
@@ -1814,7 +1814,7 @@ def _next_transport_msg(remain):
     """Class of the next transport message of a batch, if any."""
     if not remain:
         return None
-    return _TRANSPORT_MSG_CLASSES.get(orb(remain[0]) & 0x1F, conf.raw_layer)
+    return _TRANSPORT_MSG_CLASSES.get(remain[0] & 0x1F, conf.raw_layer)
 
 
 def _next_network_msg(remain):
@@ -1825,7 +1825,7 @@ def _next_network_msg(remain):
     """
     if not remain:
         return None
-    return _NETWORK_MSG_CLASSES.get(orb(remain[0]) & 0x1F)
+    return _NETWORK_MSG_CLASSES.get(remain[0] & 0x1F)
 
 
 def _key_expr_repr(pkt):

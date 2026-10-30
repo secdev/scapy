@@ -23,7 +23,6 @@ from typing import (
     Union, Type,
 )
 
-from scapy.compat import orb
 from scapy.contrib.cansocket import PYTHON_CAN
 from scapy.contrib.isotp import ISOTPHeader_FD
 from scapy.contrib.isotp.isotp_packet import ISOTPHeader, ISOTPHeaderEA, \
@@ -151,8 +150,8 @@ def get_isotp_fc(
 
     try:
         index = 1 if extended else 0
-        isotp_pci = orb(packet.data[index]) >> 4
-        isotp_fc = orb(packet.data[index]) & 0x0f
+        isotp_pci = packet.data[index] >> 4
+        isotp_fc = packet.data[index] & 0x0f
         if isotp_pci == 3 and 0 <= isotp_fc <= 2:
             log_isotp.info("Found flow-control frame from identifier "
                            "0x%03x when testing identifier 0x%03x",
@@ -422,7 +421,7 @@ def generate_text_output(found_packets, extended_addressing=False, fd=False):
         if extended_addressing:
             send_id = pack // 256
             send_ext = pack - (send_id * 256)
-            ext_id = hex(orb(found_packets[pack][0].data[0]))
+            ext_id = hex(found_packets[pack][0].data[0])
             text += "\nSend to ID:             %s" \
                     "\nSend to extended ID:    %s" \
                     "\nReceived ID:            %s" \
@@ -479,7 +478,7 @@ def generate_code_output(found_packets, can_interface="iface",
         if extended_addressing:
             send_id = pack // 256
             send_ext = pack - (send_id * 256)
-            ext_id = orb(found_packets[pack][0].data[0])
+            ext_id = found_packets[pack][0].data[0]
             result += "ISOTPSocket(%s, tx_id=0x%x, rx_id=0x%x, padding=%s, " \
                       "ext_address=0x%x, rx_ext_address=0x%x, fd=%s, " \
                       "basecls=ISOTP)\n" % \
@@ -527,7 +526,7 @@ def generate_json_output(found_packets,  # type: Dict[int, Tuple[Packet, int]]
         if extended_addressing:
             source_id = pack >> 8
             source_ext = int(pack - (source_id * 256))
-            dest_ext = orb(pkt.data[0])
+            dest_ext = pkt.data[0]
             socket_list.append({"iface": can_interface,
                                 "tx_id": source_id,
                                 "ext_address": source_ext,
@@ -576,7 +575,7 @@ def generate_isotp_list(found_packets,  # type: Dict[int, Tuple[Packet, int]]
         if extended_addressing:
             source_id = pack >> 8
             source_ext = int(pack - (source_id * 256))
-            dest_ext = orb(pkt.data[0])
+            dest_ext = pkt.data[0]
             socket_list.append(ISOTPSocket(can_interface, tx_id=source_id,
                                            ext_address=source_ext,
                                            rx_id=dest_id,

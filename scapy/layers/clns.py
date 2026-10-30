@@ -20,7 +20,6 @@ from scapy.config import conf
 from scapy.fields import ByteEnumField, PacketField
 from scapy.layers.l2 import LLC
 from scapy.packet import Packet, bind_top_down, bind_bottom_up
-from scapy.compat import orb
 
 network_layer_protocol_ids = {
     0x00: "Null",
@@ -54,7 +53,7 @@ def _create_cln_pdu(s, **kwargs):
     pdu_cls = conf.raw_layer
 
     if len(s) >= 1:
-        nlpid = orb(s[0])
+        nlpid = s[0]
         pdu_cls = _cln_protocols.get(nlpid, _GenericClnsPdu)
 
     return pdu_cls(s, **kwargs)

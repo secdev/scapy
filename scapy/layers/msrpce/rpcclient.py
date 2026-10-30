@@ -173,6 +173,7 @@ class DCERPC_Client(object):
         :param timeout: (optional) the connection timeout (default 5)
         :param port: (optional) the port to connect to. (useful for SMB)
         """
+        self.sspcontext = None
         smb_kwargs.setdefault("HOST", host)
         if endpoint is None and interface is not None:
             # Figure out the endpoint using the endpoint mapper
@@ -813,7 +814,8 @@ class DCERPC_Client(object):
         )
 
         # Bind in RPC
-        self.bind(interface)
+        if not self.bind(interface):
+            raise ValueError("DCE/RPC bind failed")
 
     def epm_map(self, interface):
         """

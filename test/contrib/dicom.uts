@@ -436,6 +436,14 @@ assert len(sub_items) >= 1
 assert sub_items[0].item_type == 0x51
 assert sub_items[0][DICOMMaximumLength].max_pdu_length == 32768
 
+= zero maximum PDU length means unlimited
+maximum = DICOMVariableItem() / DICOMMaximumLength(max_pdu_length=0)
+user_info = DICOMVariableItem() / DICOMUserInformation(sub_items=[maximum])
+response = DICOM() / A_ASSOCIATE_AC(variable_items=[user_info])
+client = DICOMSocket("127.0.0.1", 104, "SERVER")
+client._parse_max_pdu_length(DICOM(bytes(response)))
+assert client.max_pdu_length == client._proposed_max_pdu
+
 = build_user_information with implementation info
 user_info = build_user_information(
     max_pdu_length=16384,

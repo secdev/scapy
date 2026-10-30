@@ -135,12 +135,15 @@ class NTLMRandomPatcher:
 from scapy.layers.ntlm import NTLM_NEGOTIATE
 from scapy.layers.spnego import SPNEGO_negTokenInit, SPNEGO_negTokenResp, SPNEGO_Token, SPNEGO_negToken, SPNEGO_MechListMIC, SPNEGOSSP
 
-client = SPNEGOSSP([
-    NTLMSSP(
-        UPN="User1",
-        PASSWORD="Password1",
-    ),
-])
+client = SPNEGOSSP(
+    [
+        NTLMSSP(
+            UPN="User1",
+            PASSWORD="Password1",
+        ),
+    ],
+    SUPPORT_LATE_FALLBACK=False,
+)
 server = SPNEGOSSP([
     NTLMSSP(
         IDENTITIES={

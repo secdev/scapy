@@ -55,6 +55,7 @@ import os
 import re
 import socket
 import struct
+import threading
 
 from scapy.error import warning
 import scapy.asn1.mib  # noqa: F401
@@ -69,6 +70,7 @@ from scapy.asn1.asn1 import (
     ASN1_INTEGER,
     ASN1_OID,
     ASN1_STRING,
+    ASN1_UTF8_STRING,
 )
 from scapy.asn1fields import (
     ASN1F_BIT_STRING_ENCAPS,
@@ -87,9 +89,10 @@ from scapy.asn1fields import (
     ASN1F_STRING_ENCAPS,
     ASN1F_STRING_PacketField,
     ASN1F_STRING,
+    ASN1F_UTF8_STRING,
 )
 from scapy.asn1packet import ASN1_Packet
-from scapy.automaton import Automaton, ATMT
+from scapy.automaton import Automaton, ATMT, ObjectPipe
 from scapy.config import conf
 from scapy.compat import bytes_encode
 from scapy.error import log_runtime
@@ -98,10 +101,11 @@ from scapy.fields import (
     FieldLenField,
     FlagsField,
     IntEnumField,
+    IntField,
     LEIntEnumField,
-    LenField,
     LEShortEnumField,
     LEShortField,
+    LenField,
     LongField,
     MayEnd,
     MultipleTypeField,
@@ -109,6 +113,7 @@ from scapy.fields import (
     PacketLenField,
     PacketListField,
     PadField,
+    ScalingField,
     ShortEnumField,
     ShortField,
     StrField,
@@ -146,7 +151,6 @@ from scapy.layers.gssapi import (
     SSP,
 )
 from scapy.layers.inet import TCP, UDP
-from scapy.layers.smb import _NV_VERSION
 from scapy.layers.tls.cert import (
     Cert,
     CertList,
@@ -950,8 +954,7 @@ class LSAP_TOKEN_INFO_INTEGRITY(Packet):
             },
         ),
         MayEnd(XStrFixedLenField("MachineID", b"", length=32)),
-        # KB 5068222 - still waiting for [MS-KILE] update (oct. 2025)
-        XStrFixedLenField("PermanentMachineID", b"", length=32),
+        XStrFixedLenField("CrossBootMachineID", b"", length=32),
     ]
 
 
@@ -2134,12 +2137,13 @@ class _KRBERROR_data_Field(ASN1F_STRING_PacketField):
             # 36: KRB_AP_ERR_BADMATCH
             # 80: KDC_ERR_DIGEST_IN_SIGNED_DATA_NOT_ACCEPTED
             return MethodData(val[0].val, _underlayer=pkt), val[1]
-        elif pkt.errorCode.val in [6, 7, 12, 13, 18, 29, 32, 41, 60, 62]:
+        elif pkt.errorCode.val in [6, 7, 12, 13, 18, 23, 29, 32, 41, 60, 62]:
             # 6: KDC_ERR_C_PRINCIPAL_UNKNOWN
             # 7: KDC_ERR_S_PRINCIPAL_UNKNOWN
             # 12: KDC_ERR_POLICY
             # 13: KDC_ERR_BADOPTION
             # 18: KDC_ERR_CLIENT_REVOKED
+            # 23: KDC_ERR_KEY_EXPIRED
             # 29: KDC_ERR_SVC_UNAVAILABLE
             # 32: KRB_AP_ERR_TKT_EXPIRED
             # 41: KRB_AP_ERR_MODIFIED
@@ -2148,7 +2152,7 @@ class _KRBERROR_data_Field(ASN1F_STRING_PacketField):
             try:
                 return KERB_ERROR_DATA(val[0].val, _underlayer=pkt), val[1]
             except BER_Decoding_Error:
-                if pkt.errorCode.val in [18, 12]:
+                if pkt.errorCode.val in [12, 18, 41]:
                     # Some types can also happen in FAST sessions
                     # 18: KDC_ERR_CLIENT_REVOKED
                     return MethodData(val[0].val, _underlayer=pkt), val[1]
@@ -2303,6 +2307,12 @@ class KERB_EXT_ERROR(Packet):
     ]
 
 
+class KERB_EXT_ERROR_NTSTATUS(Packet):
+    fields_desc = [
+        XLEIntEnumField("status", 0, STATUS_ERREF),
+    ]
+
+
 # [MS-KILE] sect 2.2.2
 
 
@@ -2311,6 +2321,8 @@ class _Error_Field(ASN1F_STRING_PacketField):
         val = super(_Error_Field, self).m2i(pkt, s)
         if not val[0].val:
             return val
+        if pkt.dataType.val == 1:  # KERB_AP_ERR_TYPE_NTSTATUS
+            return KERB_EXT_ERROR_NTSTATUS(val[0].val, _underlayer=pkt), val[1]
         if pkt.dataType.val == 3:  # KERB_ERR_TYPE_EXTENDED
             return KERB_EXT_ERROR(val[0].val, _underlayer=pkt), val[1]
         return val
@@ -2507,7 +2519,9 @@ class KRB_InnerToken(Packet):
         PacketField(
             "root",
             KRB_AP_REQ(),
-            lambda x, _parent: _InitialContextTokens[_parent.TOK_ID](x),
+            lambda x, _parent: _InitialContextTokens.get(
+                _parent.TOK_ID, conf.raw_layer
+            )(x),
         ),
     ]
 
@@ -2663,17 +2677,68 @@ class KRB_GSS_Wrap(Packet):
 _InitialContextTokens[b"\x05\x04"] = KRB_GSS_Wrap
 
 
+# [MS-NRPC] 3.5.4.3.1 in theory, dsgetdc.h (WinSDK) for details
+
+_GetDcName_Flags = [
+    "DS_RETURN_FLAT_NAME",  # 0x80000000
+    "DS_RETURN_DNS_NAME",  # 0x40000000
+    "reserved2",  # 0x20000000
+    "reserved3",  # 0x10000000
+    "reserved4",  # 0x08000000
+    "reserved5",  # 0x04000000
+    "DS_DIRECTORY_SERVICE_13_REQUIRED",  # 0x02000000 - Windows Server 2025 or later
+    "DS_KEY_LIST_SUPPORT_REQUIRED",  # 0x01000000
+    "DS_DIRECTORY_SERVICE_10_REQUIRED",  # 0x00800000 - Windows Server 2016 or later
+    "DS_DIRECTORY_SERVICE_9_REQUIRED",  # 0x00400000 - Windows Server 2012R2 or later
+    "DS_DIRECTORY_SERVICE_8_REQUIRED",  # 0x00200000 - Windows Server 2012 or later
+    "DS_WEB_SERVICE_REQUIRED",  # 0x00100000
+    "DS_DIRECTORY_SERVICE_6_REQUIRED",  # 0x00080000 - Windows Server 2008 or later
+    "DS_TRY_NEXTCLOSEST_SITE",  # 0x00040000
+    "DS_IS_DNS_NAME",  # 0x00020000
+    "DS_IS_FLAT_NAME",  # 0x00010000
+    "DS_ONLY_LDAP_NEEDED",  # 0x00008000
+    "DS_AVOID_SELF",  # 0x00004000
+    "DS_GOOD_TIMESERV_PREFERRED",  # 0x00002000
+    "DS_WRITABLE_REQUIRED",  # 0x00001000
+    "DS_TIMESERV_REQUIRED",  # 0x00000800
+    "DS_KDC_REQUIRED",  # 0x00000400
+    "DS_IP_REQUIRED",  # 0x00000200
+    "DS_BACKGROUND_ONLY",  # 0x00000100
+    "DS_PDC_REQUIRED",  # 0x00000080
+    "DS_GC_SERVER_REQUIRED",  # 0x00000040
+    "DS_DIRECTORY_SERVICE_PREFERRED",  # 0x00000020
+    "DS_DIRECTORY_SERVICE_REQUIRED",  # 0x00000010
+    "reserved-28",  # 0x00000008
+    "reserved-29",  # 0x00000004
+    "reserved-30",  # 0x00000002
+    "DS_FORCE_REDISCOVERY",  # 0x00000001
+]
+
+
 # Kerberos IAKERB - draft-ietf-kitten-iakerb-03
 
 
 class IAKERB_HEADER(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        Realm("targetRealm", "", explicit_tag=0xA1),
+        ASN1F_UTF8_STRING("targetRealm", "", explicit_tag=0xA1),
         ASN1F_optional(
             ASN1F_STRING("cookie", None, explicit_tag=0xA2),
         ),
+        # [MS-SPNG] addition. This is mentioned on [kitten] IETF mailing list
+        # (and dochelp@ answered with details, should be updated soon)
+        ASN1F_optional(
+            ASN1F_FLAGS(
+                "headerFlags",
+                None,
+                _GetDcName_Flags,
+                explicit_tag=0xA3,
+            )
+        ),
     )
+
+    def default_payload_class(self, payload):
+        return conf.padding_layer
 
 
 _InitialContextTokens[b"\x05\x01"] = IAKERB_HEADER
@@ -2745,6 +2810,8 @@ class KerberosTCPHeader(Packet):
         length = struct.unpack("!I", data[:4])[0]
         if len(data) == length + 4:
             return cls(data)
+        if len(data) > length + 4:
+            return cls(data[:length + 4]) / conf.padding_layer(data[length + 4:])
 
 
 bind_layers(KerberosTCPHeader, Kerberos)
@@ -2848,10 +2915,55 @@ KPASSWD_RESULTS = {
 }
 
 
+class DOMAIN_PASSWORD_INFORMATION(Packet):
+    # [MS-SAMR] sect 2.2.3.5
+    fields_desc = [
+        IntField("MinPasswordLength", 0),
+        IntField("PasswordHistoryLength", 0),
+        FlagsField(
+            "PasswordProperties",
+            0,
+            32,
+            {
+                0x00000001: "DOMAIN_PASSWORD_COMPLEX",
+                0x00000002: "DOMAIN_PASSWORD_NO_ANON_CHANGE",
+                0x00000004: "DOMAIN_PASSWORD_NO_CLEAR_CHANGE",
+                0x00000008: "DOMAIN_LOCKOUT_ADMINS",
+                0x00000010: "DOMAIN_PASSWORD_STORE_CLEARTEXT",
+                0x00000020: "DOMAIN_REFUSE_PASSWORD_CHANGE",
+                0x00000040: "DOMAIN_NO_LM_OWF_CHANGE",
+            },
+        ),
+        ScalingField("MaxPasswordAge", 30 * 24 * 3600, scaling=1 / 1e7, fmt="!Q"),
+        ScalingField("MinPasswordAge", 0, scaling=1 / 1e7, fmt="!Q"),
+    ]
+
+
+class KPasswdResult(Packet):
+    # This is guessed from looking at MIT's implementation + ntsecapi.h
+    fields_desc = [
+        ShortField("PasswordInfoValid", 0),
+        PacketField(
+            "DomainPasswordInfo",
+            DOMAIN_PASSWORD_INFORMATION(),
+            DOMAIN_PASSWORD_INFORMATION,
+        ),
+    ]
+
+
+class _KPasswdRepDataResult_Field(StrField):
+    def m2i(self, pkt, s):
+        val = super(_KPasswdRepDataResult_Field, self).m2i(pkt, s)
+        if len(val or b"") == 30:
+            # A 30 octets blob is most likely the AD policy block
+            return KPasswdResult(val)
+        return val
+
+
 class KPasswdRepData(Packet):
     fields_desc = [
         ShortEnumField("resultCode", 0, KPASSWD_RESULTS),
-        StrField("resultString", ""),
+        _KPasswdRepDataResult_Field("resultString", ""),
     ]
 
 
@@ -2886,6 +2998,8 @@ class KpasswdTCPHeader(Packet):
         length = struct.unpack("!I", data[:4])[0]
         if len(data) == length + 4:
             return cls(data)
+        if len(data) > length + 4:
+            return cls(data[:length + 4]) / conf.padding_layer(data[length + 4:])
 
 
 bind_layers(KpasswdTCPHeader, Kpasswd)
@@ -2896,24 +3010,21 @@ bind_layers(TCP, KpasswdTCPHeader, dport=464)
 # [MS-KKDCP]
 
 
-class _KerbMessage_Field(ASN1F_STRING_PacketField):
-    def m2i(self, pkt, s):
-        val = super(_KerbMessage_Field, self).m2i(pkt, s)
-        if not val[0].val:
-            return val
-        return KerberosTCPHeader(val[0].val, _underlayer=pkt), val[1]
-
-
 class KDC_PROXY_MESSAGE(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        _KerbMessage_Field("kerbMessage", "", explicit_tag=0xA0),
+        ASN1F_STRING_ENCAPS(
+            "kerbMessage",
+            KerberosTCPHeader(),
+            KerberosTCPHeader,
+            explicit_tag=0xA0,
+        ),
         ASN1F_optional(Realm("targetDomain", None, explicit_tag=0xA1)),
         ASN1F_optional(
             ASN1F_FLAGS(
                 "dclocatorHint",
                 None,
-                FlagsField("", 0, -32, _NV_VERSION).names,
+                _GetDcName_Flags,
                 explicit_tag=0xA2,
             )
         ),
@@ -2981,6 +3092,137 @@ class KdcProxySocket(SuperSocket):
     @staticmethod
     def select(sockets, remain=None):
         return [x for x in sockets if isinstance(x, KdcProxySocket) and x.queue]
+
+
+class IAKerbSocket(SuperSocket):
+    """
+    Wrapper to forward messages back to our SPNEGO caller.
+    """
+
+    def __init__(
+        self,
+        Context,
+        realm: str,
+        **kwargs,
+    ):
+        self.Context = Context
+        self.realm = realm.upper()
+        self.incoming = ObjectPipe("iak_incoming")
+        self.results = ObjectPipe("iak_results")
+        self.t = None
+        super(IAKerbSocket, self).__init__(**kwargs)
+
+    def recv(self, n=0, options=socket.MsgFlag(0)):
+        """
+        recv when acting as a socket
+        """
+        return self.incoming.recv(n=n, options=options)
+
+    def send(self, x, **kwargs):
+        """
+        send when acting as a socket
+        """
+        x = x[KerberosTCPHeader].payload
+
+        # Wrap in the IAKERB header
+        pkt = KRB_GSSAPI_Token(
+            MechType="1.3.6.1.5.2.5",  # Kerberos 5 - IAKERB
+            innerToken=KRB_InnerToken(
+                TOK_ID=b"\x05\x01",
+                root=IAKERB_HEADER(
+                    targetRealm=ASN1_UTF8_STRING(
+                        self.realm,
+                    ),
+                    headerFlags="DS_FORCE_REDISCOVERY",
+                )
+                / x,
+            ),
+        )
+        self.results.send(
+            (
+                self.Context,
+                pkt,
+                GSS_S_CONTINUE_NEEDED,
+            )
+        )
+
+    def handler(self, func, **kwargs):
+        """
+        Handler to catch exceptions as part of the IAKerb socket thread
+        """
+        try:
+            # Call initial function
+            result = func(**kwargs)
+
+            # Send result
+            self.results.send(result)
+
+            # If this isn't a GSS_S_CONTINUE_NEEDED status, then
+            # the IAKERB part is done ! (failure or success)
+            _, _, status = result
+            if status != GSS_S_CONTINUE_NEEDED:
+                self.Context.IAKerbSocket = None
+                self.shutdown()
+
+        except Exception as ex:
+            self.results.send(ex)
+
+    def run(self, func, **kwargs):
+        """
+        Run the sub-function asynchronously as part of this IAKerb socket
+        """
+        self.t = threading.Thread(target=self.handler, args=(func,), kwargs=kwargs)
+        self.t.start()
+
+    def unpack(self, input_token):
+        """
+        Extract Kerberos token from IAKERB if it is, or return None if it's not
+        an IAKERB token.
+        """
+        try:
+            # GSSAPI wrapping
+            input_token = input_token.root
+        except AttributeError:
+            pass
+
+        if input_token.MechType.val == "1.3.6.1.5.2.5":
+            return input_token.innerToken.payload
+
+        return None
+
+    def next(self, input_token=None):
+        """
+        Called by GSS_Init_sec_context when the input token is a IAKERB proxy.
+        """
+        if input_token is not None:
+            # Make available in the incoming buffer of the socket
+            self.incoming.send(input_token)
+
+        # Now wait for a response that the client will generate
+        try:
+            res = self.results.recv()
+        except IndexError:
+            raise EOFError
+        if isinstance(res, Exception):
+            # We also get the exceptions back from the thread
+            raise res
+        return res
+
+    def close(self):
+        # We don't want this to be closed when used as a socket.
+        pass
+
+    def shutdown(self):
+        self.incoming.close()
+        self.results.close()
+
+    def __del__(self):
+        self.shutdown()
+
+    @staticmethod
+    def select(sockets, remain=None):
+        mapping = {x.incoming: x for x in sockets if isinstance(x, IAKerbSocket)}
+        return [mapping[x] for x in ObjectPipe.select(mapping.keys(), remain=remain)]
 
 
 # Util functions
@@ -3081,6 +3323,8 @@ class KerberosClient(Automaton):
         dmsa: bool = False,
         kdc_proxy: Optional[str] = None,
         kdc_proxy_no_check_certificate: bool = False,
+        iakerb: bool = False,
+        iakerb_socket: Optional[IAKerbSocket] = None,
         fast: bool = False,
         armor_ticket: KRB_Ticket = None,
         armor_ticket_upn: Optional[str] = None,
@@ -3193,11 +3437,11 @@ class KerberosClient(Automaton):
             if not ticket:
                 raise ValueError("Invalid ticket")
 
-        if not ip and not kdc_proxy:
+        if not ip and not kdc_proxy and not iakerb:
             # No KDC IP provided. Find it by querying the DNS
             ip = dclocator(
                 realm,
-                timeout=timeout,
+                timeout=1,
                 # Use connect mode instead of ldap for compatibility
                 # with MIT kerberos servers
                 mode="connect",
@@ -3249,6 +3493,8 @@ class KerberosClient(Automaton):
         self._port = port
         self.kdc_proxy = kdc_proxy
         self.kdc_proxy_no_check_certificate = kdc_proxy_no_check_certificate
+        self.iakerb = iakerb
+        self.iakerb_socket = iakerb_socket
 
         if self.mode in [self.MODE.AS_REQ, self.MODE.GET_SALT]:
             self.host = host.upper()
@@ -3314,7 +3560,7 @@ class KerberosClient(Automaton):
     def _connect(self):
         """
         Internal function to bind a socket to the DC.
-        This also takes care of an eventual KDC proxy.
+        This also takes care of an eventual KDC proxy and IAKERB.
         """
         if self.kdc_proxy:
             # If we are using a KDC Proxy, wrap the socket with the KdcProxySocket,
@@ -3324,6 +3570,10 @@ class KerberosClient(Automaton):
                 targetDomain=self.realm,
                 no_check_certificate=self.kdc_proxy_no_check_certificate,
             )
+        elif self.iakerb:
+            # If we are using IAKERB, use the IAKerbSocket we were given that
+            # takes our messages and transport them over GSSAPI.
+            sock = self.iakerb_socket
         else:
             sock = socket.socket()
             sock.settimeout(self._timeout)
@@ -3377,6 +3627,7 @@ class KerberosClient(Automaton):
         )
         if self.renew:
             kdcreq.kdcOptions.set(30, 1)  # set 'renew' (bit 30)
+        self.request_nonce = kdcreq.nonce.val
         return kdcreq
 
     def calc_fast_armorkey(self):
@@ -3781,13 +4032,15 @@ class KerberosClient(Automaton):
                 # "if the key's encryption type is RC4_HMAC_NT (23) the checksum type
                 # is rsa-md4 (2) as defined in section 6.2.6 of [RFC3961]."
                 pasfux509.checksum.make(
-                    self.key,
+                    self.subkey or self.key,
                     bytes(pasfux509.userId),
                     cksumtype=ChecksumType.RSA_MD4,
                 )
             else:
+                # Use subkey if available (=subkey), else TGT session key (=key).
+                # NB: undocumented right now -- gpo2
                 pasfux509.checksum.make(
-                    self.key,
+                    self.subkey or self.key,
                     bytes(pasfux509.userId),
                 )
             padata.append(
@@ -3813,6 +4066,7 @@ class KerberosClient(Automaton):
                         + paforuser.authPackage.val
                     ).encode()
                 )
+                # Always use TGT session key (=key)
                 paforuser.cksum.make(
                     self.key,
                     S4UByteArray,
@@ -4168,6 +4422,8 @@ class KerberosClient(Automaton):
         # Decrypt AS-REP response
         enc = pkt.root.encPart
         res = enc.decrypt(self.replykey)
+        if res.nonce.val != self.request_nonce:
+            raise ValueError("KDC reply nonce does not match request")
         self.result = self.RES_AS_MODE(
             pkt.root,
             res.key.toKey(),
@@ -4233,6 +4489,9 @@ class KerberosClient(Automaton):
             res = enc.decrypt(self.replykey, key_usage_number=9, cls=EncTGSRepPart)
         else:
             res = enc.decrypt(self.replykey)
+
+        if res.nonce.val != self.request_nonce:
+            raise ValueError("KDC reply nonce does not match request")
 
         # Store result
         self.result = self.RES_TGS_MODE(
@@ -4678,6 +4937,7 @@ class KerberosSSP(SSP):
     :param PASSWORD: (optional) if a UPN is provided and not a KEY, this is the
                      password of the UPN.
     :param U2U: (optional) use U2U when requesting the ST.
+    :param IAKERB: (optional) use IAKERB when requesting tickets.
 
     Server settings:
 
@@ -4704,6 +4964,7 @@ class KerberosSSP(SSP):
             "SessionKey",
             "ServerHostname",
             "U2U",
+            "IAKERB",
             "KrbSessionKey",  # raw Key object
             "ST",  # the service ticket
             "STSessionKey",  # raw ST Key object (for DCE_STYLE)
@@ -4718,6 +4979,8 @@ class KerberosSSP(SSP):
             # server-only
             "UPN",
             "PAC",
+            # IAKERB
+            "IAKerbSocket",
         ]
 
         def __init__(self, IsAcceptor, req_flags=None):
@@ -4725,6 +4988,7 @@ class KerberosSSP(SSP):
             self.SessionKey = None
             self.ServerHostname = None
             self.U2U = False
+            self.IAKERB = False
             self.SendSeqNum = 0
             self.RecvSeqNum = 0
             self.KrbSessionKey = None
@@ -4733,6 +4997,7 @@ class KerberosSSP(SSP):
             self.IsAcceptor = IsAcceptor
             self.UPN = None
             self.PAC = None
+            self.IAKerbSocket = None
             # [RFC 4121] sect 2
             if IsAcceptor:
                 self.SendSealKeyUsage = 22
@@ -4752,7 +5017,10 @@ class KerberosSSP(SSP):
         def __repr__(self):
             if self.U2U:
                 return "KerberosSSP-U2U"
-            return "KerberosSSP"
+            elif self.IAKERB:
+                return "KerberosSSP-IAKERB"
+            else:
+                return "KerberosSSP"
 
     def __init__(
         self,
@@ -4760,6 +5028,7 @@ class KerberosSSP(SSP):
         UPN=None,
         PASSWORD=None,
         U2U=False,
+        IAKERB=False,
         KEY=None,
         SPN=None,
         TGT=None,
@@ -4778,6 +5047,7 @@ class KerberosSSP(SSP):
         self.TGTSessionKey = None
         self.PASSWORD = PASSWORD
         self.U2U = U2U
+        self.IAKERB = IAKERB
         self.DC_IP = DC_IP
         self.debug = debug
         if SKEY_TYPE is None:
@@ -4785,14 +5055,24 @@ class KerberosSSP(SSP):
         self.SKEY_TYPE = SKEY_TYPE
         super(KerberosSSP, self).__init__(**kwargs)
 
+    def __repr__(self):
+        if self.IAKERB:
+            return "<%s-IAKERB>" % self.__class__.__name__
+        elif self.U2U:
+            return "<%s-U2U>" % self.__class__.__name__
+        else:
+            return "<%s>" % self.__class__.__name__
+
     def GSS_Inquire_names_for_mech(self):
-        mechs = [
-            "1.2.840.48018.1.2.2",  # MS KRB5 - Microsoft Kerberos 5
-            "1.2.840.113554.1.2.2",  # Kerberos 5
-        ]
-        if self.U2U:
-            mechs.append("1.2.840.113554.1.2.2.3")  # Kerberos 5 - User to User
-        return mechs
+        if self.IAKERB:
+            return ["1.3.6.1.5.2.5"]  # Kerberos 5 - IAKERB
+        elif self.U2U:
+            return ["1.2.840.113554.1.2.2.3"]  # Kerberos 5 - User to User
+        else:
+            return [
+                "1.2.840.48018.1.2.2",  # MS KRB5 - Microsoft Kerberos 5
+                "1.2.840.113554.1.2.2",  # Kerberos 5
+            ]
 
     def GSS_GetMICEx(self, Context, msgs, qop_req=0):
         """
@@ -5177,6 +5457,39 @@ class KerberosSSP(SSP):
             # New context
             Context = self.CONTEXT(IsAcceptor=False, req_flags=req_flags)
 
+        if self.IAKERB:
+            # IAKERB - We return asynchronously either packets from this
+            # GSS_Init_sec_context, or whatever packet are wrapped when talking to
+            # the server.
+            if Context.IAKerbSocket is None:
+                # Initial call: create a IAKerbSocket and a thread
+                _, crealm = _parse_upn(self.UPN)
+                Context.IAKERB = True
+                Context.IAKerbSocket = IAKerbSocket(
+                    Context=Context,
+                    realm=crealm,
+                )
+
+                # Run in the background
+                Context.IAKerbSocket.run(
+                    self.GSS_Init_sec_context,
+                    Context=Context,
+                    input_token=input_token,
+                    target_name=target_name,
+                    req_flags=req_flags,
+                    chan_bindings=chan_bindings,
+                )
+
+                return Context.IAKerbSocket.next()
+            elif input_token is not None:
+                # Intermediate token: let the thread handle it.
+                iakerb = Context.IAKerbSocket.unpack(input_token)
+                if iakerb:
+                    # This is a IAKERB token
+                    return Context.IAKerbSocket.next(iakerb)
+
+                # Else, continue. This is not an IAKERB token.
+
         if Context.state == self.STATE.INIT and self.U2U:
             # U2U - Get TGT
             Context.state = self.STATE.CLI_SENT_TGTREQ
@@ -5201,8 +5514,8 @@ class KerberosSSP(SSP):
                 # Client sends an AP-req
                 if not self.SPN and not target_name:
                     raise ValueError("Missing SPN/target_name attribute")
-                additional_tickets = []
 
+                additional_tickets = []
                 if self.U2U:
                     try:
                         # GSSAPI / Kerberos
@@ -5218,48 +5531,56 @@ class KerberosSSP(SSP):
                         raise ValueError("KerberosSSP: Unexpected input_token !")
                     additional_tickets = [tgt_rep.ticket]
 
-                if self.TGT is None:
-                    # Get TGT. We were passed a kerberos key
-                    res = krb_as_req(
+                try:
+                    if self.TGT is None:
+                        # Get TGT. We were passed a kerberos key
+                        res = krb_as_req(
+                            upn=self.UPN,
+                            ip=self.DC_IP,
+                            key=self.KEY,
+                            password=self.PASSWORD,
+                            debug=self.debug,
+                            verbose=bool(self.debug),
+                            iakerb=self.IAKERB,
+                            iakerb_socket=Context.IAKerbSocket,
+                        )
+                        if res is None:
+                            # Failed to retrieve the ticket
+                            return Context, None, GSS_S_FAILURE
+
+                        # Update UPN (could have been canonicalized)
+                        self.UPN = res.upn
+
+                        # Store TGT,
+                        self.TGT = res.asrep.ticket
+                        self.TGTSessionKey = res.sessionkey
+                    elif self.TGTSessionKey is None:
+                        # We have a TGT and were passed its key
+                        self.TGTSessionKey = self.KEY
+
+                    # Get ST
+                    if not self.TGTSessionKey:
+                        raise ValueError("Cannot use TGT without the KEY")
+
+                    res = krb_tgs_req(
                         upn=self.UPN,
+                        spn=self.SPN or target_name,
                         ip=self.DC_IP,
-                        key=self.KEY,
-                        password=self.PASSWORD,
+                        sessionkey=self.TGTSessionKey,
+                        ticket=self.TGT,
+                        additional_tickets=additional_tickets,
+                        u2u=self.U2U,
                         debug=self.debug,
                         verbose=bool(self.debug),
+                        iakerb=self.IAKERB,
+                        iakerb_socket=Context.IAKerbSocket,
                     )
-                    if res is None:
+                    if not res:
                         # Failed to retrieve the ticket
                         return Context, None, GSS_S_FAILURE
-
-                    # Update UPN (could have been canonicalized)
-                    self.UPN = res.upn
-
-                    # Store TGT,
-                    self.TGT = res.asrep.ticket
-                    self.TGTSessionKey = res.sessionkey
-                elif self.TGTSessionKey is None:
-                    # We have a TGT and were passed its key
-                    self.TGTSessionKey = self.KEY
-
-                # Get ST
-                if not self.TGTSessionKey:
-                    raise ValueError("Cannot use TGT without the KEY")
-
-                res = krb_tgs_req(
-                    upn=self.UPN,
-                    spn=self.SPN or target_name,
-                    ip=self.DC_IP,
-                    sessionkey=self.TGTSessionKey,
-                    ticket=self.TGT,
-                    additional_tickets=additional_tickets,
-                    u2u=self.U2U,
-                    debug=self.debug,
-                    verbose=bool(self.debug),
-                )
-                if not res:
-                    # Failed to retrieve the ticket
-                    return Context, None, GSS_S_FAILURE
+                except TimeoutError:
+                    # We couldn't reach the DC to get a ticket. Fail KerberosSSP.
+                    return Context, None, GSS_S_BAD_MECH
 
                 # Store the service ticket and associated key
                 Context.ST, Context.STSessionKey = res.tgsrep.ticket, res.sessionkey
@@ -5269,6 +5590,12 @@ class KerberosSSP(SSP):
                 # We were passed a ST and its key
                 Context.ST = self.ST
                 Context.STSessionKey = self.KEY
+
+                target_spn = self.SPN or target_name
+                if target_spn and not _spn_are_equal(Context.ST.getSPN(), target_spn):
+                    raise ValueError(
+                        "SPN from ST doesn't match the passed SPN/target_name."
+                    )
 
                 if Context.flags & GSS_C_FLAGS.GSS_C_DELEG_FLAG:
                     raise ValueError(
@@ -5362,7 +5689,7 @@ class KerberosSSP(SSP):
                                             adData=KERB_AD_RESTRICTION_ENTRY(
                                                 restriction=LSAP_TOKEN_INFO_INTEGRITY(
                                                     MachineID=bytes(RandBin(32)),
-                                                    PermanentMachineID=bytes(
+                                                    CrossBootMachineID=bytes(
                                                         RandBin(32)
                                                     ),
                                                 )

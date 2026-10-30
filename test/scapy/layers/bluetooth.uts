@@ -178,7 +178,7 @@ assert cmd[HCI_Cmd_Create_Connection].allow_role_switch == 1
 
 cmd = HCI_Hdr(hex_bytes("011104020001"))
 assert HCI_Cmd_Authentication_Requested in cmd
-assert cmd[HCI_Cmd_Authentication_Requested].handle == 256
+assert cmd[HCI_Cmd_Authentication_Requested].connection_handle == 256
 
 = Link Key Request Reply
 
@@ -191,7 +191,7 @@ assert cmd[HCI_Cmd_Link_Key_Request_Reply].link_key == 0x6c9016a48a009180086a392
 
 cmd = HCI_Hdr(hex_bytes("01130403000101"))
 assert HCI_Cmd_Set_Connection_Encryption in cmd
-assert cmd[HCI_Cmd_Set_Connection_Encryption].handle == 256
+assert cmd[HCI_Cmd_Set_Connection_Encryption].connection_handle == 256
 assert cmd[HCI_Cmd_Set_Connection_Encryption].encryption_enable == 1
 
 = Remote Name Request
@@ -335,16 +335,35 @@ for p in (
 
 = Disconnect
 expected_cmd_raw_data = hex_bytes("01060403341213")
-cmd_raw_data = raw(HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_Disconnect(handle=0x1234))
+cmd_raw_data = raw(HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_Disconnect(connection_handle=0x1234))
 assert expected_cmd_raw_data == cmd_raw_data
 
 = LE Connection Update Command
 expected_cmd_raw_data = hex_bytes("0113200e47000a00140001003c000100ffff")
 cmd_raw_data = raw(
     HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_LE_Connection_Update(
-        handle=0x47, min_interval=10, max_interval=20, latency=1, timeout=60,
+        connection_handle=0x47, min_interval=10, max_interval=20, latency=1, timeout=60,
         min_ce=1, max_ce=0xffff))
 assert expected_cmd_raw_data == cmd_raw_data
+
+= Deprecated 'handle' alias still resolves to connection_handle (backward compat)
+# The Connection_Handle field was renamed handle -> connection_handle; the old
+# name stays usable via deprecated_fields (construct kwarg + attribute read),
+# emitting a DeprecationWarning.
+try:
+    import warnings
+    ref = raw(HCI_Command_Hdr() / HCI_Cmd_Disconnect(connection_handle=0x1234))
+    evt = HCI_Event_Disconnection_Complete(connection_handle=0x0040)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        cmd = HCI_Cmd_Disconnect(handle=0x1234)
+        assert cmd.connection_handle == 0x1234
+        assert raw(HCI_Command_Hdr() / cmd) == ref
+        assert evt.handle == 0x0040
+        assert any(issubclass(x.category, DeprecationWarning) for x in w)
+except DeprecationWarning:
+    # -Werror is used
+    pass
 
 
 + HCI Events
@@ -359,10 +378,30 @@ assert evt_pkt[HCI_Event_Inquiry_Complete].status == 0
 evt_pkt = HCI_Event_Inquiry_Result(b'\x01\xcb\x7f\xdbn\x8c\x9c\x01\x00\x00<\x04\x08\x8di')
 assert HCI_Event_Inquiry_Result in evt_pkt
 assert evt_pkt[HCI_Event_Inquiry_Result].num_response == 1
-assert evt_pkt[HCI_Event_Inquiry_Result].addr[0] == '9c:8c:6e:db:7f:cb'
+assert evt_pkt[HCI_Event_Inquiry_Result].bd_addr[0] == '9c:8c:6e:db:7f:cb'
 assert evt_pkt[HCI_Event_Inquiry_Result].page_scan_repetition_mode[0] == 1
 assert evt_pkt[HCI_Event_Inquiry_Result].device_class[0] == 0x8043c
 assert evt_pkt[HCI_Event_Inquiry_Result].clock_offset[0] == 27021
+
+
+= Deprecated 'addr' alias still resolves to bd_addr (backward compat)
+try:
+    import warnings
+    inq = HCI_Event_Inquiry_Result(b'\x01\xcb\x7f\xdbn\x8c\x9c\x01\x00\x00<\x04\x08\x8di')
+    ref = raw(HCI_Cmd_Complete_Read_BD_Addr(bd_addr="11:22:33:44:55:66"))
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        rd = HCI_Cmd_Complete_Read_BD_Addr(addr="11:22:33:44:55:66")
+        assert rd.bd_addr == "11:22:33:44:55:66"
+        assert raw(rd) == ref
+        sm = SM_Identity_Address_Information(addr="a1:b2:c3:d4:e5:f6")
+        assert sm.bd_addr == "a1:b2:c3:d4:e5:f6"
+        assert SM_Identity_Address_Information(address="a1:b2:c3:d4:e5:f6").bd_addr == "a1:b2:c3:d4:e5:f6"
+        assert inq.addr[0] == '9c:8c:6e:db:7f:cb'
+        assert any(issubclass(x.category, DeprecationWarning) for x in w)
+except DeprecationWarning:
+    # -Werror is used
+    pass
 
 
 = Connection Complete
@@ -370,7 +409,7 @@ evt_raw_data = hex_bytes("04030b000b00093491e5b7540100")
 evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_Event_Connection_Complete in evt_pkt
 assert evt_pkt[HCI_Event_Connection_Complete].status == 0
-assert evt_pkt[HCI_Event_Connection_Complete].handle == 0x000b
+assert evt_pkt[HCI_Event_Connection_Complete].connection_handle == 0x000b
 assert evt_pkt[HCI_Event_Connection_Complete].bd_addr == "54:b7:e5:91:34:09"
 assert evt_pkt[HCI_Event_Connection_Complete].link_type == 1
 assert evt_pkt[HCI_Event_Connection_Complete].encryption_enabled == 0
@@ -403,7 +442,7 @@ evt_raw_data = hex_bytes("04050400400016")
 evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_Event_Disconnection_Complete in evt_pkt
 assert evt_pkt[HCI_Event_Disconnection_Complete].status == 0
-assert evt_pkt[HCI_Event_Disconnection_Complete].handle == 0x0040
+assert evt_pkt[HCI_Event_Disconnection_Complete].connection_handle == 0x0040
 assert evt_pkt[HCI_Event_Disconnection_Complete].reason == 0x16
 
 = Remote Name Request Complete
@@ -419,7 +458,7 @@ evt_raw_data = hex_bytes("040804000b0001")
 evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_Event_Encryption_Change in evt_pkt
 assert evt_pkt[HCI_Event_Encryption_Change].status == 0
-assert evt_pkt[HCI_Event_Encryption_Change].handle == 0x000b
+assert evt_pkt[HCI_Event_Encryption_Change].connection_handle == 0x000b
 assert evt_pkt[HCI_Event_Encryption_Change].enabled == 1
 
 = Read Remote Supported Features Complete
@@ -427,7 +466,7 @@ evt_raw_data = hex_bytes("040b0b000b00fffe8ffedbff5b87")
 evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_Event_Read_Remote_Supported_Features_Complete in evt_pkt
 assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].status == 0
-assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].handle == 0x000b
+assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].connection_handle == 0x000b
 assert evt_pkt[HCI_Event_Read_Remote_Supported_Features_Complete].lmp_features == 0x875bffdbfe8ffeff
 
 = Remote Host Supported Features Notification
@@ -447,7 +486,7 @@ evt_raw_data = hex_bytes("040c080002000bb0022c04")
 evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_Event_Read_Remote_Version_Information_Complete in evt_pkt
 assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].status == 0
-assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].handle == 0x0002
+assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].connection_handle == 0x0002
 assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].version == 0x0b
 assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].manufacturer_name == 0x02b0
 assert evt_pkt[HCI_Event_Read_Remote_Version_Information_Complete].subversion == 1068
@@ -502,7 +541,7 @@ evt_raw_data = hex_bytes("04230d000b0001020300000000000000")
 evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_Event_Read_Remote_Extended_Features_Complete in evt_pkt
 assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].status == 0
-assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].handle == 0x000b
+assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].connection_handle == 0x000b
 assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].page == 1
 assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].max_page == 2
 assert evt_pkt[HCI_Event_Read_Remote_Extended_Features_Complete].extended_features == 0x0000000000000003
@@ -574,7 +613,7 @@ assert evt_pkt[HCI_Event_Hdr].len == 31
 assert HCI_LE_Meta_Enhanced_Connection_Complete in evt_pkt
 evt = evt_pkt[HCI_LE_Meta_Enhanced_Connection_Complete]
 assert evt.status == 0
-assert evt.handle == 16
+assert evt.connection_handle == 16
 assert evt.role == 0
 assert evt.peer_addr_type == 1
 assert evt.peer_addr == "ff:ee:dd:cc:bb:aa"
@@ -588,7 +627,7 @@ assert evt.master_clock_accuracy == 0x0
 = LE Connection Update Event
 evt_raw_data = hex_bytes("043e0a03004800140001003c00")
 evt_pkt =  HCI_Hdr(evt_raw_data)
-assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].handle == 0x48
+assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].connection_handle == 0x48
 assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].interval == 20
 assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].latency == 1
 assert evt_pkt[HCI_LE_Meta_Connection_Update_Complete].timeout == 60
@@ -601,7 +640,7 @@ evt_pkt = HCI_Hdr(evt_raw_data)
 assert HCI_LE_Meta_LE_Read_Remote_Features_Complete in evt_pkt
 evt = evt_pkt[HCI_LE_Meta_LE_Read_Remote_Features_Complete]
 assert evt.status == 0
-assert evt.handle == 0x0040
+assert evt.connection_handle == 0x0040
 assert evt.le_features == 0x000000000000001f
 assert raw(evt_pkt) == evt_raw_data
 
@@ -621,6 +660,100 @@ parsed = HCI_Hdr(raw(built))
 assert parsed[HCI_Event_Hdr].code == 0xff
 assert parsed[HCI_Event_Hdr].len == 4
 assert parsed[HCI_Event_Vendor].data == b"\xde\xad\xbe\xef"
+
+
++ HCI_Event_Vendor handler registration (register_handler / dispatch_hook)
+
+= register_handler routes a recognised body to the vendor handler layer
+# The 0xff event is shared across vendors, so a contrib registers a handler
+# whose check() recognises its own body (here a leading 0xa5 subcode). The
+# dispatch_hook then dissects a matching body with that handler instead of
+# HCI_Event_Vendor. Save the registry first so it can be restored.
+_saved_vendor_handlers = dict(HCI_Event_Vendor.registered_handlers)
+
+class _VendorHandlerA(HCI_Event_Vendor):
+    name = "Vendor Handler A"
+    match_subclass = True
+    fields_desc = [XByteField("subcode", 0xa5), ByteField("value", 0)]
+    @classmethod
+    def check(cls, body):
+        return len(body) >= 1 and body[0] == 0xa5
+
+HCI_Event_Vendor.register_handler(_VendorHandlerA)
+assert _VendorHandlerA in HCI_Event_Vendor.registered_handlers
+
+evt = HCI_Hdr(hex_bytes("04" "ff" "02" "a542"))
+assert _VendorHandlerA in evt
+assert HCI_Event_Vendor in evt                 # match_subclass keeps this true
+assert evt[HCI_Event_Vendor] is evt[_VendorHandlerA]
+assert evt[_VendorHandlerA].subcode == 0xa5
+assert evt[_VendorHandlerA].value == 0x42
+assert raw(evt) == hex_bytes("04" "ff" "02" "a542")   # round-trips unchanged
+
+= A vendor handler can also be built and re-dissected
+evt = HCI_Hdr() / HCI_Event_Hdr() / _VendorHandlerA(value=0x42)
+assert raw(evt) == hex_bytes("04" "ff" "02" "a542")
+assert HCI_Hdr(raw(evt))[_VendorHandlerA].value == 0x42
+
+= register_handler accepts an explicit check callable
+# A handler need not define check() itself; the callable may be supplied.
+class _VendorHandlerB(HCI_Event_Vendor):
+    name = "Vendor Handler B"
+    match_subclass = True
+    fields_desc = [StrField("body", b"")]
+
+HCI_Event_Vendor.register_handler(_VendorHandlerB, check=lambda body: body[:1] == b"\x5a")
+evt = HCI_Hdr(hex_bytes("04" "ff" "03" "5abeef"))
+assert _VendorHandlerB in evt
+assert _VendorHandlerA not in evt              # A's check does not claim it
+assert evt[_VendorHandlerB].body == b"\x5a\xbe\xef"
+
+= Two registered handlers dispatch independently by content
+# With both handlers loaded, each body is routed to the handler that claims it.
+evt_a = HCI_Hdr(hex_bytes("04" "ff" "02" "a542"))
+assert _VendorHandlerA in evt_a and _VendorHandlerB not in evt_a
+evt_b = HCI_Hdr(hex_bytes("04" "ff" "03" "5abeef"))
+assert _VendorHandlerB in evt_b and _VendorHandlerA not in evt_b
+
+= An unrecognised 0xff body still falls back to the raw data field
+# No registered check matches, so the historical raw-``data`` behaviour holds.
+evt = HCI_Hdr(hex_bytes("04" "ff" "02" "0102"))
+assert type(evt[HCI_Event_Vendor]) is HCI_Event_Vendor
+assert _VendorHandlerA not in evt
+assert _VendorHandlerB not in evt
+assert evt[HCI_Event_Vendor].data == b"\x01\x02"
+assert raw(evt) == hex_bytes("04" "ff" "02" "0102")
+
+= dispatch_hook only applies to dissection, not to explicit construction
+# Without bytes to inspect there is nothing to check, so the generic class is
+# kept and ``HCI_Event_Vendor(data=...)`` still builds a generic event.
+assert type(HCI_Event_Vendor()) is HCI_Event_Vendor
+assert type(HCI_Event_Vendor(data=b"\xa5\x42")) is HCI_Event_Vendor
+
+= register_handler is idempotent when the same handler is re-registered
+# Keyed by handler class, so reloading a contrib does not duplicate entries.
+_n = len(HCI_Event_Vendor.registered_handlers)
+HCI_Event_Vendor.register_handler(_VendorHandlerA)
+assert len(HCI_Event_Vendor.registered_handlers) == _n
+
+= register_handler raises TypeError when no check is available
+class _VendorNoCheck(Packet):
+    name = "Vendor No Check"
+    fields_desc = []
+
+try:
+    HCI_Event_Vendor.register_handler(_VendorNoCheck)
+    assert False, "expected TypeError for a handler without a check"
+except TypeError:
+    pass
+
+assert _VendorNoCheck not in HCI_Event_Vendor.registered_handlers
+
+= Restore the HCI_Event_Vendor handler registry
+# Undo the test registrations so later tests see a clean registry.
+HCI_Event_Vendor.registered_handlers.clear()
+HCI_Event_Vendor.registered_handlers.update(_saved_vendor_handlers)
+assert HCI_Event_Vendor.registered_handlers == _saved_vendor_handlers
 
 
 + Bluetooth LE Advertising / Scan Response Data Parsing
@@ -825,12 +958,12 @@ assert raw(p[EIR_ServiceData16BitUUID].payload) == hex_bytes("e6c2")
 
 = Basic L2CAP dissect
 a = L2CAP_Hdr(b'\x08\x00\x06\x00\t\x00\xf6\xe5\xd4\xc3\xb2\xa1')
-assert a[SM_Identity_Address_Information].addr == 'a1:b2:c3:d4:e5:f6'
+assert a[SM_Identity_Address_Information].bd_addr == 'a1:b2:c3:d4:e5:f6'
 assert a[SM_Identity_Address_Information].addr_type == 0
 a.show()
 
 = Basic HCI_ACL_Hdr build & dissect
-a = HCI_Hdr()/HCI_ACL_Hdr(handle=0xf4c, PB=2, BC=2, len=20)/L2CAP_Hdr(len=16)/L2CAP_CmdHdr(code=8, len=12)/L2CAP_EchoReq(data="AAAAAAAAAAAA")
+a = HCI_Hdr()/HCI_ACL_Hdr(connection_handle=0xf4c, PB=2, BC=2, len=20)/L2CAP_Hdr(len=16)/L2CAP_CmdHdr(code=8, len=12)/L2CAP_EchoReq(data="AAAAAAAAAAAA")
 assert raw(a) == b'\x02L\xaf\x14\x00\x10\x00\x05\x00\x08\x01\x0c\x00AAAAAAAAAAAA'
 b = HCI_Hdr(raw(a))
 assert a == b
@@ -1002,8 +1135,14 @@ b.mysummary()
 assert ATT_Read_By_Type_Request in b
 assert not Raw in b
 
-= ATT Read_By_Type_Response
+= ATT Read_By_Type_Request
+pkt = HCI_Hdr(hex_bytes('025e000b00070004000808000b000328'))
 
+assert pkt[ATT_Read_By_Type_Request].start == 0x8
+assert pkt[ATT_Read_By_Type_Request].end == 0xb
+assert pkt[ATT_Read_By_Type_Request].uuid == 0x2803
+
+= ATT Read_By_Type_Response
 pkt = HCI_Hdr(hex_bytes('0248201b001700040009070200020300002a0400020500012a0600020700042a'))
 
 assert pkt[ATT_Read_By_Type_Response].len == 7
@@ -1015,6 +1154,78 @@ assert pkt.handles[2].handle == 0x6
 pkt.handles[0].value == b'\x02\x03\x00\x00*'
 pkt.handles[1].value == b'\x02\x05\x00\x01*'
 pkt.handles[2].value == b'\x02\x07\x00\x04*'
+
+= ATT Read_By_Group_Type_Request
+pkt = HCI_Hdr(hex_bytes('025e000b0007000400100100ffff0028'))
+
+assert pkt[ATT_Read_By_Group_Type_Request].start == 0x1
+assert pkt[ATT_Read_By_Group_Type_Request].end == 0xffff
+assert pkt[ATT_Read_By_Group_Type_Request].uuid == 0x2800
+
+= ATT Read_By_Group_Type_Response
+pkt = HCI_Hdr(hex_bytes('025e20180014000400110601000700001808000b0001180c0010000a18'))
+
+assert pkt[ATT_Read_By_Group_Type_Response].len == 6
+assert len(pkt.handles) == 3
+assert pkt.handles[0].handle == 0x1
+assert pkt.handles[1].handle == 0x8
+assert pkt.handles[2].handle == 0xc
+
+assert pkt.handles[0].group_end_handle == 0x7
+assert pkt.handles[1].group_end_handle == 0xb
+assert pkt.handles[2].group_end_handle == 0x10
+
+assert pkt.handles[0].value == b'\x00\x18'
+assert pkt.handles[1].value == b'\x01\x18'
+assert pkt.handles[2].value == b'\x0a\x18'
+
+= ATT Read_Multiple_Variable_Request
+pkt = HCI_Hdr(hex_bytes('0200000900050004002010001300'))
+
+assert ATT_Read_Multiple_Variable_Request in pkt
+assert len(pkt.handles) == 2
+assert pkt.handles[0] == 0x10
+assert pkt.handles[1] == 0x13
+
+= ATT Read_Multiple_Variable_Response
+pkt = HCI_Hdr(hex_bytes('02002013000f00040021050032312e354305003538255248'))
+
+assert ATT_Read_Multiple_Variable_Response in pkt
+assert len(pkt.values) == 2
+
+assert pkt.values[0].len == 5
+assert pkt.values[1].len == 5
+
+assert pkt.values[0].value == b'\x32\x31\x2e\x35\x43'
+assert pkt.values[1].value == b'\x35\x38\x25\x52\x48'
+
+= ATT Multiple_Handle_Value_Notification
+pkt = HCI_Hdr(hex_bytes('020020170013000400231000050032312e3543130005003538255248'))
+
+assert ATT_Multiple_Handle_Value_Notification in pkt
+assert len(pkt.handles) == 2
+
+assert pkt.handles[0].handle == 0x10
+assert pkt.handles[1].handle == 0x13
+
+assert pkt.handles[0].len == 5
+assert pkt.handles[1].len == 5
+
+assert pkt.handles[0].value == b'\x32\x31\x2e\x35\x43'
+assert pkt.handles[1].value == b'\x35\x38\x25\x52\x48'
+
+= ATT Handle_Value_Confirmation
+pkt = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/ATT_Hdr()/ATT_Handle_Value_Confirmation()
+assert pkt[ATT_Hdr].opcode == 0x1e
+
+= ATT Signed_Write_Command
+pkt = HCI_Hdr(hex_bytes('020000150011000400d21900676f58ff7c816676336f6e318d3f'))
+
+assert ATT_Signed_Write_Command in pkt
+assert pkt[ATT_Signed_Write_Command].handle == 0x19
+assert pkt[ATT_Signed_Write_Command].value == b'\x67\x6f'
+assert pkt[ATT_Signed_Write_Command].sign_counter == 2172452696
+assert pkt[ATT_Signed_Write_Command].signature == b'\x66\x76\x33\x6f\x6e\x31\x8d\x3f'
 
 = SM_Security_Request
 pkt = HCI_Hdr(hex_bytes('0200260600020006000b0d'))
@@ -1091,3 +1302,33 @@ assert p[HCI_Mon_Index_Info].manufacturer == 0x131
 p = HCI_Mon_Pcap_Hdr(hex_bytes("ffff000c426c7565746f6f74682073756273797374656d2076657273696f6e20322e323200"))
 assert HCI_Mon_System_Note in p
 assert p[HCI_Mon_System_Note].note == b'Bluetooth subsystem version 2.22'
+
+= HCI_Cmd_LE_Set_Extended_Advertise_Enable - multiple advertising sets
+
+p = HCI_Cmd_LE_Set_Extended_Advertise_Enable(hex_bytes("01020164000502c8000a"))
+assert p.num_sets == 2
+assert len(p.sets) == 2
+assert p.sets[0].handle == 1
+assert p.sets[0].duration == 100
+assert p.sets[0].max_events == 5
+assert p.sets[1].handle == 2
+assert p.sets[1].duration == 200
+assert p.sets[1].max_events == 10
+assert raw(p) == hex_bytes("01020164000502c8000a")
+
+= HCI_Cmd_LE_Set_Extended_Advertise_Enable - single advertising set
+
+p = HCI_Cmd_LE_Set_Extended_Advertise_Enable(hex_bytes("010101640005"))
+assert p.num_sets == 1
+assert len(p.sets) == 1
+assert p.sets[0].handle == 1
+assert raw(p) == hex_bytes("010101640005")
+
+= HCI_Event_Inquiry_Result_With_Rssi dissection
+
+p = HCI_Event_Inquiry_Result_With_Rssi(hex_bytes("011122334455660100000000000000c0"))
+assert p.num_response == 1
+assert p.bd_addr == ["66:55:44:33:22:11"]
+assert p.page_scan_repetition_mode == [1]
+assert p.rssi == [-64]
+assert raw(p) == hex_bytes("011122334455660100000000000000c0")

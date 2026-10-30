@@ -159,6 +159,20 @@ The ``armor_with`` keyword allows to select a ticket to armor the request with.
    Start time         End time           Renew until        Auth time
    15/04/25 20:15:20  16/04/25 06:10:22  16/04/25 06:10:22  15/04/25 20:15:17
 
+- **Perform S4U2Self+U2U to get the PAC**
+
+.. code:: pycon
+
+   >>> load_module("ticketer")
+   >>> t = Ticketer()
+   >>> t.request_tgt("MyUser@domain.local", password="password")
+   >>> tgt, key, _ = t.export_krb(0)
+   >>> # Get PAC of Administrator@domain.local
+   >>> t.request_st(0, "MyUser@domain.local",
+   ...              for_user="Administrator@domain.local",
+   ...              u2u=True, additional_tickets=[tgt])
+   >>> t.export_krb(1)[0].encPart.decrypt(key).show()
+
 - **Request a ticket for a DMSA**
 
 For more information about DMSAs and how to create them, consult the `relevant Microsoft documentation <https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/delegated-managed-service-accounts/delegated-managed-service-accounts-set-up-dmsa>`_. In this example we allowed ``SERVER1$`` to retrieve the managed password of ``dmsa_user$``.

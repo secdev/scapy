@@ -11,7 +11,6 @@ TODO:
     - add documentation for ioevent, as_supersocket...
 """
 
-import ctypes
 import itertools
 import logging
 import os
@@ -50,11 +49,15 @@ from typing import (
     Set,
     Tuple,
     Type,
+    TYPE_CHECKING,
     TypeVar,
     Union,
     cast,
 )
 from scapy.compat import DecoratorCallable
+
+if WINDOWS or TYPE_CHECKING:
+    import ctypes
 
 
 # winsock.h
@@ -89,33 +92,38 @@ def select_objects(inputs, remain):
         return select.select(inputs, [], [], remain)[0]
     inputs = list(inputs)
     events = []
+    events_to_inputs = []
     created = []
     results = set()
     for i in inputs:
-        if getattr(i, "__selectable_force_select__", False):
-            # Native socket.socket object. We would normally use select.select.
-            evt = ctypes.windll.ws2_32.WSACreateEvent()
-            created.append(evt)
-            res = ctypes.windll.ws2_32.WSAEventSelect(
-                ctypes.c_void_p(i.fileno()),
-                evt,
-                FD_READ
-            )
-            if res == 0:
-                # Was a socket
-                events.append(evt)
-            else:
-                # Fallback to normal event
-                events.append(i.fileno())
-        elif i.fileno() < 0:
+        fno = i.fileno()
+        if fno < 0:
             # Special case: On Windows, we consider that an object that returns
             # a negative fileno (impossible), is always readable. This is used
             # in very few places but important (e.g. PcapReader), where we have
             # no valid fileno (and will stop on EOFError).
             results.add(i)
             remain = 0
+            continue
+        if getattr(i, "__selectable_force_select__", False):
+            # Native socket.socket object. We would normally use select.select.
+            evt = ctypes.windll.ws2_32.WSACreateEvent()
+            created.append(evt)
+            res = ctypes.windll.ws2_32.WSAEventSelect(
+                ctypes.c_void_p(fno),
+                evt,
+                FD_READ
+            )
+            if res == 0:
+                # Was a socket
+                event = evt
+            else:
+                # Fallback to normal event
+                event = fno
         else:
-            events.append(i.fileno())
+            event = fno
+        events.append(event)
+        events_to_inputs.append(i)
     if events:
         # 0xFFFFFFFF = INFINITE
         remainms = int(remain * 1000 if remain is not None else 0xFFFFFFFF)
@@ -137,7 +145,7 @@ def select_objects(inputs, remain):
                 remainms
             )
         if res != 0xFFFFFFFF and res != 0x00000102:  # Failed or Timeout
-            results.add(inputs[res])
+            results.add(events_to_inputs[res])
             if len(events) > 1:
                 # Now poll the others, if any
                 for i, evt in enumerate(events):
@@ -146,7 +154,7 @@ def select_objects(inputs, remain):
                         0  # poll: don't wait
                     )
                     if res == 0:
-                        results.add(inputs[i])
+                        results.add(events_to_inputs[i])
     # Cleanup created events, if any
     for evt in created:
         ctypes.windll.ws2_32.WSACloseEvent(evt)
@@ -1042,9 +1050,10 @@ class Automaton(metaclass=Automaton_metaclass):
                     # start atmt
                     atmt_server.runbg()
                     # housekeeping
-                    for atmt, clientsocket in clients:
+                    for atmt, clientsocket in clients[:]:
                         if not atmt.isrunning():
                             atmt.destroy()
+                            clients.remove((atmt, clientsocket))
             except KeyboardInterrupt:
                 print("X Exiting.")
                 ssock.shutdown(socket.SHUT_RDWR)
@@ -1259,7 +1268,7 @@ class Automaton(metaclass=Automaton_metaclass):
 
     def __del__(self):
         # type: () -> None
-        self.destroy()
+        self.destroy(force=True)
 
     def _run_condition(self, cond, *args, **kargs):
         # type: (_StateWrapper, Any, Any) -> None
@@ -1288,11 +1297,26 @@ class Automaton(metaclass=Automaton_metaclass):
             target=self._do_control,
             args=(ready,) + (args),
             kwargs=kargs,
-            name="scapy.automaton _do_start"
+            name="scapy.automaton _do_control"
         )
         _t.daemon = True
         _t.start()
         ready.wait()
+
+    def _transfer_error(self, ex: Exception, exc_info: Any) -> None:
+        """
+        This transfers the error to the main thread.
+        """
+        self.debug(3, "Transferring exception from tid=%i:\n%s" % (
+            self.threadid or 0,
+            "".join(traceback.format_exception(*exc_info))
+        ))
+        m = Message(
+            type=_ATMT_Command.EXCEPTION,
+            exception=ex,
+            exc_info=exc_info,
+        )
+        self.cmdout.send(m)
 
     def _do_control(self, ready, *args, **kargs):
         # type: (threading.Event, Any, Any) -> None
@@ -1305,20 +1329,26 @@ class Automaton(metaclass=Automaton_metaclass):
             a = args + self.init_args[len(args):]
             k = self.init_kargs.copy()
             k.update(kargs)
-            self.parse_args(*a, **k)
 
-            # Start the automaton
-            self.state = self.initial_states[0](self)
-            self.send_sock = self.sock or self.send_sock_class(**self.socket_kargs)
-            if self.recv_conditions:
-                # Only start a receiving socket if we have at least one recv_conditions
-                self.listen_sock = self.sock or self.recv_sock_class(**self.socket_kargs)  # noqa: E501
+            # Initialize the automaton
             self.packets = PacketList(name="session[%s]" % self.__class__.__name__)
+            try:
+                self.parse_args(*a, **k)
+                self.state = self.initial_states[0](self)
+                self.send_sock = self.sock or self.send_sock_class(**self.socket_kargs)
+                if self.recv_conditions:
+                    # Only start a receiving socket if we have at least one
+                    # recv_conditions
+                    self.listen_sock = self.sock or self.recv_sock_class(**self.socket_kargs)  # noqa: E501
+            except Exception as e:
+                self._transfer_error(e, sys.exc_info())
+                ready.set()
+                return
 
+            # Main loop of the control thread
             singlestep = True
             iterator = self._do_iter()
             self.debug(3, "Starting control thread [tid=%i]" % self.threadid)
-            # Sync threads
             ready.set()
             try:
                 while True:
@@ -1359,10 +1389,7 @@ class Automaton(metaclass=Automaton_metaclass):
                             result=self.final_state_output)
                 self.cmdout.send(c)
             except Exception as e:
-                exc_info = sys.exc_info()
-                self.debug(3, "Transferring exception from tid=%i:\n%s" % (self.threadid, "".join(traceback.format_exception(*exc_info))))  # noqa: E501
-                m = Message(type=_ATMT_Command.EXCEPTION, exception=e, exc_info=exc_info)  # noqa: E501
-                self.cmdout.send(m)
+                self._transfer_error(e, sys.exc_info())
             self.debug(3, "Stopping control thread (tid=%i)" % self.threadid)
             self.threadid = None
             if self.listen_sock:
@@ -1568,15 +1595,17 @@ class Automaton(metaclass=Automaton_metaclass):
         for cmd in [self.cmdin, self.cmdout]:
             cmd.clear()
 
-    def destroy(self):
-        # type: () -> None
+    def destroy(self, force=False):
+        # type: (bool) -> None
         """
         Destroys a stopped Automaton: this cleanups all opened file descriptors.
+        The automaton will not be able to be restarted.
+
         Required on PyPy for instance where the garbage collector behaves differently.
         """
         if not hasattr(self, "started"):
             return  # was never started.
-        if self.isrunning():
+        if not force and self.isrunning():
             raise ValueError("Can't close running Automaton ! Call stop() beforehand")
         # Close command pipes
         self.cmdin.close()

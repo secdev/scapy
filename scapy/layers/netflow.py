@@ -454,9 +454,9 @@ NetflowV910TemplateFields = {
     147: _N910F("wlanSSID"),
     148: _N910F("flowId"),
     149: _N910F("observationDomainId"),
-    150: _N910F("flowStartSeconds", length=8,
+    150: _N910F("flowStartSeconds", length=4,
                 field=N9UTCTimeField),
-    151: _N910F("flowEndSeconds", length=8,
+    151: _N910F("flowEndSeconds", length=4,
                 field=N9UTCTimeField),
     152: _N910F("flowStartMilliseconds", length=8,
                 field=N9UTCTimeField,
@@ -1489,6 +1489,8 @@ def _netflowv9_defragment_packet(pkt, definitions, definitions_opts, ignored):
                     llist.append((tmpl.fieldLength, tmpl.fieldType))
                 if llist:
                     tot_len = sum(x[0] for x in llist)
+                    if not tot_len:
+                        continue
                     cls = _GenNetflowRecordV9(NetflowRecordV9, llist)
                     definitions[ntv9.templateID] = (tot_len, cls)
             current = current.payload

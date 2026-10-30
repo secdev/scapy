@@ -30,7 +30,7 @@ from scapy.utils import get_temp_file, randstring, repr_hex
 from scapy.automaton import ATMT
 from scapy.error import warning
 from scapy.layers.tls.automaton import _TLSAutomaton
-from scapy.layers.tls.cert import PrivKeyRSA, PrivKeyECDSA, PrivKeyEdDSA
+from scapy.layers.tls.cert import PrivKeyRSA, PrivKeyECDSA, PrivKeyEdDSA, CertList
 from scapy.layers.tls.basefields import _tls_version
 from scapy.layers.tls.session import tlsSession
 from scapy.layers.tls.crypto.groups import _tls_named_groups
@@ -86,7 +86,8 @@ if conf.crypto_valid:
 class TLSServerAutomaton(_TLSAutomaton):
     """
     A simple TLS test server automaton. Try to overload some states or
-    conditions and see what happens on the other side.
+    conditions and see what happens on the other side. This server
+    can only serve a SINGLE CLIENT at a time.
 
     Because of socket and automaton limitations, for now, the best way to
     interrupt the server is by sending him 'stop_server'. Interruptions with
@@ -96,15 +97,17 @@ class TLSServerAutomaton(_TLSAutomaton):
     message in a SSLv2 version, he will close the client session with a
     similar message, and start waiting for new client connections.
 
-    _'mycert' and 'mykey' may be provided as filenames. They are needed for any
-    server authenticated handshake.
-    _'preferred_ciphersuite' allows the automaton to choose a cipher suite when
-    offered in the ClientHello. If absent, another one will be chosen.
-    _'client_auth' means the client has to provide a certificate.
-    _'is_echo_server' means that everything received will be sent back.
-    _'max_client_idle_time' is the maximum silence duration from the client.
-    Once this limit has been reached, the client (if still here) is dropped,
-    and we wait for a new connection.
+    :param mycert: the Cert or path to certificate
+    :param mykey: the PrivKey or path to private key
+    :param preferred_ciphersuite: a ciphersuite to prefer in the client hello
+    :param client_auth: whether the client has to provide a certificate
+
+    Server behavior:
+
+    :param is_echo_server: means that everything received will be sent back
+    :param max_client_idle_time: is the maximum silence duration from the client.
+        Once this limit has been reached, the client (if still here) is dropped,
+        and we wait for a new connection.
     """
 
     def parse_args(self, server="127.0.0.1", sport=4433,
@@ -232,6 +235,26 @@ class TLSServerAutomaton(_TLSAutomaton):
         answer = (header + body) % len(body)
         return answer
 
+    def stop(self, wait=True):
+        # We shutdown the server socket so that WAITING_CLIENT exits.
+        try:
+            self.serversocket.shutdown(socket.SHUT_RDWR)
+            self.serversocket.close()
+        except OSError:
+            pass
+        self.serversocket.close()
+        return super(TLSServerAutomaton, self).stop(wait=wait)
+
+    def forcestop(self, wait=True):
+        # We shutdown the server socket so that WAITING_CLIENT exits.
+        try:
+            self.serversocket.shutdown(socket.SHUT_RDWR)
+            self.serversocket.close()
+        except OSError:
+            pass
+        self.serversocket.close()
+        return super(TLSServerAutomaton, self).forcestop(wait=wait)
+
     @ATMT.state(initial=True)
     def INITIAL(self):
         self.vprint("Starting TLS server automaton.")
@@ -257,7 +280,7 @@ class TLSServerAutomaton(_TLSAutomaton):
             self.vprint(m)
             self.vprint("Maybe some server is already listening there?")
             self.vprint()
-            raise self.FINAL()
+            raise self.FINAL(reason=self.BIND)
         raise self.WAITING_CLIENT()
 
     @ATMT.state()
@@ -272,7 +295,11 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.vprint()
         self.vprint("Waiting for a new client on %s:%d" % (self.local_ip,
                                                            self.local_port))
-        self.socket, addr = self.serversocket.accept()
+        try:
+            self.socket, addr = self.serversocket.accept()
+        except OSError:
+            self.vprint("Wait was cancelled: server socket was closed.")
+            raise self.FINAL()
         if not isinstance(addr, tuple):
             addr = self.socket.getpeername()
         if len(addr) > 2:
@@ -291,7 +318,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         every server_key with both server_rsa_key and server_ecdsa_key.
         """
         self.cur_session = tlsSession(connection_end="server")
-        self.cur_session.server_certs = [self.mycert]
+        self.cur_session.server_certs = CertList([self.mycert])
         self.cur_session.server_key = self.mykey
         if isinstance(self.mykey, PrivKeyRSA):
             self.cur_session.server_rsa_key = self.mykey
@@ -513,7 +540,17 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_CERTIFICATEVERIFY(self):
-        pass
+        if self.client_auth and not self.cur_session.client_cert_verify_valid:
+            raise self.INVALID_CERTIFICATEVERIFY()
+
+    @ATMT.state()
+    def INVALID_CERTIFICATEVERIFY(self):
+        self.vprint("Invalid CertificateVerify!")
+        self.add_record()
+        self.add_msg(TLSAlert(level=2, descr=51))
+        self.flush_records()
+        self.socket.close()
+        raise self.WAITING_CLIENT()
 
     @ATMT.condition(HANDLED_CERTIFICATEVERIFY, prio=1)
     def should_handle_ChangeCipherSpec(self):
@@ -551,7 +588,18 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_CLIENTFINISHED(self):
+        if not self.cur_session.finished_valid:
+            raise self.INVALID_FINISHED()
         raise self.PREPARE_SERVERFLIGHT2()
+
+    @ATMT.state()
+    def INVALID_FINISHED(self):
+        self.vprint("Invalid Finished!")
+        self.add_record()
+        self.add_msg(TLSAlert(level=2, descr=51))
+        self.flush_records()
+        self.socket.close()
+        raise self.WAITING_CLIENT()
 
     @ATMT.condition(HANDLED_CHANGECIPHERSPEC, prio=2)
     def should_handle_Alert_from_ClientFinished(self):
@@ -776,6 +824,9 @@ class TLSServerAutomaton(_TLSAutomaton):
             if isinstance(m, (TLS13ClientHello, TLSClientHello)):
                 for e in m.ext:
                     if isinstance(e, TLS_Ext_PreSharedKey_CH):
+                        if not e.identities or len(e.identities) != len(e.binders):
+                            self.vprint("Malformed pre_shared_key extension!")
+                            raise self.CLOSE_NOTIFY()
                         psk_identity = e.identities[0].identity
                         obfuscated_age = e.identities[0].obfuscated_ticket_age
                         binder = e.binders[0].binder
@@ -998,7 +1049,8 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def TLS13_HANDLED_CLIENT_CERTIFICATEVERIFY(self):
-        pass
+        if self.client_auth and not self.cur_session.client_cert_verify_valid:
+            raise self.INVALID_CERTIFICATEVERIFY()
 
     @ATMT.condition(TLS13_HANDLED_CLIENT_CERTIFICATEVERIFY)
     def tls13_should_handle_ClientFinished(self):
@@ -1017,6 +1069,8 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def TLS13_HANDLED_CLIENTFINISHED(self):
+        if not self.cur_session.finished_valid:
+            raise self.INVALID_FINISHED()
         self.vprint("TLS handshake completed!")
         self.vprint_sessioninfo()
         if self.is_echo_server:
@@ -1182,7 +1236,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         # We might call shutdown, but unit tests with s_client fail with this
         # self.socket.shutdown(1)
         self.socket.close()
-        raise self.FINAL()
+        raise self.FINAL(reason=self.CLOSE_NOTIFY_FINAL)
 
     #                          SSLv2 handshake                                #
 
@@ -1259,7 +1313,8 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_HANDLED_CLIENTFINISHED(self):
-        pass
+        if not self.cur_session.finished_valid:
+            raise self.INVALID_FINISHED()
 
     @ATMT.condition(SSLv2_HANDLED_CLIENTFINISHED, prio=1)
     def sslv2_should_add_ServerVerify_from_ClientFinished(self):
@@ -1353,6 +1408,8 @@ class TLSServerAutomaton(_TLSAutomaton):
     @ATMT.state()
     def SSLv2_HANDLED_CLIENTCERTIFICATE(self):
         self.vprint("Received client certificate...")
+        if self.client_auth and not self.cur_session.client_cert_verify_valid:
+            raise self.INVALID_CERTIFICATEVERIFY()
         # We could care about the client CA, but we don't.
         raise self.SSLv2_HANDLED_CLIENTFINISHED()
 
@@ -1481,10 +1538,12 @@ class TLSServerAutomaton(_TLSAutomaton):
         except Exception:
             self.vprint("Could not send our goodbye. The client probably left.")  # noqa: E501
         self.socket.close()
-        raise self.FINAL()
+        raise self.FINAL(reason=self.SSLv2_CLOSE_NOTIFY_FINAL)
 
     @ATMT.state(stop=True, final=True)
-    def FINAL(self):
+    def FINAL(self, reason=None):
         self.vprint("Closing server socket...")
         self.serversocket.close()
+        if reason is not None:
+            self.final_reason = reason
         self.vprint("Ending TLS server automaton.")

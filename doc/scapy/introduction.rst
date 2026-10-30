@@ -62,10 +62,9 @@ Interpreting results can help users that don't know what a port scan is, but it 
 Quick demo
 ==========
 
-First, we play a bit and create four IP packets at once. Let's see how it works. We first instantiate the IP class. Then, we instantiate it again and we provide a destination that is worth four IP addresses (/30 gives the netmask). Using a Python idiom, we develop this implicit packet in a set of explicit packets. Then, we quit the interpreter. As we provided a session file, the variables we were working on are saved, then reloaded::
+First, we play a bit and create four IP packets at once. Let's see how it works. We first instantiate the IP class. Then, we instantiate it again and we provide a destination that is worth four IP addresses (/30 gives the netmask). Using a Python idiom, we develop this implicit packet in a set of explicit packets::
 
-    # ./run_scapy -s mysession
-    New session [mysession]
+    # ./run_scapy
     Welcome to Scapy (2.4.0)
     >>> IP()
     <IP |>
@@ -76,15 +75,6 @@ First, we play a bit and create four IP packets at once. Let's see how it works.
     >>> [p for p in ip]
     [<IP dst=207.171.175.28 |>, <IP dst=207.171.175.29 |>,
      <IP dst=207.171.175.30 |>, <IP dst=207.171.175.31 |>]
-    >>> ^D
-
-::
-
-    # ./run_scapy -s mysession
-    Using session [mysession]
-    Welcome to Scapy (2.4.0)
-    >>> ip
-    <IP dst=<Net www.target.com/30> |>
 
 Now, let's manipulate some packets::
 

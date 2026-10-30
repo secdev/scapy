@@ -40,7 +40,7 @@ import struct
 import warnings
 
 from scapy.config import conf, crypto_validator
-from scapy.compat import orb, raw
+from scapy.compat import raw
 from scapy.data import IP_PROTOS
 from scapy.error import log_loading
 from scapy.fields import (
@@ -500,8 +500,8 @@ class CryptAlgo(object):
                     raise IPSecIntegrityError(err)
 
         # extract padlen and nh
-        padlen = orb(data[-2])
-        nh = orb(data[-1])
+        padlen = data[-2]
+        nh = data[-1]
 
         # then use padlen to determine data and padding
         padding = data[len(data) - padlen - 2: len(data) - 2]
@@ -928,7 +928,9 @@ def zero_mutable_fields(pkt, sending=False):
 
 class SecurityAssociation(object):
     """
-    This class is responsible of "encryption" and "decryption" of IPsec packets.  # noqa: E501
+    This class is responsible of "encryption" and "decryption" of IPsec packets.
+
+    This does not check replay, and shouldn't be used as-is in production.
     """
 
     SUPPORTED_PROTOS = (IP, IPv6)

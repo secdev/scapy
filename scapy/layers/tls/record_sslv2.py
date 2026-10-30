@@ -11,13 +11,14 @@ import struct
 
 from scapy.config import conf
 from scapy.error import log_runtime
-from scapy.compat import orb, raw
+from scapy.compat import raw
 from scapy.packet import Raw
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.record import _TLSMsgListField, TLS
 from scapy.layers.tls.handshake_sslv2 import _sslv2_handshake_cls
 from scapy.layers.tls.basefields import (_SSLv2LengthField, _SSLv2PadField,
                                          _SSLv2PadLenField, _TLSMACField)
+from scapy.layers.tls.crypto.h_mac import HMACError
 
 
 ###############################################################################
@@ -36,7 +37,7 @@ class _SSLv2MsgListField(_TLSMsgListField):
     def m2i(self, pkt, m):
         cls = Raw
         if len(m) >= 1:
-            msgtype = orb(m[0])
+            msgtype = m[0]
             cls = _sslv2_handshake_cls.get(msgtype, Raw)
 
         if cls is Raw:
@@ -131,7 +132,7 @@ class SSLv2(TLS):
         # Extract padding
         padlen = 0
         if hdrlen == 3:
-            padlen = orb(s[2])
+            padlen = s[2]
         if padlen == 0:
             cfrag, pad = pfrag, b""
         else:
@@ -141,7 +142,9 @@ class SSLv2(TLS):
         is_mac_ok = self._sslv2_mac_verify(cfrag + pad, mac)
         if not is_mac_ok:
             pkt_info = self.firstlayer().summary()
-            log_runtime.info("SSLv2: record integrity check failed [%s]", pkt_info)  # noqa: E501
+            log_runtime.info("SSLv2: record integrity check failed [%s]", pkt_info)
+            if self.strict_integrity:
+                raise HMACError("SSLv2 record integrity check failed")
 
         reconstructed_body = mac + cfrag + pad
         return hdr + reconstructed_body + r

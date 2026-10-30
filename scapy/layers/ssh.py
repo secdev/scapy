@@ -62,6 +62,9 @@ class _ComaStrField(StrLenField):
     def i2m(self, pkt, x):
         return super(_ComaStrField, self).i2m(pkt, b",".join(x))
 
+    def i2len(self, pkt, x):
+        return len(self.i2m(pkt, x))
+
 
 class SSHString(Packet):
     fields_desc = [
@@ -178,6 +181,8 @@ class SSH(Packet):
     def mysummary(self):
         if self.pay:
             if isinstance(self.pay, conf.raw_layer):
+                if not self.pay.load:
+                    return "SSH", [TCP, SSH]
                 return "SSH type " + str(self.pay.load[0]), [TCP, SSH]
             return "SSH " + self.pay.sprintf("%type%"), [TCP, SSH]
         return "SSH", [TCP, SSH]

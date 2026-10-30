@@ -7,7 +7,6 @@
 Functions common to different architectures
 """
 
-import ctypes
 import re
 import socket
 
@@ -15,7 +14,6 @@ from scapy.config import conf
 from scapy.data import MTU, ARPHRD_TO_DLT, DLT_RAW_ALT, DLT_RAW
 from scapy.error import Scapy_Exception, warning
 from scapy.interfaces import network_name, resolve_iface, NetworkInterface
-from scapy.libs.structures import bpf_program
 from scapy.pton_ntop import inet_pton
 from scapy.utils import decode_locale_str
 
@@ -24,8 +22,12 @@ import scapy
 from typing import (
     List,
     Optional,
+    TYPE_CHECKING,
     Union,
 )
+
+if TYPE_CHECKING:
+    from scapy.libs.structures import bpf_program
 
 # From if.h
 _iff_flags = [
@@ -68,7 +70,7 @@ def compile_filter(filter_exp,  # type: str
                    linktype=None,  # type: Optional[int]
                    promisc=False  # type: bool
                    ):
-    # type: (...) -> bpf_program
+    # type: (...) -> 'bpf_program'
     """Asks libpcap to parse the filter, then build the matching
     BPF bytecode.
 
@@ -76,11 +78,19 @@ def compile_filter(filter_exp,  # type: str
     :param linktype: if provided, use the linktype to compile
     """
     try:
+        import ctypes
+    except OSError:
+        raise ImportError(
+            "ctypes is not available. Cannot compile filter !"
+        )
+    from scapy.libs.structures import bpf_program
+    try:
         from scapy.libs.winpcapy import (
             PCAP_ERRBUF_SIZE,
             pcap_open_live,
+            pcap_open_dead,
             pcap_compile,
-            pcap_compile_nopcap,
+            pcap_geterr,
             pcap_close
         )
     except OSError:
@@ -109,9 +119,9 @@ def compile_filter(filter_exp,  # type: str
         # Some conversion aliases (e.g. linktype_to_dlt in libpcap)
         if linktype == DLT_RAW_ALT:
             linktype = DLT_RAW
-        ret = pcap_compile_nopcap(
-            MTU, linktype, ctypes.byref(bpf), bpf_filter, 1, -1
-        )
+        # Use a "dead" capture handle (no interface / no root required) so that,
+        # on failure, the libpcap error message can be retrieved with pcap_geterr
+        pcap = pcap_open_dead(linktype, MTU)
     elif iface:
         err = create_string_buffer(PCAP_ERRBUF_SIZE)
         iface_b = create_string_buffer(network_name(iface).encode("utf8"))
@@ -121,22 +131,41 @@ def compile_filter(filter_exp,  # type: str
         error = decode_locale_str(bytearray(err).strip(b"\x00"))
         if error:
             raise OSError(error)
-        ret = pcap_compile(
-            pcap, ctypes.byref(bpf), bpf_filter, 1, -1
+    else:
+        raise Scapy_Exception("Please provide an interface or linktype!")
+    ret = pcap_compile(
+        pcap, ctypes.byref(bpf), bpf_filter, 1, -1
+    )
+    if ret == -1:
+        # Retrieve the underlying libpcap error message: it explains why the
+        # filter is invalid or incompatible with the link-layer type
+        errstr = decode_locale_str(
+            bytearray(pcap_geterr(pcap)).strip(b"\x00")
         )
         pcap_close(pcap)
-    if ret == -1:
         raise Scapy_Exception(
-            "Failed to compile filter expression %s (%s)" % (filter_exp, ret)
+            "Failed to compile filter expression %r (%s)" % (filter_exp, errstr)
         )
+    pcap_close(pcap)
     return bpf
 
 
-def free_filter(bp: bpf_program) -> None:
+def free_filter(bp: 'bpf_program') -> None:
     """
     Free a bpf_program created with compile_filter
     """
-    from scapy.libs.winpcapy import pcap_freecode
+    try:
+        import ctypes
+    except OSError:
+        raise ImportError(
+            "ctypes is not available. Cannot free filter !"
+        )
+    try:
+        from scapy.libs.winpcapy import pcap_freecode
+    except OSError:
+        raise ImportError(
+            "libpcap is not available. Cannot free filter !"
+        )
     pcap_freecode(ctypes.byref(bp))
 
 

@@ -35,6 +35,17 @@ test_am(BOOTP_am,
         check_BOOTP_am_reply)
 
 
+= BOOTP_am ignores new clients when its address pool is exhausted
+bootp_am = BOOTP_am(pool=["192.168.1.128", "192.168.1.129"], verbose=False)
+for index in range(2):
+    request = Ether(bytes(Ether(src=f"02:00:00:00:00:0{index}") /
+                          IP() / UDP() / BOOTP(op=1)))
+    assert bootp_am.make_reply(request) is not None
+
+request = Ether(bytes(Ether(src="02:00:00:00:00:02") / IP() / UDP() / BOOTP(op=1)))
+assert bootp_am.make_reply(request) is None
+
+
 = DHCP_am
 def check_DHCP_am_reply(packet):
     assert DHCP in packet and len(packet[DHCP].options)
@@ -137,6 +148,18 @@ assert DNS_am().make_reply(
     Ether()/IP()/UDP()/DNS(b'q\xa04\x00\x00\xa0\x01\x00\xf3\x00\x01\x04\x01y')
 ) is None
 
+def check_DNS_am_unknown_names_not_cached(qtypes):
+    am = DNS_am(joker=False)
+    for i, qtype in enumerate(qtypes):
+        am.make_reply(
+            Ether()/IP()/UDP()/DNS(
+                qd=DNSQR(qname="unknown-%d.example" % i, qtype=qtype)
+            )
+        )
+    assert not am.match
+
+check_DNS_am_unknown_names_not_cached(("A", "AAAA"))
+
 = LLMNR_am
 def check_LLMNR_am_am_reply(packet):
     # assert packet[Ether].src == get_if_hwaddr(conf.iface)
@@ -152,10 +175,18 @@ def check_LLMNR_am_am_reply(packet):
     assert packet[LLMNRResponse].an[0].ttl == 60
 
 test_am(LLMNR_am,
-        Ether(src="aa:aa:aa:aa:aa:aa", dst="01:00:5e:00:00:fc")/IP(src="192.168.0.1", dst="224.0.0.252")/UDP(dport=5355, sport=51938)/LLMNRQuery(qd=DNSQR(qname=b"TEST.", qtype="A")),
+        Ether(src="aa:aa:aa:aa:aa:aa", dst="01:00:5e:00:00:fc")/IP(src="192.168.0.1", dst="224.0.0.252", ttl=1)/UDP(dport=5355, sport=51938)/LLMNRQuery(qd=DNSQR(qname=b"TEST.", qtype="A")),
         check_LLMNR_am_am_reply,
         ttl=60,
         match={"TEST": "192.168.1.1"})
+
+off_link = IP(src="198.51.100.9", dst="192.0.2.10", ttl=42)/UDP(dport=5355)
+off_link /= LLMNRQuery(qd=DNSQR(qname=b"TEST.", qtype="A"))
+assert not LLMNR_am().is_request(off_link)
+
+routed_multicast = IP(src="198.51.100.9", dst="224.0.0.252", ttl=42)/UDP(dport=5355)
+routed_multicast /= LLMNRQuery(qd=DNSQR(qname=b"TEST.", qtype="A"))
+assert not LLMNR_am().is_request(routed_multicast)
 
 = mDNS_am
 def check_mDNS_am_reply(packet):
@@ -341,6 +372,15 @@ test_am(LdapPing_am,
 + Radius_am
 ~ crypto
 
+= Radius_am - Validate request Message-Authenticator
+
+request = Ether(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00Z\x00\x8e\x00\x00@\x11|\x03\x7f\x00\x00\x01\x7f\x00\x00\x01\x9f<\x07\x14\x00F\xfeY\x01\xfb\x00>s0\x00\x13\x86x\xd7\x11\xc4\x9e\xe1=\xce&r<P\x12\xbfL!\xb2\xd5WP!\xa8)}\tYZ&*\x01\x06user\x02\x12\x8f\x00\x8e\xdb4\xb1\x1a\xaf\x1f\xc7[\x9aD\xfff\xbd')
+server = Radius_am(secret="SECRET", IDENTITIES={"user": "password"})
+assert server.make_reply(request)[Radius].code == 2
+mauth = request[RadiusAttr_Message_Authenticator]
+mauth.value = bytes([mauth.value[0] ^ 1]) + mauth.value[1:]
+assert server.make_reply(Ether(bytes(request))) is None
+
 = Radius_am PAP - Test Access-Success
 
 def check_radius_pap_reply_success(x):
@@ -421,4 +461,40 @@ test_am(
     check_radius_mschap2_reply_fail,
     secret="SECRET",
     IDENTITIES={"user": "password"}
+)
+
+= Radius_am unsupported EAP - Test Access-Reject
+
+def check_radius_eap_reply_fail(x):
+    assert x[Radius].code == 3
+    assert isinstance(x[Radius].attributes[0], RadiusAttr_Message_Authenticator)
+
+radius_eap_request = (
+    IP(src="192.0.2.10", dst="192.0.2.20") /
+    UDP(sport=50000, dport=1812) /
+    Radius(
+        code=1,
+        id=7,
+        authenticator=b"A" * 16,
+        attributes=[
+            RadiusAttr_User_Name(value=b"victim"),
+            RadiusAttr_Message_Authenticator(value=b"\x00" * 16),
+            RadiusAttr_EAP_Message(
+                value=EAP(code="Response", id=1, type="Identity", identity=b"victim")
+            ),
+        ],
+    )
+)
+radius_eap_request[RadiusAttr_Message_Authenticator].value = radius_eap_request[
+    RadiusAttr_Message_Authenticator
+].compute_message_authenticator(
+    radius_eap_request[Radius], radius_eap_request[Radius].authenticator, b"SECRET"
+)
+
+test_am(
+    Radius_am,
+    radius_eap_request,
+    check_radius_eap_reply_fail,
+    secret="SECRET",
+    IDENTITIES={"victim": "known-good-password"}
 )

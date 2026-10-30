@@ -481,7 +481,6 @@ with run_smbserver(readonly=False, encryptshare=True):
    finally:
       cli.close()
 
-
 + Windows-only SMB tests
 ~ windows
 

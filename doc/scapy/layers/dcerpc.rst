@@ -334,6 +334,8 @@ This class contains a :func:`~scapy.layers.msrpce.rpcserver.DCERPC_Server.answer
             NetrWkstaGetInfo [MS-SRVS]
             "returns information about the configuration of a workstation."
             """
+            if req.Level != 100:
+                raise DCERPC_Fault(0x0000007C)  # ERROR_INVALID_LEVEL
             return NetrWkstaGetInfo_Response(
                 WkstaInfo=NDRUnion(
                     tag=100,

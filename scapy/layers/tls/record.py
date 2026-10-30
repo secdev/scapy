@@ -20,7 +20,7 @@ import struct
 from scapy.config import conf
 from scapy.error import log_runtime
 from scapy.fields import ByteEnumField, PacketListField, StrField
-from scapy.compat import raw, chb, orb
+from scapy.compat import raw, chb
 from scapy.utils import randstring
 from scapy.packet import Raw, Padding, bind_layers
 from scapy.layers.inet import TCP
@@ -84,7 +84,7 @@ class _TLSMsgListField(PacketListField):
         cls = Raw
         if pkt.type == 22:
             if len(m) >= 1:
-                msgtype = orb(m[0])
+                msgtype = m[0]
                 # If a version was agreed on by both client and server,
                 # we use it (tls_session.tls_version)
                 # Otherwise, if the client advertised for TLS 1.3, we try to
@@ -287,7 +287,7 @@ class TLS(_GenericTLSSessionInheritance):
     When building a TLS message with raw_stateful, we expect the tls_session to
     have the right parameters for ciphering. Else, .post_build() might fail.
     """
-    __slots__ = ["deciphered_len"]
+    __slots__ = ["deciphered_len", "strict_integrity"]
     name = "TLS"
     fields_desc = [ByteEnumField("type", None, _tls_type),
                    _TLSVersionField("version", None, _tls_version),
@@ -300,6 +300,7 @@ class TLS(_GenericTLSSessionInheritance):
 
     def __init__(self, *args, **kargs):
         self.deciphered_len = kargs.get("deciphered_len", None)
+        self.strict_integrity = kargs.pop("strict_integrity", False)
         super(TLS, self).__init__(*args, **kargs)
 
     @classmethod
@@ -373,6 +374,8 @@ class TLS(_GenericTLSSessionInheritance):
         except AEADTagError as e:
             pkt_info = self.firstlayer().summary()
             log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)  # noqa: E501
+            if self.strict_integrity:
+                raise
             return e.args
 
     def _tls_decrypt(self, s):
@@ -464,6 +467,8 @@ class TLS(_GenericTLSSessionInheritance):
                 log_runtime.info(
                     "TLS: record integrity check failed [%s]", pkt_info,
                 )
+                if self.strict_integrity:
+                    raise HMACError("TLS record integrity check failed")
 
         if cipher_type == 'block':
             version = struct.unpack("!H", s[1:3])[0]
@@ -501,7 +506,7 @@ class TLS(_GenericTLSSessionInheritance):
                 #    hdr = hdr[:3] + struct.pack('!H', l-block_size)
 
                 # Extract padding ('pad' actually includes the trailing padlen)
-                padlen = orb(pfrag[-1]) + 1
+                padlen = pfrag[-1] + 1
                 mfrag, pad = pfrag[:-padlen], pfrag[-padlen:]
                 self.padlen = padlen
 

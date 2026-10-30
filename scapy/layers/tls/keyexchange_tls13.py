@@ -15,7 +15,6 @@ from scapy.error import log_runtime
 from scapy.fields import (
     FieldLenField,
     IntField,
-    PacketField,
     PacketLenField,
     PacketListField,
     ShortEnumField,
@@ -157,7 +156,8 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
     name = "TLS Extension - Key Share (for ServerHello)"
     fields_desc = [ShortEnumField("type", 0x33, _tls_ext),
                    ShortField("len", None),
-                   PacketField("server_share", None, KeyShareEntry)]
+                   PacketLenField("server_share", None,
+                                  KeyShareEntry, length_from=lambda pkt: pkt.len)]
 
     def post_build(self, pkt, pay):
         if not self.tls_session.frozen and self.server_share.privkey:

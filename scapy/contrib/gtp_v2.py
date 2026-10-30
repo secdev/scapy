@@ -10,7 +10,6 @@
 import struct
 
 
-from scapy.compat import orb
 from scapy.data import IANA_ENTERPRISE_NUMBERS
 from scapy.fields import (
     BitEnumField,
@@ -298,7 +297,7 @@ def IE_Dispatcher(s):
     """Choose the correct Information Element class."""
 
     # Get the IE type
-    ietype = orb(s[0])
+    ietype = s[0]
     cls = ietypecls.get(ietype, Raw)
 
     # if ietype greater than 128 are TLVs
@@ -1018,7 +1017,7 @@ PCO_OPTION_CLASSES = {
 
 def PCO_option_dispatcher(s):
     """Choose the correct PCO element."""
-    option = orb(s[0])
+    option = s[0]
 
     cls = PCO_OPTION_CLASSES.get(option, Raw)
     return cls(s)
@@ -1267,7 +1266,7 @@ PCO_PROTOCOL_CLASSES = {
 
 def PCO_protocol_dispatcher(s):
     """Choose the correct PCO element."""
-    proto_num = orb(s[0]) * 256 + orb(s[1])
+    proto_num = s[0] * 256 + s[1]
     cls = PCO_PROTOCOL_CLASSES.get(proto_num, Raw)
     return cls(s)
 

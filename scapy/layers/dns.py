@@ -13,7 +13,6 @@ This implements:
 """
 
 import abc
-import collections
 import operator
 import itertools
 import socket
@@ -439,7 +438,7 @@ class DNSTextField(StrLenField):
 
 edns0types = {0: "Reserved", 1: "LLQ", 2: "UL", 3: "NSID", 4: "Owner",
               5: "DAU", 6: "DHU", 7: "N3U", 8: "edns-client-subnet", 10: "COOKIE",
-              15: "Extended DNS Error"}
+              12: "Padding", 15: "Extended DNS Error"}
 
 
 class _EDNS0Dummy(Packet):
@@ -558,9 +557,21 @@ class ClientSubnetv4(StrLenField):
         x = x[: operator.floordiv(self.af_length, 8)]
         return inet_ntop(self.af_familly, x)
 
-    def _pack_subnet(self, subnet):
-        # type: (bytes) -> bytes
+    def _pack_subnet(self, subnet, plen=None):
+        # type: (bytes, Optional[int]) -> bytes
         packed_subnet = inet_pton(self.af_familly, plain_str(subnet))
+        if plen is not None:
+            # RFC 7871: ADDRESS MUST be truncated to the number of bits
+            # indicated by SOURCE PREFIX-LENGTH, padded with 0 bits to the
+            # end of the last octet needed.  Use ceil(plen / 8) bytes and
+            # zero out any host bits in the last partial byte.
+            num_bytes = operator.floordiv(plen + 7, 8)
+            result = bytearray(packed_subnet[:num_bytes])
+            rem = plen % 8
+            if rem and result:
+                result[-1] &= (0xff << (8 - rem)) & 0xff
+            return bytes(result)
+        # When prefix length is not known, strip trailing zero bytes.
         for i in list(range(operator.floordiv(self.af_length, 8)))[::-1]:
             if packed_subnet[i] != 0:
                 i += 1
@@ -571,21 +582,23 @@ class ClientSubnetv4(StrLenField):
         # type: (Optional[Packet], Optional[Union[str, Net]]) -> bytes
         if x is None:
             return self.af_default
+        plen = getattr(pkt, 'source_plen', None)
         try:
-            return self._pack_subnet(x)
+            return self._pack_subnet(x, plen)
         except (OSError, socket.error):
             pkt.family = 2
-            return ClientSubnetv6("", "")._pack_subnet(x)
+            return ClientSubnetv6("", "")._pack_subnet(x, plen)
 
     def i2len(self, pkt, x):
         # type: (Packet, Any) -> int
         if x is None:
             return 1
+        plen = getattr(pkt, 'source_plen', None)
         try:
-            return len(self._pack_subnet(x))
+            return len(self._pack_subnet(x, plen))
         except (OSError, socket.error):
             pkt.family = 2
-            return len(ClientSubnetv6("", "")._pack_subnet(x))
+            return len(ClientSubnetv6("", "")._pack_subnet(x, plen))
 
 
 class ClientSubnetv6(ClientSubnetv4):
@@ -624,6 +637,16 @@ class EDNS0COOKIE(_EDNS0Dummy):
                    XStrFixedLenField("client_cookie", b"\x00" * 8, length=8),
                    XStrLenField("server_cookie", "",
                                 length_from=lambda pkt: max(0, pkt.optlen - 8))]
+
+
+# RFC 7830 - EDNS0 Padding Option
+
+class EDNS0PADDING(_EDNS0Dummy):
+    name = "DNS EDNS0 Padding"
+    fields_desc = [ShortEnumField("optcode", 12, edns0types),
+                   FieldLenField("optlen", None, length_of="padding", fmt="!H"),
+                   StrLenField("padding", "",
+                               length_from=lambda pkt: pkt.optlen)]
 
 
 # RFC 8914 - Extended DNS Errors
@@ -681,6 +704,7 @@ EDNS0OPT_DISPATCHER = {
     7: EDNS0N3U,
     8: EDNS0ClientSubnet,
     10: EDNS0COOKIE,
+    12: EDNS0PADDING,
     15: EDNS0ExtendedDNSError,
 }
 
@@ -1113,11 +1137,11 @@ class DNSRRTSIG(_DNSRRdummy):
                    DNSStrField("algo_name", "hmac-sha1"),
                    TimeSignedField("time_signed", 0),
                    ShortField("fudge", 0),
-                   FieldLenField("mac_len", 20, fmt="!H", length_of="mac_data"),  # noqa: E501
+                   FieldLenField("mac_len", None, fmt="!H", length_of="mac_data"),  # noqa: E501
                    StrLenField("mac_data", "", length_from=lambda pkt: pkt.mac_len),  # noqa: E501
                    ShortField("original_id", 0),
                    ShortField("error", 0),
-                   FieldLenField("other_len", 0, fmt="!H", length_of="other_data"),  # noqa: E501
+                   FieldLenField("other_len", None, fmt="!H", length_of="other_data"),  # noqa: E501
                    StrLenField("other_data", "", length_from=lambda pkt: pkt.other_len)  # noqa: E501
                    ]
 
@@ -1410,7 +1434,7 @@ def dns_resolve(qname, qtype="A", raw=False, tcp=False, verbose=1, timeout=3, **
     qname = DNSQR.qname.any2i(None, qname)
     # Check cache
     cache_ident = b";".join(
-        [qname, struct.pack("!B", qtype)] +
+        [qname, struct.pack("!H", qtype)] +
         ([b"raw"] if raw else [])
     )
     result = _dns_cache.get(cache_ident)
@@ -1480,7 +1504,7 @@ def dns_resolve(qname, qtype="A", raw=False, tcp=False, verbose=1, timeout=3, **
             result = [
                 x
                 for x in itertools.chain(res.an, res.ns, res.ar)
-                if x.type == qtype
+                if getattr(x, "type", None) == qtype
             ]
         if result:
             # Cache it
@@ -1649,7 +1673,7 @@ class DNS_am(AnsweringMachine):
                 k += b"."
             return k
 
-        self.match = collections.defaultdict(lambda: (joker, joker6))
+        self.match = {}
         if match:
             if isinstance(match, (list, set)):
                 self.match.update({normk(k): (None, None) for k in match})
@@ -1676,18 +1700,32 @@ class DNS_am(AnsweringMachine):
 
     def is_request(self, req):
         from scapy.layers.inet6 import IPv6
+        query = req.getlayer(self.cls)
+        if query is None or query.qr != 0:
+            return False
+        if self.llmnr:
+            # [RFC 4795] sect 2.1: an LLMNR query goes to the link-scope
+            # multicast address with a hop limit of 1, so a responder must
+            # not answer one that arrived any other way. mDNS is left alone:
+            # it permits a direct unicast query and LLMNR does not.
+            network = query.underlayer.underlayer
+            if isinstance(network, IPv6):
+                if network.dst != "ff02::1:3" or network.hlim != 1:
+                    return False
+            elif isinstance(network, IP):
+                if network.dst != "224.0.0.252" or network.ttl != 1:
+                    return False
+            else:
+                return False
         return (
-            req.haslayer(self.cls) and
-            req.getlayer(self.cls).qr == 0 and (
-                (
-                    self.from_ip6 is True or
-                    (self.from_ip6 and req[IPv6].src in self.from_ip6)
-                )
-                if IPv6 in req else
-                (
-                    self.from_ip is True or
-                    (self.from_ip and req[IP].src in self.from_ip)
-                )
+            (
+                self.from_ip6 is True or
+                (self.from_ip6 and req[IPv6].src in self.from_ip6)
+            )
+            if IPv6 in req else
+            (
+                self.from_ip is True or
+                (self.from_ip and req[IP].src in self.from_ip)
             )
         )
 
@@ -1783,7 +1821,10 @@ class DNS_am(AnsweringMachine):
                 # A or AAAA
                 if rq.qtype == 28:
                     # AAAA
-                    rdata = self.match[rqname][1]
+                    try:
+                        rdata = self.match[rqname][1]
+                    except KeyError:
+                        rdata = self.joker6
                     if rdata is None and not self.relay:
                         # 'None' resolves to the default IPv6
                         iface = resolve_iface(self.optsniff.get("iface", conf.iface))
@@ -1799,7 +1840,10 @@ class DNS_am(AnsweringMachine):
                         resp[IPv6].src = rdata
                 elif rq.qtype == 1:
                     # A
-                    rdata = self.match[rqname][0]
+                    try:
+                        rdata = self.match[rqname][0]
+                    except KeyError:
+                        rdata = self.joker
                     if rdata is None and not self.relay:
                         # 'None' resolves to the default IPv4
                         iface = resolve_iface(self.optsniff.get("iface", conf.iface))
@@ -2015,6 +2059,11 @@ def dnssd(service="_services._dns-sd._udp.local",
     :param af: the transport to use. socket.AF_INET or socket.AF_INET6
     :param qtype: the type to use in the mDNS. Either TXT, PTR or SRV.
     :param iface: the interface to do this discovery on.
+
+    Examples::
+
+        >>> dnssd(service='_companion-link._tcp.local.').show()
+        >>> dnssd(service='_spotify-connect._tcp.local.').show()
     """
     if af == socket.AF_INET:
         pkt = IP(dst=ScopedIP("224.0.0.251", iface), ttl=255)

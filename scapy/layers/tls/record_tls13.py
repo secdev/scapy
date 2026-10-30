@@ -16,7 +16,7 @@ See the TLS class documentation for more information.
 import struct
 
 from scapy.error import log_runtime, warning
-from scapy.compat import raw, orb
+from scapy.compat import raw
 from scapy.fields import ByteEnumField, PacketField, XStrField
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import _TLSVersionField, _tls_version, \
@@ -90,7 +90,7 @@ class _TLSInnerPlaintextField(PacketField):
 
 
 class TLS13(_GenericTLSSessionInheritance):
-    __slots__ = ["deciphered_len"]
+    __slots__ = ["deciphered_len", "strict_integrity"]
     name = "TLS 1.3"
     fields_desc = [ByteEnumField("type", 0x17, _tls_type),
                    _TLSVersionField("version", 0x0303, _tls_version),
@@ -100,6 +100,7 @@ class TLS13(_GenericTLSSessionInheritance):
 
     def __init__(self, *args, **kargs):
         self.deciphered_len = kargs.get("deciphered_len", None)
+        self.strict_integrity = kargs.pop("strict_integrity", False)
         super(TLS13, self).__init__(*args, **kargs)
 
     # Parsing methods
@@ -125,6 +126,8 @@ class TLS13(_GenericTLSSessionInheritance):
         except AEADTagError as e:
             pkt_info = self.firstlayer().summary()
             log_runtime.info("TLS 1.3: record integrity check failed [%s]", pkt_info)  # noqa: E501
+            if self.strict_integrity:
+                raise
             return e.args
 
     def pre_dissect(self, s):
@@ -140,7 +143,7 @@ class TLS13(_GenericTLSSessionInheritance):
         if len(s) < 5:
             raise Exception("Invalid record: header is too short.")
 
-        self.type = orb(s[0])
+        self.type = s[0]
         if (isinstance(self.tls_session.rcs.cipher, Cipher_NULL) or
                 self.type == 0x14):
             self.deciphered_len = None

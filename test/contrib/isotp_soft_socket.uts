@@ -890,7 +890,7 @@ cans.pair(isocan)
 
 acker = AsyncSniffer(store=False, opened_socket=cans,
                      prn=lambda x: cans.send(CAN(identifier = 0x241, data=dhex("30 04 00"))),
-                     count=1, timeout=1)
+                     count=1)
 acker.start()
 with ISOTPSoftSocket(isocan, tx_id=0x641, rx_id=0x241) as s:
     s.send(isotp)
@@ -913,7 +913,7 @@ cans.pair(isocan)
 acker = AsyncSniffer(store=False, opened_socket=cans,
                      prn=lambda x: cans.send(
                          CAN(identifier = 0x241, data=dhex("32 00 00"))),
-                     count=1, timeout=1)
+                     count=1)
 acker.start()
 
 with ISOTPSoftSocket(isocan, tx_id=0x641, rx_id=0x241) as s:
@@ -934,7 +934,7 @@ msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
 with TestSocket(CAN) as isocan_tx, ISOTPSoftSocket(isocan_tx, 0x123, 0x321) as sock_tx, \
     TestSocket(CAN) as isocan_rx, ISOTPSoftSocket(isocan_rx, 0x321, 0x123) as sock_rx:
     isocan_rx.pair(isocan_tx)
-    sniffer = AsyncSniffer(opened_socket=sock_rx, timeout=1, count=1, prn=lambda x: sock_rx.send(msg))
+    sniffer = AsyncSniffer(opened_socket=sock_rx, count=1, prn=lambda x: sock_rx.send(msg))
     sniffer.start()
     rx2 = sock_tx.sr1(msg, timeout=3, verbose=True)
     sniffer.join(timeout=1)
@@ -1374,7 +1374,7 @@ acks.pair(cans)
 def send_ack(x):
     acks.send(CAN(identifier = 0x241, data=dhex("30 00 00")))
 
-acker = AsyncSniffer(opened_socket=acks, store=False, prn=send_ack, timeout=1, count=1)
+acker = AsyncSniffer(opened_socket=acks, store=False, prn=send_ack, count=1)
 acker.start()
 
 with TestSocket(CAN) as isocan, ISOTPSoftSocket(isocan, tx_id=0x641, rx_id=0x241, padding=True) as s:
@@ -2878,6 +2878,14 @@ with ISOTPSoftSocket(TestSocket(CAN), rx_id=0x123) as s:
     s.impl._rx_timer_handler()
     assert s.impl.rx_state == 2 # Still waiting due to extension
 
+= Premature short consecutive frame keeps the receive timeout
+with ISOTPSoftSocket(TestSocket(CAN), rx_id=0x123, listen_only=True) as s:
+    s.impl._recv_ff(dhex("10 20 41 41 41 41 41 41"), 1.23)
+    timeout = s.impl.rx_timeout_handle
+    s.impl._recv_cf(dhex("21 42"))
+    assert s.impl.rx_state == 3
+    assert s.impl.rx_timeout_handle is timeout
+
 = _tx_timer_handler edge cases
 with ISOTPSoftSocket(TestSocket(CAN), tx_id=0x123) as s:
     s.impl.tx_state = 1 # ISOTP_SENDING
@@ -2912,6 +2920,17 @@ with ISOTPSoftSocket(TestSocket(CAN), rx_id=0x123) as s:
     s.impl.rx_sn = 2
     s.impl._recv_cf(b"\x21\xAA") # Wrong SN
     assert s.impl.rx_state == 0
+
+= Long receive extends the existing reassembly buffer
+from scapy.contrib.isotp import ISOTPSoftSocket
+from scapy.layers.can import CAN
+from test.testsocket import TestSocket
+
+with ISOTPSoftSocket(TestSocket(CAN), rx_id=0x123, listen_only=True) as s:
+    s.impl._recv_ff(bytes.fromhex("10 00 00 00 13 88 41 41"), 1.23)
+    reassembly_buffer = s.impl.rx_buf
+    s.impl._recv_cf(bytes.fromhex("21 41 41 41 41 41 41 41"))
+    assert s.impl.rx_buf is reassembly_buffer
 
 = begin_send busy / too much data
 with ISOTPSoftSocket(TestSocket(CAN), tx_id=0x123) as s:

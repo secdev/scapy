@@ -284,6 +284,8 @@ class DoIP(Packet):
     @classmethod
     def tcp_reassemble(cls, data, metadata, session):
         # type: (bytes, Dict[str, Any], Dict[str, Any]) -> Optional[Packet]
+        if len(data) < 8:
+            return None
         length = struct.unpack("!I", data[4:8])[0] + 8
         if len(data) >= length:
             return DoIP(data)

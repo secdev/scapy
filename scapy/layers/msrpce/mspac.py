@@ -66,6 +66,8 @@ from scapy.layers.dcerpc import (
 )
 from scapy.layers.ntlm import (
     _NTLMPayloadField,
+    _NTLM_ENUM,
+    _NTLM_post_build,
     _NTLMPayloadPacket,
 )
 from scapy.layers.windows.security import WINNT_SID
@@ -332,21 +334,6 @@ class S4U_DELEGATION_INFO(NDRPacket):
 # sect 2.10
 
 
-def _pac_post_build(self, p, pay_offset, fields):
-    """Util function to build the offset and populate the lengths"""
-    for field_name, value in self.fields["Payload"]:
-        length = self.get_field("Payload").fields_map[field_name].i2len(self, value)
-        offset = fields[field_name]
-        # Length
-        if self.getfieldval(field_name + "Len") is None:
-            p = p[:offset] + struct.pack("<H", length) + p[offset + 2 :]
-        # Offset
-        if self.getfieldval(field_name + "BufferOffset") is None:
-            p = p[: offset + 2] + struct.pack("<H", pay_offset) + p[offset + 4 :]
-        pay_offset += length
-    return p
-
-
 class UPN_DNS_INFO(_NTLMPayloadPacket):
     fields_desc = [
         LEShortField("UpnLen", None),
@@ -395,6 +382,7 @@ class UPN_DNS_INFO(_NTLMPayloadPacket):
                             StrFieldUtf16("SamName", b""),
                             PacketField("Sid", WINNT_SID(), WINNT_SID),
                         ],
+                        fields_pad=8,
                     ),
                     lambda pkt: pkt.Flags.S,
                 )
@@ -413,6 +401,7 @@ class UPN_DNS_INFO(_NTLMPayloadPacket):
 
     def post_build(self, pkt, pay):
         # type: (bytes, bytes) -> bytes
+        # The offsets are different depending on whether we're in S mode or not
         offset = 12
         fields = {
             "Upn": 0,
@@ -422,12 +411,22 @@ class UPN_DNS_INFO(_NTLMPayloadPacket):
             offset = 20
             fields["SamName"] = 12
             fields["Sid"] = 16
+
+        # Apply padding
+        if len(pkt + pay) % 8 != 0:
+            pkt += b"\x00" * (-len(pkt) % 8)
+
+        # Post-build to update the sizes
         return (
-            _pac_post_build(
+            _NTLM_post_build(
                 self,
                 pkt,
                 offset,
                 fields,
+                config=[
+                    ("Len", _NTLM_ENUM.LEN),
+                    ("BufferOffset", _NTLM_ENUM.OFFSET | _NTLM_ENUM.PAD8),
+                ],
             )
             + pay
         )

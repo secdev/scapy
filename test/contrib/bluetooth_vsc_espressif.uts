@@ -1,0 +1,155 @@
+% Espressif Bluetooth Vendor-Specific Command (VSC) layer tests
+
++ Load the Espressif VSC layer
+
+= Import the module (opt-in layer)
+from scapy.layers.bluetooth import *
+load_contrib("bluetooth_vsc_espressif")
+from scapy.contrib.bluetooth_vsc_espressif import *
+
+
++ Espressif VSC commands
+# This contrib carries only the commands with a live consumer (COMMON_ECHO and
+# the BR/EDR RD_*_TX_PWR_LVL reads); the full 26-command spec is preserved under
+# vendors/espressif/scapy-full-spec/.
+
+= Common Echo (OCF 0x081) build + dissect
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Espressif_Common_Echo(echo=0x42)
+assert cmd.ogf == 0x3f
+assert cmd.ocf == 0x081
+assert cmd.opcode == 0xfc81
+r = raw(cmd)
+assert r == b'\x81\xfc\x01\x42'
+p = HCI_Command_Hdr(r)
+assert HCI_Cmd_VSC_Espressif_Common_Echo in p
+assert p[HCI_Cmd_VSC_Espressif_Common_Echo].echo == 0x42
+
+= Read New Connection TX Power Level (OCF 0x192) - no parameters
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Espressif_Rd_New_Conn_Tx_Pwr_Lvl()
+assert cmd.opcode == 0xfd92
+assert raw(cmd) == b'\x92\xfd\x00'
+
+= Read Inquiry TX Power Level (OCF 0x198) - no parameters
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Espressif_Rd_Inq_Tx_Pwr_Lvl()
+assert cmd.opcode == 0xfd98
+assert raw(cmd) == b'\x98\xfd\x00'
+
+= Read Page TX Power Level (OCF 0x194) - no parameters
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Espressif_Rd_Page_Tx_Pwr_Lvl()
+assert cmd.opcode == 0xfd94
+assert raw(cmd) == b'\x94\xfd\x00'
+
+= Read Page Scan TX Power Level (OCF 0x196) - no parameters
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Espressif_Rd_Pscan_Tx_Pwr_Lvl()
+assert cmd.opcode == 0xfd96
+assert raw(cmd) == b'\x96\xfd\x00'
+
+= Set MAC Address (OCF 0x032) - legacy ROM command, 6-byte LE address
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Espressif_Set_Mac(bd_addr="11:22:33:44:55:66")
+assert cmd.opcode == 0xfc32
+r = raw(cmd)
+assert r == b'\x32\xfc\x06\x66\x55\x44\x33\x22\x11'
+p = HCI_Command_Hdr(r)
+assert p[HCI_Cmd_VSC_Espressif_Set_Mac].bd_addr == "11:22:33:44:55:66"
+
+# OCF 0x001/0x002 (Read/Write Memory) collide with Zephyr's Read Version Info /
+# Read Supported Commands. The opcodes are fully bound (a single loaded contrib
+# auto-dissects normally), but auto-dissection is ambiguous when BOTH vendor
+# contribs are loaded (first-loaded wins) -- e.g. scapy's test suite loads every
+# contrib into one process. So these tests parse the colliding opcodes with the
+# explicit class, making them independent of contrib load order.
+
+= Read Memory (OCF 0x001) - u32 LE addr, access size, length; build + explicit parse
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Espressif_Rd_Mem(start_addr=0x40000000, access_size=8, length=16)
+assert cmd.opcode == 0xfc01
+r = raw(cmd)
+assert r == b'\x01\xfc\x06\x00\x00\x00\x40\x08\x10'
+inner = HCI_Cmd_VSC_Espressif_Rd_Mem(r[3:])
+assert inner.start_addr == 0x40000000
+assert inner.access_size == 8
+assert inner.length == 16
+
+= Read Memory command complete (opcode 0xFC01) - length byte + data after status
+evt = HCI_Event_Command_Complete(number=1, opcode=0xfc01, status=0) / HCI_Cmd_Complete_VSC_Espressif_Rd_Mem(data=b'\xde\xad\xbe\xef')
+cc = HCI_Event_Command_Complete(raw(evt))
+assert cc.opcode == 0xfc01 and cc.status == 0
+inner = HCI_Cmd_Complete_VSC_Espressif_Rd_Mem(bytes(cc.payload))
+assert inner.length == 4
+assert inner.data == b'\xde\xad\xbe\xef'
+
+= Write Memory (OCF 0x002) - addr, access size, length-prefixed data; build + explicit parse
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Espressif_Wr_Mem(start_addr=0x3ffb0000, access_size=32, data=b'\x01\x02\x03\x04')
+assert cmd.opcode == 0xfc02
+r = raw(cmd)
+assert r == b'\x02\xfc\x0a\x00\x00\xfb\x3f\x20\x04\x01\x02\x03\x04'
+inner = HCI_Cmd_VSC_Espressif_Wr_Mem(r[3:])
+assert inner.length == 4
+assert inner.data == b'\x01\x02\x03\x04'
+
+
++ Espressif VSC command-complete returns
+
+= Common Echo command complete (opcode 0xFC81)
+evt = HCI_Event_Command_Complete(number=1, opcode=0xfc81, status=0) / HCI_Cmd_Complete_VSC_Espressif_Common_Echo(echo=0x42)
+r = raw(evt)
+p = HCI_Event_Command_Complete(r)
+assert HCI_Cmd_Complete_VSC_Espressif_Common_Echo in p
+assert p.status == 0
+assert p[HCI_Cmd_Complete_VSC_Espressif_Common_Echo].echo == 0x42
+
+= Read New Connection TX Power Level command complete (opcode 0xFD92)
+evt = HCI_Event_Command_Complete(number=1, opcode=0xfd92, status=0) / HCI_Cmd_Complete_VSC_Espressif_Rd_New_Conn_Tx_Pwr_Lvl(tx_power_min=0, tx_power_max=3)
+p = HCI_Event_Command_Complete(raw(evt))
+assert p[HCI_Cmd_Complete_VSC_Espressif_Rd_New_Conn_Tx_Pwr_Lvl].tx_power_min == 0
+assert p[HCI_Cmd_Complete_VSC_Espressif_Rd_New_Conn_Tx_Pwr_Lvl].tx_power_max == 3
+
+= Read Page TX Power Level command complete (opcode 0xFD94)
+evt = HCI_Event_Command_Complete(number=1, opcode=0xfd94, status=0) / HCI_Cmd_Complete_VSC_Espressif_Rd_Page_Tx_Pwr_Lvl(tx_power=-12)
+p = HCI_Event_Command_Complete(raw(evt))
+assert p[HCI_Cmd_Complete_VSC_Espressif_Rd_Page_Tx_Pwr_Lvl].tx_power == -12
+
+
++ Espressif VSC events
+
+= The event header is registered as an HCI_Event_Vendor handler
+# The 0xFF event code is shared across vendors, so the Espressif header is
+# registered instead of rebound, and its check() claims only its own bodies.
+assert HCI_Event_VSC_Espressif in HCI_Event_Vendor.registered_handlers
+assert issubclass(HCI_Event_VSC_Espressif, HCI_Event_Vendor)
+assert HCI_Event_VSC_Espressif.check(b'\xf0\x00\x00\x00\x00')
+assert not HCI_Event_VSC_Espressif.check(b'\x99\x00')
+assert not HCI_Event_VSC_Espressif.check(b'')
+
+= LE Adv Lost event (code 0xFF, subcode 0xF0)
+evt = HCI_Event_Hdr(code=0xff) / HCI_Event_VSC_Espressif(subcode=0xf0) / HCI_Event_VSC_Espressif_LE_Adv_Lost(nb_lost=1234)
+r = raw(evt)
+assert r == b'\xff\x05\xf0\xd2\x04\x00\x00'
+p = HCI_Event_Hdr(r)
+assert HCI_Event_VSC_Espressif in p
+assert p[HCI_Event_VSC_Espressif].subcode == 0xf0
+assert HCI_Event_VSC_Espressif_LE_Adv_Lost in p
+assert p[HCI_Event_VSC_Espressif_LE_Adv_Lost].nb_lost == 1234
+# match_subclass keeps the handler reachable as the generic vendor event
+assert HCI_Event_Vendor in p
+assert p[HCI_Event_Vendor] is p[HCI_Event_VSC_Espressif]
+assert raw(p) == r
+
+= Legacy Remote Auth event (code 0xFF, subcode 0x03)
+evt = HCI_Event_Hdr(code=0xff) / HCI_Event_VSC_Espressif(subcode=0x03) / HCI_Event_VSC_Espressif_Legacy_Rem_Auth(conhdl=7)
+p = HCI_Event_Hdr(raw(evt))
+assert p[HCI_Event_VSC_Espressif_Legacy_Rem_Auth].conhdl == 7
+
+= AFH Change event (code 0xFF, subcode 0x05) raw payload
+evt = HCI_Event_Hdr(code=0xff) / HCI_Event_VSC_Espressif(subcode=0x05) / HCI_Event_VSC_Espressif_Afh_Chg(data=b'\xaa\xbb')
+p = HCI_Event_Hdr(raw(evt))
+assert p[HCI_Event_VSC_Espressif].subcode == 0x05
+assert p[HCI_Event_VSC_Espressif_Afh_Chg].data == b'\xaa\xbb'
+
+= A vendor event with an unknown subcode still falls back to the generic event
+# No registered check claims it, so the body stays in HCI_Event_Vendor.data
+# and other vendor contribs remain free to claim it.
+p = HCI_Event_Hdr(b'\xff\x02\x99\xaa')
+assert type(p[HCI_Event_Vendor]) is HCI_Event_Vendor
+assert HCI_Event_VSC_Espressif not in p
+assert p[HCI_Event_Vendor].data == b'\x99\xaa'
+assert raw(p) == b'\xff\x02\x99\xaa'

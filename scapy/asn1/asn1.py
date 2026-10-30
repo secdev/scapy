@@ -15,7 +15,7 @@ from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.volatile import RandField, RandIP, GeneralizedTime
 from scapy.utils import Enum_metaclass, EnumElement, binrepr
-from scapy.compat import plain_str, bytes_encode, chb, orb
+from scapy.compat import plain_str, bytes_encode, chb
 
 from typing import (
     Any,
@@ -126,13 +126,27 @@ class ASN1Codec(EnumElement):
         # type: (Type[BERcodec_Object[Any]]) -> None
         cls._stem = stem
 
-    def dec(cls, s, context=None):
-        # type: (bytes, Optional[Type[ASN1_Class]]) -> ASN1_Object[Any]
-        return cls._stem.dec(s, context=context)  # type: ignore
+    def register_tagging(cls, enc, dec):
+        # type: (Any, Any) -> None
+        # Codec-level implicit/explicit tagging (BER/OER) or identity (UPER/PER).
+        cls._tagging_enc = enc
+        cls._tagging_dec = dec
 
-    def safedec(cls, s, context=None):
-        # type: (bytes, Optional[Type[ASN1_Class]]) -> ASN1_Object[Any]
-        return cls._stem.safedec(s, context=context)  # type: ignore
+    def tagging_enc(cls, s, **kwargs):
+        # type: (bytes, **Any) -> bytes
+        return cls._tagging_enc(s, **kwargs)  # type: ignore
+
+    def tagging_dec(cls, s, **kwargs):
+        # type: (bytes, **Any) -> Tuple[Optional[int], bytes]
+        return cls._tagging_dec(s, **kwargs)  # type: ignore
+
+    def dec(cls, s, context=None, _depth=0):
+        # type: (bytes, Optional[Type[ASN1_Class]], int) -> ASN1_Object[Any]
+        return cls._stem.dec(s, context=context, _depth=_depth)  # type: ignore
+
+    def safedec(cls, s, context=None, _depth=0):
+        # type: (bytes, Optional[Type[ASN1_Class]], int) -> ASN1_Object[Any]
+        return cls._stem.safedec(s, context=context, _depth=_depth)  # type: ignore
 
     def get_stem(cls):
         # type: () -> type
@@ -457,8 +471,8 @@ class ASN1_BIT_STRING(ASN1_Object[str]):
     def __setattr__(self, name, value):
         # type: (str, Any) -> None
         if name == "val_readable":
-            if isinstance(value, (str, bytes)):
-                val = "".join(binrepr(orb(x)).zfill(8) for x in value)
+            if isinstance(value, bytes):
+                val = "".join(binrepr(x).zfill(8) for x in value)
             else:
                 warning("Invalid val: should be bytes")
                 val = "<invalid val_readable>"

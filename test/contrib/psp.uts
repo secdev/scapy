@@ -33,7 +33,7 @@ assert bytes(payload[Raw]) == b"A" * 9
 
 = PSP Usage Example
 
-payload = IP() / UDP(sport=1234, dport=5678) / Raw("A" * 9)
+payload = IP(src="127.0.0.1", dst="127.0.0.1") / UDP(sport=1234, dport=5678) / Raw("A" * 9)
 iv = b'\x01\x02\x03\x04\x05\x06\x07\x08'
 spi = 0x11223344
 key = b'\xFF\xEE\xDD\xCC\xBB\xAA\x99\x88\x77\x66\x55\x44\x33\x22\x11\x00'

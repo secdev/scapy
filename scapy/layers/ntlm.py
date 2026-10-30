@@ -61,11 +61,10 @@ from scapy.packet import Packet
 from scapy.sessions import StringBuffer
 
 from scapy.layers.gssapi import (
-    _GSSAPI_OIDS,
-    _GSSAPI_SIGNATURE_OIDS,
     GSS_C_FLAGS,
     GSS_C_NO_CHANNEL_BINDINGS,
     GSS_S_BAD_BINDINGS,
+    GSS_S_BAD_MIC,
     GSS_S_COMPLETE,
     GSS_S_CONTINUE_NEEDED,
     GSS_S_DEFECTIVE_CREDENTIAL,
@@ -73,6 +72,8 @@ from scapy.layers.gssapi import (
     GSS_S_FLAGS,
     GssChannelBindings,
     SSP,
+    _GSSAPI_OIDS,
+    _GSSAPI_SIGNATURE_OIDS,
 )
 
 # Typing imports
@@ -114,6 +115,7 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
     __slots__ = [
         "fields",
         "fields_map",
+        "fields_pad",
         "offset",
         "length_from",
         "force_order",
@@ -126,6 +128,7 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         name,  # type: str
         offset,  # type: Union[int, Callable[[Packet], int]]
         fields,  # type: List[Field[Any, Any]]
+        fields_pad=0,  # type: int
         length_from=None,  # type: Optional[Callable[[Packet], int]]
         force_order=None,  # type: Optional[List[str]]
         offset_name="BufferOffset",  # type: str
@@ -137,6 +140,7 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
         self.length_from = length_from
         self.force_order = force_order  # whether the order of fields is fixed
         self.offset_name = offset_name
+        self.fields_pad = fields_pad
         super(_NTLMPayloadField, self).__init__(
             name,
             [
@@ -196,6 +200,10 @@ class _NTLMPayloadField(_StrField[List[Tuple[str, Any]]]):
             if offset is None:
                 # No offset specified: calc
                 offset = len(buf)
+                if self.fields_pad:
+                    pad = (-offset) % self.fields_pad
+                    offset += pad
+                    buf.append(pad * b"\x00", len(buf))
             else:
                 # Calc relative offset
                 offset -= r_off
@@ -370,8 +378,9 @@ _NTLM_CONFIG = [
 
 def _NTLM_post_build(self, p, pay_offset, fields, config=_NTLM_CONFIG):
     """Util function to build the offset and populate the lengths"""
+    gl_fld = self.get_field(self._NTLM_PAYLOAD_FIELD_NAME)
     for field_name, value in self.fields[self._NTLM_PAYLOAD_FIELD_NAME]:
-        fld = self.get_field(self._NTLM_PAYLOAD_FIELD_NAME).fields_map[field_name]
+        fld = gl_fld.fields_map[field_name]
         length = fld.i2len(self, value)
         count = fld.i2count(self, value)
         offset = fields[field_name]
@@ -391,7 +400,9 @@ def _NTLM_post_build(self, p, pay_offset, fields, config=_NTLM_CONFIG):
             else:
                 raise ValueError
             if ftype & _NTLM_ENUM.PAD8:
-                fval += (-fval) % 8
+                pad = (-fval) % 8
+                fval += pad
+                pay_offset += pad
             sz = self.get_field(field_name + fname).sz
             if self.getfieldval(field_name + fname) is None:
                 p = (
@@ -644,9 +655,8 @@ class Single_Host_Data(Packet):
             },
         ),
         XStrFixedLenField("MachineID", b"", length=32),
-        # KB 5068222 - still waiting for [MS-KILE] update (oct. 2025)
         ConditionalField(
-            XStrFixedLenField("PermanentMachineID", None, length=32),
+            XStrFixedLenField("CrossBootMachineID", None, length=32),
             lambda pkt: pkt.Size is None or pkt.Size > 48,
         ),
     ]
@@ -1012,6 +1022,13 @@ class NTLM_AUTHENTICATE(_NTLM_VARIANT_Packet, NTLM_Header):
         self.MIC = b"\x00" * 16
         self.MIC = HMAC_MD5(
             ExportedSessionKey, bytes(negotiate) + bytes(challenge) + bytes(self)
+        )
+
+    def verify_mic(self, ExportedSessionKey, negotiate, challenge):
+        auth = self.copy()
+        auth.MIC = b"\x00" * 16
+        return self.MIC == HMAC_MD5(
+            ExportedSessionKey, bytes(negotiate) + bytes(challenge) + bytes(auth)
         )
 
 
@@ -1708,7 +1725,7 @@ class NTLMSSP(SSP):
                         AvId="MsvAvSingleHost",
                         Value=Single_Host_Data(
                             MachineID=os.urandom(32),
-                            PermanentMachineID=os.urandom(32),
+                            CrossBootMachineID=os.urandom(32),
                         ),
                     ),
                 ]
@@ -1819,10 +1836,12 @@ class NTLMSSP(SSP):
 
         if Context.state == self.STATE.INIT:
             # Server: challenge (input_token=negotiate)
-            nego_tok = input_token
-            if not nego_tok or NTLM_NEGOTIATE not in nego_tok:
+            neg_tok = input_token
+            if not neg_tok or NTLM_NEGOTIATE not in neg_tok:
                 log_runtime.debug("NTLMSSP: Unexpected token. Expected NTLM Negotiate")
                 return Context, None, GSS_S_DEFECTIVE_TOKEN
+
+            Context.neg_tok = neg_tok
 
             # Build the challenge token
             currentTime = (time.time() + 11644473600) * 1e7
@@ -1849,17 +1868,18 @@ class NTLMSSP(SSP):
                     )
                     + (
                         ["NEGOTIATE_SIGN"]
-                        if nego_tok.NegotiateFlags.NEGOTIATE_SIGN
+                        if neg_tok.NegotiateFlags.NEGOTIATE_SIGN
                         else []
                     )
                     + (
                         ["NEGOTIATE_SEAL"]
-                        if nego_tok.NegotiateFlags.NEGOTIATE_SEAL
+                        if neg_tok.NegotiateFlags.NEGOTIATE_SEAL
                         else []
                     )
                 ),
                 ProductMajorVersion=10,
                 ProductMinorVersion=0,
+                ProductBuild=26100,
                 Payload=[
                     ("TargetName", ""),
                     (
@@ -1950,6 +1970,24 @@ class NTLMSSP(SSP):
                 Context.ExportedSessionKey = ExportedSessionKey
                 # [MS-SMB] 3.2.5.3
                 Context.SessionKey = Context.ExportedSessionKey
+            else:
+                # Bad NTProofStr or unknown user
+                Context.SessionKey = None
+                Context.state = self.STATE.INIT
+                return Context, None, GSS_S_DEFECTIVE_CREDENTIAL
+
+            # Verify MIC
+            try:
+                Flags = auth_tok.NtChallengeResponse.getAv(0x0006).Value
+                if Flags & 2:
+                    # MIC is required
+                    if not auth_tok.verify_mic(
+                        ExportedSessionKey, Context.neg_tok, Context.chall_tok
+                    ):
+                        log_runtime.warning("Client MIC is invalid !")
+                        return Context, None, GSS_S_BAD_MIC
+            except IndexError:
+                pass
 
             # Check the timestamp
             try:
@@ -1965,7 +2003,14 @@ class NTLMSSP(SSP):
                 pass
 
             # Check the channel bindings
-            if chan_bindings != GSS_C_NO_CHANNEL_BINDINGS:
+            if chan_bindings == GSS_C_NO_CHANNEL_BINDINGS:
+                if (
+                    req_flags is not None
+                    and GSS_S_FLAGS.GSS_S_ALLOW_MISSING_BINDINGS
+                    not in req_flags
+                ):
+                    return Context, None, GSS_S_BAD_BINDINGS
+            else:
                 try:
                     Bnd = auth_tok.NtChallengeResponse.getAv(0x000A).Value
                     if Bnd != chan_bindings.digestMD5():
@@ -1976,36 +2021,31 @@ class NTLMSSP(SSP):
                         # Uhoh, we required channel bindings
                         return Context, None, GSS_S_BAD_BINDINGS
 
-            if Context.SessionKey:
-                # Compute NTLM keys
-                Context.SendSignKey = SIGNKEY(
-                    auth_tok.NegotiateFlags, ExportedSessionKey, "Server"
-                )
-                Context.SendSealKey = SEALKEY(
-                    auth_tok.NegotiateFlags, ExportedSessionKey, "Server"
-                )
-                Context.SendSealHandle = RC4Init(Context.SendSealKey)
-                Context.RecvSignKey = SIGNKEY(
-                    auth_tok.NegotiateFlags, ExportedSessionKey, "Client"
-                )
-                Context.RecvSealKey = SEALKEY(
-                    auth_tok.NegotiateFlags, ExportedSessionKey, "Client"
-                )
-                Context.RecvSealHandle = RC4Init(Context.RecvSealKey)
+            # Compute NTLM keys
+            Context.SendSignKey = SIGNKEY(
+                auth_tok.NegotiateFlags, ExportedSessionKey, "Server"
+            )
+            Context.SendSealKey = SEALKEY(
+                auth_tok.NegotiateFlags, ExportedSessionKey, "Server"
+            )
+            Context.SendSealHandle = RC4Init(Context.SendSealKey)
+            Context.RecvSignKey = SIGNKEY(
+                auth_tok.NegotiateFlags, ExportedSessionKey, "Client"
+            )
+            Context.RecvSealKey = SEALKEY(
+                auth_tok.NegotiateFlags, ExportedSessionKey, "Client"
+            )
+            Context.RecvSealHandle = RC4Init(Context.RecvSealKey)
 
-                # Check the NTProofStr
-                if self._checkLogin(Context, auth_tok):
-                    # Set negotiated flags
-                    if auth_tok.NegotiateFlags.NEGOTIATE_SIGN:
-                        Context.flags |= GSS_C_FLAGS.GSS_C_INTEG_FLAG
-                    if auth_tok.NegotiateFlags.NEGOTIATE_SEAL:
-                        Context.flags |= GSS_C_FLAGS.GSS_C_CONF_FLAG
-                    return Context, None, GSS_S_COMPLETE
+            # Check the NTProofStr
+            if self._checkLogin(Context, auth_tok):
+                # Set negotiated flags
+                if auth_tok.NegotiateFlags.NEGOTIATE_SIGN:
+                    Context.flags |= GSS_C_FLAGS.GSS_C_INTEG_FLAG
+                if auth_tok.NegotiateFlags.NEGOTIATE_SEAL:
+                    Context.flags |= GSS_C_FLAGS.GSS_C_CONF_FLAG
+                return Context, None, GSS_S_COMPLETE
 
-            # Bad NTProofStr or unknown user
-            Context.SessionKey = None
-            Context.state = self.STATE.INIT
-            return Context, None, GSS_S_DEFECTIVE_CREDENTIAL
         else:
             raise ValueError("NTLMSSP: unexpected state %s" % repr(Context.state))
 

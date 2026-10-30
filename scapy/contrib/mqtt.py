@@ -20,7 +20,7 @@ from scapy.fields import (
 )
 from scapy.layers.inet import TCP
 from scapy.error import Scapy_Exception
-from scapy.compat import orb, chb
+from scapy.compat import chb
 from scapy.volatile import RandNum
 from scapy.config import conf
 
@@ -50,7 +50,7 @@ class VariableFieldLenField(FieldLenField):
     def getfield(self, pkt, s):
         value = 0
         for offset, curbyte in enumerate(s):
-            curbyte = orb(curbyte)
+            curbyte = curbyte
             value += (curbyte & 127) * (128 ** offset)
             if curbyte & 128 == 0:
                 return s[offset + 1:], value
@@ -198,12 +198,13 @@ class MQTTPublish(Packet):
         StrLenField("topic", "",
                     length_from=lambda pkt: pkt.length),
         ConditionalField(ShortField("msgid", None),
-                         lambda pkt: (pkt.underlayer.QOS == 1 or
-                                      pkt.underlayer.QOS == 2)),
+                         lambda pkt: pkt.underlayer is not None and
+                         pkt.underlayer.QOS in (1, 2)),
         StrLenField("value", "",
-                    length_from=lambda pkt: pkt.underlayer.len - pkt.length - 2
-                    if pkt.underlayer.QOS == 0 else
-                    pkt.underlayer.len - pkt.length - 4)
+                    length_from=lambda pkt: 0 if pkt.underlayer is None else
+                    (pkt.underlayer.len - pkt.length - 2
+                     if pkt.underlayer.QOS == 0 else
+                     pkt.underlayer.len - pkt.length - 4))
     ]
 
 

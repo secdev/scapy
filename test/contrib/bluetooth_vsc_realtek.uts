@@ -1,0 +1,81 @@
+% Realtek Bluetooth Vendor-Specific Command (VSC) tests
+# test/run_tests -P "load_contrib('bluetooth_vsc_realtek')" -t test/contrib/bluetooth_vsc_realtek.uts
+
++ Load the Realtek VSC contrib module
+
+= Load the contrib module
+from scapy.layers.bluetooth import *
+load_contrib("bluetooth_vsc_realtek")
+from scapy.contrib.bluetooth_vsc_realtek import *
+
+
++ Realtek Read Controller RAM (OCF 0x061 / opcode 0xFC61)
+
+= Read a word (default width) build + dissect
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Realtek_Read_Mem(address=0x80000000)
+assert cmd.ogf == 0x3f
+assert cmd.ocf == 0x061
+assert cmd.opcode == 0xfc61
+assert cmd.width == 2          # word
+assert cmd.space == 0          # direct
+r = raw(cmd)
+assert r == b'\x61\xfc\x05\x20\x00\x00\x00\x80'
+p = HCI_Command_Hdr(r)
+assert HCI_Cmd_VSC_Realtek_Read_Mem in p
+assert p[HCI_Cmd_VSC_Realtek_Read_Mem].address == 0x80000000
+assert p[HCI_Cmd_VSC_Realtek_Read_Mem].width == 2
+
+= Read a single byte (control byte 0x00)
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Realtek_Read_Mem(width="byte", address=0x12345678)
+r = raw(cmd)
+assert r == b'\x61\xfc\x05\x00\x78\x56\x34\x12'
+p = HCI_Command_Hdr(r)
+assert p[HCI_Cmd_VSC_Realtek_Read_Mem].width == 0
+assert p[HCI_Cmd_VSC_Realtek_Read_Mem].address == 0x12345678
+
+= Indirect register read (space = indirect_reg = 2)
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Realtek_Read_Mem(width="halfword", space="indirect_reg", address=0x40)
+assert cmd.space == 2
+r = raw(cmd)
+# ctrl byte: width=1 (bits5-4=01), space=2 (bits1-0=10) -> 0b00010010 = 0x12
+assert r == b'\x61\xfc\x05\x12\x40\x00\x00\x00'
+
+
++ Realtek Write Controller RAM (OCF 0x062 / opcode 0xFC62)
+
+= Write a word value
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Realtek_Write_Mem(address=0x80000000, value=0x12345678)
+assert cmd.opcode == 0xfc62
+r = raw(cmd)
+assert r == b'\x62\xfc\x09\x20\x00\x00\x00\x80\x78\x56\x34\x12'
+p = HCI_Command_Hdr(r)
+assert p[HCI_Cmd_VSC_Realtek_Write_Mem].address == 0x80000000
+assert p[HCI_Cmd_VSC_Realtek_Write_Mem].value == 0x12345678
+
+= Write a single byte value (width-sized value field)
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Realtek_Write_Mem(width="byte", address=0x80000000, value=0xAA)
+r = raw(cmd)
+assert r == b'\x62\xfc\x06\x00\x00\x00\x00\x80\xaa'
+p = HCI_Command_Hdr(r)
+assert p[HCI_Cmd_VSC_Realtek_Write_Mem].width == 0
+assert p[HCI_Cmd_VSC_Realtek_Write_Mem].value == 0xAA
+
+= Write a halfword value
+cmd = HCI_Command_Hdr() / HCI_Cmd_VSC_Realtek_Write_Mem(width="halfword", address=0x80000000, value=0xBEEF)
+r = raw(cmd)
+assert r == b'\x62\xfc\x07\x10\x00\x00\x00\x80\xef\xbe'
+
+
++ Realtek Read Controller RAM command complete (opcode 0xFC61)
+
+= Dissect a Command Complete carrying 4 data bytes
+# 04(evt) 0e(cmd complete) len=08 num=01 op=61fc status=00 data=00b0083c
+evt = HCI_Hdr(bytes.fromhex("040e080161fc0000b0083c"))
+assert HCI_Cmd_Complete_VSC_Realtek_Read_Mem in evt
+assert evt[HCI_Event_Command_Complete].status == 0
+assert evt[HCI_Cmd_Complete_VSC_Realtek_Read_Mem].data == bytes.fromhex("00b0083c")
+
+= Dissect a single-byte read result
+# event param len = 5 -> 1 data byte
+evt = HCI_Hdr(bytes.fromhex("040e050161fc00ab"))
+assert evt[HCI_Cmd_Complete_VSC_Realtek_Read_Mem].data == b"\xab"

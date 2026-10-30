@@ -393,7 +393,6 @@ with VEthPair("left0", "right0") as veth:
         iface="right0",
         lfilter=lambda p: Dot1Q in p,
         count=2,
-        timeout=5,
         started_callback=_send,
     )
     sniffer.start()

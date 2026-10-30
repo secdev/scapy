@@ -216,8 +216,8 @@ class Net(Gen[str]):
             raise Scapy_Exception("Wildcards are no longer accepted in %s()" %
                                   self.__class__.__name__)
         self.scope = None
-        if "%" in net:
-            net = ScopedIP(net)
+        if "%" in net or scope is not None:
+            net = ScopedIP(net, scope=scope)
         if isinstance(net, _ScopedIP):
             self.scope = net.scope
         if stop is None:

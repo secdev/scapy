@@ -1083,7 +1083,7 @@ class LDAP(ASN1_Packet):
         return cls
 
     @classmethod
-    def tcp_reassemble(cls, data, *args, **kwargs):
+    def tcp_reassemble(cls, data, metadata, *args, **kwargs):
         if len(data) < 4:
             return None
         # For LDAP, we would prefer to have the entire LDAP response
@@ -1107,6 +1107,8 @@ class LDAP(ASN1_Packet):
                         return None
                     return pkt
             else:
+                if length:
+                    metadata["tcp_min_len"] = len(data) - len(x) + length
                 return None
         return None
 
@@ -1476,12 +1478,20 @@ _dclocatorcache = conf.netcache.new_cache("dclocator", 600)
 
 @conf.commands.register
 def dclocator(
-    realm, qtype="A", mode="ldap", port=None, timeout=1, NtVersion=None, debug=0
+    realm: str,
+    site: str = "",
+    qtype: str = "A",
+    mode: str = "ldap",
+    port: int = None,
+    timeout: int = 1,
+    NtVersion: int = None,
+    debug: int = 0,
 ):
     """
     Perform a DC Locator as per [MS-ADTS] sect 6.3.6 or RFC4120.
 
     :param realm: the kerberos realm to locate
+    :param site: if provided, a Site name
     :param mode: Detect if a server is up and joinable thanks to one of:
 
     - 'nocheck': Do not check that servers are online.
@@ -1504,12 +1514,15 @@ def dclocator(
             | 0x20000000  # IP
         )
     # Check cache
-    cache_ident = ";".join([realm, qtype, mode, str(NtVersion)]).lower()
+    cache_ident = ";".join([realm, qtype, mode, str(NtVersion), site]).lower()
     if cache_ident in _dclocatorcache:
         return _dclocatorcache[cache_ident]
     # Perform DNS-Based discovery (6.3.6.1)
     # 1. SRV records
-    qname = "_kerberos._tcp.dc._msdcs.%s" % realm.lower()
+    if site:
+        qname = ("_kerberos._tcp.%s._sites.dc._msdcs.%s" % (site, realm)).lower()
+    else:
+        qname = "_kerberos._tcp.dc._msdcs.%s" % realm.lower()
     if debug:
         log_runtime.info("DC Locator: requesting SRV for '%s' ..." % qname)
     try:
@@ -1622,7 +1635,7 @@ def dclocator(
                             response = next(
                                 NETLOGON(x.values[0].value.val)
                                 for x in pkt.protocolOp.attributes
-                                if x.type.val == b"Netlogon"
+                                if x.type.val.lower() == b"netlogon"
                             )
                         except StopIteration:
                             pass
@@ -1704,7 +1717,10 @@ class LDAP_SASL_Buffer(Packet):
             return None
         if data[0] == 0x30:
             # Add a heuristic to detect LDAP errors
-            xlen, x = BER_len_dec(BER_id_dec(data)[1])
+            try:
+                xlen, x = BER_len_dec(BER_id_dec(data)[1])
+            except (BER_Decoding_Error, IndexError):
+                return None
             if xlen and xlen == len(x):
                 return LDAP(data)
         # Check BufferLength
@@ -1945,6 +1961,10 @@ class LDAP_Client(object):
                         resp.Buffer,
                     )
                 )
+                if not resp.unsolicited and resp.messageID != self.messageID:
+                    raise ValueError(
+                        "LDAP response message ID does not match request !"
+                    )
             else:
                 resp = None
 
@@ -2248,6 +2268,10 @@ class LDAP_Client(object):
             from scapy.layers.ntlm import NTLMSSP
 
             if isinstance(self.sspcontext.ssp, NTLMSSP):
+                if self.sign and not self.encrypt:
+                    raise ValueError(
+                        "NTLM with GSS-SPNEGO cannot sign without encryption !"
+                    )
                 self.sign = False
 
         # SASL wrapping is now available.

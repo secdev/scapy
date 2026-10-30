@@ -21,7 +21,7 @@ from scapy.fields import ByteEnumField, ByteField, IntField
 from scapy.fields import FieldListField
 from scapy.fields import FieldLenField, ConditionalField, StrLenField
 from scapy.layers.inet import TCP
-from scapy.compat import chb, orb
+from scapy.compat import chb
 from scapy.config import conf
 
 SECRET = 'test'
@@ -53,7 +53,7 @@ def obfuscate(pay, secret, session_id, version, seq):
 
     # Obf/Unobfuscation via XOR operation between plaintext and pad
 
-    return b"".join(chb(orb(pad[i]) ^ orb(pay[i])) for i in range(len(pay)))
+    return b"".join(chb(pad[i] ^ pay[i]) for i in range(len(pay)))
 
 
 TACACSPRIVLEVEL = {15: 'Root',
@@ -360,7 +360,7 @@ class TacacsClientPacket(Packet):
 
     def post_dissect(self, pay):
 
-        if self.flags == 0:
+        if self.flags & 1 == 0:
             pay = obfuscate(pay, SECRET, self.session_id, self.version, self.seq)  # noqa: E501
 
         return pay
@@ -392,9 +392,11 @@ class TacacsHeader(TacacsClientPacket):
         if self.type == 1:
             if self.seq % 2 == 0:
                 return TacacsAuthenticationReply
-            if sum(struct.unpack('bbbb', payload[4:8])) == len(payload[8:]):
+            if (len(payload) >= 8 and
+                    sum(struct.unpack('bbbb', payload[4:8])) == len(payload[8:])):
                 return TacacsAuthenticationStart
-            elif sum(struct.unpack('!hh', payload[:4])) == len(payload[5:]):
+            elif (len(payload) >= 4 and
+                  sum(struct.unpack('!hh', payload[:4])) == len(payload[5:])):
                 return TacacsAuthenticationContinue
 
         # Authorization packet - type 2
@@ -420,7 +422,7 @@ class TacacsHeader(TacacsClientPacket):
         if self.length is None and pay:
             p = p[:-4] + struct.pack('!I', len(pay))
 
-        if self.flags == 0:
+        if self.flags & 1 == 0:
             pay = obfuscate(pay, SECRET, self.session_id, self.version, self.seq)  # noqa: E501
 
         return p + pay

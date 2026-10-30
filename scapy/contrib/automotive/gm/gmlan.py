@@ -32,7 +32,6 @@ from scapy.fields import (
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.contrib.isotp import ISOTP
-from scapy.compat import orb
 
 from typing import (  # noqa: F401
     Dict,
@@ -170,7 +169,7 @@ class GMLAN(ISOTP):
         # type: (...) -> type
         """Dispatch to the correct GMLAN service class in single layer mode."""
         if conf.contribs['GMLAN'].get('single_layer_mode', False) and len(_pkt) >= 1:
-            service = orb(_pkt[0])
+            service = _pkt[0]
             return cls._service_cls.get(service, cls)
         return cls
 

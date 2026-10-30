@@ -22,6 +22,7 @@ from scapy.pton_ntop import inet_pton
 from scapy.sessions import TCPSession
 from scapy.utils import repr_hex, strxor
 from scapy.layers.inet import TCP
+from scapy.layers.tls.cert import CertList
 from scapy.layers.tls.crypto.compression import Comp_NULL
 from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
 from scapy.layers.tls.crypto.prf import PRF
@@ -30,51 +31,58 @@ from scapy.layers.tls.crypto.prf import PRF
 from typing import Dict
 
 
-def load_nss_keys(filename):
+def parse_nss_keys(content):
     # type: (str) -> Dict[str, bytes]
     """
-    Parses a NSS Keys log and returns unpacked keys in a dictionary.
+    Parses the content of a NSS Keys log and returns unpacked keys in a
+    dictionary.
     """
     # http://udn.realityripple.com/docs/Mozilla/Projects/NSS/Key_Log_Format
     keys = collections.defaultdict(dict)
+    for line in content.splitlines():
+        if line.startswith("#"):
+            continue
+        data = line.strip().split(" ")
+        if len(data) != 3 or data[0] != data[0].upper():
+            warning("Invalid NSS Key Log Entry: %s", line.strip())
+            return {}
+
+        try:
+            client_random = binascii.unhexlify(data[1])
+        except ValueError:
+            warning("Invalid ClientRandom: %s", data[1])
+            return {}
+
+        try:
+            secret = binascii.unhexlify(data[2])
+        except ValueError:
+            warning("Invalid Secret: %s", data[2])
+            return {}
+
+        # Warn that a duplicated entry was detected. The latest one
+        # will be kept in the resulting dictionary.
+        if client_random in keys[data[0]]:
+            warning("Duplicated entry for %s !", data[0])
+
+        keys[data[0]][client_random] = secret
+    return keys
+
+
+def load_nss_keys(filename):
+    # type: (str) -> Dict[str, bytes]
+    """
+    Parses a NSS Keys log file and returns unpacked keys in a dictionary.
+    """
     try:
-        fd = open(filename)
-        fd.close()
+        with open(filename) as fd:
+            content = fd.read()
     except FileNotFoundError:
         warning("Cannot open NSS Key Log: %s", filename)
         return {}
-    try:
-        with open(filename) as fd:
-            for line in fd:
-                if line.startswith("#"):
-                    continue
-                data = line.strip().split(" ")
-                if len(data) != 3 or data[0] != data[0].upper():
-                    warning("Invalid NSS Key Log Entry: %s", line.strip())
-                    return {}
-
-                try:
-                    client_random = binascii.unhexlify(data[1])
-                except ValueError:
-                    warning("Invalid ClientRandom: %s", data[1])
-                    return {}
-
-                try:
-                    secret = binascii.unhexlify(data[2])
-                except ValueError:
-                    warning("Invalid Secret: %s", data[2])
-                    return {}
-
-                # Warn that a duplicated entry was detected. The latest one
-                # will be kept in the resulting dictionary.
-                if client_random in keys[data[0]]:
-                    warning("Duplicated entry for %s !", data[0])
-
-                keys[data[0]][client_random] = secret
-        return keys
     except UnicodeDecodeError as ex:
         warning("Cannot read NSS Key Log: %s %s", filename, str(ex))
         return {}
+    return parse_nss_keys(content)
 
 
 # Note the following import may happen inside connState.__init__()
@@ -410,7 +418,7 @@ class tlsSession(object):
         # Either we act as server and it has to be provided, or it is expected
         # to be sent by the server through a Certificate message.
         # The server certificate should be self.server_certs[0].
-        self.server_certs = []
+        self.server_certs = CertList([])
 
         # The server private key, as a PrivKey instance, when acting as server.
         # XXX It would be nice to be able to provide both an RSA and an ECDSA
@@ -420,6 +428,7 @@ class tlsSession(object):
         # authentication, while server_rsa_key is used only for RSAkx.)
         self.server_key = None
         self.server_rsa_key = None
+        self.server_cert_verify_valid = None
         # self.server_ecdsa_key = None
 
         # A dictionary containing keys extracted from a NSS Keys Log using
@@ -438,6 +447,10 @@ class tlsSession(object):
         # to provide the key associated with the first certificate.
         self.client_certs = []
         self.client_key = None
+        self.client_cert_verify_valid = None
+
+        # Common (server + client) automaton parameters
+        self.finished_valid = None
 
         # Ephemeral key exchange parameters
 
@@ -502,6 +515,7 @@ class tlsSession(object):
         self.sslv2_challenge = None
         self.sslv2_challenge_clientcert = None
         self.sslv2_key_material = None
+        self.sslv2_server_verify_valid = False
 
         # These attributes should only be used with TLS 1.3 connections.
         self.tls13_psk_secret = None
@@ -1195,6 +1209,8 @@ class _GenericTLSSessionInheritance(Packet):
         from scapy.layers.tls.record import TLS
         from scapy.layers.tls.record_tls13 import TLS13
         if cls in (TLS, TLS13):
+            if len(data) < 5:
+                return None
             length = struct.unpack("!H", data[3:5])[0] + 5
             if len(data) >= length:
                 # get the underlayer as it is used to populate tls_session

@@ -66,8 +66,7 @@ if not hasattr(socket, "AF_LINK"):
 ############
 
 # From BSD net/bpf.h
-# BIOCIMMEDIATE = 0x80044270
-BIOCIMMEDIATE = -2147204496
+BIOCIMMEDIATE = 0x80044270
 
 # https://github.com/the-tcpdump-group/libpcap/blob/master/pcap/pcap.h
 PCAP_IF_UP = 0x00000002  # interface is up
@@ -179,6 +178,7 @@ if conf.use_pcap:
             pcap_lib_version,
             pcap_next_ex,
             pcap_open_live,
+            pcap_open_offline,
             pcap_pkthdr,
             pcap_setfilter,
             pcap_setnonblock,
@@ -232,8 +232,15 @@ if conf.use_pcap:
                         elif family == socket.AF_LINK:
                             # Special case: MAC
                             # (AF_LINK is mostly BSD specific)
-                            val = ap.contents.sa_data
-                            mac = str2mac(bytes(bytearray(val[:6])))
+                            # https://github.com/apple-oss-distributions/xnu/blob/f6217f891ac0bb64f3d375211650a4c1ff8ca1ea/bsd/net/if_dl.h#L93-L112
+                            # https://github.com/freebsd/freebsd-src/blob/ab7249c288a4d7d09c88f4de705b58a2afbf35f9/sys/net/if_dl.h#L55-L68
+                            # https://github.com/illumos/illumos-gate/blob/6a2df4aa5381599179ab6afb3165db81960dee35/usr/src/uts/common/net/if_dl.h#L65-L76
+                            # https://github.com/NetBSD/src/blob/bc2d21a8880597d1affe4ec581e0b65637258dc4/sys/net/if_dl.h#L78-L91
+                            # https://github.com/openbsd/src/blob/ce063bbc9d6190c8ba255f11feb6910dc3541f29/sys/net/if_dl.h#L56-L70
+                            sockaddr_dl = ccast(ap, POINTER(c_ubyte))
+                            nlen = sockaddr_dl[5]
+                            alen = sockaddr_dl[6]
+                            mac = str2mac(bytes(sockaddr_dl[8 + nlen:8 + nlen + alen]))
                             a = a.contents.next
                             continue
                         else:
@@ -283,22 +290,38 @@ if conf.use_pcap:
 
 if conf.use_pcap:
     class _PcapWrapper_libpcap:  # noqa: F811
-        """Wrapper for the libpcap calls"""
+        """
+        Wrapper for the libpcap calls
 
-        def __init__(self,
-                     device,  # type: _GlobInterfaceType
-                     snaplen,  # type: int
-                     promisc,  # type: bool
-                     to_ms,  # type: int
-                     monitor=None,  # type: Optional[bool]
-                     ):
+        :param device: the device to open (or filename if offline=True)
+        :param offline: if True, reads a pcap, else do a live capture
+        """
+
+        def __init__(
+            self,
+            device: _GlobInterfaceType,
+            snaplen: int = MTU,
+            promisc: bool = False,
+            to_ms: int = 100,
+            monitor: Optional[bool] = None,
+            offline: bool = False,
+        ):
             # type: (...) -> None
             self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
-            self.iface = create_string_buffer(
-                network_name(device).encode("utf8")
-            )
-            self.dtl = -1
-            if not WINDOWS or conf.use_npcap:
+            if offline:
+                self.iface = cast(str, device).encode()
+            else:
+                self.iface = network_name(device).encode("utf8")
+
+            if offline:
+                # We're doing an offline capture
+                self.pcap = pcap_open_offline(self.iface, self.errbuf)
+                if not self.pcap:
+                    error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
+                    if error:
+                        raise OSError(error)
+            elif not WINDOWS or conf.use_npcap:
+                # Linux / BSD / Npcap
                 from scapy.libs.winpcapy import pcap_create
                 self.pcap = pcap_create(self.iface, self.errbuf)
                 if not self.pcap:
@@ -365,6 +388,7 @@ if conf.use_pcap:
                         errmsg = "%s: %s" % (iface, statusstr)
                     raise OSError(errmsg)
             else:
+                # Winpcap
                 if WINDOWS and monitor:
                     raise OSError("On Windows, this feature requires NPcap !")
                 self.pcap = pcap_open_live(self.iface,
@@ -382,6 +406,7 @@ if conf.use_pcap:
                 # returned, and not buffered within Winpcap/Npcap
                 pcap_setmintocopy(self.pcap, 0)
 
+            self.dtl = -1
             self.header = POINTER(pcap_pkthdr)()
             self.pkt_data = POINTER(c_ubyte)()
             self.bpf_program = bpf_program()
@@ -407,7 +432,7 @@ if conf.use_pcap:
                 float(self.header.contents.ts.tv_usec) / 1e6
             )
             pkt = bytes(bytearray(
-                self.pkt_data[:self.header.contents.len]
+                self.pkt_data[:self.header.contents.caplen]
             ))
             return ts, pkt
         __next__ = next
@@ -473,7 +498,7 @@ if conf.use_pcap:
             for ifname, dat in conf.cache_pcapiflist.items():
                 description, ips, flags, mac, itype = dat
                 i += 1
-                if LINUX or BSD or SOLARIS and not mac:
+                if (LINUX or BSD or SOLARIS) and not mac:
                     from scapy.arch.unix import get_if_raw_hwaddr
                     try:
                         itype, _mac = get_if_raw_hwaddr(ifname)
