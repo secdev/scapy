@@ -28,7 +28,7 @@ from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteEnumField, ByteField, IP6Field, ShortField, \
     BitField, BitEnumField, FieldLenField, StrLenField, IntField, \
     ConditionalField
-from scapy.layers.inet6 import ICMPv6RPL, icmp6ndraprefs, _IP6PrefixField
+from scapy.layers.inet6 import ICMPv6RPL, icmp6ndraprefs
 
 
 # https://www.iana.org/assignments/rpl/rpl.xhtml#mop
@@ -57,6 +57,36 @@ class _RPLGuessOption(Packet):
     name = "Dummy RPL Option class"
 
 
+class _RPLPrefixField(IP6Field):
+    """
+    IPv6 address or prefix filling the rest of an option. RPL option
+    lengths count octets (RFC 6550 Section 6.7.1), so the field size is
+    length_from(pkt) octets, not 8-octet units as in IPv6 ND.
+    """
+    __slots__ = ["length_from"]
+
+    def __init__(self, name, default, length_from):
+        IP6Field.__init__(self, name, default)
+        self.length_from = length_from
+
+    def i2m(self, pkt, x):
+        if pkt.len is None:
+            return b"" if x is None else IP6Field.i2m(self, pkt, x)
+        tmp_len = max(self.length_from(pkt), 0)
+        return IP6Field.i2m(self, pkt, x)[:tmp_len].ljust(tmp_len, b"\x00")
+
+    def i2len(self, pkt, x):
+        return len(self.i2m(pkt, x))
+
+    def addfield(self, pkt, s, val):
+        return s + self.i2m(pkt, val)
+
+    def getfield(self, pkt, s):
+        tmp_len = max(self.length_from(pkt), 0)
+        addr = s[:tmp_len][:16].ljust(16, b"\x00")
+        return s[tmp_len:], self.m2i(pkt, addr)
+
+
 class RPLOptRIO(_RPLGuessOption):
     """
     Control Option: Routing Information Option (RIO)
@@ -70,7 +100,8 @@ class RPLOptRIO(_RPLGuessOption):
                    BitEnumField("prf", 0, 2, icmp6ndraprefs),
                    BitField("res2", 0, 3),
                    IntField("rtlifetime", 0xffffffff),
-                   _IP6PrefixField("prefix", None)]
+                   _RPLPrefixField("prefix", None,
+                                   length_from=lambda pkt: pkt.len - 6)]
 
 
 class RPLOptDODAGConfig(_RPLGuessOption):
@@ -104,7 +135,8 @@ class RPLOptTgt(_RPLGuessOption):
                                  adjust=lambda pkt, x: x + 2),
                    ByteField("flags", 0),
                    ByteField("plen", 0),
-                   _IP6PrefixField("prefix", None)]
+                   _RPLPrefixField("prefix", None,
+                                   length_from=lambda pkt: pkt.len - 2)]
 
 
 class RPLOptTIO(_RPLGuessOption):
@@ -120,7 +152,8 @@ class RPLOptTIO(_RPLGuessOption):
                    ByteField("pathcontrol", 0),
                    ByteField("pathseq", 0),
                    ByteField("pathlifetime", 0xff),
-                   _IP6PrefixField("parentaddr", None)]
+                   _RPLPrefixField("parentaddr", None,
+                                   length_from=lambda pkt: pkt.len - 4)]
 
 
 class RPLOptSolInfo(_RPLGuessOption):
