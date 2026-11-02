@@ -112,3 +112,55 @@ dagmc=dio.payload
 assert dagmc.len == 6
 mc=dagmc.options[0]
 assert mc.ETX == 1
+
+= RPL Control Options dissection
+# Option Length counts octets (RFC 6550, 6.7.1)
+
+# Non-Storing DAO: /128 Target, then Transit Information with a parent address
+p = ICMPv6RPL(bytes.fromhex("9b02703b1e80000705120080fd0000000000000002124b000615a2b306140000031efd0000000000000002124b000615a101"))
+assert p[RPLOptTgt].len == 18
+assert p[RPLOptTgt].plen == 128
+assert p[RPLOptTgt].prefix == "fd00::212:4b00:615:a2b3"
+assert p[RPLOptTgt].payload.load == bytes.fromhex("06140000031efd0000000000000002124b000615a101")
+
+# Transit Information with and without a parent address
+p = ICMPv6RPL(bytes.fromhex("9b0200001e80000706140000031efd0000000000000002124b000615a101"))
+assert p[RPLOptTIO].len == 20
+assert p[RPLOptTIO].pathseq == 3
+assert p[RPLOptTIO].parentaddr == "fd00::212:4b00:615:a101"
+assert not p[RPLOptTIO].payload
+
+p = ICMPv6RPL(bytes.fromhex("9b0200001e00000806040000041e"))
+assert p[RPLOptTIO].len == 4
+assert p[RPLOptTIO].pathseq == 4
+assert p[RPLOptTIO].pathlifetime == 30
+assert not p[RPLOptTIO].payload
+
+# /64 Target in 8 octets
+raw_dao = bytes.fromhex("9b0255ec1e000009050a0040fd0000000000004206040000051e")
+p = ICMPv6RPL(raw_dao)
+assert p[RPLOptTgt].len == 10
+assert p[RPLOptTgt].prefix == "fd00:0:0:42::"
+assert p[RPLOptTgt].payload.load == bytes.fromhex("06040000051e")
+assert raw(p) == raw_dao
+
+# DIO: /48 Route Information in 6 octets, then DODAG Configuration
+p = ICMPv6RPL(bytes.fromhex("9b0100001e00010088f00000fd0000000000000002124b000615a000030c30080000070820010db80007040e0014030a00010100000100ffffff"))
+assert p[RPLOptRIO].len == 12
+assert p[RPLOptRIO].plen == 48
+assert p[RPLOptRIO].rtlifetime == 1800
+assert p[RPLOptRIO].prefix == "2001:db8:7::"
+assert p[RPLOptRIO].payload.load == bytes.fromhex("040e0014030a00010100000100ffffff")
+
+# An explicit length truncates the prefix
+assert raw(RPLOptRIO(len=6, prefix="fd00::1")) == bytes.fromhex("03060000ffffffff")
+
+# A declared address wider than 16 octets is consumed whole
+p = ICMPv6RPL(bytes.fromhex("9b0200001e0000090513" + "0080fd000000000000000000000000000001ff" + "06040000051e"))
+assert p[RPLOptTgt].prefix == "fd00::1"
+assert p[RPLOptTgt].payload.load == bytes.fromhex("06040000051e")
+
+# A length shorter than the fixed fields leaves no address bytes
+p = ICMPv6RPL(bytes.fromhex("9b0200001e00000905010080" + "06040000051e"))
+assert p[RPLOptTgt].prefix == "::"
+assert p[RPLOptTgt].payload.load == bytes.fromhex("06040000051e")
