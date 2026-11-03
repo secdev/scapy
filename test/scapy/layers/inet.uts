@@ -418,6 +418,25 @@ raw(p[TCP]) == bytearray.fromhex("001400500000000000000000a00220002311000013128f
 md5opt = IP(raw(p))[TCP].options[0]
 assert md5opt[1] == bytearray.fromhex("8f95eb4e2946538becb6fe364731e16f")
 
+= TCP options: MD5 error handling for non-TCP layers
+try:
+    calc_tcp_md5_hash(IP() / UDP(), b"12345")
+    assert False, "Should have raised TypeError"
+except TypeError:
+    pass
+
+try:
+    calc_tcp_md5_hash(UDP(), b"12345")
+    assert False, "Should have raised TypeError"
+except TypeError:
+    pass
+
+try:
+    calc_tcp_md5_hash(b"invalid_layer", b"12345")
+    assert False, "Should have raised TypeError"
+except TypeError:
+    pass
+
 = TCP Authentication Option: build
 opt = TCPAOValue(keyid=1, rnextkeyid=2, mac=b"FAKE")
 assert opt.keyid == 1
