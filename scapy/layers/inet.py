@@ -516,9 +516,12 @@ class ICMPTimeStampField(IntField):
                 val = ((int(h) * 60 + int(m or 0)) * 60 + int(s or 0)) * 1000 + ms  # noqa: E501
             else:
                 val = 0
-        elif val is None:
-            val = int((time.time() % (24 * 60 * 60)) * 1000)
         return val
+
+    def i2m(self, pkt, x):
+        if x is None:
+            x = int((time.time() % (24 * 60 * 60)) * 1000)
+        return super(ICMPTimeStampField, self).i2m(pkt, x)
 
 
 class DestIPField(IPField, DestField):
