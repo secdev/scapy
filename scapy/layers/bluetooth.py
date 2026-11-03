@@ -5,6 +5,8 @@
 # Copyright (C) Mike Ryan <mikeryan@lacklustre.net>
 # Copyright (C) Michael Farrell <micolous+git@gmail.com>
 # Copyright (C) Haram Park <freehr94@korea.ac.kr>
+# Copyright (C) Guillaume Bouffard <guillaume.bouffard@ssi.gouv.fr>
+# Copyright (C) Philippe Trébuchet <philippe.trebuchet@ssi.gouv.fr>
 
 """
 Bluetooth layers, sockets and send/receive functions.
@@ -33,6 +35,7 @@ from scapy.fields import (
     BitField,
     LEFieldLenField,
     XBitField,
+    BitLenField,
     ByteEnumField,
     ByteField,
     FieldLenField,
@@ -45,12 +48,15 @@ from scapy.fields import (
     LenField,
     MultipleTypeField,
     NBytesField,
+    PacketField,
     PacketListField,
     PadField,
     ShortField,
+    ShortEnumField,
     SignedByteField,
     StrField,
     StrFixedLenField,
+    XStrFixedLenField,
     StrLenField,
     StrNullField,
     UUIDField,
@@ -131,7 +137,7 @@ _bluetooth_error_codes = {
     0x0F: "Connection Rejected due to Unacceptable BD_ADDR",
     0x10: "Connection Accept Timeout Exceeded",
     0x11: "Unsupported Feature or Parameter Value",
-    0x12: "Invalid HCI Command Parameters",
+    0x12: "Invalid HCI Command parameters",
     0x13: "Remote User Terminated Connection",
     0x14: "Remote Device Terminated Connection due to Low Resources",
     0x15: "Remote Device Terminated Connection due to Power Off",
@@ -143,7 +149,7 @@ _bluetooth_error_codes = {
     0x1B: "SCO Offset Rejected",
     0x1C: "SCO Interval Rejected",
     0x1D: "SCO Air Mode Rejected",
-    0x1E: "Invalid LMP Parameters / Invalid LL Parameters",
+    0x1E: "Invalid LMP parameters / Invalid LL parameters",
     0x1F: "Unspecified Error",
     0x20: "Unsupported LMP Parameter Value / Unsupported LL Parameter Value",
     0x21: "Role Change Not Allowed",
@@ -172,7 +178,7 @@ _bluetooth_error_codes = {
     0x38: "Host Busy - Pairing",
     0x39: "Connection Rejected due to No Suitable Channel Found",
     0x3A: "Controller Busy",
-    0x3B: "Unacceptable Connection Parameters",
+    0x3B: "Unacceptable Connection parameters",
     0x3C: "Advertising Timeout",
     0x3D: "Connection Terminated due to MIC Failure",
     0x3E: "Connection Failed to be Established / Synchronization Timeout",
@@ -434,6 +440,50 @@ class L2CAP_ConfResp(Packet):
     def answers(self, other):
         # Req and Resp contain either the SCID or the DCID.
         return isinstance(other, L2CAP_ConfReq)
+
+
+class L2CAP_ConfSet(Packet):
+    name = "L2CAP Conf Set"
+    fields_desc = [
+        ByteEnumField("type", 0x0, {1: "mtu",
+                                    2: "flushtimeout",
+                                    3: "QoS"}),
+        PacketListField("option", [], next_cls_cb=lambda pkt, _, __, ___: {
+            1: L2CAP_ConfSet_MTU,
+            2: L2CAP_ConfSet_FlushTimeOut,
+            3: L2CAP_ConfSet_QoS,
+        }[pkt.type])
+    ]
+
+
+class L2CAP_ConfSet_MTU(Packet):
+    name = "L2CAP Conf Set MTU"
+    fields_desc = [
+        ByteField("length", 0x02),
+        LEShortField("mtu", 0x30),
+    ]
+
+
+class L2CAP_ConfSet_FlushTimeOut(Packet):
+    name = "L2CAP Conf Set Flush Timeout"
+    fields_desc = [
+        ByteField("length", 0x02),
+        LEShortField("flushtimeout", 0x30),
+    ]
+
+
+class L2CAP_ConfSet_QoS(Packet):
+    name = "L2CAP Conf Set QoS"
+    fields_desc = [
+        ByteField("length", 0x16),
+        ByteField("flags", 0x0),
+        ByteField("service_type", 0x1),
+        LEIntField("token_rate", 0x30),
+        LEIntField("token_bucket_size", 0x30),
+        LEIntField("peak_bandwidth", 0x30),
+        LEIntField("latency", 0xffff_ffff),
+        LEIntField("delay_variation", 0xffff_ffff),
+    ]
 
 
 class L2CAP_DisconnReq(Packet):
@@ -864,6 +914,251 @@ class ATT_Length_Value_Tuple(Packet):
 class ATT_Read_Multiple_Variable_Response(Packet):
     name = "Read Multiple Variable Response"
     fields_desc = [PacketListField("values", [], ATT_Length_Value_Tuple)]
+
+
+# Bluetooth Core Specification, Vol 3, Part B (SDP)
+
+SDP_FIXED_SIZES = {1: 2, 2: 4, 4: 16}
+
+
+class SDP_Continuation(Packet):
+    name = "SDP Continuation State"
+    fields_desc = [
+        ByteField("count", 0x00),
+        ConditionalField(
+            BitLenField("continuation_state_info", 0,
+                        length_from=lambda pkt: pkt.count * 8),
+            lambda pkt: pkt.count != 0
+        ),
+    ]
+
+
+class SDP_DataElement(Packet):
+    name = "Data Element"
+    fields_desc = [
+        BitEnumField("data_type", 0, 5, {
+            0: "null",  # size = 0
+            1: "unsigned_integer",  # size_index = 0, 1, 2, 3, 4
+            2: "signed_integer",  # size_index = 0, 1, 2, 3, 4
+            3: "UUID",  # size_index = 1, 2, 4
+            4: "text_string",  # size_index = 5, 6, 7
+            5: "boolean",  # size_index = 0 | False == 0
+            6: "data_element_sequence",  # size_index = 5, 6, 7
+            7: "data_element_alternative",  # size_index = 5, 6, 7
+            8: "URL",  # size_index = 5, 6, 7
+            # Other Reserved for future use
+        }),
+        BitField("size_index", None, size=3),
+        ConditionalField(
+            MultipleTypeField(
+                [
+                    (
+                        FieldLenField("size", None, fmt="B", length_of="data"),
+                        lambda pkt: pkt.size_index == 5
+                    ),
+                    (
+                        FieldLenField("size", None, fmt="H", length_of="data"),
+                        lambda pkt: pkt.size_index == 6
+                    ),
+                    (
+                        FieldLenField("size", None, fmt="I", length_of="data"),
+                        lambda pkt: pkt.size_index == 7
+                    ),
+                ],
+                FieldLenField("size", None, length_of="data"),
+            ),
+            lambda pkt: 5 <= pkt.size_index <= 7
+        ),
+        ConditionalField(
+            MultipleTypeField(
+                [
+                    (
+                        # Unsigned Integer
+                        BitLenField("data", 0,
+                                    length_from=lambda pkt: pkt.get_data_size() * 8),
+                        lambda pkt: pkt.data_type == 1 and 0 <= pkt.size_index <= 4
+                    ),
+                    (
+                        # Signed two's-complement integer
+                        BitLenField("data", 0,
+                                    length_from=lambda pkt: pkt.get_data_size() * 8),
+                        lambda pkt: pkt.data_type == 2 and 0 <= pkt.size_index <= 4
+                    ),
+                    (
+                        # UUID, a universally unique identifier
+                        XStrFixedLenField("data", "",
+                                          length_from=lambda pkt: pkt.get_data_size()),
+                        lambda pkt: pkt.data_type == 3 and pkt.size_index in (1, 2, 4)
+                    ),
+                    (
+                        # Text string
+                        StrLenField("data", "",
+                                    length_from=lambda pkt: pkt.get_data_size()),
+                        lambda pkt: pkt.data_type == 4 and 5 <= pkt.size_index <= 7
+                    ),
+                    (
+                        # Boolean
+                        ByteField("data", 0),
+                        lambda pkt: pkt.data_type == 5 and pkt.size_index == 0
+                    ),
+                    (
+                        # Sequence or alternative
+                        PacketListField(
+                            "data", [],
+                            length_from=lambda pkt: pkt.get_data_size(),
+                            next_cls_cb=lambda pkt, _, __, ___: SDP_DataElement),
+                        lambda pkt: (pkt.data_type in (6, 7) and
+                                     5 <= pkt.size_index <= 7)
+                    ),
+                    (
+                        # URL
+                        StrLenField("data", "",
+                                    length_from=lambda pkt: pkt.get_data_size()),
+                        lambda pkt: pkt.data_type == 8 and 5 <= pkt.size_index <= 7
+                    ),
+                ],
+                StrLenField("data", "",
+                            length_from=lambda pkt: pkt.get_data_size()),
+            ),
+            lambda pkt: 5 <= pkt.size_index <= 7 or pkt.get_data_size() > 0
+        ),
+    ]
+
+    def get_data_size(self):
+        if self.data_type == 0:
+            return 0
+        if self.size_index == 0:
+            return 1
+        if self.size_index in SDP_FIXED_SIZES:
+            return SDP_FIXED_SIZES[self.size_index]
+        return self.size
+
+    def extract_padding(self, s):
+        return b"", s
+
+
+class SDP_Error_Response(Packet):
+    name = "SDP PDU Error"
+    fields_desc = [
+        ShortEnumField("error_code", 1, {
+            1: "Invalid/unsupported SDP version",
+            2: "Invalid Service Record Handle",
+            3: "Invalid request syntax",
+            4: "Invalid PDU Size",
+            5: "Invalid Continuation State",
+            6: "Insufficient Resources to satisfy Request",
+            # All other values are reserved for future use
+        }),
+    ]
+
+
+class SDP_Service_Search_Request(Packet):
+    name = "SDP Service Search Req PDU"
+    fields_desc = [
+        PacketField("service_search_pattern", None, SDP_DataElement),
+        # Range: 0x0001 to 0xFFFF
+        ShortField("max_service_record_count", 0x0001),
+        PacketField("continuation_state", None, SDP_Continuation),
+    ]
+
+
+class SDP_Service_Search_Response(Packet):
+    name = "SDP Service Search RSP PDU"
+    fields_desc = [
+        ShortField("total_service_record_count", 0x0000),
+        FieldLenField("current_service_record_count", None, fmt="H",
+                      count_of="service_record_handle_list"),
+        FieldListField(
+            "service_record_handle_list", [], IntField("", 0),
+            count_from=lambda pkt: pkt.current_service_record_count),
+        PacketField("continuation_state", None, SDP_Continuation),
+    ]
+
+
+class SDP_Service_Attr_Request(Packet):
+    name = "SDP Service ATTR REQ PDU"
+    fields_desc = [
+        IntField("service_record_handle", 0x0000),
+        # Range: 0x0007 to 0xFFFF
+        ShortField("max_attribute_byte_count", 0x0000),
+        PacketField("attribute_id_list", None, SDP_DataElement),
+        PacketField("continuation_state", None, SDP_Continuation),
+    ]
+
+
+class SDP_Service_Attr_Response(Packet):
+    name = "SDP Service ATTR RSP PDU"
+    fields_desc = [
+        FieldLenField("attribute_list_byte_count", None, fmt="H",
+                      length_of="attribute_list"),
+        PacketListField(
+            "attribute_list", [], SDP_DataElement,
+            length_from=lambda pkt: pkt.attribute_list_byte_count),
+        PacketField("continuation_state", None, SDP_Continuation),
+    ]
+
+
+class SDP_Service_Search_Attr_Request(Packet):
+    name = "SDP Service Search ATTR REQ PDU"
+    fields_desc = [
+        PacketField("service_search_pattern", None, SDP_DataElement),
+        # Range: 0x0007 to 0xFFFF
+        ShortField("max_attribute_byte_count", 0x0000),
+        PacketField("attribute_id_list", None, SDP_DataElement),
+        PacketField("continuation_state", None, SDP_Continuation),
+    ]
+
+
+class SDP_Service_Search_Attr_Response(Packet):
+    name = "SDP Service Search ATTR RSP PDU"
+    fields_desc = [
+        FieldLenField("attribute_lists_byte_count", None, fmt="H",
+                      length_of="attribute_lists"),
+        PacketListField(
+            "attribute_lists", [], SDP_DataElement,
+            length_from=lambda pkt: pkt.attribute_lists_byte_count),
+        PacketField("continuation_state", None, SDP_Continuation),
+    ]
+
+
+SDP_PDU_CLASSES = {
+    1: SDP_Error_Response,
+    2: SDP_Service_Search_Request,
+    3: SDP_Service_Search_Response,
+    4: SDP_Service_Attr_Request,
+    5: SDP_Service_Attr_Response,
+    6: SDP_Service_Search_Attr_Request,
+    7: SDP_Service_Search_Attr_Response,
+}
+
+
+class SDP_Hdr(Packet):
+    name = "SDP Protocol Data Unit Format"
+    fields_desc = [
+        ByteEnumField("pdu_id", 1, {
+            1: "SDP_ERROR_RSP",
+            2: "SDP_SERVICE_SEARCH_REQ",
+            3: "SDP_SERVICE_SEARCH_RSP",
+            4: "SDP_SERVICE_ATTR_REQ",
+            5: "SDP_SERVICE_ATTR_RSP",
+            6: "SDP_SERVICE_SEARCH_ATTR_REQ",
+            7: "SDP_SERVICE_SEARCH_ATTR_RSP",
+            # All other values are reserved for future use
+        }),
+        ShortField("transaction_id", 0),
+        FieldLenField("parameter_length", 0, fmt="H", length_of="parameters"),
+        PacketListField(
+            "parameters", [],
+            length_from=lambda pkt: pkt.parameter_length,
+            next_cls_cb=lambda pkt, _, __, ___: SDP_PDU_CLASSES[pkt.pdu_id]),
+    ]
+
+    def post_build(self, p, pay):
+        size = len(p[5:])
+
+        p = p[:3] + struct.pack(">H", size) + p[5:]
+
+        return p + pay
 
 
 class ATT_Handle_Length_Value_Tuple(Packet):
@@ -2036,10 +2331,22 @@ class HCI_Cmd_Remote_OOB_Data_Request_Negative_Reply(Packet):
 # 7.2 Link Policy commands, the OGF is defined as 0x02
 
 class HCI_Cmd_Hold_Mode(Packet):
+    """
+    7.2.1 Hold Mode command
+    """
     name = "HCI_Hold_Mode"
     fields_desc = [LEShortField("connection_handle", 0),
                    LEShortField("hold_mode_max_interval", 0x0002),
                    LEShortField("hold_mode_min_interval", 0x0002), ]
+
+
+class HCI_Cmd_Switch_Role(Packet):
+    """
+    7.2.8 Switch Role command
+    """
+    name = "HCI_Switch_Role"
+    fields_desc = [LEMACField("bd_addr", None),
+                   ByteField("role", 0x00), ]
 
 
 # 7.3 CONTROLLER & BASEBAND COMMANDS, the OGF is defined as 0x03
@@ -2085,6 +2392,22 @@ class HCI_Cmd_Read_Local_Name(Packet):
 class HCI_Cmd_Write_Connect_Accept_Timeout(Packet):
     name = "HCI_Write_Connection_Accept_Timeout"
     fields_desc = [LEShortField("timeout", 32000)]  # 32000 slots is 20000 msec
+
+
+class HCI_Cmd_Read_Simple_Pairing_Mode(Packet):
+    """
+    7.3.58 Read Simple Pairing Mode command
+    """
+    name = "HCI_Read_Simple_Pairing_Mode_command"
+    fields_desc = []
+
+
+class HCI_Cmd_Write_Simple_Pairing_Mode(Packet):
+    """
+    7.3.59 Write Simple Paring Mode
+    """
+    name = "HCI_Write_Simple_Pairing_Mode"
+    fields_desc = [ByteField("status", 0x00)]
 
 
 class HCI_Cmd_Write_Extended_Inquiry_Response(Packet):
@@ -2599,6 +2922,17 @@ class HCI_Event_Disconnection_Complete(Packet):
                    XByteField("reason", 0), ]
 
 
+class HCI_Event_Authentication_Complete(Packet):
+    """
+    7.7.6 Authentication Complete event
+    """
+    name = "HCI_Authientication_Complete"
+    fields_desc = [
+        ByteField("status", 0x00),
+        ShortField("connection_handle", 0x0000),
+    ]
+
+
 class HCI_Event_Remote_Name_Request_Complete(Packet):
     """
     7.7.7 Remote Name Request Complete event
@@ -2689,6 +3023,16 @@ class HCI_Event_Command_Status(Packet):
             return False
 
         return other[HCI_Command_Hdr].opcode == self.opcode
+
+
+class HCI_Event_Role_Change(Packet):
+    """
+    7.7.18 Role Change event
+    """
+    name = "HCI_Role_Change_event"
+    fields_desc = [ByteField("status", 0x00),
+                   LEMACField("bd_addr", None),
+                   ByteField("new_role", 0x00)]
 
 
 class HCI_Event_Number_Of_Completed_Packets(Packet):
@@ -3171,6 +3515,7 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_Remote_OOB_Data_Request_Negative_Reply,
 
 # 7.2 Link Policy commands, the OGF is defined as 0x02
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Hold_Mode, ogf=0x02, ocf=0x0001)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Switch_Role, ogf=0x02, ocf=0x000B)
 
 # 7.3 CONTROLLER & BASEBAND COMMANDS, the OGF is defined as 0x03
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Mask, ogf=0x03, ocf=0x0001)
@@ -3180,6 +3525,8 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Local_Name, ogf=0x03, ocf=0x0013)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_Local_Name, ogf=0x03, ocf=0x0014)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Connect_Accept_Timeout, ogf=0x03, ocf=0x0016)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Extended_Inquiry_Response, ogf=0x03, ocf=0x0052)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_Simple_Pairing_Mode, ogf=0x03, ocf=0x0055)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Simple_Pairing_Mode, ogf=0x03, ocf=0x0056)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_LE_Host_Support, ogf=0x03, ocf=0x006c)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_LE_Host_Support, ogf=0x03, ocf=0x006d)
 
@@ -3235,12 +3582,14 @@ bind_layers(HCI_Event_Hdr, HCI_Event_Inquiry_Result, code=0x02)
 bind_layers(HCI_Event_Hdr, HCI_Event_Connection_Complete, code=0x03)
 bind_layers(HCI_Event_Hdr, HCI_Event_Connection_Request, code=0x04)
 bind_layers(HCI_Event_Hdr, HCI_Event_Disconnection_Complete, code=0x05)
+bind_layers(HCI_Event_Hdr, HCI_Event_Authentication_Complete, code=0x06)
 bind_layers(HCI_Event_Hdr, HCI_Event_Remote_Name_Request_Complete, code=0x07)
 bind_layers(HCI_Event_Hdr, HCI_Event_Encryption_Change, code=0x08)
 bind_layers(HCI_Event_Hdr, HCI_Event_Read_Remote_Supported_Features_Complete, code=0x0b)
 bind_layers(HCI_Event_Hdr, HCI_Event_Read_Remote_Version_Information_Complete, code=0x0c)  # noqa: E501
 bind_layers(HCI_Event_Hdr, HCI_Event_Command_Complete, code=0x0e)
 bind_layers(HCI_Event_Hdr, HCI_Event_Command_Status, code=0x0f)
+bind_layers(HCI_Event_Hdr, HCI_Event_Role_Change, code=0x12)
 bind_layers(HCI_Event_Hdr, HCI_Event_Number_Of_Completed_Packets, code=0x13)
 bind_layers(HCI_Event_Hdr, HCI_Event_Link_Key_Request, code=0x17)
 bind_layers(HCI_Event_Hdr, HCI_Event_Inquiry_Result_With_Rssi, code=0x22)
@@ -3327,6 +3676,8 @@ bind_layers(L2CAP_CmdHdr, L2CAP_Credit_Based_Connection_Request, code=23)
 bind_layers(L2CAP_CmdHdr, L2CAP_Credit_Based_Connection_Response, code=24)
 bind_layers(L2CAP_CmdHdr, L2CAP_Credit_Based_Reconfigure_Request, code=25)
 bind_layers(L2CAP_CmdHdr, L2CAP_Credit_Based_Reconfigure_Response, code=26)
+bind_layers(L2CAP_ConfReq, L2CAP_ConfSet)
+bind_layers(L2CAP_ConfResp, L2CAP_ConfSet)
 bind_layers(L2CAP_Hdr, ATT_Hdr, cid=4)
 bind_layers(ATT_Hdr, ATT_Error_Response, opcode=0x1)
 bind_layers(ATT_Hdr, ATT_Exchange_MTU_Request, opcode=0x2)
