@@ -24,6 +24,7 @@ draft-ietf-roll-efficient-npdao-17 - Efficient Route Invalidation
 """
 
 
+from scapy.config import conf
 from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteEnumField, ByteField, IP6Field, ShortField, \
     BitField, BitEnumField, FieldLenField, StrLenField, IntField, \
@@ -55,6 +56,9 @@ RPLOPTSSTR = {0: "Pad1",
 
 class _RPLGuessOption(Packet):
     name = "Dummy RPL Option class"
+
+    def guess_payload_class(self, payload):
+        return RPLOPTS.get(payload[0], conf.raw_layer)
 
 
 class _RPLPrefixField(IP6Field):
@@ -235,18 +239,7 @@ RPLOPTS = {0: RPLOptPad1,
 # RPL Control Message Handling
 
 
-class _RPLGuessMsgType(Packet):
-    name = "Dummy RPL Message class"
-
-    def guess_payload_class(self, payload):
-        if isinstance(payload, str):
-            otype = ord(payload[0])
-        else:
-            otype = payload[0]
-        return RPLOPTS.get(otype)
-
-
-class RPLDIS(_RPLGuessMsgType, _RPLGuessOption):
+class RPLDIS(_RPLGuessOption):
     """
     Control Message: DODAG Information Solicitation (DIS)
     """
@@ -255,7 +248,7 @@ class RPLDIS(_RPLGuessMsgType, _RPLGuessOption):
                    ByteField("reserved", 0)]
 
 
-class RPLDIO(_RPLGuessMsgType, _RPLGuessOption):
+class RPLDIO(_RPLGuessOption):
     """
     Control Message: DODAG Information Object (DIO)
     """
@@ -273,7 +266,7 @@ class RPLDIO(_RPLGuessMsgType, _RPLGuessOption):
                    IP6Field("dodagid", "::1")]
 
 
-class RPLDAO(_RPLGuessMsgType, _RPLGuessOption):
+class RPLDAO(_RPLGuessOption):
     """
     Control Message: Destination Advertisement Object (DAO)
     """
@@ -288,7 +281,7 @@ class RPLDAO(_RPLGuessMsgType, _RPLGuessOption):
                                     lambda pkt: pkt.D == 1)]
 
 
-class RPLDAOACK(_RPLGuessMsgType, _RPLGuessOption):
+class RPLDAOACK(_RPLGuessOption):
     """
     Control Message: Destination Advertisement Object Acknowledgement (DAOACK)
     """
@@ -303,7 +296,7 @@ class RPLDAOACK(_RPLGuessMsgType, _RPLGuessOption):
 
 
 # https://datatracker.ietf.org/doc/draft-ietf-roll-efficient-npdao/
-class RPLDCO(_RPLGuessMsgType, _RPLGuessOption):
+class RPLDCO(_RPLGuessOption):
     """
     Control Message: Destination Cleanup Object (DCO)
     """
@@ -319,7 +312,7 @@ class RPLDCO(_RPLGuessMsgType, _RPLGuessOption):
 
 
 # https://datatracker.ietf.org/doc/draft-ietf-roll-efficient-npdao/
-class RPLDCOACK(_RPLGuessMsgType, _RPLGuessOption):
+class RPLDCOACK(_RPLGuessOption):
     """
     Control Message: Destination Cleanup Object Acknowledgement (DCOACK)
     """

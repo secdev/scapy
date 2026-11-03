@@ -121,7 +121,7 @@ p = ICMPv6RPL(bytes.fromhex("9b02703b1e80000705120080fd0000000000000002124b00061
 assert p[RPLOptTgt].len == 18
 assert p[RPLOptTgt].plen == 128
 assert p[RPLOptTgt].prefix == "fd00::212:4b00:615:a2b3"
-assert p[RPLOptTgt].payload.load == bytes.fromhex("06140000031efd0000000000000002124b000615a101")
+assert raw(p[RPLOptTgt].payload) == bytes.fromhex("06140000031efd0000000000000002124b000615a101")
 
 # Transit Information with and without a parent address
 p = ICMPv6RPL(bytes.fromhex("9b0200001e80000706140000031efd0000000000000002124b000615a101"))
@@ -141,7 +141,7 @@ raw_dao = bytes.fromhex("9b0255ec1e000009050a0040fd0000000000004206040000051e")
 p = ICMPv6RPL(raw_dao)
 assert p[RPLOptTgt].len == 10
 assert p[RPLOptTgt].prefix == "fd00:0:0:42::"
-assert p[RPLOptTgt].payload.load == bytes.fromhex("06040000051e")
+assert raw(p[RPLOptTgt].payload) == bytes.fromhex("06040000051e")
 assert raw(p) == raw_dao
 
 # DIO: /48 Route Information in 6 octets, then DODAG Configuration
@@ -150,7 +150,7 @@ assert p[RPLOptRIO].len == 12
 assert p[RPLOptRIO].plen == 48
 assert p[RPLOptRIO].rtlifetime == 1800
 assert p[RPLOptRIO].prefix == "2001:db8:7::"
-assert p[RPLOptRIO].payload.load == bytes.fromhex("040e0014030a00010100000100ffffff")
+assert raw(p[RPLOptRIO].payload) == bytes.fromhex("040e0014030a00010100000100ffffff")
 
 # An explicit length truncates the prefix
 assert raw(RPLOptRIO(len=6, prefix="fd00::1")) == bytes.fromhex("03060000ffffffff")
@@ -158,9 +158,46 @@ assert raw(RPLOptRIO(len=6, prefix="fd00::1")) == bytes.fromhex("03060000fffffff
 # A declared address wider than 16 octets is consumed whole
 p = ICMPv6RPL(bytes.fromhex("9b0200001e0000090513" + "0080fd000000000000000000000000000001ff" + "06040000051e"))
 assert p[RPLOptTgt].prefix == "fd00::1"
-assert p[RPLOptTgt].payload.load == bytes.fromhex("06040000051e")
+assert raw(p[RPLOptTgt].payload) == bytes.fromhex("06040000051e")
 
 # A length shorter than the fixed fields leaves no address bytes
 p = ICMPv6RPL(bytes.fromhex("9b0200001e00000905010080" + "06040000051e"))
 assert p[RPLOptTgt].prefix == "::"
-assert p[RPLOptTgt].payload.load == bytes.fromhex("06040000051e")
+assert raw(p[RPLOptTgt].payload) == bytes.fromhex("06040000051e")
+
+= RPL Control Options chaining
+# Every option in a message is dissected, not only the first one
+
+# DIO: Route Information, PadN, DODAG Configuration, Pad1, Prefix Information
+raw_dio = bytes.fromhex("9b01e21a1e00010088f00000fd0000000000000002124b000615a000030e40080000070820010db80007000101020000040e0014030a00010100000100ffffff00081e404000000e100000070800000000fd000000000000000000000000000000")
+p = ICMPv6RPL(raw_dio)
+opts = p[RPLDIO].payload
+assert [type(o) for o in opts.iterpayloads()] == [RPLOptRIO, RPLOptPadN, RPLOptDODAGConfig, RPLOptPad1, RPLOptPIO]
+assert p[RPLOptPadN].optlen == 2
+assert p[RPLOptPIO].plen == 64
+assert p[RPLOptPIO].validlifetime == 3600
+assert p[RPLOptPIO].prefix == "fd00::"
+assert raw(p) == raw_dio
+
+# Non-Storing DAO: two Targets, then Transit Information
+p = ICMPv6RPL(bytes.fromhex("9b026da21e80000705120080fd0000000000000002124b000615a2b3050a0040fd0000000000004206140000031efd0000000000000002124b000615a101"))
+tgt = p[RPLOptTgt]
+assert tgt.prefix == "fd00::212:4b00:615:a2b3"
+assert isinstance(tgt.payload, RPLOptTgt)
+assert tgt.payload.prefix == "fd00:0:0:42::"
+assert p[RPLOptTIO].parentaddr == "fd00::212:4b00:615:a101"
+
+# An unknown option type stays Raw
+p = ICMPv6RPL(bytes.fromhex("9b0200001e00000806040000041e" + "fe02abcd"))
+assert raw(p[RPLOptTIO].payload) == bytes.fromhex("fe02abcd")
+assert isinstance(p[RPLOptTIO].payload, Raw)
+
+# DIO: DAG Metric Container (length in octets), DODAG Configuration, Prefix Information
+raw_dio = bytes.fromhex("9b016e641e00010088f00000fd0000000000000002124b000615a0000206070000020080040e0014030a00010100000100ffffff081e404000000e100000070800000000fd000000000000000000000000000000")
+p = ICMPv6RPL(raw_dio)
+opts = p[RPLDIO].payload
+assert [type(o) for o in opts.iterpayloads()] == [RPLOptDAGMC, RPLOptDODAGConfig, RPLOptPIO]
+assert p[RPLOptDAGMC].len == 6
+assert p[RPLOptDAGMC].options[0].ETX == 128
+p.clear_cache()
+assert raw(p) == raw_dio
