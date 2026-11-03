@@ -384,6 +384,12 @@ try:
     pcap_create.restype = POINTER(pcap_t)
     pcap_create.argtypes = [STRING, STRING]
 
+    # int pcap_set_immediate_mode(pcap_t *p, int immediate_mode)
+    #   set immediate mode for a not-yet-activated capture handle
+    pcap_set_immediate_mode = _lib.pcap_set_immediate_mode
+    pcap_set_immediate_mode.restype = c_int
+    pcap_set_immediate_mode.argtypes = [POINTER(pcap_t), c_int]
+
     # int pcap_set_snaplen(pcap_t *p, int snaplen)
     #   set the snapshot length for a not-yet-activated capture handle
     pcap_set_snaplen = _lib.pcap_set_snaplen
