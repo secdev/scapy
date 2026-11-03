@@ -1869,36 +1869,35 @@ class CertTree(CertList):
         # Nothing in the chain may have expired or be in the future: an issuer
         # that is out of date does not vouch for anything below it. A chain can
         # also hold a CSR, which has no validity period to check.
-        for c in chain:
-            if not isinstance(c, Cert):
-                continue
-            if not allow_expired and not c.isValidAt(now):
+        # Every certificate that issued another one in the chain must also be
+        # a CA, and may bound the number of CAs below it (RFC 5280 sect 6.1.4
+        # (k) to (m)). The chain goes from the certificate right below the
+        # root down to cert, and ends with the root, which is trusted as is
+        # so that a non-CA certificate can still be pinned.
+        intermediates = len(chain) - 2
+        for i, c in enumerate(chain):
+            if isinstance(c, Cert) and not allow_expired and \
+                    not c.isValidAt(now):
                 raise ValueError(
                     "Certificate %s is outside its validity period "
                     "(%s to %s) !" % (
                         c.subject_str, c.notBefore_str, c.notAfter_str
                     )
                 )
-        # Every certificate that issued another one in the chain must be a
-        # CA, and may bound the number of CAs below it (RFC 5280 sect 6.1.4
-        # (k) to (m)). The chain goes from the certificate right below the
-        # root down to cert, and ends with the root, which is trusted as is
-        # so that a non-CA certificate can still be pinned.
-        intermediates = chain[:-2]
-        for i, c in enumerate(intermediates):
-            if not c.cA:
-                raise ValueError(
-                    "Certificate %s is not a CA but issued %s !" % (
-                        c.subject_str, chain[i + 1].subject_str
+            if i < intermediates:
+                if not c.cA:
+                    raise ValueError(
+                        "Certificate %s is not a CA but issued %s !" % (
+                            c.subject_str, chain[i + 1].subject_str
+                        )
                     )
-                )
-            if c.pathLenConstraint is not None and \
-                    len(intermediates) - i - 1 > c.pathLenConstraint:
-                raise ValueError(
-                    "Certificate %s allows at most %d CA below it !" % (
-                        c.subject_str, c.pathLenConstraint
+                if c.pathLenConstraint is not None and \
+                        intermediates - i - 1 > c.pathLenConstraint:
+                    raise ValueError(
+                        "Certificate %s allows at most %d CA below it !" % (
+                            c.subject_str, c.pathLenConstraint
+                        )
                     )
-                )
         if hostname is not None and not cert.matchesHostname(hostname):
             raise ValueError(
                 "Certificate %s was not issued to %s !" % (
