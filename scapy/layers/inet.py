@@ -727,9 +727,14 @@ def calc_tcp_md5_hash(tcp, key):
     """Calculate TCP-MD5 hash from packet and return a 16-byte string"""
     import hashlib
 
-    h = hashlib.md5()  # nosec
+    if not isinstance(tcp, TCP):
+        raise TypeError("calc_tcp_md5_hash requires a TCP layer")
+
     tcp_bytes = bytes(tcp)
+    if len(tcp_bytes) < 20:
+        raise ValueError("Truncated TCP header")
     doff = tcp_bytes[12] >> 4
+    h = hashlib.md5()  # nosec
     h.update(tcp_pseudoheader(tcp))
     h.update(tcp_bytes[:16])
     h.update(b"\x00\x00")
