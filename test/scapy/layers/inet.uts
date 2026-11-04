@@ -762,6 +762,27 @@ value = test.any2i("", "07:28:28.07")
 value == 26908070
 test.i2repr("", value) == '7:28:28.70'
 
+= ICMP timestamp defaults are computed during building
+~ icmp_timestamp
+from unittest import mock
+field = ICMPTimeStampField("timestamp", None)
+assert field.default is None
+packet = ICMP(type=13)
+with mock.patch("scapy.layers.inet.time.time", return_value=123.456):
+    decoded = ICMP(bytes(packet))
+
+assert decoded.ts_ori == 123456
+assert decoded.ts_rx == 123456
+assert decoded.ts_tx == 123456
+
+= ICMP timestamp explicit values are preserved
+~ icmp_timestamp
+packet = ICMP(type=13, ts_ori=42, ts_rx=0, ts_tx="1:2:3.004")
+decoded = ICMP(bytes(packet))
+assert decoded.ts_ori == 42
+assert decoded.ts_rx == 0
+assert decoded.ts_tx == 3723004
+
 = IPv4 - UDP null checksum
 with no_debug_dissector():
     IP(raw(IP()/UDP()/Raw(b"\xff\xff\x01\x6a")))[UDP].chksum == 0xFFFF
