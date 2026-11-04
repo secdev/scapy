@@ -166,3 +166,35 @@ try:
     assert _nbns_queries == [b"ALPHA", b"BETA"]
 finally:
     _nbns_cache.flush()
+
+= nbns_resolve supports list of query names and caching
+~ mock
+
+from unittest import mock
+from scapy.layers.netbios import _nbns_cache, nbns_resolve
+
+_nbns_queries = []
+_nbns_cache.flush()
+
+def _answer_nbns_list(requests, **kwargs):
+    packet = requests[0] if isinstance(requests, list) else requests
+    name = packet.QUESTION_NAME
+    _nbns_queries.append(name)
+    return NBNSHeader(RESPONSE=1, NM_FLAGS=0x50, ANCOUNT=1) / NBNSQueryResponse(
+        RR_NAME=b"ALPHA",
+        ADDR_ENTRY=[NBNS_ADD_ENTRY(NB_ADDRESS="192.0.2.100")],
+    )
+
+try:
+    with mock.patch("scapy.layers.netbios.sr1", side_effect=_answer_nbns_list), mock.patch(
+        "scapy.layers.netbios.conf.route.get_if_bcast", return_value=["192.0.2.255"]
+    ):
+        assert nbns_resolve(["ALPHA", "BETA"], iface="test") == ["192.0.2.100"]
+        # Second call should hit the cache without calling sr1
+        assert nbns_resolve(["ALPHA", "BETA"], iface="test") == ["192.0.2.100"]
+        assert len(_nbns_queries) == 1
+        # Empty list should return None
+        assert nbns_resolve([], iface="test") is None
+finally:
+    _nbns_cache.flush()
+
