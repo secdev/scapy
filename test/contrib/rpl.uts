@@ -201,3 +201,29 @@ assert p[RPLOptDAGMC].len == 6
 assert p[RPLOptDAGMC].options[0].ETX == 128
 p.clear_cache()
 assert raw(p) == raw_dio
+
+= RPL DAG Metric Container with several metric objects
+# Each object ends after its Length octets of body (RFC 6551, 2.1)
+
+# Hop Count, Link Latency and Link ETX, then a DODAG Configuration option
+raw_mc = bytes.fromhex("021403000002000305000004000005dc070000020100" + "040e0014030a00010100000100ffffff")
+p = RPLOptDAGMC(raw_mc)
+assert [type(o) for o in p.options] == [RPLDAGMCHopCount, RPLDAGMCLinkLatency, RPLDAGMCLinkETX]
+assert [o.len for o in p.options] == [2, 4, 2]
+assert p.options[0].HopCount == 3
+assert p.options[1].Latency == 1500
+assert p.options[2].ETX == 256
+assert not any(o.payload for o in p.options)
+assert isinstance(p.payload, RPLOptDODAGConfig)
+p.clear_cache()
+assert raw(p) == raw_mc
+
+# A Link Color object with two colors keeps its second color in its body
+raw_mc = bytes.fromhex("020f080000050001410241030000020004")
+p = RPLOptDAGMC(raw_mc)
+assert [type(o) for o in p.options] == [RPLDAGMCLinkColor, RPLDAGMCHopCount]
+assert p.options[0].color == 5
+assert raw(p.options[0].payload) == bytes.fromhex("0241")
+assert p.options[1].HopCount == 4
+p.clear_cache()
+assert raw(p) == raw_mc
