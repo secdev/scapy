@@ -274,6 +274,25 @@ assert defrags[0].time == last_time
 pkts = fragment(IP(dst="10.0.0.5")/ICMP()/("X"*1500))
 assert len(defragment(pkts[1:])) == 1
 
+= defrag() / defragment() - Disordered fragments
+
+from random import shuffle
+
+frags1 = fragment(IP(id=1) / ("A" * payloadlen), fragsize)
+frags2 = fragment(IP(id=2) / ("B" * payloadlen), fragsize)
+frags3 = fragment(IP(id=3) / ("C" * payloadlen), fragsize)
+
+allfrags = frags1 + frags2 + frags3[:3]
+shuffle(allfrags)
+
+nonfrag, unfrag, badfrag = defrag(allfrags)
+assert len(nonfrag) == 0
+assert len(unfrag) == 2
+assert len(badfrag) == 3
+
+defrags = defragment(allfrags)
+assert len(defrags) == 5
+
 = defrag() / defragment() - Real DNS packets
 
 import base64
