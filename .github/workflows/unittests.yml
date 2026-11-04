@@ -208,7 +208,6 @@ jobs:
         continue-on-error: true
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-
   cryptography:
     name: pyca/cryptography test
     runs-on: ubuntu-latest
