@@ -4951,6 +4951,10 @@ class KerberosSSP(SSP):
 
     auth_type = 0x10
 
+    # [RFC4120] sect 1.6: "a reasonable value for allowable clock skew is
+    # 5 minutes"
+    KRB_MaxClockSkew = 5 * 60
+
     class STATE(SSP.STATE):
         INIT = 1
         CLI_SENT_TGTREQ = 2
@@ -5931,6 +5935,36 @@ class KerberosSSP(SSP):
             # Get AP-REQ session key
             Context.STSessionKey = tkt.key.toKey()
             authenticator = ap_req.authenticator.decrypt(Context.STSessionKey)
+
+            # Check the ticket validity period and the authenticator timestamp
+            # [RFC4120] sect 3.2.3
+            now = now_time.timestamp()
+            starttime = (tkt.starttime or tkt.authtime).datetime
+            endtime = tkt.endtime.datetime
+            ctime = authenticator.ctime.datetime
+            errorCode = None
+            if not starttime or starttime.timestamp() - now > self.KRB_MaxClockSkew:
+                errorCode = "KRB_AP_ERR_TKT_NYV"
+            elif not endtime or now - endtime.timestamp() > self.KRB_MaxClockSkew:
+                errorCode = "KRB_AP_ERR_TKT_EXPIRED"
+            elif not ctime or abs(ctime.timestamp() - now) > self.KRB_MaxClockSkew:
+                errorCode = "KRB_AP_ERR_SKEW"
+            # Don't check times in passive mode: the capture may be old.
+            if errorCode and not Context.passive:
+                warning("KerberosSSP: %s" % errorCode)
+                err = KRB_GSSAPI_Token(
+                    innerToken=KRB_InnerToken(
+                        TOK_ID=b"\x03\x00",
+                        root=KRB_ERROR(
+                            errorCode=errorCode,
+                            stime=ASN1_GENERALIZED_TIME(now_time),
+                            realm=ap_req.ticket.realm,
+                            sname=ap_req.ticket.sname,
+                            eData=None,
+                        ),
+                    )
+                )
+                return Context, err, GSS_S_DEFECTIVE_CREDENTIAL
 
             # Compute an application session key ([MS-KILE] sect 3.1.1.2)
             subkey = None
