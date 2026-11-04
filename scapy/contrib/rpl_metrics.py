@@ -21,12 +21,12 @@ RFC 6551 - Routing Metrics Used for Path Calculation in LLNs
 import struct
 from scapy.packet import Packet
 from scapy.fields import ByteEnumField, ByteField, ShortField, BitField, \
-    BitEnumField, FieldLenField, StrLenField, IntField
-from scapy.layers.inet6 import _PhantomAutoPadField, _OptionsField
-from scapy.contrib.rpl import RPLOPTSSTR, RPLOPTS
+    BitEnumField, FieldLenField, StrLenField, IntField, PacketListField
+from scapy.layers.inet6 import _PhantomAutoPadField
+from scapy.contrib.rpl import RPLOPTSSTR, RPLOPTS, _RPLGuessOption
 
 
-class _DAGMetricContainer(Packet):
+class _DAGMetricContainer(_RPLGuessOption):
     name = 'Dummy DAG Metric container'
 
     def post_build(self, pkt, pay):
@@ -238,8 +238,8 @@ class RPLOptDAGMC(_DAGMetricContainer):
     fields_desc = [ByteEnumField("otype", 2, RPLOPTSSTR),
                    ByteField("len", None),
                    _PhantomAutoPadField("autopad", 0),
-                   _OptionsField("options", [], DAGMCObjUnknown, 8,
-                                 length_from=lambda pkt: 8 * pkt.len)]
+                   PacketListField("options", [], DAGMCObjUnknown,
+                                   length_from=lambda pkt: pkt.len)]
 
 
 # https://www.iana.org/assignments/rpl/rpl.xhtml#control-message-options

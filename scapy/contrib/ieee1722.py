@@ -389,6 +389,15 @@ class _AvtpAcfPaddedHeader(AvtpAcfHeader):
     def do_dissect_payload(self, s):
         return super().do_dissect_payload(s[: len(s) - self.padlength])
 
+    def do_build(self):
+        built = super().do_build()
+        if self.raw_packet_cache is not None and self.padlength:
+            # Dissection stripped the pad bytes from the payload, and
+            # unmodified dissected packets skip post_build, so re-append
+            # them here to rebuild the frame as it was dissected.
+            built += b"\x00" * self.padlength
+        return built
+
     def _pad_payload(self, pkt, pay):
         pad = -(len(pkt) + len(pay)) % 4
         if pad and len(pkt) >= 3:

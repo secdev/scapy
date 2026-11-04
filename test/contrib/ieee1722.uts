@@ -163,6 +163,32 @@ assert can_length_257_bytes[:2] == b"\x03\x01"
 can_length_257_decoded = AvtpAcfCanHeader(can_length_257_bytes)
 assert can_length_257_decoded.acf_msg_length == 257
 
+= ACF padded headers rebuild padding after dissection
+padded_classes = [
+    AvtpAcfFlexrayHeader,
+    AvtpAcfCanHeader,
+    AvtpAcfCanV2Header,
+    AvtpAcfCanBriefHeader,
+    AvtpAcfCanBriefV2Header,
+    AvtpAcfLinHeader,
+    AvtpAcfLinV2Header,
+    AvtpAcfMostHeader,
+    AvtpAcfSerialHeader,
+    AvtpAcfAncillaryHeader,
+    AvtpAcfGenericByteBusHeader,
+    AvtpAcfAbbreviatedByteBusHeader,
+    AvtpAcfCanXlHeader,
+    AvtpAcfCanXlBriefHeader,
+    AvtpAcfGisfHeader,
+]
+for acf_class in padded_classes:
+    for load_len in [1, 2, 3, 5]:
+        built = bytes(acf_class() / Raw(load=b"W" * load_len))
+        assert len(built) % 4 == 0
+        decoded = acf_class(built)
+        assert bytes(decoded) == built
+        assert bytes(decoded.payload) == b"W" * load_len
+
 = ACF field values
 flexray = AvtpAcfFlexrayHeader(
     fr_bus_id=3, fr_frame_id=0x123, cycle=0x12

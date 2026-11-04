@@ -130,10 +130,7 @@ class Route6:
         """
 
         if not all(r[3] == iface for r in conf.route6.routes):
-            try:
-                self.ipv6_ifaces.remove(iface)
-            except KeyError:
-                pass
+            self.ipv6_ifaces.discard(iface)
 
     def delt(self, dst, gw=None):
         # type: (str, Optional[str]) -> None

@@ -274,6 +274,25 @@ assert defrags[0].time == last_time
 pkts = fragment(IP(dst="10.0.0.5")/ICMP()/("X"*1500))
 assert len(defragment(pkts[1:])) == 1
 
+= defrag() / defragment() - Disordered fragments
+
+from random import shuffle
+
+frags1 = fragment(IP(id=1) / ("A" * payloadlen), fragsize)
+frags2 = fragment(IP(id=2) / ("B" * payloadlen), fragsize)
+frags3 = fragment(IP(id=3) / ("C" * payloadlen), fragsize)
+
+allfrags = frags1 + frags2 + frags3[:3]
+shuffle(allfrags)
+
+nonfrag, unfrag, badfrag = defrag(allfrags)
+assert len(nonfrag) == 0
+assert len(unfrag) == 2
+assert len(badfrag) == 3
+
+defrags = defragment(allfrags)
+assert len(defrags) == 5
+
 = defrag() / defragment() - Real DNS packets
 
 import base64
@@ -417,6 +436,25 @@ sign_tcp_md5(p[TCP], b"12345")
 raw(p[TCP]) == bytearray.fromhex("001400500000000000000000a00220002311000013128f95eb4e2946538becb6fe364731e16f0000")
 md5opt = IP(raw(p))[TCP].options[0]
 assert md5opt[1] == bytearray.fromhex("8f95eb4e2946538becb6fe364731e16f")
+
+= TCP options: MD5 error handling for non-TCP layers
+try:
+    calc_tcp_md5_hash(IP() / UDP(), b"12345")
+    assert False, "Should have raised TypeError"
+except TypeError:
+    pass
+
+try:
+    calc_tcp_md5_hash(UDP(), b"12345")
+    assert False, "Should have raised TypeError"
+except TypeError:
+    pass
+
+try:
+    calc_tcp_md5_hash(b"invalid_layer", b"12345")
+    assert False, "Should have raised TypeError"
+except TypeError:
+    pass
 
 = TCP Authentication Option: build
 opt = TCPAOValue(keyid=1, rnextkeyid=2, mac=b"FAKE")
@@ -742,6 +780,27 @@ test = ICMPTimeStampField("test", None)
 value = test.any2i("", "07:28:28.07")
 value == 26908070
 test.i2repr("", value) == '7:28:28.70'
+
+= ICMP timestamp defaults are computed during building
+~ icmp_timestamp
+from unittest import mock
+field = ICMPTimeStampField("timestamp", None)
+assert field.default is None
+packet = ICMP(type=13)
+with mock.patch("scapy.layers.inet.time.time", return_value=123.456):
+    decoded = ICMP(bytes(packet))
+
+assert decoded.ts_ori == 123456
+assert decoded.ts_rx == 123456
+assert decoded.ts_tx == 123456
+
+= ICMP timestamp explicit values are preserved
+~ icmp_timestamp
+packet = ICMP(type=13, ts_ori=42, ts_rx=0, ts_tx="1:2:3.004")
+decoded = ICMP(bytes(packet))
+assert decoded.ts_ori == 42
+assert decoded.ts_rx == 0
+assert decoded.ts_tx == 3723004
 
 = IPv4 - UDP null checksum
 with no_debug_dissector():

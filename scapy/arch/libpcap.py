@@ -10,7 +10,6 @@ Packet sending and receiving libpcap/WinPcap.
 import os
 import platform
 import socket
-import struct
 import time
 
 from scapy.automaton import select_objects
@@ -40,8 +39,6 @@ from scapy.pton_ntop import inet_ntop
 from scapy.supersocket import SuperSocket
 from scapy.utils import str2mac, decode_locale_str
 
-import scapy.consts
-
 from typing import (
     Any,
     Dict,
@@ -53,9 +50,6 @@ from typing import (
     cast,
 )
 
-if not scapy.consts.WINDOWS:
-    from fcntl import ioctl
-
 # AF_LINK is only available and provided on BSD (MAC)
 # but because we use its value elsewhere, let's patch it.
 if not hasattr(socket, "AF_LINK"):
@@ -64,9 +58,6 @@ if not hasattr(socket, "AF_LINK"):
 ############
 #  COMMON  #
 ############
-
-# From BSD net/bpf.h
-BIOCIMMEDIATE = 0x80044270
 
 # https://github.com/the-tcpdump-group/libpcap/blob/master/pcap/pcap.h
 PCAP_IF_UP = 0x00000002  # interface is up
@@ -330,6 +321,7 @@ if conf.use_pcap:
                         raise OSError(error)
                 # Non-winpcap functions
                 from scapy.libs.winpcapy import (
+                    pcap_set_immediate_mode,
                     pcap_set_snaplen,
                     pcap_set_promisc,
                     pcap_set_timeout,
@@ -338,6 +330,11 @@ if conf.use_pcap:
                     pcap_statustostr,
                     pcap_geterr,
                 )
+                if pcap_set_immediate_mode(self.pcap, 1) != 0:
+                    error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
+                    if error:
+                        raise OSError(error)
+                    log_runtime.error("Could not set immediate mode")
                 if pcap_set_snaplen(self.pcap, snaplen) != 0:
                     error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
                     if error:
@@ -397,14 +394,14 @@ if conf.use_pcap:
                 error = decode_locale_str(bytearray(self.errbuf).strip(b"\x00"))
                 if error:
                     raise OSError(error)
+                # Winpcap exclusive: make every packet to be instantly
+                # returned, and not buffered within Winpcap
+                pcap_setmintocopy(self.pcap, 0)
 
             if WINDOWS:
                 # On Windows, we need to cache whether there are still packets in the
                 # queue or not. When they aren't, then we select normally like on linux.
                 self.remaining = True
-                # Winpcap/Npcap exclusive: make every packet to be instantly
-                # returned, and not buffered within Winpcap/Npcap
-                pcap_setmintocopy(self.pcap, 0)
 
             self.dtl = -1
             self.header = POINTER(pcap_pkthdr)()
@@ -560,15 +557,6 @@ if conf.use_pcap:
                 monitor=self.monitor,
             )
             super(L2pcapListenSocket, self).__init__(fd)
-            try:
-                if not WINDOWS:
-                    ioctl(
-                        self.pcap_fd.fileno(),
-                        BIOCIMMEDIATE,
-                        struct.pack("I", 1)
-                    )
-            except Exception:
-                pass
             if type == ETH_P_ALL:  # Do not apply any filter if Ethernet type is given  # noqa: E501
                 if conf.except_filter:
                     if filter:
@@ -613,15 +601,6 @@ if conf.use_pcap:
                 monitor=self.monitor,
             )
             super(L2pcapSocket, self).__init__(fd)
-            try:
-                if not WINDOWS:
-                    ioctl(
-                        self.pcap_fd.fileno(),
-                        BIOCIMMEDIATE,
-                        struct.pack("I", 1)
-                    )
-            except Exception:
-                pass
             if nofilter:
                 if type != ETH_P_ALL:
                     # PF_PACKET stuff. Need to emulate this for pcap
