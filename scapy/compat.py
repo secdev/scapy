@@ -9,6 +9,8 @@ Compatibility module to various older versions of Python
 import base64
 import binascii
 import enum
+import ntpath
+import pathlib
 import struct
 import sys
 
@@ -18,6 +20,7 @@ from typing import (
     Callable,
     Optional,
     TypeVar,
+    Union,
     TYPE_CHECKING,
 )
 
@@ -34,6 +37,7 @@ __all__ = [
     'bytes_hex',
     'chb',
     'hex_bytes',
+    'isreserved',
     'plain_str',
     'raw',
     'StrEnum',
@@ -178,3 +182,13 @@ def bytes_base64(x):
     # type: (AnyStr) -> bytes
     """Turn bytes into base64"""
     return base64.encodebytes(bytes_encode(x)).replace(b'\n', b'')
+
+
+def isreserved(path):
+    # type: (Union[str, pathlib.PurePath]) -> bool
+    """Return True if path is a reserved name on Windows (e.g. NUL)"""
+    # PurePath.is_reserved() is deprecated since Python 3.13 (which added
+    # ntpath.isreserved()) and was removed in 3.15
+    if sys.version_info >= (3, 13):
+        return ntpath.isreserved(path)
+    return pathlib.PureWindowsPath(path).is_reserved()
