@@ -631,9 +631,13 @@ assert chb(1) == b"\x01"
 
 = isreserved
 
-assert isreserved("NUL")
-assert isreserved("share/con.txt")
-assert isreserved(pathlib.PureWindowsPath("C:/share/aux"))
+if WINDOWS:
+    assert isreserved("NUL")
+    assert isreserved("share/con.txt")
+    assert isreserved(pathlib.PureWindowsPath("C:/share/aux"))
+else:
+    assert not isreserved("NUL")
+
 assert not isreserved("fileScapy")
 assert not isreserved("share/console")
 

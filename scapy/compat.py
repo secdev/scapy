@@ -14,6 +14,8 @@ import pathlib
 import struct
 import sys
 
+from scapy.consts import WINDOWS
+
 from typing import (
     Any,
     AnyStr,
@@ -184,11 +186,17 @@ def bytes_base64(x):
     return base64.encodebytes(bytes_encode(x)).replace(b'\n', b'')
 
 
-def isreserved(path):
-    # type: (Union[str, pathlib.PurePath]) -> bool
-    """Return True if path is a reserved name on Windows (e.g. NUL)"""
-    # PurePath.is_reserved() is deprecated since Python 3.13 (which added
-    # ntpath.isreserved()) and was removed in 3.15
-    if sys.version_info >= (3, 13):
-        return ntpath.isreserved(path)
-    return pathlib.PureWindowsPath(path).is_reserved()
+if WINDOWS:
+    def isreserved(path):
+        # type: (Union[str, pathlib.PurePath]) -> bool
+        """Return True if path is a reserved name on Windows (e.g. NUL)"""
+        # PurePath.is_reserved() is deprecated since Python 3.13 (which added
+        # ntpath.isreserved()) and was removed in 3.15
+        if sys.version_info >= (3, 13):
+            return ntpath.isreserved(path)
+        return pathlib.PureWindowsPath(path).is_reserved()
+else:
+    def isreserved(path):
+        # type: (Union[str, pathlib.PurePath]) -> bool
+        """Reserved names (e.g. NUL) only exist on Windows"""
+        return False
