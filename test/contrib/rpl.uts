@@ -218,10 +218,11 @@ assert isinstance(p.payload, RPLOptDODAGConfig)
 p.clear_cache()
 assert raw(p) == raw_mc
 
-# A Link Color object with two colors keeps its second color in its body
-raw_mc = bytes.fromhex("020f080000050001410241030000020004")
+# A recorded Link Color object with two colors keeps its second color in its body
+raw_mc = bytes.fromhex("020f080080050001410241030000020004")
 p = RPLOptDAGMC(raw_mc)
 assert [type(o) for o in p.options] == [RPLDAGMCLinkColor, RPLDAGMCHopCount]
+assert p.options[0].R == 1
 assert p.options[0].color == 5
 assert raw(p.options[0].payload) == bytes.fromhex("0241")
 assert p.options[1].HopCount == 4
