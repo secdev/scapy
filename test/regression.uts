@@ -2763,14 +2763,16 @@ l = sniff(offline=[p for p in IP()/UDP(sport=(10000, 10001))], filter="udp")
 assert len(l) == 2
 assert all(UDP in p for p in l)
 
+l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="tcp")
+assert len(l) == 0
+
 = Check offline sniff() with serialized packet bytes
+~ tcpdump libpcap
+
 wire = bytes(IP()/UDP())
 l = sniff(offline=[wire, wire])
 assert len(l) == 2
 assert all(Raw in p for p in l)
-
-l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="tcp")
-assert len(l) == 0
 
 = Offline sniff() with a filter reaps its tcpdump process (#4512)
 ~ tcpdump libpcap
