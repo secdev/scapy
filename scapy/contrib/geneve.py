@@ -14,11 +14,13 @@ https://datatracker.ietf.org/doc/html/rfc8926
 
 import struct
 
-from scapy.fields import BitField, XByteField, XShortEnumField, X3BytesField, StrLenField, PacketListField
+from scapy.fields import BitField, XByteField, XShortEnumField, X3BytesField, \
+    StrLenField, PacketField, PacketListField, MultipleTypeField
 from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.l2 import Ether, ETHER_TYPES
+from scapy.contrib.int import INTMetaMd, INTMetaMx
 
 CLASS_IDS = {0x0100: "Linux",
              0x0101: "Open vSwitch",
@@ -51,6 +53,44 @@ class GeneveOptions(Packet):
             tmp_len = len(self.data) // 4
             p = p[:3] + struct.pack("!B", (p[3] & 0x3) | (tmp_len & 0x1f)) + p[4:]
         return p + pay
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 2:
+            classid = struct.unpack("!H", _pkt[:2])[0]
+            if classid == 0x0103:
+                return GeneveOptINT
+        return cls
+
+
+class GeneveOptINT(Packet):
+    name = "Geneve Option INT"
+    fields_desc = [
+        XShortEnumField("classid", 0x0000, CLASS_IDS),
+        XByteField("type", 0x03),
+        BitField("reserved", 0, 3),
+        BitField("length", 1, 5),
+        MultipleTypeField([
+            (PacketField('metadata', None, INTMetaMd), lambda pkt: pkt.type == 1),
+            (PacketField('metadata', None, INTMetaMx), lambda pkt: pkt.type == 3), ],
+            PacketField('metadata', None, INTMetaMd)
+        ),
+    ]
+
+    def post_build(self, pkt, pay):
+        tmp_len = len(self.metadata) // 4
+        old_value = struct.unpack("B", pkt[3:4])[0]
+        new_value = (old_value & 0b11100000) | (tmp_len & 0b00011111)
+        pkt = pkt[:3] + struct.pack("B", new_value) + pkt[4:]
+        return pkt + pay
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 2:
+            classid = struct.unpack("!H", _pkt[:2])[0]
+            if classid != 0x0103:
+                return GeneveOptions
+        return cls
 
 
 class GENEVE(Packet):
