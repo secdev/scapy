@@ -97,10 +97,12 @@ class TCPROS(Packet):
             # TCPROS encoding format:
             #  [4-byte field length + field=value ]*
             flag_encoding_format_subfields = True
-            while remain:
-                field_len_bytes = struct.unpack("<I", remain[:4])[0]
-                current = remain[4:4 + field_len_bytes]
-                remain = remain[4 + field_len_bytes:]
+            offset = 0
+            while offset < remain_len:
+                field_len_bytes = struct.unpack(
+                    "<I", remain[offset:offset + 4])[0]
+                current = remain[offset + 4:offset + 4 + field_len_bytes]
+                offset += 4 + field_len_bytes
 
                 if int(field_len_bytes) != len(current):
                     # print("BREAKING - int(field_len_bytes) != len(current)")
@@ -214,14 +216,17 @@ class TCPROSHeader(Packet):
             print("total_length: " + str(total_length))
             print("total_header_length: " + str(total_header_length))
         remain = raw(s)[4:total_header_length]
-        while remain:
-            field_len_bytes = struct.unpack("<I", remain[:4])[0]
-            remain = remain[4 + field_len_bytes:]
+        remain_len = len(remain)
+        offset = 0
+        while offset < remain_len:
+            field_len_bytes = struct.unpack(
+                "<I", remain[offset:offset + 4])[0]
+            offset += 4 + field_len_bytes
             if conf.debug_dissector:
                 print("field_len_bytes: " + str(field_len_bytes))
-                current = remain[:4 + field_len_bytes]
+                current = remain[offset:offset + 4 + field_len_bytes]
                 print("current: " + str(current))
-                print("remain: " + str(remain))
+                print("remain: " + str(remain[offset:]))
             self.nfields += 1
         return s
 
@@ -284,18 +289,21 @@ class TCPROSBody(Packet):
         self.nfields_body = 0
         total_header_length = struct.unpack("<I", raw(s)[:4])[0]
         remain = raw(s)[4:total_header_length]
+        remain_len = len(remain)
+        offset = 0
         if conf.debug_dissector:
             total_length = len(s)
             print("total_length: " + str(total_length))
             print("total_header_length: " + str(total_header_length))
-        while remain:
-            field_len_bytes = struct.unpack("<I", remain[:4])[0]
-            remain = remain[4 + field_len_bytes:]
+        while offset < remain_len:
+            field_len_bytes = struct.unpack(
+                "<I", remain[offset:offset + 4])[0]
+            offset += 4 + field_len_bytes
             if conf.debug_dissector:
                 print("field_len_bytes: " + str(field_len_bytes))
-                current = remain[:4 + field_len_bytes]
+                current = remain[offset:offset + 4 + field_len_bytes]
                 print("current: " + str(current))
-                print("remain: " + str(remain))
+                print("remain: " + str(remain[offset:]))
             self.nfields_body += 1
         return s
 
