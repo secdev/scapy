@@ -124,6 +124,18 @@ assert len(p[IPv6ExtHdrSegmentRouting].addresses) == 3 and len(p[IPv6ExtHdrSegme
 s= raw(IPv6(src="fc00::1", dst="fd00::42")/IPv6ExtHdrSegmentRouting(addresses=["fd00::42", "fc13::1337"][::-1], segleft=1, lastentry=1) / UDP(sport=11000, dport=4242) / Raw('foobar'))
 assert s == b'`\x00\x00\x00\x006+@\xfc\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00B\x11\x04\x04\x01\x01\x00\x00\x00\xfc\x13\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x137\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00B*\xf8\x10\x92\x00\x0e\x81\xb7foobar'
 
+= IPv6ExtHdrSegmentRouting Class - truncated and valid routing header dissection (Issue #5206)
+p0 = IPv6(raw(IPv6(nh=43, plen=0)))
+with no_debug_dissector():
+    p1 = IPv6(raw(IPv6(nh=43, plen=1)) + b"\x00")
+    p2 = IPv6(raw(IPv6(nh=43, plen=2)) + b"\x00\x00")
+
+assert p0.nh == 43
+assert Raw in p1 and p1[Raw].load == b"\x00"
+assert Raw in p2 and p2[Raw].load == b"\x00\x00"
+p_srh = IPv6(raw(IPv6(nh=43, plen=8)) + b"\x3b\x00\x04\x00\x00\x00\x00\x00")
+assert IPv6ExtHdrSegmentRouting in p_srh
+
 
 ############
 ############
