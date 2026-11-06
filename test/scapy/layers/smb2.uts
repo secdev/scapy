@@ -614,3 +614,54 @@ assert sd.DACL.toSDDL() == ['(A;;;;;S-1-1-0)']
 
 assert sd.DACL.AclSize == len(sd.DACL)
 
+
++ SMB2 encryption enforcement on receive
+
+= Reject an unencrypted message when session encryption is in effect
+~ smb2
+
+from scapy.layers.smb2 import SMBSession, SMB2_Header, SMB2_Read_Response
+
+# Session that negotiated SMB 3.1.1 encryption (EncryptData set, signing off),
+# as done by SMB_Client once the server replies with ENCRYPT_DATA.
+s = SMBSession()
+s.Dialect = 0x0311
+s.EncryptData = True
+s.SigningRequired = False
+
+plaintext = SMB2_Header(Command="SMB2_READ",
+                        Flags="SMB2_FLAGS_SERVER_TO_REDIR") / SMB2_Read_Response(
+    Data=b"attacker")
+pkt = SMB2_Header(bytes(plaintext))
+
+try:
+    s.in_pkt(pkt)
+    assert False, "unencrypted message was accepted"
+except ValueError:
+    pass
+
+= Reject an unencrypted message when the tree requires encryption
+~ smb2
+
+s = SMBSession()
+s.Dialect = 0x0311
+s.TreeEncryptData = True
+s.SigningRequired = False
+
+pkt = SMB2_Header(bytes(SMB2_Header(Command="SMB2_READ") / SMB2_Read_Response(
+    Data=b"attacker")))
+
+try:
+    s.in_pkt(pkt)
+    assert False, "unencrypted message was accepted"
+except ValueError:
+    pass
+
+= A plaintext message is still accepted before encryption is negotiated
+~ smb2
+
+s = SMBSession()
+s.Dialect = 0x0311
+
+pkt = SMB2_Header(bytes(SMB2_Header(Command="SMB2_NEGOTIATE")))
+assert SMB2_Header in s.in_pkt(pkt)
