@@ -5,6 +5,7 @@
 + Configuration
 
 = Imports
+~ automaton
 
 from unittest import mock
 
@@ -49,6 +50,51 @@ if WINDOWS:
     readable.close()
     b.close()
 
+= Automaton - WaitFor* errors are raised
+~ automaton
+
+import ctypes as _ctypes
+import scapy.automaton as _automaton
+
+for failure, input_count, use_native_socket in [
+        (-1, 1, True),
+        (0xFFFFFFFF, 2, False),
+        (0, 2, True)]:
+    inputs = [mock.Mock() for _ in range(input_count)]
+    for index, obj in enumerate(inputs):
+        obj.fileno.return_value = index + 10
+        obj.__selectable_force_select__ = False
+    if use_native_socket:
+        inputs[0].__selectable_force_select__ = True
+    kernel32 = mock.Mock()
+    if input_count == 1:
+        kernel32.WaitForSingleObject.return_value = failure
+    elif use_native_socket:
+        kernel32.WaitForMultipleObjects.return_value = 0
+        kernel32.WaitForSingleObject.return_value = -1
+    else:
+        kernel32.WaitForMultipleObjects.return_value = failure
+    ws2_32 = mock.Mock()
+    ws2_32.WSACreateEvent.return_value = 100
+    ws2_32.WSAEventSelect.return_value = 0
+    windll = mock.Mock(kernel32=kernel32, ws2_32=ws2_32)
+    with mock.patch.object(_automaton, "WINDOWS", True):
+        with mock.patch.object(_automaton, "ctypes", _ctypes, create=True):
+            with mock.patch.object(
+                    _ctypes, "windll", windll, create=True):
+                with mock.patch.object(
+                        _ctypes, "WinError",
+                        return_value=OSError("wait failed"), create=True
+                ) as win_error:
+                    try:
+                        select_objects(inputs, 0)
+                    except OSError:
+                        pass
+                    else:
+                        assert False, "WAIT_FAILED must raise an OSError"
+    win_error.assert_called_once_with()
+    if use_native_socket:
+        assert ws2_32.WSACloseEvent.call_count == 1
 ############
 ############
 + Windows arch unit tests
