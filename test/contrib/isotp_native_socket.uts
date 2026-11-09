@@ -2,7 +2,7 @@
 ~ automotive_comm
 
 + Configuration
-~ conf
+~ conf adaptive_inter
 
 = Imports
 
@@ -509,6 +509,163 @@ rxThread.join(timeout=5)
 assert not rxThread.is_alive()
 
 assert succ
+
++ Native TX completion and adaptive request pacing
+~ adaptive_inter linux needs_root
+
+= Raw CAN ECU for FC timeout injection
+
+import errno
+import socket
+import struct
+import threading
+import time
+from scapy.contrib.automotive.ecu import EcuState
+from scapy.contrib.automotive.uds import UDS
+from scapy.contrib.automotive.uds_scan import UDS_RMBARandomEnumerator
+from scapy.contrib.isotp.isotp_native_socket import CAN_ISOTP_OPTS, CAN_ISOTP_RECV_FC, CAN_ISOTP_WAIT_TX_DONE, SOL_CAN_ISOTP
+from scapy.utils import SingleConversationSocket
+
+assert ISOTP_KERNEL_MODULE_AVAILABLE, "Native ISO-TP and vCAN are required"
+
+ISOTP_TEST_REQUEST = bytes.fromhex("23441234567800000004")
+ISOTP_TEST_NEXT_REQUEST = bytes.fromhex("23441234568800000004")
+ISOTP_TEST_RESPONSE = bytes.fromhex("7f2310")
+ISOTP_TEST_FRAME = struct.Struct("=IB3x8s")
+
+class ISOTPFlowControlPeer:
+    def __init__(self, drop=1):
+        self.socket = socket.socket(socket.AF_CAN, socket.SOCK_RAW, socket.CAN_RAW)
+        self.socket.setsockopt(socket.SOL_CAN_RAW, socket.CAN_RAW_FILTER, struct.pack("=II", 0x7e0, socket.CAN_SFF_MASK | socket.CAN_EFF_FLAG | socket.CAN_RTR_FLAG))
+        self.socket.bind((iface0,))
+        self.socket.settimeout(0.1)
+        self.drop = drop
+        self.first_frames = []
+        self.requests = []
+        self.responses = []
+        self.failure = None
+        self.stop = threading.Event()
+        self.thread = threading.Thread(target=self.run, daemon=True)
+    def __enter__(self):
+        self.thread.start()
+        return self
+    def __exit__(self, *args):
+        self.stop.set()
+        self.thread.join(2)
+        self.socket.close()
+        assert not self.thread.is_alive()
+        assert self.failure is None, repr(self.failure)
+    def send(self, data):
+        self.socket.send(ISOTP_TEST_FRAME.pack(0x7e8, len(data), data.ljust(8, b"\0")))
+    def run(self):
+        pending = None
+        try:
+            while not self.stop.is_set():
+                try:
+                    frame = self.socket.recv(ISOTP_TEST_FRAME.size)
+                except socket.timeout:
+                    continue
+                can_id, length, data = ISOTP_TEST_FRAME.unpack(frame)
+                data = data[:length]
+                if data[0] >> 4 == 1:
+                    self.first_frames.append((time.monotonic(), data))
+                    if len(self.first_frames) <= self.drop:
+                        continue
+                    pdu_length = ((data[0] & 15) << 8) | data[1]
+                    assert 7 < pdu_length <= 13
+                    pending = pdu_length, data[2:]
+                    self.send(b"\x30\x00\x00")
+                elif data[0] >> 4 == 2 and pending is not None:
+                    assert data[0] == 0x21
+                    pdu_length, initial = pending
+                    self.requests.append((initial + data[1:])[:pdu_length])
+                    pending = None
+                    self.responses.append(time.monotonic())
+                    self.send(bytes([len(ISOTP_TEST_RESPONSE)]) + ISOTP_TEST_RESPONSE)
+        except (AssertionError, OSError) as error:
+            self.failure = error
+
+class ISOTPFixedRmbaEnumerator(UDS_RMBARandomEnumerator):
+    def _get_initial_requests(self, **kwargs):
+        return [UDS(ISOTP_TEST_REQUEST), UDS(ISOTP_TEST_NEXT_REQUEST)]
+
+= Blocking TX reports ECOMM even with a short response timeout
+
+with ISOTPFlowControlPeer(drop=100) as peer, ISOTPNativeSocket(iface0, tx_id=0x7e0, rx_id=0x7e8, basecls=UDS, wait_tx_done=True) as tester:
+    started = time.monotonic()
+    try:
+        tester.sr1(UDS(ISOTP_TEST_REQUEST), timeout=0.1, verbose=False)
+        assert False, "Missing FC must fail the current send"
+    except OSError as error:
+        assert error.errno == errno.ECOMM
+    assert time.monotonic() - started >= 0.9
+    assert not tester.closed
+    assert tester.ins.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR) == 0
+
+assert len(peer.first_frames) == 1
+
+= Adaptive recovery retries the same request and paces later requests
+
+with ISOTPFlowControlPeer() as peer, ISOTPNativeSocket(iface0, tx_id=0x7e0, rx_id=0x7e8, basecls=UDS) as tester:
+    enum = ISOTPFixedRmbaEnumerator()
+    enum.execute(SingleConversationSocket(tester), EcuState(session=3), timeout=0.1, adaptive_inter=True, adaptive_inter_step=0.05)
+    assert tester.wait_tx_done
+    assert not tester.closed
+
+assert len(enum.results) == 2
+assert all(result.resp is not None and bytes(result.resp) == ISOTP_TEST_RESPONSE for result in enum.results)
+assert peer.requests == [ISOTP_TEST_REQUEST, ISOTP_TEST_NEXT_REQUEST]
+assert len(peer.first_frames) == 3
+assert peer.first_frames[0][1] == peer.first_frames[1][1]
+# Measure the gap after a successful response; the kernel timeout itself
+# must not hide a missing pacing delay.
+assert peer.first_frames[2][0] - peer.responses[0] >= 0.045
+
+= Missing FC has at most one optional transport retry
+
+for retry, expected_frames in [(False, 1), (True, 2)]:
+    with ISOTPFlowControlPeer(drop=100) as peer, ISOTPNativeSocket(iface0, tx_id=0x7e0, rx_id=0x7e8, basecls=UDS) as tester:
+        enum = ISOTPFixedRmbaEnumerator()
+        enum.execute(tester, EcuState(session=1), count=1, timeout=0.1, adaptive_inter=True, adaptive_inter_retry=retry, retry_if_none_received=True)
+        assert not tester.closed
+    assert len(peer.first_frames) == expected_frames
+    assert len(enum.results) == 1 and enum.results[0].resp is None
+    assert not enum._retry_pkt[EcuState(session=1)]
+
+= Legacy receive-side timeout handling remains unchanged by default
+
+with ISOTPFlowControlPeer(drop=100) as peer, ISOTPNativeSocket(iface0, tx_id=0x7e0, rx_id=0x7e8, basecls=UDS) as tester:
+    assert tester.sr1(UDS(ISOTP_TEST_REQUEST), timeout=1.5, verbose=False) is None
+    assert not tester.wait_tx_done
+    assert not tester.closed
+
+assert len(peer.first_frames) == 1
+
+= Enabling TX completion preserves native addressing and FC options
+
+with ISOTPNativeSocket(iface0, tx_id=0x18da1122, rx_id=0x18da2211, ext_address=0xf1, rx_ext_address=0xfa, bs=8, stmin=10, padding=True, frame_txtime=150000) as tester:
+    address = tester.ins.getsockname()
+    options = tester.ins.getsockopt(SOL_CAN_ISOTP, CAN_ISOTP_OPTS, 12)
+    fc = tester.ins.getsockopt(SOL_CAN_ISOTP, CAN_ISOTP_RECV_FC, 3)
+    tester.set_wait_tx_done()
+    updated = tester.ins.getsockopt(SOL_CAN_ISOTP, CAN_ISOTP_OPTS, 12)
+    assert struct.unpack_from("=I", updated)[0] == struct.unpack_from("=I", options)[0] | CAN_ISOTP_WAIT_TX_DONE
+    assert updated[4:] == options[4:]
+    assert tester.ins.getsockname() == address
+    assert tester.ins.getsockopt(SOL_CAN_ISOTP, CAN_ISOTP_RECV_FC, 3) == fc
+
+= Delay persists when execution resumes on a reconnected socket
+
+with ISOTPFlowControlPeer() as peer:
+    enum = ISOTPFixedRmbaEnumerator()
+    with ISOTPNativeSocket(iface0, tx_id=0x7e0, rx_id=0x7e8, basecls=UDS) as tester:
+        enum.execute(tester, EcuState(session=1), count=1, timeout=0.1, adaptive_inter=True, adaptive_inter_step=0.05, adaptive_inter_retry=False)
+        assert enum._adaptive_inter == 0.05
+    with ISOTPNativeSocket(iface0, tx_id=0x7e0, rx_id=0x7e8, basecls=UDS) as tester:
+        enum.execute(tester, EcuState(session=1), count=1, timeout=0.1, adaptive_inter=True)
+        assert enum._adaptive_inter == 0.05
+
+assert peer.requests == [ISOTP_TEST_NEXT_REQUEST]
 
 + ISOTPNativeSocket MITM attack tests
 ~ vcan_socket needs_root linux
