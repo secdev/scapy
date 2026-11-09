@@ -514,6 +514,7 @@ assert succ
 ~ adaptive_inter linux needs_root
 
 = Raw CAN ECU for FC timeout injection
+exit_if_no_isotp_module()
 
 import errno
 import socket
@@ -525,8 +526,6 @@ from scapy.contrib.automotive.uds import UDS
 from scapy.contrib.automotive.uds_scan import UDS_RMBARandomEnumerator
 from scapy.contrib.isotp.isotp_native_socket import CAN_ISOTP_OPTS, CAN_ISOTP_RECV_FC, CAN_ISOTP_WAIT_TX_DONE, SOL_CAN_ISOTP
 from scapy.utils import SingleConversationSocket
-
-assert ISOTP_KERNEL_MODULE_AVAILABLE, "Native ISO-TP and vCAN are required"
 
 ISOTP_TEST_REQUEST = bytes.fromhex("23441234567800000004")
 ISOTP_TEST_NEXT_REQUEST = bytes.fromhex("23441234568800000004")
@@ -590,6 +589,7 @@ class ISOTPFixedRmbaEnumerator(UDS_RMBARandomEnumerator):
         return [UDS(ISOTP_TEST_REQUEST), UDS(ISOTP_TEST_NEXT_REQUEST)]
 
 = Blocking TX reports ECOMM even with a short response timeout
+exit_if_no_isotp_module()
 
 with ISOTPFlowControlPeer(drop=100) as peer, ISOTPNativeSocket(iface0, tx_id=0x7e0, rx_id=0x7e8, basecls=UDS, wait_tx_done=True) as tester:
     started = time.monotonic()
@@ -605,6 +605,7 @@ with ISOTPFlowControlPeer(drop=100) as peer, ISOTPNativeSocket(iface0, tx_id=0x7
 assert len(peer.first_frames) == 1
 
 = Adaptive recovery retries the same request and paces later requests
+exit_if_no_isotp_module()
 
 with ISOTPFlowControlPeer() as peer, ISOTPNativeSocket(iface0, tx_id=0x7e0, rx_id=0x7e8, basecls=UDS) as tester:
     enum = ISOTPFixedRmbaEnumerator()
@@ -622,6 +623,7 @@ assert peer.first_frames[0][1] == peer.first_frames[1][1]
 assert peer.first_frames[2][0] - peer.responses[0] >= 0.045
 
 = Missing FC has at most one optional transport retry
+exit_if_no_isotp_module()
 
 for retry, expected_frames in [(False, 1), (True, 2)]:
     with ISOTPFlowControlPeer(drop=100) as peer, ISOTPNativeSocket(iface0, tx_id=0x7e0, rx_id=0x7e8, basecls=UDS) as tester:
@@ -633,6 +635,7 @@ for retry, expected_frames in [(False, 1), (True, 2)]:
     assert not enum._retry_pkt[EcuState(session=1)]
 
 = Legacy receive-side timeout handling remains unchanged by default
+exit_if_no_isotp_module()
 
 with ISOTPFlowControlPeer(drop=100) as peer, ISOTPNativeSocket(iface0, tx_id=0x7e0, rx_id=0x7e8, basecls=UDS) as tester:
     assert tester.sr1(UDS(ISOTP_TEST_REQUEST), timeout=1.5, verbose=False) is None
@@ -642,6 +645,7 @@ with ISOTPFlowControlPeer(drop=100) as peer, ISOTPNativeSocket(iface0, tx_id=0x7
 assert len(peer.first_frames) == 1
 
 = Enabling TX completion preserves native addressing and FC options
+exit_if_no_isotp_module()
 
 with ISOTPNativeSocket(iface0, tx_id=0x18da1122, rx_id=0x18da2211, ext_address=0xf1, rx_ext_address=0xfa, bs=8, stmin=10, padding=True, frame_txtime=150000) as tester:
     address = tester.ins.getsockname()
@@ -655,6 +659,7 @@ with ISOTPNativeSocket(iface0, tx_id=0x18da1122, rx_id=0x18da2211, ext_address=0
     assert tester.ins.getsockopt(SOL_CAN_ISOTP, CAN_ISOTP_RECV_FC, 3) == fc
 
 = Delay persists when execution resumes on a reconnected socket
+exit_if_no_isotp_module()
 
 with ISOTPFlowControlPeer() as peer:
     enum = ISOTPFixedRmbaEnumerator()
