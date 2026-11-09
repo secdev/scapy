@@ -1,167 +1,129 @@
 CBOR
 ====
 
-What is CBOR?
--------------
-
-.. note::
-
-   This section provides a practical introduction to CBOR from Scapy's perspective. For the complete specification, see RFC 8949.
-
-CBOR (Concise Binary Object Representation) is a data format whose goal is to provide a compact, self-describing binary data interchange format based on the JSON data model. It is defined in RFC 8949 and is designed to be small in code size, reasonably small in message size, and extensible without the need for version negotiation.
-
-CBOR provides basic data types including:
-
-* **Unsigned integers** (major type 0): Non-negative integers
-* **Negative integers** (major type 1): Negative integers
-* **Byte strings** (major type 2): Raw binary data
-* **Text strings** (major type 3): UTF-8 encoded strings
-* **Arrays** (major type 4): Ordered sequences of values
-* **Maps** (major type 5): Unordered key-value pairs
-* **Semantic tags** (major type 6): Tagged values with additional semantics
-* **Simple values and floats** (major type 7): Booleans, null, undefined, and floating-point numbers
-
-Each CBOR data item begins with an initial byte that encodes the major type (in the top 3 bits) and additional information (in the low 5 bits). This design allows for compact encoding while maintaining self-describing properties.
-
-Scapy and CBOR
---------------
-
-
-Creating CBOR objects
-^^^^^^^^^^^^^^^^^^^^^
-
-CBOR objects can be easily created and composed::
-
-    >>> from scapy.cbor import CBOR_UNSIGNED_INTEGER, CBOR_TEXT_STRING, CBOR_BYTE_STRING, CBOR_ARRAY
-    >>> # Create basic types
-    >>> num = CBOR_UNSIGNED_INTEGER(42)
-    >>> text = CBOR_TEXT_STRING("Hello, CBOR!")
-    >>> data = CBOR_BYTE_STRING(b'\x01\x02\x03')
-    >>> 
-    >>> # Create collections
-    >>> arr = CBOR_ARRAY([CBOR_UNSIGNED_INTEGER(1), 
-    ...                    CBOR_UNSIGNED_INTEGER(2),
-    ...                    CBOR_TEXT_STRING("three")])
-    >>> arr
-    <CBOR_ARRAY[[<CBOR_UNSIGNED_INTEGER[1]>, <CBOR_UNSIGNED_INTEGER[2]>, <CBOR_TEXT_STRING['three']>]]>
-    >>> 
-    >>> # Create maps
-    >>> from scapy.cbor.cborcodec import CBORcodec_MAP
-    >>> mapping = {"name": "Alice", "age": 30, "active": True}
+CBOR (Concise Binary Object Representation) is a binary data format defined
+in `RFC 8949 <https://www.rfc-editor.org/rfc/rfc8949.html>`_. Scapy provides
+CBOR objects and codecs for individual values, and ``CBOR_Packet`` with
+``CBORF_*`` fields for describing packet formats. No external CBOR library
+is required.
 
 Encoding and decoding
-^^^^^^^^^^^^^^^^^^^^^
+---------------------
 
-CBOR objects are encoded using their ``.enc()`` method. All codecs are referenced in the ``CBOR_Codecs`` object. The default codec is ``CBOR_Codecs.CBOR``::
+Use ``bytes()`` to encode a CBOR object. ``CBORcodec_Object.dec()`` returns
+the decoded object and the remaining bytes. The object's value is in ``.val``::
 
-    >>> num = CBOR_UNSIGNED_INTEGER(42)
-    >>> encoded = bytes(num)
+    >>> from scapy.cbor import CBOR_UNSIGNED_INTEGER, CBORcodec_Object
+    >>> encoded = bytes(CBOR_UNSIGNED_INTEGER(42))
     >>> encoded.hex()
     '182a'
-    >>> 
-    >>> # Decode back
-    >>> decoded, remainder = CBOR_Codecs.CBOR.dec(encoded)
-    >>> decoded.val
-    42
-    >>> isinstance(decoded, CBOR_UNSIGNED_INTEGER)
+    >>> obj, remainder = CBORcodec_Object.dec(encoded)
+    >>> obj.val, remainder
+    (42, b'')
+
+The codec also encodes Python values, including nested lists and dictionaries::
+
+    >>> CBORcodec_Object.encode_cbor_item([1, "hello", b"data"]).hex()
+    '83016568656c6c6f4464617461'
+
+Use ``encode_cbor_item_deterministic()`` for RFC 8949 core-deterministic
+encoding, including recursive map-key sorting by encoded bytes. Ordinary
+encoding preserves map pair order instead.
+
+Defining packets
+----------------
+
+Define a ``CBOR_root`` instead of ``fields_desc``. ``CBORF_ARRAY`` places
+fields in a CBOR array; typed fields expose Python values, not CBOR objects::
+
+    >>> from scapy.cborpacket import CBOR_Packet
+    >>> from scapy.cbor import CBORF_ARRAY, CBORF_TEXT_STRING, CBORF_UNSIGNED_INTEGER
+    >>> class Message(CBOR_Packet):
+    ...     CBOR_root = CBORF_ARRAY(
+    ...         CBORF_UNSIGNED_INTEGER("version", 1),
+    ...         CBORF_TEXT_STRING("label", ""),
+    ...     )
+    ...
+    >>> pkt = Message(label="hi")
+    >>> bytes(pkt).hex()
+    '8201626869'
+    >>> decoded = Message(bytes(pkt))
+    >>> decoded.version, decoded.label
+    (1, 'hi')
+    >>> decoded.version = 2
+    >>> bytes(decoded).hex()
+    '8202626869'
+
+Both definite and indefinite arrays can be decoded. Use
+``CBORF_ARRAY_INDEFINITE`` to build an indefinite array, or ``CBORF_ITEMS``
+to concatenate fields without an array header.
+
+For a homogeneous array, use ``CBORF_ARRAY_OF("values", [],
+pkt_cls=CBORF_UNSIGNED_INTEGER)``. ``CBORF_PACKET("child", None,
+pkt_cls=Message)`` embeds a packet as one CBOR item;
+``CBORF_BYTE_STRING_PACKET`` wraps the packet bytes in a CBOR byte string
+instead. ``CBORF_SEMANTIC_TAG(tag_number, field)`` adds a semantic tag to a
+field.
+
+Optional fields
+---------------
+
+Wrap a field in ``CBORF_optional`` to allow it to be omitted. Missing decoded
+fields contain ``CBOR_ABSENT``. For optional typed scalars such as integers,
+use ``None`` to omit the field when building.
+
+``CBORF_ANY`` keeps CBOR objects rather than converting them to Python values.
+For this field, ``None`` means a present CBOR null, not an omitted item::
+
+    >>> from scapy.cbor import CBOR_ABSENT, CBORF_ANY, CBORF_optional
+    >>> class OptionalValue(CBOR_Packet):
+    ...     CBOR_root = CBORF_ARRAY(
+    ...         CBORF_optional(CBORF_ANY("value", CBOR_ABSENT)),
+    ...     )
+    ...
+    >>> bytes(OptionalValue()).hex()
+    '80'
+    >>> bytes(OptionalValue(value=None)).hex()
+    '81f6'
+    >>> OptionalValue(b"\x80").getfieldval("value") is CBOR_ABSENT
     True
 
-Encoding collections::
+Maps
+----
 
-    >>> from scapy.cbor import CBORcodec_ARRAY, CBORcodec_MAP
-    >>> # Encode an array
-    >>> encoded = CBORcodec_ARRAY.enc([1, 2, 3, 4, 5])
-    >>> encoded.hex()
-    '850102030405'
-    >>> 
-    >>> # Decode the array
-    >>> decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
-    >>> [item.val for item in decoded.val]
-    [1, 2, 3, 4, 5]
-    >>> 
-    >>> # Encode a map
-    >>> encoded = CBORcodec_MAP.enc({"x": 100, "y": 200})
-    >>> decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
-    >>> isinstance(decoded, CBOR_MAP)
-    True
+``CBORF_MAP`` uses field names as text keys and builds them in encoded-key
+order. Unknown members are preserved in ``_cbor_unknown`` when dissecting::
 
-Working with different types
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    >>> from scapy.cbor import CBORF_MAP
+    >>> class Metadata(CBOR_Packet):
+    ...     CBOR_root = CBORF_MAP(
+    ...         CBORF_UNSIGNED_INTEGER("b", 1),
+    ...         CBORF_UNSIGNED_INTEGER("a", 2),
+    ...     )
+    ...
+    >>> bytes(Metadata()).hex()
+    'a2616102616201'
 
-CBOR supports various data types::
+Use distinct ``unknown_field=`` names if a schema contains multiple maps.
+For arbitrary map keys, use ``CBOR_MAP`` objects or ``CBORF_ANY`` instead.
+``CBOR_MAP.val`` is a ``CBORMapData`` container of ordered pairs: it keeps
+keys such as ``1`` and ``True`` distinct. ``cbor_pairs()`` returns the pairs;
+``as_dict()`` raises ``ValueError`` if conversion would lose key distinctions
+or a key cannot be used in a Python dictionary.
 
-    >>> # Booleans
-    >>> true_val = CBOR_TRUE()
-    >>> false_val = CBOR_FALSE()
-    >>> bytes(true_val).hex()
-    'f5'
-    >>> bytes(false_val).hex()
-    'f4'
-    >>> 
-    >>> # Null and undefined
-    >>> null_val = CBOR_NULL()
-    >>> undef_val = CBOR_UNDEFINED()
-    >>> bytes(null_val).hex()
-    'f6'
-    >>> bytes(undef_val).hex()
-    'f7'
-    >>> 
-    >>> # Floating point
-    >>> float_val = CBOR_FLOAT(3.14159)
-    >>> bytes(float_val).hex()
-    'fb400921f9f01b866e'
-    >>> 
-    >>> # Negative integers
-    >>> neg = CBOR_NEGATIVE_INTEGER(-100)
-    >>> bytes(neg).hex()
-    '3863'
+Invalid data
+------------
 
-Complex structures
-^^^^^^^^^^^^^^^^^^
+``dec()`` raises on invalid data. ``safedec()`` returns a
+``CBOR_DECODING_ERROR`` object instead::
 
-CBOR supports nested structures::
-
-    >>> # Nested arrays
-    >>> nested = CBORcodec_ARRAY.enc([1, [2, 3], [4, [5, 6]]])
-    >>> decoded, _ = CBOR_Codecs.CBOR.dec(nested)
-    >>> isinstance(decoded, CBOR_ARRAY)
-    True
-    >>> 
-    >>> # Complex maps with mixed types
-    >>> data = {
-    ...     "name": "Bob",
-    ...     "age": 25,
-    ...     "active": True,
-    ...     "tags": ["user", "admin"]
-    ... }
-    >>> encoded = CBORcodec_MAP.enc(data)
-    >>> decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
-    >>> len(decoded.val)
-    4
-
-Semantic tags
-^^^^^^^^^^^^^
-
-CBOR supports semantic tags (major type 6) for providing additional meaning to data items::
-
-    >>> # Tag 1 is for Unix epoch timestamps
-    >>> import time
-    >>> timestamp = int(time.time())
-    >>> tagged = CBOR_SEMANTIC_TAG((1, CBOR_UNSIGNED_INTEGER(timestamp)))
-    >>> encoded = bytes(tagged)
-    >>> decoded, _ = CBOR_Codecs.CBOR.dec(encoded)
-    >>> decoded.val[0]  # Tag number
-    1
-
-
-Error handling
-^^^^^^^^^^^^^^
-
-Scapy provides safe decoding with error handling::
-
-    >>> # Safe decoding returns error objects for invalid data
-    >>> invalid_data = b'\xff\xff\xff'
-    >>> obj, remainder = CBOR_Codecs.CBOR.safedec(invalid_data)
+    >>> from scapy.cbor import CBOR_DECODING_ERROR
+    >>> obj, remainder = CBORcodec_Object.safedec(b"\xff")
     >>> isinstance(obj, CBOR_DECODING_ERROR)
     True
 
+Unmodified decoded packets retain their received encoding. Changing fields
+rebuilds the affected data; typed floats then use the shortest exact encoding.
+
+See :mod:`scapy.cbor.cborfields` and :mod:`scapy.cbor.cborcodec` for the
+field and codec APIs.
