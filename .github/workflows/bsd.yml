@@ -1,0 +1,51 @@
+name: Scapy Unit Tests on *BSD
+
+on:
+  pull_request:
+    #types: [ labeled ]
+    branches: [ master ]
+
+jobs:
+  freebsd:
+    #if: ${{ github.event.label.name == 'ci/bsd' || github.event.label.name == 'ci/freebsd' }}
+    #if: contains(github.event.pull_request.labels.*.name, 'ci/bsd')
+    runs-on: macos-12
+    name: FreeBSD
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run tox
+      id: tox
+      uses: vmactions/freebsd-vm@v0
+      with:
+        release: 13.1
+        copyback: false
+        prepare: |
+          pkg install --yes git python2 python3 py39-pip py27-sqlite3 py39-sqlite3 rust sudo
+
+        run: |
+          env
+          pip install tox
+          tox -e 'py27-bsd_non_root,py27-bsd_root,py39-bsd_non_root,py39-bsd_root' -- -qq
+
+  openbsd:
+    #if: ${{ github.event.label.name == 'ci/bsd' || github.event.label.name == 'ci/openbsd' }}
+    if: contains(github.event.pull_request.labels.*.name, 'ci/bsd')
+    runs-on: macos-12
+    name: OpenBSD
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run tox
+      id: tox
+      uses: vmactions/openbsd-vm@v0
+      with:
+        release: 7.1
+        copyback: false
+        prepare: |
+          pkg_add git python-2.7.18p7 python-3.9.12 py3-pip-22.0.4 rust-1.59.0 py3-cryptography-36.0.1 sudo-1.9.10
+
+        run: |
+          env
+          ls
+          pip3 install tox
+          #tox -e 'py27-bsd_non_root,py27-bsd_root,py39-bsd_non_root,py39-bsd_root' -- -qq
+          tox -e 'py39-bsd_non_root,py39-bsd_root' -- -qq
