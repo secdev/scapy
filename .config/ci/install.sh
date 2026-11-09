@@ -41,6 +41,7 @@ then
   sudo apt-get -qy install libcoap3-bin || exit 1
   timeout 60 sudo apt-get -qy install linux-modules-extra-$(uname -r) || true
   sudo apt-get -qy install samba smbclient
+  sudo apt-get -qy install lldpad lldpd
   sudo bash $CUR/openldap/install.sh
   # Make sure libpcap is installed
   if [ ! -z $SCAPY_USE_LIBPCAP ]
