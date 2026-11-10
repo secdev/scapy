@@ -269,18 +269,17 @@ class IE_IP_Address(gtp.IE_Base):
                    ShortField("length", None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
+                   # Without a length, the address that is set is built and
+                   # IE_Base.post_build fills in the length. getfieldval():
+                   # pkt.address6 would evaluate these conditions again.
                    ConditionalField(
                        IPField("address", RandIP()),
-                       lambda pkt: pkt.length == 4),
+                       lambda pkt: pkt.getfieldval("address6") is None
+                       if pkt.length is None else pkt.length == 4),
                    ConditionalField(
                        IP6Field("address6", None),
-                       lambda pkt: pkt.length == 16)]
-
-    def post_build(self, p, pay):
-        if self.length is None:
-            tmp_len = 16 if self.address6 is not None else 4
-            p = p[:1] + struct.pack("!H", tmp_len) + p[2:]
-        return p + pay
+                       lambda pkt: pkt.getfieldval("address6") is not None
+                       if pkt.length is None else pkt.length == 16)]
 
 
 class IE_MEI(gtp.IE_Base):
