@@ -33,6 +33,7 @@ from scapy.fields import (
 )
 from scapy.layers.inet6 import IP6Field
 from scapy.packet import bind_layers, Packet, Raw
+from scapy.utils import valid_net, valid_net6
 from scapy.volatile import RandIP, RandShort
 
 
@@ -265,21 +266,27 @@ class GTPHeader(gtp.GTPHeader):
 
 class IE_IP_Address(gtp.IE_Base):
     name = "IE IP Address"
+    deprecated_fields = {
+        "address6": ("address", "2.8.1"),
+    }
     fields_desc = [ByteEnumField("ietype", 74, IEType),
                    ShortField("length", None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   # Without a length, the address that is set is built and
-                   # IE_Base.post_build fills in the length. getfieldval():
-                   # pkt.address6 would evaluate these conditions again.
-                   ConditionalField(
-                       IPField("address", RandIP()),
-                       lambda pkt: pkt.getfieldval("address6") is None
-                       if pkt.length is None else pkt.length == 4),
-                   ConditionalField(
-                       IP6Field("address6", None),
-                       lambda pkt: pkt.getfieldval("address6") is not None
-                       if pkt.length is None else pkt.length == 16)]
+                   MultipleTypeField(
+                       [
+                           (IPField("address", RandIP()),
+                            (lambda pkt: pkt.length == 4,
+                             lambda pkt, val: pkt.length == 4 or (
+                                 pkt.length is None and
+                                 (val is None or valid_net(val))))),
+                           (IP6Field("address", None),
+                            (lambda pkt: pkt.length == 16,
+                             lambda pkt, val: pkt.length == 16 or (
+                                 pkt.length is None and valid_net6(val)))),
+                       ],
+                       StrFixedLenField("address", None,
+                                        length_from=lambda pkt: pkt.length))]
 
 
 class IE_MEI(gtp.IE_Base):
