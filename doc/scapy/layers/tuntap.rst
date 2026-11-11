@@ -102,8 +102,8 @@ On BSD and macOS, use:
 Now, nothing will happen when you ping those addresses -- you'll need to make
 Scapy respond to that traffic.
 
-:py:class:`TunTapInterface` works the same as a :py:class:`SuperSocket`, so lets
-setup an :py:class:`AnsweringMachine` to respond to :py:class:`ICMP`
+:py:class:`TunTapInterface` works the same as a :py:class:`SuperSocket`, so let’s
+set up an :py:class:`AnsweringMachine` to respond to :py:class:`ICMP`
 ``echo-request``:
 
 .. code-block:: pycon3
@@ -134,7 +134,7 @@ You should see those packets show up in Scapy:
     Replying 192.0.2.1 to 192.0.2.2
     Replying 192.0.2.1 to 192.0.2.2
 
-You might have noticed that didn't configure Scapy with any IP address... and
+You might have noticed that we didn't configure Scapy with any IP address... and
 there's a trick to this: :py:class:`ICMPEcho_am` swaps the ``source`` and
 ``destination`` fields of any :py:class:`Ether` and :py:class:`IP` headers on
 the :py:class:`ICMP` packet that it receives. As a result, it actually responds

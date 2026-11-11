@@ -30,7 +30,7 @@ The basic features of sending and receiving packets should still work, though.
 Interactive tutorial
 ====================
 
-This section will show you several of Scapy's features with Python 2.
+This section will show you several of Scapy's features with Python 3.
 Just open a Scapy session as shown above and try the examples yourself.
 
 .. note:: You can configure the Scapy terminal by modifying the ``~/.config/scapy/prestart.py`` file.
@@ -59,7 +59,7 @@ Let's build a packet and play with it::
 Stacking layers
 ---------------
 
-The ``/`` operator has been used as a composition operator between two layers. When doing so, the lower layer can have one or more of its defaults fields overloaded according to the upper layer. (You still can give the value you want). A string can be used as a raw layer.
+The ``/`` operator has been used as a composition operator between two layers. When doing so, the lower layer can have one or more of its default fields overloaded according to the upper layer. (You still can give the value you want). A string can be used as a raw layer.
 
 ::
 
@@ -148,16 +148,16 @@ Command                   Effect
 =======================   ====================================================
 raw(pkt)                  assemble the packet
 hexdump(pkt)              have a hexadecimal dump 
-ls(pkt)                   have the list of fields values 
+ls(pkt)                   have the list of field values
 pkt.summary()             for a one-line summary 
 pkt.show()                for a developed view of the packet 
 pkt.show2()               same as show but on the assembled packet (checksum is calculated, for instance) 
-pkt.sprintf()             fills a format string with fields values of the packet 
+pkt.sprintf()             fills a format string with field values of the packet
 pkt.decode_payload_as()   changes the way the payload is decoded 
 pkt.psdump()              draws a PostScript diagram with explained dissection 
 pkt.pdfdump()             draws a PDF with explained dissection 
-pkt.command()             return a Scapy command that can generate the packet 
-pkt.json()                return a JSON string representing the packet
+pkt.command()             returns a Scapy command that can generate the packet
+pkt.json()                returns a JSON string representing the packet
 =======================   ====================================================
 
 
@@ -165,7 +165,7 @@ pkt.json()                return a JSON string representing the packet
 Generating sets of packets
 --------------------------
 
-For the moment, we have only generated one packet. Let see how to specify sets of packets as easily. Each field of the whole packet (ever layers) can be a set. This implicitly defines a set of packets, generated using a kind of cartesian product between all the fields.
+For the moment, we have only generated one packet. Let’s see how to specify sets of packets as easily. Each field of the whole packet (across all layers) can be a set. This implicitly defines a set of packets, generated using a kind of cartesian product between all the fields.
 
 ::
 
@@ -229,7 +229,7 @@ Sending packets
 .. index::
    single: Sending packets, send
    
-Now that we know how to manipulate packets. Let's see how to send them. The send() function will send packets at layer 3. That is to say, it will handle routing and layer 2 for you. The sendp() function will work at layer 2. It's up to you to choose the right interface and the right link layer protocol. send() and sendp() will also return sent packet list if return_packets=True is passed as parameter.
+Now that we know how to manipulate packets, let's see how to send them. The send() function will send packets at layer 3. That is to say, it will handle routing and layer 2 for you. The sendp() function will work at layer 2. It's up to you to choose the right interface and the right link layer protocol. send() and sendp() will also return the list of sent packets if return_packets=True is passed as a parameter.
 
 ::
 
@@ -310,7 +310,7 @@ Send and receive packets (sr)
 .. index::
    single: sr()
 
-Now, let's try to do some fun things. The sr() function is for sending packets and receiving answers. The function returns a couple of packet and answers, and the unanswered packets. The function sr1() is a variant that only returns one packet that answered the packet (or the packet set) sent. The packets must be layer 3 packets (IP, ARP, etc.). The function srp() do the same for layer 2 packets (Ethernet, 802.3, etc.). If there is no response, a None value will be assigned instead when the timeout is reached.
+Now, let's try to do some fun things. The sr() function is for sending packets and receiving answers. The function returns two lists: pairs of sent packets and their answers, and unanswered packets. The function sr1() is a variant that only returns one packet that answered the packet (or the packet set) sent. The packets must be layer 3 packets (IP, IPv6, etc.). The function srp() does the same for layer 2 packets (Ethernet, 802.3, etc.). If there is no response, a None value will be assigned instead when the timeout is reached.
 
 ::
 
@@ -379,7 +379,7 @@ The "send'n'receive" functions family is the heart of Scapy. They return a coupl
     IP / TCP 192.168.8.14:20 > 192.168.8.1:22 S ==> Ether / IP / TCP 192.168.8.1:22 > 192.168.8.14:20 RA / Padding
     IP / TCP 192.168.8.14:20 > 192.168.8.1:23 S ==> Ether / IP / TCP 192.168.8.1:23 > 192.168.8.14:20 RA / Padding
     
-If there is a limited rate of answers, you can specify a time interval (in seconds) to wait between two packets with the inter parameter. If some packets are lost or if specifying an interval is not enough, you can resend all the unanswered packets, either by calling the function again, directly with the unanswered list, or by specifying a retry parameter. If retry is 3, Scapy will try to resend unanswered packets 3 times. If retry is -3, Scapy will resend unanswered packets until no more answer is given for the same set of unanswered packets 3 times in a row. The timeout parameter specify the time to wait after the last packet has been sent::
+If there is a limited rate of answers, you can specify a time interval (in seconds) to wait between two packets with the inter parameter. If some packets are lost or if specifying an interval is not enough, you can resend all the unanswered packets, either by calling the function again, directly with the unanswered list, or by specifying a retry parameter. If retry is 3, Scapy will try to resend unanswered packets 3 times. If retry is -3, Scapy will resend unanswered packets until no more answer is given for the same set of unanswered packets 3 times in a row. The timeout parameter specifies the time to wait after the last packet has been sent::
 
     >>> sr(IP(dst="172.20.29.5/30")/TCP(dport=[21,22,23]),inter=0.5,retry=-2,timeout=1)
     Begin emission:
@@ -417,7 +417,7 @@ The above will send a single SYN packet to Google's port 80 and will quit after 
 
 From the above output, we can see Google returned “SA” or SYN-ACK flags indicating an open port.
 
-Use either notations to scan ports 440 through 443 on the system:
+Use either notation to scan ports 440 through 443 on the system:
 
     >>> sr(IP(dst="192.168.1.1")/TCP(sport=666,dport=(440,443),flags="S"))
 
@@ -743,9 +743,9 @@ Asynchronous Sniffing
    Asynchronous sniffing is only available since **Scapy 2.4.3**
 
 .. warning::
-   Asynchronous sniffing does not necessarily improves performance (it's rather the opposite). If you want to sniff on multiple interfaces / socket, remember you can pass them all to a single `sniff()` call
+   Asynchronous sniffing does not necessarily improve performance (it's rather the opposite). If you want to sniff on multiple interfaces / sockets, remember you can pass them all to a single `sniff()` call
 
-It is possible to sniff asynchronously. This allows to stop the sniffer programmatically, rather than with ctrl^C.
+It is possible to sniff asynchronously. This allows users to stop the sniffer programmatically, rather than with ctrl^C.
 It provides ``start()``, ``stop()`` and ``join()`` utils.
 
 The basic usage would be:
@@ -762,7 +762,7 @@ The basic usage would be:
 .. image:: graphics/animations/animation-scapy-asyncsniffer.svg
 
 The ``AsyncSniffer`` class has a few useful keys, such as ``results`` (the packets collected) or ``running``, that can be used.
-It accepts the same arguments than ``sniff()`` (in fact, their implementations are merged). For instance:
+It accepts the same arguments as ``sniff()`` (in fact, their implementations are merged). For instance:
 
 .. code-block:: python
 
@@ -788,7 +788,7 @@ Advanced Sniffing - Sniffing Sessions
 .. note::
    Sessions are only available since **Scapy 2.4.3**
 
-``sniff()`` also provides **Sessions**, that allows to dissect a flow of packets seamlessly. For instance, you may want your ``sniff(prn=...)`` function to automatically defragment IP packets, before executing the ``prn``.
+``sniff()`` also provides **Sessions**, which allow users to dissect a flow of packets seamlessly. For instance, you may want your ``sniff(prn=...)`` function to automatically defragment IP packets, before executing the ``prn``.
 
 Scapy includes some basic Sessions, but it is possible to implement your own.
 Available by default:
@@ -841,7 +841,7 @@ The layer on which the decompression is applied must be immediately following th
 
 In this example, we first get the total length of the TLS payload announced by the TLS header, and we compare it to the length of the data. When the data reaches this length, the packet is complete and can be returned. When implementing ``tcp_reassemble``, it's usually a matter of detecting when a packet isn't missing anything else.
 
-The ``data`` argument is bytes and the ``metadata`` argument is a dictionary which keys are as follow:
+The ``data`` argument is bytes and the ``metadata`` argument is a dictionary whose keys are as follows:
 
 - ``metadata["pay_class"]``: the TCP payload class (here TLS)
 - ``metadata.get("tcp_psh", False)``: will be present if the PUSH flag is set
@@ -886,7 +886,7 @@ Send and receive in a loop
 .. index::
    single: srloop()
 
-Here is an example of a (h)ping-like functionality : you always send the same set of packets to see if something change::
+Here is an example of a (h)ping-like functionality : you always send the same set of packets to see if something changes::
 
     >>> srloop(IP(dst="www.target.com/30")/TCP())
     RECV 1: Ether / IP / TCP 192.168.11.99:80 > 192.168.8.14:20 SA / Padding
@@ -913,11 +913,11 @@ Importing and Exporting Data
 PCAP
 ^^^^
 
-It is often useful to save capture packets to pcap file for use at later time or with different applications::
+It is often useful to save captured packets to a pcap file for use at a later time or with different applications::
 
     >>> wrpcap("temp.cap",pkts)
 
-To restore previously saved pcap file:
+To restore a previously saved pcap file:
 
     >>> pkts = rdpcap("temp.cap")
 
@@ -962,7 +962,7 @@ Hexdump above can be reimported back into Scapy using ``import_hexcap()``::
 Binary string
 ^^^^^^^^^^^^^
 
-You can also convert entire packet into a binary string using the ``raw()`` function::
+You can also convert an entire packet into a binary string using the ``raw()`` function::
 
     >>> pkts = sniff(count = 1)
     >>> pkt = pkts[0]
@@ -997,7 +997,7 @@ Making tables
 .. index::
    single: tables, make_table()
 
-Now we have a demonstration of the ``make_table()`` presentation function. It takes a list as parameter, and a function who returns a 3-uple. The first element is the value on the x axis from an element of the list, the second is about the y value and the third is the value that we want to see at coordinates (x,y). The result is a table. This function has 2 variants, ``make_lined_table()`` and ``make_tex_table()`` to copy/paste into your LaTeX pentest report. Those functions are available as methods of a result object :
+Now we have a demonstration of the ``make_table()`` presentation function. It takes a list as parameter, and a function that returns a 3-tuple. The first element is the value on the x axis from an element of the list, the second is about the y value and the third is the value that we want to see at coordinates (x,y). The result is a table. This function has 2 variants, ``make_lined_table()`` and ``make_tex_table()`` to copy/paste into your LaTeX pentest report. Those functions are available as methods of a result object :
 
 Here we can see a multi-parallel traceroute (Scapy already has a multi TCP traceroute function. See later)::
 
@@ -1167,7 +1167,7 @@ Like any result object, traceroute objects can be added :
     19 195.101.94.25   SA 212.23.37.13    SA 216.109.118.72  SA 64.241.242.243  SA 66.94.229.254   SA 
     20 195.101.94.25   SA 212.23.37.13    SA 216.109.118.72  SA 64.241.242.243  SA 66.94.229.254   SA 
 
-Traceroute result object also have a very neat feature: they can make a directed graph from all the routes they got, and cluster them by AS (Autonomous System). You will need graphviz. By default, ImageMagick is used to display the graph.
+Traceroute result objects also have a very neat feature: they can make a directed graph from all the routes they got, and cluster them by AS (Autonomous System). You will need graphviz. By default, ImageMagick is used to display the graph.
 
     >>> res, unans = traceroute(["www.microsoft.com","www.cisco.com","www.yahoo.com","www.wanadoo.fr","www.pacsec.com"],dport=[80,443],maxttl=20,retry=-2)
     Received 190 packets, got 190 answers, remaining 10 packets
@@ -1182,7 +1182,7 @@ Traceroute result object also have a very neat feature: they can make a directed
 
 .. image:: graphics/graph_traceroute.png
 
-If you have VPython installed, you also can have a 3D representation of the traceroute. With the right button, you can rotate the scene, with the middle button, you can zoom, with the left button, you can move the scene. If you click on a ball, it's IP will appear/disappear. If you Ctrl-click on a ball, ports 21, 22, 23, 25, 80 and 443 will be scanned and the result displayed::
+If you have VPython installed, you also can have a 3D representation of the traceroute. With the right button, you can rotate the scene, with the middle button, you can zoom, with the left button, you can move the scene. If you click on a ball, its IP will appear/disappear. If you Ctrl-click on a ball, ports 21, 22, 23, 25, 80 and 443 will be scanned and the result displayed::
 
     >>> res.trace3D()
 
@@ -1222,7 +1222,7 @@ Simple one-liners
 ACK Scan
 --------
 
-Using Scapy's powerful packet crafting facilities we can quick replicate classic TCP Scans.
+Using Scapy's powerful packet crafting facilities we can quickly replicate classic TCP Scans.
 For example, the following string will be sent to simulate an ACK Scan::
 
     >>> ans, unans = sr(IP(dst="www.slashdot.org")/TCP(dport=[80,666],flags="A"))
@@ -1267,7 +1267,7 @@ Answers can be reviewed with the following command::
 
     >>> ans.summary(lambda s,r: r.sprintf("%Ether.src% %ARP.psrc%") )
 
-Scapy also includes a built-in arping() function which performs similar to the above two commands:
+Scapy also includes a built-in arping() function which performs similarly to the above two commands:
 
     >>> arping("192.168.1.0/24")
 
@@ -1391,7 +1391,7 @@ Calling ctrl^C will restore the connection.
 TCP Port Scanning 
 -----------------
  
-Send a TCP SYN on each port. Wait for a SYN-ACK or a RST or an ICMP error:: 
+Send a TCP SYN on each port. Wait for a SYN-ACK or an RST or an ICMP error::
 
     >>> res, unans = sr( IP(dst="target") 
                     /TCP(flags="S", dport=(1,1024)) ) 
@@ -1510,8 +1510,8 @@ Results would be::
 UDP traceroute
 ^^^^^^^^^^^^^^
 
-Tracerouting an UDP application like we do with TCP is not 
-reliable, because there's no handshake. We need to give an applicative payload (DNS, ISAKMP, 
+Tracerouting a UDP application like we do with TCP is not
+reliable, because there's no handshake. We need to give an application payload (DNS, ISAKMP,
 NTP, etc.) to deserve an answer::
 
     >>> res, unans = sr(IP(dst="target", ttl=(1,20))
@@ -1597,7 +1597,7 @@ Recipes
 Simplistic ARP Monitor
 ----------------------
 
-This program uses the ``sniff()`` callback (parameter prn). The store parameter is set to 0 so that the ``sniff()`` function will not store anything (as it would do otherwise) and thus can run forever. The filter parameter is used for better performances on high load : the filter is applied inside the kernel and Scapy will only see ARP traffic.
+This program uses the ``sniff()`` callback (parameter prn). The store parameter is set to 0 so that the ``sniff()`` function will not store anything (as it would do otherwise) and thus can run forever. The filter parameter is used for better performance under high load : the filter is applied inside the kernel and Scapy will only see ARP traffic.
 
 ::
 
@@ -1668,7 +1668,7 @@ Firewalking
 -----------
 
 TTL decrementation after a filtering operation 
-only not filtered packets generate an ICMP TTL exceeded 
+only unfiltered packets generate an ICMP TTL exceeded
 
     >>> ans, unans = sr(IP(dst="172.16.4.27", ttl=16)/TCP(dport=(1,1024)))
     >>> for s,r in ans:
@@ -1676,7 +1676,7 @@ only not filtered packets generate an ICMP TTL exceeded
     ...         print(s.dport)
 
 Find subnets on a multi-NIC firewall 
-only his own NIC’s IP are reachable with this TTL:: 
+only its own NICs’ IP addresses are reachable with this TTL::
 
     >>> ans, unans = sr(IP(dst="172.16.5/24", ttl=15)/TCP())
     >>> for i in unans: print(i.dst)
@@ -1794,7 +1794,7 @@ Scapy dissects slowly and/or misses packets under heavy loads.
 Solution
 ^^^^^^^^
 
-There are quite a few ways of speeding up scapy's dissection. You can use all of them
+There are quite a few ways of speeding up Scapy's dissection. You can use all of them
 
 - **Using a BPF filter**: The OS is faster than Scapy. If you make the OS filter the packets instead of Scapy, it will only handle a fraction of the load. Use the ``filter=`` argument of the :py:func:`~scapy.sendrecv.sniff` function.
 - **By disabling layers you don't use**: If you are not using some layers, why dissect them? You can let Scapy know which layers to dissect and all the others will simply be parsed as ``Raw``. This comes with a great performance boost but requires you to know what you're doing.
@@ -1837,7 +1837,7 @@ Disable the auto-loading of the routing tables:
     # Import Scapy here
     from scapy.all import *
 
-At anytime, you can trigger the routes loading using ``conf.route.resync()`` or ``conf.route6.resync()``, or add the routes yourself `as shown here <#routing>`_.
+At any time, you can trigger the routes loading using ``conf.route.resync()`` or ``conf.route6.resync()``, or add the routes yourself `as shown here <#routing>`_.
 
 
 OS Fingerprinting
@@ -1871,11 +1871,11 @@ Nmap fingerprinting (the old "1st generation" one that was done by Nmap up to v4
 
     >>> load_module("nmap")
 
-If you have Nmap installed you can use it's active os fingerprinting database with Scapy. Make sure that version 1 of signature database is located in the path specified by::
+If you have Nmap installed you can use its active OS fingerprinting database with Scapy. Make sure that version 1 of signature database is located in the path specified by::
 
     >>> conf.nmap_base
 
-Then you can use the ``nmap_fp()`` function which implements same probes as in Nmap's OS Detection engine::
+Then you can use the ``nmap_fp()`` function which implements the same probes as in Nmap's OS Detection engine::
 
     >>> nmap_fp("192.168.1.1",oport=443,cport=1)
     Begin emission:

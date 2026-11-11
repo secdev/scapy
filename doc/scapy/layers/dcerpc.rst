@@ -75,7 +75,7 @@ Here's an example where a pcap (included in the ``test/pcaps`` folder) containin
               |  data      = b'12345678'
 
 
-Scapy has opted to not abstract any of the NDR fields (see `Design choices`_), allowing to keep access to all lengths, offsets, counts, etc... This allows to put wrong length values anywhere to test implementations.
+Scapy has opted to not abstract any of the NDR fields (see `Design choices`_), allowing users to keep access to all lengths, offsets, counts, etc... This allows users to put wrong length values anywhere to test implementations.
 
 The catch is that accessing the value of a field is a bit tedious::
 
@@ -83,7 +83,7 @@ The catch is that accessing the value of a field is a bit tedious::
     b'WIN1'
 
 Sometimes, you'll be glad to have access to the size of a ConformantArray. Most times, you won't.
-All ``NDRPacket`` therefore include a ``valueof()`` function that goes through any array or pointer containers::
+All ``NDRPacket`` instances therefore include a ``valueof()`` function that goes through any array or pointer containers::
 
     >>> pkts[6][NetrServerReqChallenge_Request].valueof("ComputerName")
     b'WIN1'
@@ -398,7 +398,7 @@ To start an endpoint mapper (this should be a separate process from your RPC ser
 Debugging with extended error information (eerr)
 ------------------------------------------------
 
-To debug a RPC call, you can enable the forwarding of Extended Error Information in ``Computer Configuration > Administrative Templates > System > Remote Procedure Call`` on the remote computer.
+To debug an RPC call, you can enable the forwarding of Extended Error Information in ``Computer Configuration > Administrative Templates > System > Remote Procedure Call`` on the remote computer.
 
 .. image:: ../graphics/dcerpc/debug_eerr.png
    :align: center
@@ -409,7 +409,7 @@ Once this is done, load EERR in Scapy (in your script) as such:
 
    from scapy.layers.msrpce.mseerr import *
 
-To enable parsing of the extended error information. Those information will provide a more in-depth stack trace of errors, if available.
+To enable parsing of the extended error information. This information will provide a more in-depth stack trace of errors, if available.
 
 Passive sniffing
 ----------------
@@ -470,7 +470,7 @@ All of which have slightly different representations on the network, but general
 
 Those lengths are mostly computable, but this raises the question of: **what should Scapy report to the user?**.
 
-Some implementations (like impacket's), have chosen to abstract the lengths, offsets, etc. and hide it to the user. This has the big advantage that it makes packets much easier to build, but has the inconvenience that it is in fact hiding part of the information contained in the packet, which really is against Scapy's philosophy.
+Some implementations (like impacket's), have chosen to abstract the lengths, offsets, etc. and hide them from the user. This has the big advantage that it makes packets much easier to build, but has the inconvenience that it is in fact hiding part of the information contained in the packet, which really is against Scapy's philosophy.
 
 The same happens when encoding pointers, which looks something like this:
 

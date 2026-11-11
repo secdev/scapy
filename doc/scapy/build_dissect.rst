@@ -11,7 +11,7 @@ Simple example
 
 A layer is a subclass of the ``Packet`` class. All the logic behind layer manipulation 
 is held by the ``Packet`` class and will be inherited. 
-A simple layer is compounded by a list of fields that will be either concatenated 
+A simple layer is composed of a list of fields that will be either concatenated
 when assembling the layer or dissected one by one when disassembling a string. 
 The list of fields is held in an attribute named ``fields_desc``. Each field is an instance 
 of a field class:: 
@@ -29,8 +29,8 @@ integer field named ``minnie`` and whose default value is 3. The difference betw
 a vanilla ``ByteField`` and an ``XByteField`` is only the fact that the preferred human 
 representation of the field’s value is in hexadecimal. The last field is a 4-byte 
 integer field named ``donald``. It is different from a vanilla ``IntField`` by the fact 
-that some of the possible values of the field have literate representations. For 
-example, if it is worth 3, the value will be displayed as angry. Moreover, if the 
+that some of the possible values of the field have textual representations. For
+example, if its value is 3, the value will be displayed as angry. Moreover, if the
 "cool" value is assigned to this field, it will understand that it has to take the 
 value 2. 
 
@@ -127,8 +127,8 @@ So, to understand how layers are working, one needs to look quickly
 at how the fields are handled.
 
 
-Manipulating packets == manipulating its fields
------------------------------------------------
+Manipulating packets == manipulating their fields
+-------------------------------------------------
 
 .. index::
    single: i2h()
@@ -137,10 +137,10 @@ Manipulating packets == manipulating its fields
 
 A field should be considered in different states:
 
-- ``i`` (nternal) : this is the way Scapy manipulates it.
-- ``m`` (achine) : this is where the truth is, that is the layer as it is
+- ``i`` (internal) : this is the way Scapy manipulates it.
+- ``m`` (machine) : this is where the truth is, that is the layer as it is
     on the network.
-- ``h`` (uman) : how the packet is displayed to our human eyes.
+- ``h`` (human) : how the packet is displayed to our human eyes.
 
 This explains  the mysterious  methods ``i2h()``, ``i2m()``,  ``m2i()`` and  so on
 available  in  each field:  they are the conversion  from one  state  to
@@ -148,7 +148,7 @@ another, adapted to a specific use.
 
 Other special functions:
 
-- ``any2i()`` guess the input representation and returns the internal one.
+- ``any2i()`` guesses the input representation and returns the internal one.
 - ``i2repr()`` a nicer ``i2h()``
 
 However, all these are "low level" functions. The functions adding or
@@ -162,7 +162,7 @@ extracting a field to the current layer are:
               return s+struct.pack("%is"%self.length,self.i2m(pkt, val))
 
 - ``getfield(self, pkt, s)``: extract from the raw packet ``s`` the field
-  value belonging to layer ``pkt``. It returns a list, the 1st element
+  value belonging to layer ``pkt``. It returns a tuple, the 1st element
   is the raw packet string after having removed the extracted field,
   the second one is the extracted field itself in internal
   representation::
@@ -209,7 +209,7 @@ last byte. For instance, 0x123456 will be coded as 0xC8E856::
         return s[i+1:], l
 
 We will  define a field which  computes automatically the  length of an
-associated string, but used that encoding format::
+associated string, but uses that encoding format::
 
     class VarLenQField(Field):
         """ variable length quantities """
@@ -223,12 +223,11 @@ associated string, but used that encoding format::
             if x is None:
                 f = pkt.get_field(self.fld)
                 x = f.i2len(pkt, pkt.getfieldval(self.fld))
-                x = vlenq2str(x)
-            return raw(x)
+            return vlenq2str(x)
     
         def m2i(self, pkt, x):
-            if s is None:
-                return None, 0
+            if x is None:
+                return 0
             return str2vlenq(x)[1]
     
         def addfield(self, pkt, s, val):
@@ -275,8 +274,8 @@ Dissecting
 .. index::
    dissecting
    
-Layers only are list of fields, but what is the glue between each
-field, and after, between each  layer. These are the mysteries explain
+Layers are just lists of fields, but what is the glue between the
+fields and between the layers? These are the mysteries explained
 in this section.
 
 The basic stuff
@@ -298,7 +297,7 @@ dissected. ``self`` points to the current layer.
  
 ::
 
-    >>> p=IP("A"*20)/TCP("B"*32)
+    >>> p=IP(b"A"*20)/TCP(b"B"*32)
     WARNING: bad dataofs (4). Assuming dataofs=5
     >>> p
     <IP  version=4L ihl=1L tos=0x41 len=16705 id=16705 flags=DF frag=321L ttl=65 proto=65 chksum=0x4141
@@ -307,8 +306,8 @@ dissected. ``self`` points to the current layer.
 
 ``Packet.dissect()`` is called 3 times:
 
-1. to dissect the ``"A"*20`` as an IPv4 header
-2. to dissect the ``"B"*32`` as a TCP header
+1. to dissect the ``b"A"*20`` as an IPv4 header
+2. to dissect the ``b"B"*32`` as a TCP header
 3. and  since  there  are still  12  bytes  in  the packet,  they  are
    dissected as "``Raw``" data (which is some kind of default layer type)
 
@@ -316,8 +315,8 @@ dissected. ``self`` points to the current layer.
 For a given layer, everything is quite straightforward:
 
 - ``pre_dissect()`` is called to prepare the layer.
-- ``do_dissect()`` perform the real dissection of the layer.
-- ``post_dissection()`` is  called when some  updates are needed  on the
+- ``do_dissect()`` performs the real dissection of the layer.
+- ``post_dissect()`` is  called when some  updates are needed  on the
   dissected inputs (e.g. deciphering, uncompressing, ... )
 - ``extract_padding()`` is an important  function which should be called
   by every  layer containing  its own size, so that it can tell apart 
@@ -353,16 +352,16 @@ Guess what? That is exactly what ``do_dissect()`` does::
         while s and flist:
             f = flist.pop()
             s,fval = f.getfield(self, s)
-            self.fields[f] = fval
+            self.fields[f.name] = fval
         return s
 
-So, it  takes the raw string packet,  and feed each field  with it, as
+So, it  takes the raw string packet,  and feeds each field  with it, as
 long as there are data or fields remaining::
 
-    >>> FOO("\xff\xff"+"B"*8)
+    >>> FOO(b"\xff\xff"+b"B"*8)
     <FOO  len=2097090 data='BBBBBBB' |>
 
-When writing ``FOO("\xff\xff"+"B"*8)``, it calls ``do_dissect()``. The first
+When writing ``FOO(b"\xff\xff"+b"B"*8)``, it calls ``do_dissect()``. The first
 field is VarLenQField.  Thus, it takes bytes as long as their MSB is
 set, thus until (and including) the first '``B``'. This mapping is done
 thanks to ``VarLenQField.getfield()`` and can be cross-checked::
@@ -375,10 +374,10 @@ are put in ``FOO.data`` (or less  if 2097090 bytes are  not available, as
 here).
 
 If  there are  some bytes  left after  the dissection  of  the current
-layer, it is mapped  in the same way to the what  the next is expected
+layer, it is mapped  in the same way to what the next layer is expected
 to be (``Raw`` by default)::
 
-    >>> FOO("\x05"+"B"*8)
+    >>> FOO(b"\x05"+b"B"*8)
     <FOO  len=5 data='BBBBB' |<Raw  load='BBB' |>>
 
 Hence, we need now to understand how layers are bound together.
@@ -390,7 +389,7 @@ One of the cool features with Scapy when dissecting layers is that it
 tries to guess for us what the next layer is. The official way to link 2
 layers is using ``bind_layers()`` function.
 
-Available inside the ``packet`` module, this function can be used as following::
+Available inside the ``packet`` module, this function can be used as follows::
 
     bind_layers(ProtoA, ProtoB, FieldToBind=Value)
 
@@ -479,8 +478,8 @@ tuple:
 - the 1st value is a field to test (``'dport': 2000``)
 - the 2nd value is the guessed class if it matches (``Skinny``)
 
-So, the  default ``guess_payload_class()`` tries all element  in the list,
-until  one   matches.  If  no   element  are  found,  it   then  calls
+So, the  default ``guess_payload_class()`` tries all elements  in the list,
+until  one   matches.  If  no   elements  are  found,  it   then  calls
 ``default_payload_class()``. If you have redefined this method, then yours
 is  called, otherwise,  the default  one is  called, and  ``Raw``  type is
 returned. 
@@ -507,7 +506,7 @@ machine). Building means going to the machine format.
 The second thing to understand is ''when'' a layer is  built. The answer is not
 that obvious, but as soon  as you need the machine representation, the
 layers are built: when the packet is dropped on the network or written
-to a file, or when it is converted as a string, ...  In  fact, machine
+to a file, or when it is converted to bytes, ...  In  fact, machine
 representation  should be  regarded as  a big  string with  the layers
 appended altogether.
  
@@ -567,11 +566,11 @@ The building of each field of a layer is called in ``Packet.do_build()``::
     def do_build(self):
         p=""
         for f in self.fields_desc:
-            p = f.addfield(self, p, self.getfieldval(f))
+            p = f.addfield(self, p, self.getfieldval(f.name))
         return p
 
 The  core function  to  build a  field  is ``addfield()``.   It takes  the
-internal view of the  field and put it at the end  of ``p``. Usually, this
+internal view of the  field and puts it at the end  of ``p``. Usually, this
 method calls  ``i2m()`` and returns something  like ``p.self.i2m(val)`` (where
 ``val=self.getfieldval(f)``).
 
@@ -591,15 +590,15 @@ Ex: counting the length until a delimiter
 
 ::
 
-    class XNumberField(FieldLenField):
+    class XNumberField(Field):
+        __slots__ = ["sep"]
     
-        def __init__(self, name, default, sep="\r\n"):
-            FieldLenField.__init__(self, name, default, fld)
+        def __init__(self, name, default, sep=b"\r\n"):
+            Field.__init__(self, name, default, fmt="0s")
             self.sep = sep
     
         def i2m(self, pkt, x):
-            x = FieldLenField.i2m(self, pkt, x)
-            return "%02x" % x
+            return ("%02x" % (0 if x is None else x)).encode("ascii")
     
         def m2i(self, pkt, x):
             return int(x, 16)
@@ -627,29 +626,29 @@ A default  value for a  given field is  sometimes either not  known or
 impossible to compute when the  fields are put together. For instance,
 if we used a ``XNumberField`` as  defined previously in a layer, we expect
 it  to be set  to a  given value  when the  packet is  built. However,
-nothing is returned by ``i2m()`` if it is not set. 
+``i2m()`` returns a placeholder value if it is not set.
 
 The answer to this problem is ``Packet.post_build()``. 
 
 When  this method is  called, the  packet is  already built,  but some
 fields still need  to be computed. This is  typically what is required
 to compute checksums or lengths. In fact, this is required each time a
-field's value depends on something which is not in the current 
+field's value depends on something which is not in the current layer.
 
 So, let  us assume we  have a packet  with a ``XNumberField``, and  have a
-look to its building process::
+look at its building process::
 
     class Foo(Packet):
           fields_desc = [
               ByteField("type", 0),
-              XNumberField("len", None, "\r\n"),
-              StrFixedLenField("sep", "\r\n", 2)
+              XNumberField("len", None, b"\r\n"),
+              StrFixedLenField("sep", b"\r\n", 2)
               ]
             
           def post_build(self, p, pay):
             if self.len is None and pay:
                 l = len(pay)
-                p = p[:1] + struct.pack("!B", l) + p[2:]
+                p = p[:1] + ("%02x" % l).encode("ascii") + p[3:]
             return p+pay
 
 When ``post_build()`` is called, ``p``  is the current layer, ``pay`` the payload,
@@ -721,7 +720,7 @@ dissecting the  packets as nothing  binds Foo layer with  the multiple
 Problems:
  
 1. ``type`` is still  equal to 0 while we wanted  it to be automatically
-   set to 1. We could of course have built ``p`` with ``p = Foo(type=1)/Bar0(val=1337)``
+   set to 1. We could of course have built ``p`` with ``p = Foo(type=1)/Bar1(val=1337)``
    but this is not very convenient.
    
 2. the packet is badly dissected as ``Bar1`` is regarded as ``Raw``. This
@@ -729,18 +728,18 @@ Problems:
 
 In order to  understand what we should have done  to obtain the proper
 behavior,  we must look  at how  the layers  are assembled.   When two
-independent packets instances ``Foo()`` and ``Bar1(val=1337)`` are
+independent packet instances ``Foo()`` and ``Bar1(val=1337)`` are
 compounded with the '/' operator, it results in a new packet where the
 two previous instances are cloned  (i.e.  are now two distinct objects
 structurally different, but holding the same values)::
 
-    def __div__(self, other):
+    def __truediv__(self, other):
         if isinstance(other, Packet):
             cloneA = self.copy()
             cloneB = other.copy()
             cloneA.add_payload(cloneB)
             return cloneA
-        elif type(other) is str:
+        elif isinstance(other, (bytes, str)):
             return self/Raw(load=other)
 
 The right-hand side of the operator becomes the payload of the left-hand
@@ -763,9 +762,9 @@ gather the  values to set the fields  to the lower layer  (the left of
 specify the bindings in  both directions between two neighboring
 layers.
 
-Once again, these information must be provided to ``bind_layers()``,
-which  will   internally  call  ``bind_top_down()``   in  charge  to
-aggregate the fields to overload. In our case what we need to specify
+Once again, this information must be provided to ``bind_layers()``,
+which  will   internally  call  ``bind_top_down()``   in  charge  of
+aggregating the fields to overload. In our case what we need to specify
 is::
 
     bind_layers( Foo, Bar1, {'type':1} )
@@ -781,8 +780,8 @@ For  now,   when  the   value  of  this   field  will   be  requested,
 
 The fields are dispatched between three dictionaries:
 
-- ``fields``: fields whose the value have been explicitly set, like
-  ``pdst`` in TCP (``pdst='42'``)
+- ``fields``: fields whose values have been explicitly set, like
+  ``dport`` in TCP (``dport=42``)
 - ``overloaded_fields``: overloaded fields
 - ``default_fields``: all the fields with their default value (these fields 
     are initialized according to ``fields_desc`` by the constructor 
@@ -793,11 +792,11 @@ value returned::
 
     def getfieldval(self, attr):
        for f in self.fields, self.overloaded_fields, self.default_fields:
-           if f.has_key(attr):
+           if attr in f:
                return f[attr]
        return self.payload.getfieldval(attr)
 
-Fields  inserted  in  ``fields``  have  the  higher  priority,  then
+Fields  inserted  in  ``fields``  have  the  highest  priority,  then
 ``overloaded_fields``, then finally ``default_fields``.  Hence, if
 the field ``type`` is set in ``overloaded_fields``, its value will
 be returned instead of the value contained in ``default_fields``.
@@ -837,7 +836,7 @@ is called when a packet is built::
     Packet.post_build=Foo
 
 As you can see, it first runs through the list of each field, and then
-build  them starting  from the  beginning. Once  all layers  have been
+builds  them starting  from the  beginning. Once  all layers  have been
 built, it then calls ``post_build()`` starting from the end.
 
 
@@ -955,15 +954,15 @@ Lists and lengths
 Variable length fields
 ^^^^^^^^^^^^^^^^^^^^^^
 
-This is about how fields that have a variable length can be handled with Scapy. These fields usually know their length from another field. Let's call them varfield and lenfield. The idea is to make each field reference the other so that when a packet is dissected, varfield can know its length from lenfield when a packet is assembled, you don't have to fill lenfield, that will deduce its value directly from varfield value.
+This is about how fields that have a variable length can be handled with Scapy. These fields usually know their length from another field. Let's call them varfield and lenfield. The idea is to make each field reference the other so that when a packet is dissected, varfield can know its length from lenfield. When a packet is assembled, you don't have to fill lenfield, which will deduce its value directly from the varfield value.
 
-Problems arise when you realize that the relation between lenfield and varfield is not always straightforward. Sometimes, lenfield indicates a length in bytes, sometimes a number of objects. Sometimes the length includes the header part, so that you must subtract the fixed header length to deduce the varfield length. Sometimes the length is not counted in bytes but in 16bits words. Sometimes the same lenfield is used by two different varfields. Sometimes the same varfield is referenced by two lenfields, one in bytes one in 16bits words.
+Problems arise when you realize that the relation between lenfield and varfield is not always straightforward. Sometimes, lenfield indicates a length in bytes, sometimes a number of objects. Sometimes the length includes the header part, so that you must subtract the fixed header length to deduce the varfield length. Sometimes the length is not counted in bytes but in 16-bit words. Sometimes the same lenfield is used by two different varfields. Sometimes the same varfield is referenced by two lenfields, one in bytes one in 16-bit words.
 
  
 The length field
 ~~~~~~~~~~~~~~~~
 
-First, a lenfield is declared using ``FieldLenField`` (or a derivate). If its value is None when assembling a packet, its value will be deduced from the varfield that was referenced. The reference is done using either the ``length_of`` parameter or the ``count_of`` parameter. The ``count_of`` parameter has a meaning only when varfield is a field that holds a list (``PacketListField`` or ``FieldListField``). The value will be the name of the varfield, as a string. According to which parameter is used the ``i2len()`` or ``i2count()`` method will be called on the varfield value. The returned value will the be adjusted by the function provided in the adjust parameter. adjust will be applied to 2 arguments: the packet instance and the value returned by ``i2len()`` or ``i2count()``. By default, adjust does nothing::
+First, a lenfield is declared using ``FieldLenField`` (or a derivative). If its value is None when assembling a packet, its value will be deduced from the varfield that was referenced. The reference is done using either the ``length_of`` parameter or the ``count_of`` parameter. The ``count_of`` parameter has a meaning only when varfield is a field that holds a list (``PacketListField`` or ``FieldListField``). The value will be the name of the varfield, as a string. According to which parameter is used the ``i2len()`` or ``i2count()`` method will be called on the varfield value. The returned value will then be adjusted by the function provided in the adjust parameter. adjust will be applied to 2 arguments: the packet instance and the value returned by ``i2len()`` or ``i2count()``. By default, adjust does nothing::
 
     adjust=lambda pkt,x: x
 
@@ -973,16 +972,16 @@ For instance, if ``the_varfield`` is a list
 
     FieldLenField("the_lenfield", None, count_of="the_varfield")
 
-or if the length is in 16bits words::
+or if the length is in 16-bit words::
 
-    FieldLenField("the_lenfield", None, length_of="the_varfield", adjust=lambda pkt,x:(x+1)/2)
+    FieldLenField("the_lenfield", None, length_of="the_varfield", adjust=lambda pkt,x:(x+1)//2)
 
 The variable length field
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A varfield can be: ``StrLenField``, ``PacketLenField``, ``PacketListField``, ``FieldListField``, ...
 
-For the two firsts, when a packet is being dissected, their lengths are deduced from a lenfield already dissected. The link is done using the ``length_from`` parameter, which takes a function that, applied to the partly dissected packet, returns the length in bytes to take for the field. For instance::
+For the first two, when a packet is being dissected, their lengths are deduced from a lenfield already dissected. The link is done using the ``length_from`` parameter, which takes a function that, applied to the partly dissected packet, returns the length in bytes to take for the field. For instance::
 
     StrLenField("the_varfield", "the_default_value", length_from = lambda pkt: pkt.the_lenfield)
 
@@ -1019,16 +1018,16 @@ Examples
         fields_desc = [ ByteField("f1",65),
                         ShortField("f2",0x4244) ]
         def extract_padding(self, p):
-            return "", p
+            return b"", p
     
     class TestPLF2(Packet):
         fields_desc = [ FieldLenField("len1", None, count_of="plist",fmt="H", adjust=lambda pkt,x:x+2),
-                        FieldLenField("len2", None, length_of="plist",fmt="I", adjust=lambda pkt,x:(x+1)/2),
-                        PacketListField("plist", None, TestPkt, length_from=lambda x:(x.len2*2)/3*3) ]
+                        FieldLenField("len2", None, length_of="plist",fmt="I", adjust=lambda pkt,x:(x+1)//2),
+                        PacketListField("plist", None, TestPkt, length_from=lambda x:(x.len2*2)//3*3) ]
 
 Test the ``FieldListField`` class::
     
-    >>> TestFLF("\x00\x02ABCDEFGHIJKL")
+    >>> TestFLF(b"\x00\x02ABCDEFGHIJKL")
     <TestFLF  the_lenfield=2 the_varfield=['65.66.67.68', '69.70.71.72'] |<Raw  load='IJKL' |>>
 
 
@@ -1138,7 +1137,7 @@ Field naming convention
 -----------------------
 The goal is to keep the writing of packets fluent and intuitive. The basic instructions are the following :
 
-* Do not use any value from the ``Packet.__slots__``` list as a field name (such as name, time or original), as they are reserved for Scapy internals
+* Do not use any value from the ``Packet.__slots__`` list as a field name (such as name, time or original), as they are reserved for Scapy internals
 * Use inverted camel case and common abbreviations (e.g. len, src, dst, dstPort, srcIp).
 * Wherever it is either possible or relevant, prefer using the names from the specifications. This aims to help newcomers to easily forge packets.
 
@@ -1149,7 +1148,7 @@ New protocols can go either in ``scapy/layers`` or to ``scapy/contrib``. Protoco
 
 To be precise, ``scapy/layers`` protocols should not be importing ``scapy/contrib`` protocols, whereas ``scapy/contrib`` protocols may import both ``scapy/contrib`` and ``scapy/layers`` protocols.
 
-Scapy provides an ``explore()`` function, to search through the available layer/contrib modules. Therefore, modules contributed back to Scapy must provide information about them, knowingly:
+Scapy provides an ``explore()`` function, to search through the available layer/contrib modules. Therefore, modules contributed back to Scapy must provide information about themselves, namely:
 
 - A **contrib** module must have defined, near the top of the module (below the license header is a good place) **(without the brackets)** `Example <https://github.com/secdev/scapy/blob/0f6ac82ed66919a20226a3d8d164b810c8eb293c/scapy/contrib/openflow.py#L11-L12>`_ ::
 
@@ -1161,5 +1160,5 @@ Scapy provides an ``explore()`` function, to search through the available layer/
 
     # scapy.contrib.status = skip 
 
-- A **layer** module must have a docstring, in which the first line shortly describes the module.
+- A **layer** module must have a docstring, in which the first line briefly describes the module.
 

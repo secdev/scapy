@@ -8,14 +8,14 @@ Scapy's Kerberos implementation is accessed through two main components:
 - :class:`~scapy.modules.ticketer.Ticketer`: a module that allows manipulating Kerberos tickets;
 - :class:`~scapy.layers.kerberos.KerberosSSP`: an implementation of a GSSAPI SSP for Kerberos, usable in any of Scapy's client that support GSSAPI, for both authentication and encryption.
 
-The general idea is that the first one allows to request tickets and perform almost all Kerberos related operations (S4U2Self, S4U2Proxy, FAST armoring, U2U, DMSA, etc.). The latter is used once a final Service Ticket is obtained, by other parts of Scapy, for instance `SMB <smb.html>`_, `LDAP <ldap.html>`_ or `DCE/RPC <dcerpc.html>`_.
+The general idea is that the first one allows users to request tickets and perform almost all Kerberos related operations (S4U2Self, S4U2Proxy, FAST armoring, U2U, DMSA, etc.). The latter is used once a final Service Ticket is obtained, by other parts of Scapy, for instance `SMB <smb.html>`_, `LDAP <ldap.html>`_ or `DCE/RPC <dcerpc.html>`_.
 
 Ticketer module
 ~~~~~~~~~~~~~~~
 
 The :class:`~scapy.modules.ticketer.Ticketer` module can be used both from the CLI or programmatically to perform operations on Kerberos tickets. To use it, you must first create an instance of a :class:`~scapy.modules.ticketer.Ticketer`, which acts as both a **ccache** (holds tickets) and a **keytab** (holds secrets).
 
-This section tries to give many usage examples, but isn't exhaustive. For more details regarding the parameters of each functions, it is encouraged to have a look at the docstrings of :class:`~scapy.layers.kerberos.KerberosClient`.
+This section tries to give many usage examples, but isn't exhaustive. For more details regarding the parameters of each function, it is encouraged to have a look at the docstrings of :class:`~scapy.layers.kerberos.KerberosClient`.
 
 - **Request TGT**: see the docstring of :func:`~scapy.layers.kerberos.krb_as_req`
 
@@ -82,7 +82,7 @@ This section tries to give many usage examples, but isn't exhaustive. For more d
 
 - **Request a user TGT with Kerberos armoring (FAST)**
 
-The ``armor_with`` keyword allows to select a ticket to armor the request with.
+The ``armor_with`` keyword allows users to select a ticket to armor the request with.
 
 .. code:: pycon
 
@@ -305,7 +305,7 @@ The following is equivalent to Windows' ``ktpass.exe /out kt.keytab /mapuser WKS
 - **Edit tickets with the GUI**
   
 Let's assume you've acquired the KRBTGT of a KDC, plus you've used ``kinit`` to get a ticket.
-This ticket was saved to a ``.ccache`` file, that we'll know try to open.
+This ticket was saved to a ``.ccache`` file, that we'll now try to open.
 
 .. note::
 
@@ -417,7 +417,7 @@ To change your own password, you can use the plain ``kpasswd`` command from ``sc
     Enter password: **********
     Enter NEW password: *********
 
-To change the password of someone else, you can also the following. You need to have the rights to do so. You can also use the method from Scapy's Ticketer.
+To change the password of someone else, you can also use the following. You need to have the rights to do so. You can also use the method from Scapy's Ticketer.
 
 .. code:: pycon
 
@@ -596,7 +596,7 @@ You likely want to decrypt ``pkt.root.padata[0].padataValue`` which is an :class
     >>> enc = pkt[Kerberos].root.padata[0].padataValue
     >>> k = Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=bytes.fromhex("7fada4e566ae4fb270e2800a23ae87127a819d42e69b5e22de0ddc63da80096d"))
 
-The first parameter of the :class:`~scapy.libs.rfc3961.Key` constructor is a value from :class:`~scapy.libs.rfc3961.EncryptionType`, in this case ``EncryptionType.AES256_CTS_HMAC_SHA1_96``. This is the same value than ``enc.etype.val``, which allows to know which key to use.
+The first parameter of the :class:`~scapy.libs.rfc3961.Key` constructor is a value from :class:`~scapy.libs.rfc3961.EncryptionType`, in this case ``EncryptionType.AES256_CTS_HMAC_SHA1_96``. This is the same value as ``enc.etype.val``, which allows users to know which key to use.
 
 We can then proceed to perform the decryption:
 
@@ -610,7 +610,7 @@ Compute Kerberos keys
 
 .. note:: Encryption for Kerberos 5 is defined in `RFC3961 <https://datatracker.ietf.org/doc/html/rfc3961.html>`_
 
-You may want to compute a Kerberos key from a password + salt. There is an API for that described in RFC3961 as "string-to-key". Our implementation is a class method as follow:
+You may want to compute a Kerberos key from a password + salt. There is an API for that described in RFC3961 as "string-to-key". Our implementation is a class method as follows:
 
 .. function:: Key.string_to_key(etype, string, salt, params=None)
 

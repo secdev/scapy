@@ -55,7 +55,7 @@ function to get all information about one specific protocol.
 Technical Background
 ********************
 
-Parts this section were published in a study report [10]_.
+Parts of this section were published in a study report [10]_.
 
 Physical Protocols
 ==================
@@ -179,7 +179,7 @@ Diagnostic over IP (DoIP) was first implemented on automotive networks with a ce
 Diagnostic Protocols
 --------------------
 
-Two examples of diagnostic protocols are General Motor Local Area Network (GMLAN) and Unified Diagnostic Service (UDS) (ISO 14229-2). The General Motors Cooperation uses GMLAN. German OEMs mainly use UDS. Both protocols are very similar from a specification point of view, and both protocols use either ISO-TP or DoIP messages for a directed communication with a target ECU. Since different OEMs use UDS, every manufacturer adds its custom additions to the standard. Also, every manufacturer uses individual ISO-TP addressing for the directed communication with an ECU. GMLAN includes more precise definitions about ECU addressing and an ECUs internal behavior compared to UDS.
+Two examples of diagnostic protocols are General Motor Local Area Network (GMLAN) and Unified Diagnostic Service (UDS) (ISO 14229-2). The General Motors Corporation uses GMLAN. German OEMs mainly use UDS. Both protocols are very similar from a specification point of view, and both protocols use either ISO-TP or DoIP messages for a directed communication with a target ECU. Since different OEMs use UDS, every manufacturer adds its custom additions to the standard. Also, every manufacturer uses individual ISO-TP addressing for the directed communication with an ECU. GMLAN includes more precise definitions about ECU addressing and an ECU’s internal behavior compared to UDS.
 
 UDS and GMLAN follow a tree-like message structure, where the first byte identifies the service. Every service is answered by a response. Two types of responses are defined in the standard. Negative responses are indicated through the service 0x7F. Positive responses are identified by the request service identifier incremented with 0x40.
 
@@ -189,7 +189,7 @@ UDS and GMLAN follow a tree-like message structure, where the first byte identif
 
         Automotive Diagnostic Protocol Stack
 
-A clear separation between the transport and the application layer allows creating application layer tools for both network stacks. The figure above provides an overview of relevant protocols and the corresponding layers. UDS defines a clean separation between application and transport layer. On CAN based networks, ISO-TP is used for this purpose. The CAN protocol can be treated as the network access protocol. This allows to replace ISO-TP and CAN with DoIP or HSFZ and Ethernet. The GMLAN protocol combines transport and application layer specifications very similar to ISO-TP and UDS. Because of that similarity, identical application layer-specific scan techniques can be applied. To overcome the bandwidth limitations of CAN, the latest vehicle architectures use an Ethernet-based diagnostic protocol (DoIP, HSFZ) to communicate with a central gateway ECU. The central gateway ECU routes application layer packets from an Ethernet-based network to a CAN based vehicle internal network. In general, the diagnostic functions of all ECUs in a vehicle can be accessed from the OBD connector over UDSonCAN or UDSonIP.
+A clear separation between the transport and the application layer allows creating application layer tools for both network stacks. The figure above provides an overview of relevant protocols and the corresponding layers. UDS defines a clean separation between application and transport layer. On CAN based networks, ISO-TP is used for this purpose. The CAN protocol can be treated as the network access protocol. This allows users to replace ISO-TP and CAN with DoIP or HSFZ and Ethernet. The GMLAN protocol combines transport and application layer specifications very similar to ISO-TP and UDS. Because of that similarity, identical application layer-specific scan techniques can be applied. To overcome the bandwidth limitations of CAN, the latest vehicle architectures use an Ethernet-based diagnostic protocol (DoIP, HSFZ) to communicate with a central gateway ECU. The central gateway ECU routes application layer packets from an Ethernet-based network to a CAN based vehicle internal network. In general, the diagnostic functions of all ECUs in a vehicle can be accessed from the OBD connector over UDSonCAN or UDSonIP.
 
 SOME/IP
 -------
@@ -277,7 +277,7 @@ CAN Frame
 
 Basic information about CAN can be found here: https://en.wikipedia.org/wiki/CAN_bus
 
-The following examples assume that CAN layer in your Scapy session is loaded.
+The following examples assume that the CAN layer in your Scapy session is loaded.
 If it isn't, the CAN layer can be loaded with this command in your Scapy session::
 
     >>> load_layer("can")
@@ -301,8 +301,8 @@ Creation of an extended CAN frame::
 .. image:: ../graphics/animations/animation-scapy-canframe.svg
 
 
-CAN Frame in- and export
-------------------------
+CAN Frame import and export
+---------------------------
 
 CAN Frames can be written to and read from ``pcap`` files::
 
@@ -430,7 +430,7 @@ If it's required, a CAN interface can be set into a ``listen-only`` or ``loopbac
 Linux can-utils
 ^^^^^^^^^^^^^^^
 
-As part of Linux SocketCAN, some very useful command line tools are provided from
+As part of Linux SocketCAN, some very useful command line tools are provided by
 Oliver Hartkopp: https://github.com/linux-can/can-utils
 
 The following example shows the basic functions of Linux can-utils. These utilities
@@ -442,7 +442,7 @@ from the command line.
 Scapy CANSocket
 ---------------
 
-In Scapy, two kind of CANSockets are implemented. One implementation is called **Native CANSocket**,
+In Scapy, two kinds of CANSockets are implemented. One implementation is called **Native CANSocket**,
 the other implementation is called **Python-can CANSocket**.
 
 Since Python 3 supports ``PF_CAN`` sockets, **Native CANSockets** can be used on a
@@ -454,8 +454,8 @@ On Windows or OSX and on all systems without Python 3, CAN buses can be accessed
 through ``python-can``. ``python-can`` needs to be installed on the system: https://github.com/hardbyte/python-can/
 **Python-can CANSockets** are a wrapper of python-can interface objects for Scapy.
 Both CANSockets provide the same API which makes them exchangeable under most conditions.
-Nevertheless some unique behaviours of each CANSocket type has to be respected.
-Some CAN-interfaces, like Vector hardware is only supported on Windows.
+Nevertheless some unique behaviours of each CANSocket type have to be respected.
+Some CAN-interfaces, like Vector hardware, are only supported on Windows.
 These interfaces can be used through **Python-can CANSockets**.
 
 Native CANSocket
@@ -469,15 +469,15 @@ Creating a simple native CANSocket::
    # Simple Socket
    socket = CANSocket(channel="vcan0")
 
-Creating a native CANSocket only listen for messages with Id == 0x200::
+Creating a native CANSocket that only listens for messages with Id == 0x200::
 
    socket = CANSocket(channel="vcan0", can_filters=[{'can_id': 0x200, 'can_mask': 0x7FF}])
 
-Creating a native CANSocket only listen for messages with Id >= 0x200 and Id <= 0x2ff::
+Creating a native CANSocket that only listens for messages with Id >= 0x200 and Id <= 0x2ff::
 
    socket = CANSocket(channel="vcan0", can_filters=[{'can_id': 0x200, 'can_mask': 0x700}])
 
-Creating a native CANSocket only listen for messages with Id != 0x200::
+Creating a native CANSocket that only listens for messages with Id != 0x200::
 
    socket = CANSocket(channel="vcan0", can_filters=[{'can_id': 0x200 | CAN_INV_FILTER, 'can_mask': 0x7FF}])
 
@@ -504,7 +504,7 @@ CANSocket python-can
 
 python-can is required to use various CAN-interfaces on Windows, OSX or Linux.
 The python-can library is used through a CANSocket object. To create a python-can
-CANSocket object, all parameters of a python-can ``interface.Bus`` object has to 
+CANSocket object, all parameters of a python-can ``interface.Bus`` object have to
 be used for the initialization of the CANSocket.
 
 Ways of creating a python-can CANSocket::
@@ -555,7 +555,7 @@ Create a function to send packet with threading::
        sleep(0.2)
        socket0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
 
-Create a function for forwarding or change packets::
+Create a function for forwarding or changing packets::
 
    def forwarding(pkt):
        return pkt
@@ -644,8 +644,8 @@ Universal calibration and measurement protocol (XCP)
 ====================================================
 
 XCP is the successor of CCP. It is usable with several protocols. Scapy includes CAN, UDP and TCP.
-XCP has two types of message types: Command Transfer Object (CTO) and Data Transmission Object (DTO).
-CTOs send to an Ecu are requests (commands) and the Ecu has to reply with a positive response or an error.
+XCP has two types of messages: Command Transfer Object (CTO) and Data Transmission Object (DTO).
+CTOs sent to an Ecu are requests (commands) and the Ecu has to reply with a positive response or an error.
 Additionally, the Ecu can send a CTO to inform the master about an asynchronous event (EV) or request a service execution (SERV).
 DTOs sent by the Ecu are called DAQ (Data AcQuisition) and include measured values.
 DTOs received by the Ecu are used for a periodic stimulation and are called STIM (Stimulation).
@@ -673,7 +673,7 @@ Sending a CTO message::
 Since sr1 calls the answers function, our payload of the XCP-response objects gets interpreted with the
 command of our CTO object. Otherwise it could not be interpreted.
 The first message should always be the "CONNECT" message, the response of the Ecu determines how the messages are read. E.g.: byte order.
-Otherwise, one must set the address granularity, and max size of the DTOs and CTOs per hand in the contrib config::
+Otherwise, one must set the address granularity, and max size of the DTOs and CTOs by hand in the contrib config::
 
     conf.contribs['XCP']['Address_Granularity_Byte'] = 1  # Can be 1, 2 or 4
     conf.contribs['XCP']['MAX_CTO'] = 8
@@ -829,7 +829,7 @@ ISOTPNativeSocket
 * Linux
 * Hartkopp's Linux kernel module: ``https://github.com/hartkopp/can-isotp.git`` (merged into mainline Linux in 5.10)
 
-During pentests, the ISOTPNativeSockets has a better performance and
+During pentests, ISOTPNativeSockets have a better performance and
 reliability, usually. If you are working on Linux, consider this implementation::
 
    conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': True}
@@ -891,7 +891,7 @@ This second example allows the usage of any ``python_can.interface`` object.
 
 **Attention:** The internal implementation of ISOTPSoftSockets requires a background
 thread. In order to be able to close this thread properly, we suggest the use of
-Pythons ``with`` statement.
+Python's ``with`` statement.
 
 ISOTP MITM attack with bridge and sniff
 ---------------------------------------
@@ -912,7 +912,7 @@ Import modules::
    conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': True}
    load_contrib('isotp')
 
-Create to ISOTP sockets for attack::
+Create two ISOTP sockets for attack::
 
    isoTpSocketVCan0 = ISOTPSocket('vcan0', tx_id=0x241, rx_id=0x641)
    isoTpSocketVCan1 = ISOTPSocket('vcan1', tx_id=0x641, rx_id=0x241)
@@ -1029,7 +1029,7 @@ Interactive shell usage example::
 UDS
 ===
 
-The main usage of UDS is flashing and diagnostic of an Ecu. UDS is an
+The main usage of UDS is flashing and diagnostics of an Ecu. UDS is an
 application layer protocol and can be used as a DoIP or HSFZ payload or a UDS packet
 can directly be sent over an ISOTPSocket. Every OEM has its own customization of UDS.
 This increases the difficulty of generic applications and OEM specific knowledge is
@@ -1084,7 +1084,7 @@ Customization example::
 
     UDS_RDBI.dataIdentifiers[0x172b] = 'GatewayIP'
 
-If one wants to work with this custom additions, these can be loaded at runtime
+If one wants to work with these custom additions, these can be loaded at runtime
 to the Scapy interpreter::
 
     >>> load_contrib('automotive.uds')
@@ -1204,8 +1204,8 @@ with ``'KWP'``, ``'OBD'``, or ``'GMLAN'`` as appropriate.
 GMLAN
 =====
 
-GMLAN is very similar to UDS. It's GMs application layer protocol for
-flashing, calibration and diagnostic of their cars.
+GMLAN is very similar to UDS. It's GM’s application layer protocol for
+flashing, calibration and diagnostics of their cars.
 Use the argument ``basecls=GMLAN`` on the ``init`` function of an ISOTPSocket.
 
 Usage example:
@@ -1273,7 +1273,7 @@ Analyze multiple UDS messages
 This example shows how to load ``UDS`` messages from a ``.pcap`` file containing
 ``CAN`` messages. A ``PcapReader`` object is used as socket and an
 ``ISOTPSession`` parses ``CAN`` frames to ``ISOTP`` frames which are
-then casted to ``UDS`` objects through the ``basecls`` parameter
+then cast to ``UDS`` objects through the ``basecls`` parameter
 
 Usage example::
 
@@ -1327,15 +1327,15 @@ Load the contribution::
 
    load_contrib('automotive.someip')
 
-Create UDP package::
+Create UDP packet::
 
    u = UDP(sport=30509, dport=30509)
 
-Create IP package::
+Create IP packet::
 
    i = IP(src="192.168.0.13", dst="192.168.0.10")
 
-Create SOME/IP package::
+Create SOME/IP packet::
 
    sip = SOMEIP()
    sip.iface_ver = 0
@@ -1364,13 +1364,13 @@ Load the contribution::
 
    load_contrib('automotive.someip')
 
-Create UDP package::
+Create UDP packet::
 
    u = UDP(sport=30490, dport=30490)
 
 The UDP port must be the one which was chosen for the SOME/IP SD transmission.
 
-Create IP package::
+Create IP packet::
 
    i = IP(src="192.168.0.13", dst="224.224.224.245")
 
@@ -1395,7 +1395,7 @@ Create the options array input::
 
 l4_proto defines the protocol for the communication with the endpoint, UDP in this case.
 
-Create the SD package and put in the inputs::
+Create the SD packet and put in the inputs::
 
    sd = SD()
    sd.set_entryArray(ea)
@@ -1487,7 +1487,7 @@ Request the Vehicle Identification Number (VIN)::
 Message Authentication (AUTOSAR SecOC)
 ======================================
 
-AutoSAR SecOC is a security architecture protecting communication between ECUs in a vehicle from cyber-attacks.
+AUTOSAR SecOC is a security architecture protecting communication between ECUs in a vehicle from cyber-attacks.
 
 - **Module**: AUTOSAR
 - **Functions**: Provides message integrity and authentication
@@ -1530,7 +1530,7 @@ Verification
 Profiles
 --------
 
-AutoSAR specifies three profiles for truncated freshness value and MAC sizes. All use CMAC with AES128:
+AUTOSAR specifies three profiles for truncated freshness value and MAC sizes. All use CMAC with AES128:
 
 - **Profile 1 (24Bit-CMAC-8Bit-FV)**
   - Algorithm: CMAC/AES-128

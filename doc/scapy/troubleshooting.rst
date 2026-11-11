@@ -8,7 +8,7 @@ FAQ
 I can't sniff/inject packets in monitor mode.
 ---------------------------------------------
 
-The use monitor mode varies greatly depending on the platform, reasons are explained on the `Wireshark wiki <https://wiki.wireshark.org/CaptureSetup/WLAN>`_:
+The use of monitor mode varies greatly depending on the platform, reasons are explained on the `Wireshark wiki <https://wiki.wireshark.org/CaptureSetup/WLAN>`_:
 
     *Unfortunately, changing the 802.11 capture modes is very platform/network adapter/driver/libpcap dependent, and might not be possible at all (Windows is very limited here).*
 
@@ -36,16 +36,16 @@ Here is some guidance on how to properly use monitor mode with Scapy:
 
 .. warning:: **If you are using Npcap:** please note that Npcap ``npcap-0.9983`` broke the 802.11 support until ``npcap-1.3.0``. Avoid using those versions.
 
-We make our best to make this work, if your adapter works with Wireshark for instance, but not with Scapy, feel free to report an issue.
+We do our best to make this work, if your adapter works with Wireshark for instance, but not with Scapy, feel free to report an issue.
 
 My TCP connections are reset by Scapy or by my kernel.
 ------------------------------------------------------
-The kernel is not aware of what Scapy is doing behind his back. If Scapy sends a SYN, the target replies with a SYN-ACK and your kernel sees it, it will reply with a RST. To prevent this, use local firewall rules (e.g. NetFilter for Linux). Scapy does not mind about local firewalls.
+The kernel is not aware of what Scapy is doing behind its back. If Scapy sends a SYN, the target replies with a SYN-ACK and your kernel sees it, it will reply with a RST. To prevent this, use local firewall rules (e.g. NetFilter for Linux). Scapy does not mind about local firewalls.
 
 I can't ping 127.0.0.1 (or ::1). Scapy does not work with 127.0.0.1 (or ::1) on the loopback interface.
 -------------------------------------------------------------------------------------------------------
 
-The loopback interface is a very special interface. Packets going through it are not really assembled and disassembled. The kernel routes the packet to its destination while it is still stored an internal structure. What you see with ```tcpdump -i lo``` is only a fake to make you think everything is normal. The kernel is not aware of what Scapy is doing behind his back, so what you see on the loopback interface is also a fake. Except this one did not come from a local structure. Thus the kernel will never receive it.
+The loopback interface is a very special interface. Packets going through it are not really assembled and disassembled. The kernel routes the packet to its destination while it is still stored in an internal structure. What you see with ``tcpdump -i lo`` is only a fake to make you think everything is normal. The kernel is not aware of what Scapy is doing behind its back, so what you see on the loopback interface is also a fake. Except this one did not come from a local structure. Thus the kernel will never receive it.
 
 .. note:: Starting from Scapy > **2.5.0**, Scapy will automatically use ``L3RawSocket`` when necessary when using L3-functions (sr-like) on the loopback interface, when libpcap is not in use.
 
@@ -129,7 +129,7 @@ In some cases, it could also mean that you had installed both ``Npcap`` and ``Wi
 BPF filters do not work. I'm on a ppp link
 ------------------------------------------
 
-This is a known bug. BPF filters must compiled with different offsets on ppp links. It may work if you use libpcap (which will be used to compile the BPF filter) instead of using native linux support (PF_PACKET sockets).
+This is a known bug. BPF filters must be compiled with different offsets on ppp links. It may work if you use libpcap (which will be used to compile the BPF filter) instead of using native Linux support (PF_PACKET sockets).
 
 traceroute() does not work. I'm on a ppp link
 ---------------------------------------------
@@ -154,7 +154,7 @@ Try providing different DPI options (50,70,75,96,101,125, for instance)::
 
    >>> x.graph(options="-Gdpi=70")
 
-If it works, you can make it permanenent::
+If it works, you can make it permanent::
 
    >>> conf.prog.dot = "dot -Gdpi=70"
 

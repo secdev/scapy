@@ -8,9 +8,9 @@ Terminology
 -----------
 
 - In DCOM one instantiates 'classes' to get 'object references'. A class implements one or several 'interfaces', each of which has methods.
-- ``CLSID``: the UIID of a **class**, used to instantiate it. This is typically chosen by whoever implements the COM object.
-- ``IID``: the UIID of an **interface**, used to request an IPID. This is chosen by whoever defines the COM interface (mostly Microsoft).
-- ``IPID``: a UIID that uniquely references an **interface on an object**. This allows to tell DCOM on which object to run the request we send.
+- ``CLSID``: the UUID of a **class**, used to instantiate it. This is typically chosen by whoever implements the COM object.
+- ``IID``: the UUID of an **interface**, used to request an IPID. This is chosen by whoever defines the COM interface (mostly Microsoft).
+- ``IPID``: a UUID that uniquely references an **interface on an object**. This allows users to tell DCOM on which object to run the request we send.
 
 There are other IDs such as the OID (a 64bit number that uniquely references each object), and the OXID (a 64bit number that uniquely references each object exporter), but we won't get into the details.
 
@@ -20,7 +20,7 @@ On the other hand, the calling application is supposed to know the ``CLSID`` of 
 General behavior of a DCOM client
 ---------------------------------
 
-1. Setup the DCOM client (endpoint, SSP, etc.)
+1. Set up the DCOM client (endpoint, SSP, etc.)
 2. Get an object reference: Instantiate a class to get an object reference of the instance (``RemoteCreateInstance``), **OR**, get an object reference towards the class itself (``RemoteGetClassObject``).
 3. Acquire the IPID of an interface of the object.
 4. Call a method of that interface.
@@ -34,7 +34,7 @@ Using the DCOM client
 General usage
 ~~~~~~~~~~~~~
 
-1. Setup the DCOM client and connect to the object resolver (which is by default on port 135).
+1. Set up the DCOM client and connect to the object resolver (which is by default on port 135).
 
 .. code:: python
 

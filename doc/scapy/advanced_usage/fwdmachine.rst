@@ -2,11 +2,11 @@
 Forwarding Machine
 ******************
 
-Scapy's ``ForwardMachine`` is a utility that allows to create a server that forwards packets to another server, with the ability
+Scapy's ``ForwardMachine`` is a utility that allows users to create a server that forwards packets to another server, with the ability
 to modify them on-the-fly. This is similar to a "proxy", but works on the layer 4 (rather than 5+). The ``ForwardMachine`` was initially designed to be used with TPROXY,
-a linux feature that allows to bind a socket that receives *packets to any IP destination* (usually, a socket only receives packets whose destination is local), but it also work as a standalone server (that binds a normal socket).
+a Linux feature that allows users to bind a socket that receives *packets to any IP destination* (usually, a socket only receives packets whose destination is local), but it also works as a standalone server (that binds a normal socket).
 
-A ``ForwardMachine`` is expected to be used over a normal Python socket, of any kind, and needs to extended with two
+A ``ForwardMachine`` is expected to be used over a normal Python socket, of any kind, and needs to be extended with two
 functions: ``xfrmcs`` and ``xfrmsc``. The first one is called whenever data is received from the client side (client-to-server, "cs"), the other when the data
 is received from the server (server-to-client, "sc")
 
@@ -19,7 +19,7 @@ Basic usage
 ___________
 
 Here's an example of a ``ForwardMachine`` over TPROXY that does nothing. Packets for all destinations are handled, and forwarded to their
-initial destinations afterwards. More details on how to setup TPROXY are provided below.
+initial destinations afterwards. More details on how to set up TPROXY are provided below.
 
 .. code:: python
 
@@ -57,7 +57,7 @@ There are currently 5 operations available:
 - **ANSWER**: answer the peer directly with a payload, without forwarding its original payload to the other peer;
 - **REDIRECT_TO**: (client-side only) redirects the connection of the client towards a new remote peer.
 
-The ``ctx`` attribute in the callbacks contains context relative to the current client. It can also be use to
+The ``ctx`` attribute in the callbacks contains context relative to the current client. It can also be used to
 store additional data specific to the session.
 
 If we were to use this machine in SERVER mode, we would call it like:
@@ -96,24 +96,24 @@ We can run the same ForwardMachine as from the previous example, this time with 
 Configuring TPROXY
 __________________
 
-TPROXY is a special socket mode that allows to bind a socket that listens for traffic that isn't directed at a local address. This is typically used by "transparent TLS proxies" to achieve their functionality, and is expected to be setup on a linux router.
+TPROXY is a special socket mode that allows users to bind a socket that listens for traffic that isn't directed at a local address. This is typically used by "transparent TLS proxies" to achieve their functionality, and is expected to be set up on a Linux router.
 
-The ``ForwardingMachine`` supports TPROXY, which allows to intercept and modify all the traffic by many clients to many destinations, for instance on a specific port. This is much more versatile that a classic bind + socket, which would typically forward multiple clients to a single destination.
+The ``ForwardMachine`` supports TPROXY, which allows users to intercept and modify all the traffic by many clients to many destinations, for instance on a specific port. This is much more versatile than a classic bind + socket, which would typically forward multiple clients to a single destination.
 
 Here are the steps:
 
-- Setup an interface that one can redirect traffic to, and that has TPROXY support.
-- Bind the ``ForwardingMachine`` on that interface.
+- Set up an interface that one can redirect traffic to, and that has TPROXY support.
+- Bind the ``ForwardMachine`` on that interface.
 - Redirect some traffic to that interface, using ``iptables`` or ``nftables``, based on some arbitrary criteria.
 
-For ease of use, a script ``vethrelay.sh`` is provided to setup a veth (virtual ethernet) interface that can be used to bind the ``ForwardingMachine`` on. This script is available at https://github.com/secdev/scapy/blob/master/doc/scapy/_static/vethrelay.sh
+For ease of use, a script ``vethrelay.sh`` is provided to set up a veth (virtual ethernet) interface that can be used to bind the ``ForwardMachine`` on. This script is available at https://github.com/secdev/scapy/blob/master/doc/scapy/_static/vethrelay.sh
 
 .. code:: bash
 
    ./vethrelay.sh setup
    Interface vethrelay is now setup with IPv4: 2.2.2.2 !
    
-   Add listening rules as follow:
+   Add listening rules as follows:
    
    # TPROXY incoming TCP packets on port 80 to vethrelay on port 8080
    iptables -t mangle -A PREROUTING -p tcp --dport 80 -j TPROXY --tproxy-mark 0x1/0x1 --on-port 8080 --on-ip 2.2.2.2
@@ -121,7 +121,7 @@ For ease of use, a script ``vethrelay.sh`` is provided to setup a veth (virtual 
    # Listen on wlp4s0 for incoming packets on port 80 (on the interface where it really comes from)
    iptables -A INPUT -i wlp4s0 -p tcp --dport 80 -j ACCEPT
 
-As the instructions say, to have traffic to anything on the port 80 go through the ``ForwardingMachine``, one can run the commands listed above assuming that the machine is started as such: 
+As the instructions say, to have traffic to anything on the port 80 go through the ``ForwardMachine``, one can run the commands listed above assuming that the machine is started as such:
 
 .. code:: python
 
