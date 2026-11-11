@@ -2843,7 +2843,7 @@ class KerberosTCPHeader(Packet):
         if len(data) == length + 4:
             return cls(data)
         if len(data) > length + 4:
-            return cls(data[:length + 4]) / conf.padding_layer(data[length + 4:])
+            return cls(data[: length + 4]) / conf.padding_layer(data[length + 4 :])
 
 
 bind_layers(KerberosTCPHeader, Kerberos)
@@ -3031,7 +3031,7 @@ class KpasswdTCPHeader(Packet):
         if len(data) == length + 4:
             return cls(data)
         if len(data) > length + 4:
-            return cls(data[:length + 4]) / conf.padding_layer(data[length + 4:])
+            return cls(data[: length + 4]) / conf.padding_layer(data[length + 4 :])
 
 
 bind_layers(KpasswdTCPHeader, Kpasswd)
@@ -4953,7 +4953,9 @@ def kpasswd(
 
 # SSP
 
-_KERBEROS_ACCEPTOR_MAX_CLOCK_SKEW = timedelta(minutes=5)
+# [RFC4120] sect 1.6: "a reasonable value for allowable clock skew is
+# 5 minutes"
+KRB_MaxClockSkew = timedelta(minutes=5)
 
 
 class KerberosSSP(SSP):
@@ -5965,25 +5967,6 @@ class KerberosSSP(SSP):
                     )
                 )
                 return Context, err, GSS_S_DEFECTIVE_CREDENTIAL
-            # If the ticket has expired, reject with TKT_EXPIRED
-            if (
-                not Context.passive
-                and now_time - _KERBEROS_ACCEPTOR_MAX_CLOCK_SKEW > tkt.endtime.datetime
-            ):
-                err = KRB_GSSAPI_Token(
-                    innerToken=KRB_InnerToken(
-                        TOK_ID=b"\x03\x00",
-                        root=KRB_ERROR(
-                            errorCode="KRB_AP_ERR_TKT_EXPIRED",
-                            stime=ASN1_GENERALIZED_TIME(now_time),
-                            susec=ASN1_INTEGER(now_time.microsecond),
-                            realm=ap_req.ticket.realm,
-                            sname=ap_req.ticket.sname,
-                            eData=None,
-                        ),
-                    )
-                )
-                return Context, err, GSS_S_CREDENTIALS_EXPIRED
 
             # Store information about the user in the Context
             if tkt.authorizationData and tkt.authorizationData.seq:
@@ -5997,24 +5980,50 @@ class KerberosSSP(SSP):
             Context.STSessionKey = tkt.key.toKey()
             authenticator = ap_req.authenticator.decrypt(Context.STSessionKey)
 
-            # If the client time is too far from our time, reject with SKEW
+            # Check the ticket validity period, the authenticator timestamp and
+            # prevent against replays.
+            # [RFC4120] sect 3.2.3
             if not Context.passive:
-                client_time = authenticator.getClientTime()
-                if abs(now_time - client_time) > _KERBEROS_ACCEPTOR_MAX_CLOCK_SKEW:
+                starttime = (tkt.starttime or tkt.authtime).datetime
+                endtime = tkt.endtime.datetime
+                ctime = authenticator.getClientTime()
+                replay_key = (authenticator.getUPN(), ctime)
+                errorCode = None
+                gssErrorCode = GSS_S_DEFECTIVE_CREDENTIAL
+                if not starttime or starttime - now_time > KRB_MaxClockSkew:
+                    errorCode = "KRB_AP_ERR_TKT_NYV"
+                elif not endtime or now_time - endtime > KRB_MaxClockSkew:
+                    errorCode = "KRB_AP_ERR_TKT_EXPIRED"
+                    gssErrorCode = GSS_S_CREDENTIALS_EXPIRED
+                elif not ctime or abs(ctime - now_time) > KRB_MaxClockSkew:
+                    errorCode = "KRB_AP_ERR_SKEW"
+                elif replay_key in self.ReplayCache:
+                    errorCode = "KRB_AP_ERR_REPEAT"
+                    gssErrorCode = GSS_S_DUPLICATE_TOKEN
+                # Don't check times in passive mode: the capture may be old.
+                if errorCode:
+                    warning("KerberosSSP: %s" % errorCode)
                     err = KRB_GSSAPI_Token(
                         innerToken=KRB_InnerToken(
                             TOK_ID=b"\x03\x00",
                             root=KRB_ERROR(
-                                errorCode="KRB_AP_ERR_SKEW",
+                                errorCode=errorCode,
                                 stime=ASN1_GENERALIZED_TIME(now_time),
-                                susec=ASN1_INTEGER(now_time.microsecond),
                                 realm=ap_req.ticket.realm,
                                 sname=ap_req.ticket.sname,
                                 eData=None,
                             ),
                         )
                     )
-                    return Context, err, GSS_S_DEFECTIVE_TOKEN
+                    return Context, err, gssErrorCode
+
+                # Store the time for future detections
+                self.ReplayCache[replay_key] = ctime + KRB_MaxClockSkew
+
+                # We take that opportunity to cleanup any expired items
+                for key, expiry in list(self.ReplayCache.items()):
+                    if expiry < now_time:
+                        self.ReplayCache.pop(key, None)
 
             # Compute an application session key ([MS-KILE] sect 3.1.1.2)
             subkey = None
@@ -6051,41 +6060,6 @@ class KerberosSSP(SSP):
             ):
                 # Uhoh, we required channel bindings
                 return Context, None, GSS_S_BAD_BINDINGS
-
-            # Prevent replays
-            if not Context.passive:
-                # This key is used to identify a unique message
-                replay_key = (
-                    authenticator.getUPN(),
-                    client_time,
-                )
-
-                # We take that opportunity to cleanup any expired items
-                for key, expiry in list(self.ReplayCache.items()):
-                    if expiry < now_time:
-                        self.ReplayCache.pop(key, None)
-
-                # If we have already seen this message, throw an error.
-                if replay_key in self.ReplayCache:
-                    err = KRB_GSSAPI_Token(
-                        innerToken=KRB_InnerToken(
-                            TOK_ID=b"\x03\x00",
-                            root=KRB_ERROR(
-                                errorCode="KRB_AP_ERR_REPEAT",
-                                stime=ASN1_GENERALIZED_TIME(now_time),
-                                susec=ASN1_INTEGER(now_time.microsecond),
-                                realm=ap_req.ticket.realm,
-                                sname=ap_req.ticket.sname,
-                                eData=None,
-                            ),
-                        )
-                    )
-                    return Context, err, GSS_S_DUPLICATE_TOKEN
-
-                # Store the time for future detections
-                self.ReplayCache[replay_key] = (
-                    client_time + _KERBEROS_ACCEPTOR_MAX_CLOCK_SKEW
-                )
 
             # Build response (RFC4120 sect 3.2.4)
             ap_rep = KRB_AP_REP(encPart=EncryptedData())

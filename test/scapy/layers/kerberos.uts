@@ -1817,25 +1817,6 @@ assert apreppart.subkey.keytype == 17
 bytes(tok)
 assert bytes(tok) == b'\xa1\x81\x890\x81\x86\xa0\x03\n\x01\x00\xa1\x0b\x06\t*\x86H\x82\xf7\x12\x01\x02\x02\xa2r\x04pon0l\xa0\x03\x02\x01\x05\xa1\x03\x02\x01\x0f\xa2`0^\xa0\x03\x02\x01\x12\xa2W\x04UaS\xeck\xcc\xad~\xfa^\x8d\xca\xbb\xc5\xd2/\xfd\xd3\xc3\xd9\xadN`\xd2;\xd7{\xb7\xf4p.\xa9\x9a\xb1}D\xc6|_t\n\r"M\xcd\xe2\t\xf0Ri\xc7\xcf\xb5\xefr9\xf0`iS7N\x06qKP\x06\xde\xc4\x18\xd5_\xcb\x0ct\x03k\xbc\xb9\x1adT\x03\xc1\x8bM'
 
-= GSS_Passive accepts a stored AP-REQ outside its freshness window
-
-from scapy.layers.gssapi import GSS_S_COMPLETE
-
-passiveContext, passiveState = server.GSS_Passive(None, first_ap_req)
-
-assert passiveState == GSS_S_COMPLETE
-assert passiveContext.passive
-assert passiveContext.ssp_context.passive
-
-= GSS_Accept_sec_context rejects a replayed AP-REQ
-
-from scapy.layers.gssapi import GSS_S_DUPLICATE_TOKEN
-
-with KrbRandomPatcher():
-    _, _, replayState = server.GSS_Accept_sec_context(None, first_ap_req)
-
-assert replayState == GSS_S_DUPLICATE_TOKEN
-
 = GSS_Init_sec_context (SPNEGO_negToken: KRB_AP_REP->OK)
 
 with KrbRandomPatcher():
@@ -1913,6 +1894,64 @@ try:
     assert False, "No error was reported, but there should have been one"
 except ValueError:
     pass
+
+= GSS_Passive accepts a stored AP-REQ outside its freshness window
+
+from scapy.layers.gssapi import GSS_S_COMPLETE
+
+passiveContext, passiveState = server.GSS_Passive(None, first_ap_req)
+
+assert passiveState == GSS_S_COMPLETE
+assert passiveContext.passive
+assert passiveContext.ssp_context.passive
+
+= GSS_Accept_sec_context rejects a replayed AP-REQ
+
+from scapy.layers.gssapi import GSS_S_DUPLICATE_TOKEN
+
+with KrbRandomPatcher():
+    _, _, replayState = server.GSS_Accept_sec_context(None, first_ap_req)
+
+assert replayState == GSS_S_DUPLICATE_TOKEN
+
+= GSS_Accept_sec_context rejects expired tickets and stale authenticators
+
+from datetime import datetime, timedelta, timezone
+from scapy.layers.gssapi import GSS_S_COMPLETE, GSS_S_DEFECTIVE_CREDENTIAL
+from scapy.layers.kerberos import EncryptedData, EncryptionKey, EncTicketPart, KRB_ERROR, PrincipalName, TransitedEncoding
+
+srvkey = Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=b"S" * 32)
+tktkey = Key(EncryptionType.AES256_CTS_HMAC_SHA1_96, key=b"K" * 32)
+now = datetime(2024, 3, 5, 16, 52, 55, tzinfo=timezone.utc)
+
+def make_ap_req(endtime, ctime):
+    st = KRB_Ticket(realm="DOMAIN.LOCAL", sname=PrincipalName.fromSPN("cifs/dc1"), encPart=EncryptedData())
+    st.encPart.encrypt(srvkey, EncTicketPart(
+        transited=TransitedEncoding(trType=ASN1_INTEGER(0), contents=ASN1_STRING(b"")),
+        key=EncryptionKey.fromKey(tktkey),
+        crealm="DOMAIN.LOCAL",
+        cname=PrincipalName.fromUPN("User1@DOMAIN.LOCAL"),
+        authtime=ASN1_GENERALIZED_TIME(endtime - timedelta(hours=10)),
+        starttime=ASN1_GENERALIZED_TIME(endtime - timedelta(hours=10)),
+        endtime=ASN1_GENERALIZED_TIME(endtime),
+    ))
+    krbcli = KerberosSSP(UPN="User1@DOMAIN.LOCAL", SPN="cifs/dc1", ST=KRB_Ticket(bytes(st)), KEY=tktkey)
+    with mock.patch('scapy.layers.kerberos.datetime', mock.MagicMock(now=lambda tz=None: ctime)):
+        _, tok, _ = krbcli.GSS_Init_sec_context(None, req_flags=0)
+    return tok
+
+krbsrv = KerberosSSP(SPN="cifs/dc1", KEY=srvkey)
+with KrbRandomPatcher():
+    _, tok, status = krbsrv.GSS_Accept_sec_context(None, make_ap_req(now + timedelta(hours=1), now))
+    assert status == GSS_S_COMPLETE
+    # Expired ticket
+    _, tok, status = krbsrv.GSS_Accept_sec_context(None, make_ap_req(now - timedelta(days=1), now))
+    assert status == GSS_S_CREDENTIALS_EXPIRED
+    assert tok.innerToken.root.errorCode == "KRB_AP_ERR_TKT_EXPIRED"
+    # Stale (replayed) authenticator
+    _, tok, status = krbsrv.GSS_Accept_sec_context(None, make_ap_req(now + timedelta(hours=1), now - timedelta(hours=1)))
+    assert status == GSS_S_DEFECTIVE_CREDENTIAL
+    assert tok.innerToken.root.errorCode == "KRB_AP_ERR_SKEW"
 
 = Create client and server KerberosSSP (raw)
 
