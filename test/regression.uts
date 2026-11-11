@@ -629,6 +629,18 @@ assert hex_bytes(hex_data) == monty_data
 
 assert chb(1) == b"\x01"
 
+= isreserved
+
+if WINDOWS:
+    assert isreserved("NUL")
+    assert isreserved("share/con.txt")
+    assert isreserved(pathlib.PureWindowsPath("C:/share/aux"))
+else:
+    assert not isreserved("NUL")
+
+assert not isreserved("fileScapy")
+assert not isreserved("share/console")
+
 ############
 ############
 + Main.py tests

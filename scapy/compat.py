@@ -9,8 +9,12 @@ Compatibility module to various older versions of Python
 import base64
 import binascii
 import enum
+import ntpath
+import pathlib
 import struct
 import sys
+
+from scapy.consts import WINDOWS
 
 from typing import (
     Any,
@@ -18,6 +22,7 @@ from typing import (
     Callable,
     Optional,
     TypeVar,
+    Union,
     TYPE_CHECKING,
 )
 
@@ -34,6 +39,7 @@ __all__ = [
     'bytes_hex',
     'chb',
     'hex_bytes',
+    'isreserved',
     'plain_str',
     'raw',
     'StrEnum',
@@ -178,3 +184,19 @@ def bytes_base64(x):
     # type: (AnyStr) -> bytes
     """Turn bytes into base64"""
     return base64.encodebytes(bytes_encode(x)).replace(b'\n', b'')
+
+
+if not WINDOWS:
+    def isreserved(path: Union[str, pathlib.PurePath]) -> bool:
+        """Reserved names (e.g. NUL) only exist on Windows"""
+        return False
+elif sys.version_info >= (3, 13):
+    def isreserved(path: Union[str, pathlib.PurePath]) -> bool:
+        """Return True if path is a reserved name on Windows (e.g. NUL)"""
+        return ntpath.isreserved(path)
+else:
+    # PurePath.is_reserved() is deprecated since Python 3.13 and was removed
+    # in 3.15
+    def isreserved(path: Union[str, pathlib.PurePath]) -> bool:
+        """Return True if path is a reserved name on Windows (e.g. NUL)"""
+        return pathlib.PureWindowsPath(path).is_reserved()
