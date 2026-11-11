@@ -159,7 +159,12 @@ class IGMP(Packet):
             elif typ == 0x32:
                 return IGMPv3_MRT
 
-        return IGMP_MQ
+        # IGMPv3: allow default IGMPv3() which is empty for compat with <2.8.0
+        # IGMP: do not let the default IGMP()
+        if issubclass(cls, IGMPv3):
+            return cls
+        else:
+            return IGMP_MQ
 
     def answers(self, other):
         if other.type == 0x11:
@@ -218,6 +223,16 @@ class IGMPv2_MR(IGMP):
     match_subclass = True
 
 
+_IGMPv3_Type = {
+    0x11: "Membership Query",
+    0x22: "Version 3 - Membership Report",
+    # RFC 4286
+    0x30: "Multicast Router Advertisement",
+    0x31: "Multicast Router Solicitation",
+    0x32: "Multicast Router Termination",
+}
+
+
 class IGMPv3(IGMP):
     """
     IGMP Message Class for v3
@@ -226,18 +241,7 @@ class IGMPv3(IGMP):
     name = "IGMPv3"
 
     fields_desc = [
-        ByteEnumField(
-            "type",
-            0x11,
-            {
-                0x11: "Membership Query",
-                0x22: "Version 3 - Membership Report",
-                # RFC 4286
-                0x30: "Multicast Router Advertisement",
-                0x31: "Multicast Router Solicitation",
-                0x32: "Multicast Router Termination",
-            },
-        ),
+        ByteEnumField("type", 0x11, _IGMPv3_Type),
     ]
 
     @classmethod
@@ -258,12 +262,11 @@ class IGMPv3_MQ(IGMPv3):
     IGMPv3 Membership Query
     """
 
-    type = 0x11
     name = "IGMPv3 Membership Query"
     match_subclass = True
 
     fields_desc = [
-        IGMPv3,
+        ByteEnumField("type", 0x11, _IGMPv3_Type),
         _MRCodeField("mrcode", 20, unit="1/10sec"),
         XShortField("chksum", None),
         IPField("gaddr", "0.0.0.0"),
@@ -335,12 +338,11 @@ class IGMPv3_MR(IGMPv3):
     IGMP Membership Report extension for IGMPv3
     """
 
-    type = 0x22
     name = "IGMPv3 Membership Report"
     match_subclass = True
 
     fields_desc = [
-        IGMPv3,
+        ByteEnumField("type", 0x22, _IGMPv3_Type),
         ByteField("reserved", 0),
         XShortField("chksum", None),
         FlagsField(
@@ -366,12 +368,11 @@ class IGMPv3_MRA(IGMPv3):
     IGMP Multicast Router Advertisement per RFC4286
     """
 
-    type = 0x30
     name = "IGMPv3_MRA"
     match_subclass = True
 
     fields_desc = [
-        IGMPv3,
+        ByteEnumField("type", 0x30, _IGMPv3_Type),
         ByteField("advIntvl", 0),
         XShortField("chksum", None),
         ShortField("qryIntvl", 0),
@@ -384,12 +385,11 @@ class IGMPv3_MRS(IGMPv3):
     IGMP Multicast Router Solicitation per RFC4286
     """
 
-    type = 0x31
     name = "IGMPv3_MRS"
     match_subclass = True
 
     fields_desc = [
-        IGMPv3,
+        ByteEnumField("type", 0x31, _IGMPv3_Type),
         ByteField("reserved", 0),
         XShortField("chksum", None),
     ]
@@ -400,12 +400,11 @@ class IGMPv3_MRT(IGMPv3):
     IGMP Multicast Router Termination per RFC4286
     """
 
-    type = 0x31
     name = "IGMPv3_MRT"
     match_subclass = True
 
     fields_desc = [
-        IGMPv3,
+        ByteEnumField("type", 0x31, _IGMPv3_Type),
         ByteField("reserved", 0),
         XShortField("chksum", None),
     ]
