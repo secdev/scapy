@@ -5,6 +5,19 @@
 
 """
 Global variables and functions for handling external data sets.
+
+This module lazily loads the following files or their platform equivalents:
+
+- /etc/protocols: IP protocol names (IP_PROTOS).
+- /etc/services: TCP, UDP, and SCTP service names (TCP_SERVICES,
+  UDP_SERVICES, and SCTP_SERVICES).
+- /etc/ethertypes: Ethernet protocol names (ETHER_TYPES).
+- Wireshark's share/wireshark/manuf: MAC manufacturers (MANUFDB).
+
+EtherTypes and manufacturers fall back to copies bundled with Scapy.
+Bluetooth company identifiers (BLUETOOTH_CORE_COMPANY_IDENTIFIERS) are also
+loaded lazily from bundled data. EtherTypes, services, manufacturers, and
+Bluetooth identifiers use an on-disk pickle cache when available.
 """
 
 import calendar
@@ -13,8 +26,10 @@ import os
 import pickle
 import warnings
 
-from scapy.dadict import DADict, fixname
+from functools import lru_cache, wraps
+
 from scapy.consts import FREEBSD, NETBSD, OPENBSD, WINDOWS
+from scapy.dadict import DADict, fixname
 from scapy.error import log_loading
 
 # Typing imports
@@ -306,8 +321,11 @@ def scapy_data_cache(name):
 
     def _cached_loader(func, name=name):
         # type: (DecoratorCallable, str) -> DecoratorCallable
+        """Wrap a data loader with the named disk cache."""
+        @wraps(func)
         def load(filename=None):
             # type: (Optional[str]) -> Any
+            """Load data from the cache or the original loader."""
             cache_id = hashlib.sha256((filename or "").encode()).hexdigest()
             if cachepath.exists():
                 try:
@@ -346,12 +364,17 @@ def scapy_data_cache(name):
     return _cached_loader
 
 
-def load_protocols(filename, _fallback=None, _integer_base=10,
+def load_protocols(filename=None, _fallback=None, _integer_base=10,
                    _cls=DADict[int, str]):
-    # type: (str, Optional[Callable[[], Iterator[str]]], int, type) -> DADict[int, str]
-    """"
-    Parse /etc/protocols and return values as a dictionary.
-    """
+    # type: (Optional[str], Optional[Callable[[], Iterator[str]]], int, type) -> DADict[int, str]  # noqa: E501
+    """Parse /etc/protocols and return values as a dictionary."""
+    if filename is None:
+        if WINDOWS:
+            filename = os.path.join(
+                os.environ["SystemRoot"], "system32", "drivers", "etc", "protocol"
+            )
+        else:
+            filename = "/etc/protocols"
     dct = _cls(_name=filename)  # type: DADict[int, str]
 
     def _process_data(fdesc):
@@ -415,8 +438,7 @@ class EtherDA(DADict[int, str]):
 @scapy_data_cache("ethertypes")
 def load_ethertypes(filename=None):
     # type: (Optional[str]) -> EtherDA
-    """"Parse /etc/ethertypes and return values as a dictionary.
-    If unavailable, use the copy bundled with Scapy."""
+    """Load EtherTypes from a file or the copy bundled with Scapy."""
     def _fallback() -> Iterator[str]:
         # Fallback. Lazy loaded as the file is big.
         from scapy.libs.ethertypes import DATA
@@ -429,8 +451,16 @@ def load_ethertypes(filename=None):
 
 
 @scapy_data_cache("services")
-def load_services(filename):
-    # type: (str) -> Tuple[DADict[int, str], DADict[int, str], DADict[int, str]]  # noqa: E501
+def load_services(filename=None):
+    # type: (Optional[str]) -> Tuple[DADict[int, str], DADict[int, str], DADict[int, str]]  # noqa: E501
+    """Parse /etc/services and return TCP, UDP, and SCTP dictionaries."""
+    if filename is None:
+        if WINDOWS:
+            filename = os.path.join(
+                os.environ["SystemRoot"], "system32", "drivers", "etc", "services"
+            )
+        else:
+            filename = "/etc/services"
     tdct = DADict(_name="%s-tcp" % filename)  # type: DADict[int, str]
     udct = DADict(_name="%s-udp" % filename)  # type: DADict[int, str]
     sdct = DADict(_name="%s-sctp" % filename)  # type: DADict[int, str]
@@ -557,12 +587,13 @@ class _CacheUnpickler(pickle.Unpickler):
 @scapy_data_cache("manufdb")
 def load_manuf(filename=None):
     # type: (Optional[str]) -> ManufDA
-    """
-    Loads manuf file from Wireshark.
-
-    :param filename: the file to load the manuf file from
-    :returns: a ManufDA filled object
-    """
+    """Load Wireshark manufacturer names and return values as a dictionary."""
+    if filename is None and not WINDOWS:
+        filename = select_path(
+            ['/usr', '/usr/local', '/opt', '/opt/wireshark',
+             '/Applications/Wireshark.app/Contents/Resources'],
+            "share/wireshark/manuf"
+        )
     manufdb = ManufDA(_name=filename or "scapy/manufdb")
 
     def _process_data(fdesc):
@@ -595,10 +626,12 @@ def load_manuf(filename=None):
 
 @scapy_data_cache("bluetoothids")
 def load_bluetoothids(filename=None):
-    # type: (Optional[str]) -> Dict[int, str]
-    """Load Bluetooth IDs into the cache"""
+    # type: (Optional[str]) -> DADict[int, str]
+    """Load Bluetooth company IDs and return values as a dictionary."""
     from scapy.libs.bluetoothids import DATA
-    return cast(Dict[int, str], DATA)
+    identifiers = DADict(_name="scapy/bluetoothids")  # type: DADict[int, str]
+    identifiers.update(cast(Dict[int, str], DATA))
+    return identifiers
 
 
 def select_path(directories, filename):
@@ -611,36 +644,41 @@ def select_path(directories, filename):
     return None
 
 
-if WINDOWS:
-    IP_PROTOS = load_protocols(os.path.join(
-        os.environ["SystemRoot"],
-        "system32",
-        "drivers",
-        "etc",
-        "protocol",
-    ))
-    TCP_SERVICES, UDP_SERVICES, SCTP_SERVICES = load_services(os.path.join(
-        os.environ["SystemRoot"],
-        "system32",
-        "drivers",
-        "etc",
-        "services",
-    ))
-    ETHER_TYPES = load_ethertypes()
-    MANUFDB = load_manuf()
-else:
-    IP_PROTOS = load_protocols("/etc/protocols")
-    TCP_SERVICES, UDP_SERVICES, SCTP_SERVICES = load_services("/etc/services")
-    ETHER_TYPES = load_ethertypes("/etc/ethertypes")
-    MANUFDB = load_manuf(
-        select_path(
-            ['/usr', '/usr/local', '/opt', '/opt/wireshark',
-             '/Applications/Wireshark.app/Contents/Resources'],
-            "share/wireshark/manuf"
-        )
-    )
+@lru_cache(maxsize=1)
+def _load_services():
+    # type: () -> Tuple[DADict[int, str], DADict[int, str], DADict[int, str]]
+    """Share one services load across the TCP, UDP, and SCTP dictionaries."""
+    return load_services()
 
-BLUETOOTH_CORE_COMPANY_IDENTIFIERS = load_bluetoothids()
+
+IP_PROTOS: DADict[int, str] = DADict(
+    lazy_load=load_protocols,
+    _name="IP_PROTOS_UNLOADED",
+)
+TCP_SERVICES: DADict[int, str] = DADict(
+    lazy_load=lambda: _load_services()[0],
+    _name="TCP_SERVICES_UNLOADED",
+)
+UDP_SERVICES: DADict[int, str] = DADict(
+    lazy_load=lambda: _load_services()[1],
+    _name="UDP_SERVICES_UNLOADED",
+)
+SCTP_SERVICES: DADict[int, str] = DADict(
+    lazy_load=lambda: _load_services()[2],
+    _name="SCTP_SERVICES_UNLOADED",
+)
+ETHER_TYPES = EtherDA(
+    lazy_load=lambda: load_ethertypes(None if WINDOWS else "/etc/ethertypes"),
+    _name="ETHER_TYPES_UNLOADED",
+)
+MANUFDB = ManufDA(
+    lazy_load=load_manuf,
+    _name="MANUFDB_UNLOADED",
+)
+BLUETOOTH_CORE_COMPANY_IDENTIFIERS: DADict[int, str] = DADict(
+    lazy_load=load_bluetoothids,
+    _name="BLUETOOTH_CORE_COMPANY_IDENTIFIERS_UNLOADED",
+)
 
 
 #####################

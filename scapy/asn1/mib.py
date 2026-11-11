@@ -800,7 +800,8 @@ x509_oids = {}
 for oids_set in x509_oids_sets:
     x509_oids.update(oids_set)
 
-conf.mib = MIBDict(_name="MIB", **x509_oids)
+conf.mib = MIBDict(_name="MIB")
+conf.mib.update(x509_oids)
 
 
 #########################
