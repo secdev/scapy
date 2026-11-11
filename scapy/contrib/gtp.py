@@ -465,12 +465,16 @@ class IE_Base(Packet):
         return "", pkt
 
     def post_build(self, p, pay):
-        if self.fields_desc[1].name == "length":
-            if self.length is None:
-                tmp_len = len(p)
-                if isinstance(self.payload, conf.padding_layer):
-                    tmp_len += len(self.payload.load)
-                p = p[:1] + struct.pack("!H", tmp_len - 4) + p[3:]
+        length_fld = self.fields_desc[1]
+        if length_fld.name == "length" and self.length is None:
+            # Length counts the octets after Type and Length, and in GTPv2
+            # also after the CR/Spare and Instance octet.
+            hdr_len = 4 if "instance" in self.fieldtype else 1 + length_fld.sz
+            tmp_len = len(p)
+            if isinstance(self.payload, conf.padding_layer):
+                tmp_len += len(self.payload.load)
+            p = (length_fld.addfield(self, p[:1], tmp_len - hdr_len) +
+                 p[1 + length_fld.sz:])
         return p + pay
 
 
@@ -634,12 +638,6 @@ class IE_AccessPointName(IE_Base):
                    ShortField("length", None),
                    APNStrLenField("APN", "nternet", length_from=lambda x: x.length)]  # noqa: E501
 
-    def post_build(self, p, pay):
-        if self.length is None:
-            tmp_len = len(p) - 3
-            p = p[:2] + struct.pack("!B", tmp_len) + p[3:]
-        return p
-
 
 class IE_ProtocolConfigurationOptions(IE_Base):
     name = "Protocol Configuration Options"
@@ -657,12 +655,6 @@ class IE_GSNAddress(IE_Base):
                                     lambda pkt: pkt.length == 4),
                    ConditionalField(IP6Field("ipv6_address", '::1'),
                                     lambda pkt: pkt.length == 16)]
-
-    def post_build(self, p, pay):
-        if self.length is None:
-            tmp_len = len(p) - 3
-            p = p[:2] + struct.pack("!B", tmp_len) + p[3:]
-        return p
 
 
 class IE_MSInternationalNumber(IE_Base):

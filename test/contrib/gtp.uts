@@ -366,6 +366,13 @@ ie = gtp.IE_list[18] and ie.ietype == 154 and ie.IMEI == b'0132750094080322'
 ie = IE_IMEI(IMEI='0132750094080322')
 ie.ietype == 154 and ie.IMEI == b'0132750094080322'
 
+= GTPv1 TLV IEs, build without length
+assert raw(IE_CommonFlags(nrsn=1, no_qos_nego=1)) == hex_bytes("94000130")
+assert raw(IE_UserLocationInformation(MCC='234', MNC='02', LAC=1234, SAC=1234)) == hex_bytes("9800080132f42004d204d2")
+assert raw(IE_MSTimeZone(timezone=64)) == hex_bytes("9900024000")
+assert raw(IE_IMEI(IMEI='0132750094080322')) == hex_bytes("9a00081023570049803022")
+assert raw(QoS_Profile(delay_class=1)) == hex_bytes("000b0800000000000000000000")
+
 = IE_MSInfoChangeReportingAction(), basic instantiation
 ie = IE_MSInfoChangeReportingAction(Action=12)
 ie.ietype == 181 and ie.Action == 12
