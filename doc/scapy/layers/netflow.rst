@@ -1,13 +1,13 @@
 Netflow
 =======
 
-Netflow packets mainly comes in 3 versions::
+Netflow packets mainly come in 3 versions::
 
 - ``Netflow V5``
 - ``Netflow V7``
 - ``Netflow V9 / V10 (IPfix)``
 
-While the two first versions are pretty straightforward, building or dissecting Netflow v9/v10 isn't easy.
+While the first two versions are pretty straightforward, building or dissecting Netflow v9/v10 isn't easy.
 
 Netflow V1
 ----------
@@ -30,7 +30,7 @@ NetflowV9 / IPfix
 
 Netflow v9 and IPfix use a template based system. This means that records that are sent over the wire require a "Template" to be sent previously in a Flowset packet.
 
-This template is required to understand thr format of the record, therefore needs to be provided when building or dissecting those.
+This template is required to understand the format of the record, therefore needs to be provided when building or dissecting those.
 
 Fortunately, Scapy knows how to detect the templates and will provide dissecting methods that take care of that.
 

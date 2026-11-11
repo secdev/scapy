@@ -23,7 +23,7 @@ Scapy's SMB client stack is as follows:
 - This socket is wrapped into a :class:`~scapy.layers.smbclient.smbclient` class which provides a high-level SMB client, with functions such as ``ls``, ``cd``, ``get``, ``put``, etc.
 
 You can access any of the 3 layers depending on how low-level you want to get.
-We'll skip over the lowest one in this documentation, as it not really usable as an API, but note that this is where to look if you want to change SMB negotiation or session setup .(people wanting to use this are welcomed to have a look at the ``scapy/layers/smbclient.py`` code).
+We'll skip over the lowest one in this documentation, as it is not really usable as an API, but note that this is where to look if you want to change SMB negotiation or session setup (people wanting to use this are welcomed to have a look at the ``scapy/layers/smbclient.py`` code).
 
 High-Level :class:`~scapy.layers.smbclient.smbclient`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -58,7 +58,7 @@ Let's start by using :class:`~scapy.layers.smbclient.smbclient` from the Scapy C
 .. note:: You can use ``help`` or ``?`` in the CLI to get the list of available commands.
 
 As you can see, the previous example used Kerberos to authenticate.
-By default, the :class:`~scapy.layers.smbclient.smbclient` class will use a :class:`~scapy.layers.spnego.SPNEGOSSP` and provide ask for both ``NTLM`` and ``Kerberos``. but it is possible to have a greater control over this by providing your own ``ssp`` attribute.
+By default, the :class:`~scapy.layers.smbclient.smbclient` class will use a :class:`~scapy.layers.spnego.SPNEGOSSP` and ask for both ``NTLM`` and ``Kerberos``, but it is possible to have a greater control over this by providing your own ``ssp`` attribute.
 
 **smbclient using a** :class:`~scapy.layers.ntlm.NTLMSSP`
 
@@ -139,7 +139,7 @@ Mid-Level :class:`~scapy.layers.smbclient.SMB_SOCKET`
 If you know what you're doing, then the High-Level smbclient might not be enough for you. You can go a level lower using the :class:`~scapy.layers.smbclient.SMB_SOCKET`.
 You can instantiate the object directly or via the :meth:`~scapy.layers.smbclient.SMB_SOCKET.from_tcpsock` helper.
 
-Let's write a script that connects to a share and list the files in the root folder.
+Let's write a script that connects to a share and lists the files in the root folder.
 
 .. code:: python
 
@@ -217,17 +217,17 @@ It's also accessible as the ``ins`` attribute of a ``SMB_SOCKET``, or the ``sock
 SMB 2/3 server
 --------------
 
-Scapy provides a SMB 2/3 server Automaton: :class:`~scapy.layers.smbserver.SMB_Server`
+Scapy provides an SMB 2/3 server Automaton: :class:`~scapy.layers.smbserver.SMB_Server`
 
 .. image:: ../graphics/smb/smb_server.png
    :align: center
 
-Once again, Scapy provides high level :class:`~scapy.layers.smbserver.smbserver` class that allows to spawn a SMB server.
+Once again, Scapy provides high level :class:`~scapy.layers.smbserver.smbserver` class that allows users to spawn an SMB server.
 
 High-Level :class:`~scapy.layers.smbserver.smbserver`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The :class:`~scapy.layers.smbserver.smbserver` class allows to spawn a SMB server serving a selection of shares.
+The :class:`~scapy.layers.smbserver.smbserver` class allows users to spawn an SMB server serving a selection of shares.
 A share is identified by a ``name`` and a ``path`` (+ an optional description called ``remark``).
 
 **Start a SMB server with NTLM auth for 2 users:**
