@@ -33,7 +33,6 @@ from scapy.fields import (
 )
 from scapy.layers.inet6 import IP6Field
 from scapy.packet import bind_layers, Packet, Raw
-from scapy.utils import valid_net6
 from scapy.volatile import RandIP, RandShort
 
 
@@ -278,7 +277,7 @@ class IE_IP_Address(gtp.IE_Base):
                            (IP6Field("address", None),
                             (lambda pkt: pkt.length == 16,
                              lambda pkt, val: pkt.length == 16 or (
-                                 pkt.length is None and valid_net6(val)))),
+                                 pkt.length is None and ":" in str(val)))),
                            (IPField("address", RandIP()),
                             (lambda pkt: pkt.length == 4,
                              lambda pkt, val: pkt.length in (4, None))),
