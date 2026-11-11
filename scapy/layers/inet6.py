@@ -65,6 +65,7 @@ from scapy.layers.inet import (
     _ICMPExtensionField,
     _ICMPExtensionPadField,
     _ICMP_extpad_post_dissection,
+    ICMPExtension_Header,
     IP,
     IPTools,
     TCP,
@@ -1448,6 +1449,14 @@ class _ICMPv6(Packet):
 
     def post_build(self, p, pay):
         p += pay
+        if (getattr(self, "ext", None) is not None and
+                getattr(self, "length", 0) == 0):
+            # RFC 4884: padded original datagram length, in 64-bit words.
+            datagram_len = len(p) - len(raw(self.ext)) - 8
+            if datagram_len > 0:
+                length = datagram_len // 8
+                if length <= 255:
+                    p = p[:4] + chb(length) + p[5:]
         if self.cksum is None:
             chksum = in6_chksum(58, self.underlayer, p)
             p = p[:2] + struct.pack("!H", chksum) + p[4:]
@@ -1475,6 +1484,21 @@ class _ICMPv6Error(_ICMPv6):
         return IPerror6
 
 
+class _ICMPv6ExtensionField(_ICMPExtensionField):
+
+    def getfield(self, pkt, s):
+        if pkt.length:
+            # RFC 4884: the extension starts after length * 8 bytes.
+            offset = 8 * pkt.length
+            if len(s) <= offset:
+                return s, None
+            data = s[offset:]
+            if checksum(data):
+                return s, None
+            return s[:offset], ICMPExtension_Header(data)
+        return super(_ICMPv6ExtensionField, self).getfield(pkt, s)
+
+
 class ICMPv6Unknown(_ICMPv6):
     name = "Scapy6 ICMPv6 fallback class"
     fields_desc = [ByteEnumField("type", 1, icmp6types),
@@ -1497,7 +1521,7 @@ class ICMPv6DestUnreach(_ICMPv6Error):
                    ByteField("length", 0),
                    X3BytesField("unused", 0),
                    _ICMPExtensionPadField(),
-                   _ICMPExtensionField()]
+                   _ICMPv6ExtensionField()]
     post_dissection = _ICMP_extpad_post_dissection
 
 
@@ -1518,7 +1542,7 @@ class ICMPv6TimeExceeded(_ICMPv6Error):
                    ByteField("length", 0),
                    X3BytesField("unused", 0),
                    _ICMPExtensionPadField(),
-                   _ICMPExtensionField()]
+                   _ICMPv6ExtensionField()]
     post_dissection = _ICMP_extpad_post_dissection
 
 
