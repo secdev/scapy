@@ -2558,7 +2558,7 @@ class _EnumField(Field[Union[List[I], I], I]):
             cast(ObservableDict, enum).observe(self)
 
         if isinstance(enum, tuple):
-            self.i2s_cb = enum[0]  # type: Optional[Callable[[I], str]]
+            self.i2s_cb = enum[0]  # type: Optional[Callable[[I], Optional[str]]]
             self.s2i_cb = enum[1]  # type: Optional[Callable[[str], I]]
             self.i2s = None  # type: Optional[Dict[I, str]]
             self.s2i = None  # type: Optional[Dict[str, I]]
@@ -2573,6 +2573,11 @@ class _EnumField(Field[Union[List[I], I], I]):
                 value = enum[n].value
                 i2s[value] = n
                 s2i[n] = value
+        elif isinstance(enum, DADict):
+            self.i2s = None
+            self.s2i = None
+            self.i2s_cb = lambda x: enum.d.get(x)
+            self.s2i_cb = lambda x: {v: k for k, v in enum.d.items()}[x]
         else:
             i2s = self.i2s = {}
             s2i = self.s2i = {}
@@ -2581,8 +2586,6 @@ class _EnumField(Field[Union[List[I], I], I]):
             keys = []  # type: List[I]
             if isinstance(enum, list):
                 keys = list(range(len(enum)))  # type: ignore
-            elif isinstance(enum, DADict):
-                keys = enum.keys()
             else:
                 keys = list(enum)  # type: ignore
                 if any(isinstance(x, str) for x in keys):

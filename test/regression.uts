@@ -4716,6 +4716,7 @@ get_mib_graph()
 assert conf.mib._oidname("2.5.29.19") == "basicConstraints"
 
 = DADict tests
+~ dadict
 
 a = DADict("test")
 a[0] = "test_value1"
@@ -4730,6 +4731,198 @@ with ContextManagerCaptureOutput() as cmco:
 
 assert "scapy = 'test_value2'" in outp
 assert "0 = 'test_value1'" in outp
+
+= Enum fields defer DADict loading until conversion
+~ dadict lazy_data
+
+from unittest import mock
+
+for field_class in (ByteEnumField, XByteEnumField, ShortEnumField):
+    loader = mock.Mock(return_value={1: "First name!", 2: "duplicate", 3: "duplicate"})
+    enum = DADict(lazy_load=loader)
+    field = field_class("value", 1, enum)
+    assert not loader.called
+    assert field.i2s is None and field.s2i is None
+    assert field.any2i(None, 1) == 1
+    assert not loader.called
+    assert field.i2repr(None, 1) == "First name!"
+    assert field.any2i(None, "First name!") == 1
+    assert field.any2i(None, "duplicate") == 3
+    assert field.i2repr(None, 255) == ("0xff" if field_class is XByteEnumField else "255")
+    try:
+        field.any2i(None, "missing")
+    except KeyError:
+        pass
+    else:
+        assert False
+    assert loader.call_count == 1
+
+loader = mock.Mock(return_value={1: "first"})
+field = ByteEnumField("value", "first", DADict(lazy_load=loader))
+assert field.default == 1
+assert loader.call_count == 1
+
+= DADict lazy access methods
+~ dadict lazy_data
+
+from unittest import mock
+
+for access in (
+    lambda d: d[1],
+    lambda d: d.first,
+    lambda d: 1 in d,
+    lambda d: len(d),
+    lambda d: bool(d),
+    lambda d: list(d),
+    lambda d: d.keys(),
+    lambda d: list(d.itervalues()),
+    lambda d: d.values(),
+    lambda d: dir(d),
+    lambda d: repr(d),
+    lambda d: d.d,
+):
+    loader = mock.Mock(return_value={1: "first", 2: "second"})
+    d = DADict(lazy_load=loader)
+    assert not loader.called
+    access(d)
+    assert loader.call_count == 1
+    assert d[1] == "first"
+    assert d.second == 2
+    assert loader.call_count == 1
+
+= DADict lazy writes and empty databases
+~ dadict lazy_data
+
+from unittest import mock
+
+loader = mock.Mock(return_value={1: "first", 2: "second"})
+d = DADict(lazy_load=loader)
+d[1] = "overridden"
+d.update({3: "third"})
+assert loader.call_count == 1
+assert d.d == {1: "overridden", 2: "second", 3: "third"}
+
+loader = mock.Mock(return_value={})
+d = DADict(lazy_load=loader)
+assert len(d) == 0
+assert len(d) == 0
+assert loader.call_count == 1
+
+= DADict lazy loader failures can be retried
+~ dadict lazy_data
+
+from unittest import mock
+
+for error in (OSError, AttributeError):
+    loader = mock.Mock(side_effect=[error("unavailable"), {1: "first"}])
+    d = DADict(lazy_load=loader)
+    try:
+        d[1]
+    except error:
+        pass
+    else:
+        assert False
+    assert d[1] == "first"
+    assert loader.call_count == 2
+
+= DADict lazy pickling retains the cache format
+~ dadict lazy_data
+
+import io
+import pickle
+from unittest import mock
+from scapy.data import _CacheUnpickler
+
+for cls, entries in (
+    (DADict, {1: "first"}),
+    (EtherDA, {2048: "IPv4"}),
+    (ManufDA, {"00:00:0F": ("Next", "Next, Inc.")}),
+):
+    loaded = cls("database")
+    loaded.update(entries)
+    loader = mock.Mock(return_value=loaded)
+    d = cls(lazy_load=loader)
+    assert not loader.called
+    serialized = pickle.dumps(d)
+    restored = _CacheUnpickler(io.BytesIO(serialized)).load()
+    assert type(restored) is cls
+    assert restored.d == entries
+    assert restored._name == "database"
+    assert repr(d) == "<database - 1 elements>"
+    assert loader.call_count == 1
+    assert restored.__reduce__() == loaded.__reduce__()
+
+= DADict lazy loading keeps the disk cache
+~ dadict lazy_data
+
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest import mock
+
+with TemporaryDirectory() as cache_dir:
+    cache_path = Path(cache_dir) / "lazy_test.pickle"
+    loaded = DADict()
+    loaded[1] = "first"
+    backend = mock.Mock(return_value=loaded)
+    with mock.patch("scapy.main.SCAPY_CACHE_FOLDER", Path(cache_dir)):
+        cached = scapy_data_cache("lazy_test")(backend)
+    d = DADict(lazy_load=cached)
+    assert not cache_path.exists()
+    assert not backend.called
+    assert d[1] == "first"
+    assert cache_path.exists()
+    restored = DADict(lazy_load=cached)
+    assert restored[1] == "first"
+    assert backend.call_count == 1
+
+= ManufDA lazy direct database access
+~ dadict lazy_data manufdb
+
+from unittest import mock
+
+entries = {"00:00:0F": ("Next", "Next, Inc.")}
+for access in (
+    lambda d: d.lookup("00:00:0F:01:02:03"),
+    lambda d: d.reverse_lookup("Next"),
+    lambda d: d._resolve_MAC("00:00:0F:01:02:03"),
+):
+    loader = mock.Mock(return_value=entries)
+    d = ManufDA(lazy_load=loader)
+    assert not loader.called
+    access(d)
+    assert loader.call_count == 1
+    assert d.lookup("00:00:0F:01:02:03") == ("Next", "Next, Inc.")
+
+= Data dictionaries are lazy and services share their loader
+~ dadict lazy_data
+
+import subprocess
+import sys
+
+code = """
+from unittest import mock
+import scapy.data as data
+
+for name in ("ETHER_TYPES", "MANUFDB", "TCP_SERVICES", "UDP_SERVICES",
+             "SCTP_SERVICES", "IP_PROTOS"):
+    d = getattr(data, name)
+    assert d._lazy_load is not None, name
+    assert d._d == {}, name
+
+services = tuple(data.DADict() for i in range(3))
+for d in services:
+    d[1234] = "test_service"
+with mock.patch.object(data, "load_services", return_value=services) as loader:
+    assert data.TCP_SERVICES.test_service == 1234
+    assert data.UDP_SERVICES[1234] == "test_service"
+    assert data.SCTP_SERVICES[1234] == "test_service"
+    assert loader.call_count == 1
+
+assert data.ETHER_TYPES.IPv4 == 2048
+assert data.MANUFDB.lookup("00:00:0F:01:02:03") == ("Next", "Next, Inc.")
+"""
+result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+assert result.returncode == 0, result.stdout + result.stderr
 
 = Test ETHER_TYPES
 
