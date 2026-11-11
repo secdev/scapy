@@ -7,7 +7,6 @@
 # scapy.contrib.status = loads
 
 import enum
-import struct
 from typing import Any, ClassVar, Dict, Optional, Tuple, Type
 from scapy.config import conf
 from scapy.error import log_runtime
