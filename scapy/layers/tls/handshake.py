@@ -1104,6 +1104,7 @@ class TLSServerKeyExchange(_TLSHandshake):
                 s.server_certs and len(s.server_certs) > 0):
             m = s.client_random + s.server_random + raw(self.params)
             sig_test = self.sig._verify_sig(m, s.server_certs[0])
+            s.server_kx_sig_valid = sig_test
             if not sig_test:
                 pkt_info = pkt.firstlayer().summary()
                 log_runtime.info("TLS: invalid ServerKeyExchange signature [%s]", pkt_info)  # noqa: E501

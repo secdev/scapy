@@ -71,6 +71,10 @@ def run_tls_test_server(expected_data, q, curve=None, cookie=False, client_auth=
         elif sigalgo == "ed25519":
             mycert = scapy_path("/test/scapy/layers/tls/pki/srv_cert_ed25519.pem")
             mykey = scapy_path("/test/scapy/layers/tls/pki/srv_key_ed25519.pem")
+        elif sigalgo == "rsa_wrong_key":
+            # Sign with a key that doesn't match the certificate
+            mycert = scapy_path("/test/scapy/layers/tls/pki/srv_cert.pem")
+            mykey = scapy_path("/test/scapy/layers/tls/pki/cli_key.pem")
         else:
             raise ValueError
         print(mykey)
@@ -382,6 +386,14 @@ test_tls_client("009e", "0303")
 = Testing TLS client with TLS 1.2 and TLS_ECDH_anon_WITH_RC4_128_SHA
 
 test_tls_client("c016", "0303")
+
+= Testing TLS client with TLS 1.2 and TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 and an invalid ServerKeyExchange signature
+
+try:
+    test_tls_client("c02f", "0303", sigalgo="rsa_wrong_key")
+    assert False, "Client should have rejected the ServerKeyExchange"
+except ValueError as ex:
+    assert "INVALID_SERVERKEYEXCHANGE" in str(ex)
 
 = Testing TLS server and client with TLS 1.3 and TLS_AES_128_GCM_SHA256
 
