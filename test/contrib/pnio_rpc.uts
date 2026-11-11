@@ -838,6 +838,49 @@ assert p[PRAL_AlarmItem].PRAL_Reason == 0x0003
 assert p[PRAL_AlarmItem].PRAL_ReasonAddValue == b'\x00\x01\x00\x00'
 assert raw(p) == raw_pral
 
+= PNIO Alarm decoding with trailing bytes after the block
+p = AlarmNotification_High(raw_pral + b'\x00\x00')
+assert len(p.AlarmPayload) == 1
+assert p[PRAL_AlarmItem].PRAL_ReasonAddValue == b'\x00\x01\x00\x00'
+assert raw(p) == raw_pral + b'\x00\x00'
+
+= PNIO Alarm decoding with a block_length shorter than the fixed fields
+p = AlarmNotification_Low(b'\x00\x02\x00\x04' + b'\x01\x00' * 23)
+assert p.AlarmPayload == []
+
+= PNIO Alarm decoding of a frame padded to the Ethernet minimum
+p = Ether(b'\x00\x11\x22\x33\x44\x55' \
+          b'\x00\x66\x77\x88\x99\xaa' \
+          b'\x88\x92' \
+          b'\xfe\x01' \
+          b'\x00\x03\x00\x03\x11\x00\x00\x00\xff\xff\x00\x1e' \
+          b'\x00\x02\x00\x1a\x01\x00\x00\x02\x00\x00\x00\x00\x00' \
+          b'\x01\x00\x01\x00\x00\x00\x32\x00\x00\x00\x01\x08\x00' \
+          b'\x83\x00\x00\x01' \
+          b'\x00\x00')
+assert p[Alarm_Low].VarPartLen == 30
+assert len(p[AlarmNotification_Low].AlarmPayload) == 1
+assert p[RS_AlarmItem].RS_AlarmInfo == 0x0001
+assert p[Padding].load == b'\x00\x00'
+
+= PNIO Alarm decoding of an acknowledgement without RTA-SDU
+p = Ether(b'\x00\x11\x22\x33\x44\x55' \
+          b'\x00\x66\x77\x88\x99\xaa' \
+          b'\x88\x92' \
+          b'\xfe\x01' \
+          b'\x00\x03\x00\x03\x13\x00\x00\x00\xff\xff\x00\x00' + b'\x00' * 32)
+assert p[Alarm_Low].RTA_SDU is None
+assert AlarmNotification_Low not in p
+assert len(p[Padding].load) == 32
+
+= PNIO Alarm building computes VarPartLen
+p = Alarm_High(RTA_SDU=AlarmNotification_High(AlarmType=3))
+assert raw(p)[10:12] == b'\x00\x1a'
+p = Alarm_High(raw(p) + b'\x00' * 6)
+assert p.VarPartLen == 26
+assert p[AlarmNotification_High].AlarmType == 3
+assert p[AlarmNotification_High].AlarmPayload == []
+
 = PNIO PDPortDataAdjust Decoding
 raw = bytearray.fromhex('0402280000000000dea000006c9711d182710001000305f9dea000016' \
                         'c9711d1827100a02442df7d0777bc51ddaa4d07addb7075183fc28b00' \
