@@ -839,6 +839,34 @@ reliability, usually. If you are working on Linux, consider this implementation:
 Since this implementation is using a standard Linux socket, all Scapy functions
 like ``sniff, sr, sr1, bridge_and_sniff`` work out of the box.
 
+For synchronous TX completion, pass ``wait_tx_done=True`` to
+``ISOTPNativeSocket``. Its ``sr1()`` then sends before receiving, so a missing
+Flow Control frame raises ``OSError(errno.ECOMM)`` for the current request even
+when the response timeout is shorter than the kernel FC timer. The default
+receive-side error handling stays unchanged.
+
+With a native socket configured with ``basecls=UDS``, automotive service
+enumerators can opt into adaptive inter-request pacing::
+
+   scanner = UDS_Scanner(
+       sock, test_cases=[UDS_RMBAEnumerator],
+       UDS_RMBARandomEnumerator_kwargs={
+           "adaptive_inter": True,
+           "inter": 0,
+           "adaptive_inter_step": 0.01,
+           "adaptive_inter_max": 0.25,
+           "adaptive_inter_retry": True,
+       })
+
+This enables native TX completion at a request boundary and increases ``inter``
+after an FC timeout, up to the configured cap. The delay persists for that
+enumerator, including resumed executions and reconnects. The optional retry
+sends the same request once after the increased delay; exhausted transport
+retries produce one unanswered result. Ordinary response timeouts retain their
+retry behaviour and do not increase the delay. Configure RMBA's sequential
+stage separately with ``UDS_RMBASequentialEnumerator_kwargs``. The feature is
+off by default and controls request gaps independently of ISO-TP STmin.
+
 ISOTPSoftSocket
 ^^^^^^^^^^^^^^^
 

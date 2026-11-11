@@ -381,6 +381,139 @@ assert not e.completed
 assert not e.has_completed(EcuState(session=1))
 
 
++ Adaptive ISO-TP inter-request delay
+
+= Backoff increases, stays capped and stores one result per request
+
+import errno
+from unittest.mock import Mock
+
+class ISOTPInterEvent(threading.Event):
+    def __init__(self, cancel_after=None):
+        super().__init__()
+        self.delays = []
+        self.cancel_after = cancel_after
+    def wait(self, timeout=None):
+        self.delays.append(timeout)
+        if len(self.delays) == self.cancel_after:
+            self.set()
+        return self.is_set()
+
+class ISOTPTimeoutSocket:
+    def __init__(self, replies):
+        self.replies = iter(replies)
+        self.sent = []
+        self.wait_tx_done = False
+    def set_wait_tx_done(self):
+        self.wait_tx_done = True
+    def sr1(self, request, **kwargs):
+        if kwargs.get("wait_tx_done", False):
+            self.set_wait_tx_done()
+        self.sent.append(bytes(request))
+        request.sent_time = time.time()
+        reply = next(self.replies)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+state = EcuState(session=1)
+event = ISOTPInterEvent()
+sock = ISOTPTimeoutSocket([OSError(errno.ECOMM, "FC timeout"), UDS(b"\x41"), OSError(errno.ECOMM, "FC timeout"), OSError(errno.ECOMM, "FC timeout"), UDS(b"\x43")])
+enum = MyTestCase()
+enum.execute(sock, state, count=3, inter=0.01, adaptive_inter=True, adaptive_inter_step=0.02, adaptive_inter_max=0.05, retry_if_none_received=True, stop_event=event)
+assert sock.wait_tx_done
+assert sock.sent == [b"\x01", b"\x01", b"\x02", b"\x02", b"\x03"]
+assert len(enum.results) == 3
+assert enum.results[0].resp is not None
+assert enum.results[1].resp is None
+assert enum.results[2].resp is not None
+assert len(event.delays) == 5
+assert all(abs(actual - expected) < 1e-9 for actual, expected in zip(event.delays, [0.01, 0.03, 0.03, 0.05, 0.05]))
+assert enum._adaptive_inter == 0.05
+assert not enum._retry_pkt[state]
+assert not enum._adaptive_inter_active
+
+= Delay persists across resumed executions with transport retry disabled
+
+event = ISOTPInterEvent()
+sock = ISOTPTimeoutSocket([OSError(errno.ECOMM, "FC timeout"), UDS(b"\x42")])
+enum = MyTestCase()
+enum.execute(sock, state, count=1, adaptive_inter=True, adaptive_inter_retry=False, retry_if_none_received=True, stop_event=event)
+assert sock.sent == [b"\x01"]
+assert len(enum.results) == 1 and enum.results[0].resp is None
+assert not enum._retry_pkt[state]
+enum.execute(sock, state, count=1, adaptive_inter=True, stop_event=event)
+assert sock.sent == [b"\x01", b"\x02"]
+assert event.delays == [0, 0.01]
+
+= Transport failure does not requeue an ordinary retry packet
+
+enum = MyTestCase()
+enum._retry_pkt[state] = UDS(b"\x01")
+sock = ISOTPTimeoutSocket([OSError(errno.ECOMM, "FC timeout")])
+enum.execute(sock, state, count=1, adaptive_inter=True, adaptive_inter_retry=False, retry_if_none_received=True, stop_event=ISOTPInterEvent())
+assert len(sock.sent) == 1
+assert not enum._retry_pkt[state]
+
+= Ordinary response timeouts retain their retry behaviour
+
+enum = MyTestCase()
+enum.execute(ISOTPTimeoutSocket([None]), state, adaptive_inter=True, retry_if_none_received=True, stop_event=ISOTPInterEvent())
+assert enum._retry_pkt[state]
+assert enum._adaptive_inter == 0
+
+= Other socket errors do not increase inter
+
+enum = MyTestCase()
+try:
+    enum.execute(ISOTPTimeoutSocket([OSError(errno.ENETDOWN, "down")]), state, adaptive_inter=True, stop_event=ISOTPInterEvent())
+    assert False
+except OSError as error:
+    assert error.errno == errno.ENETDOWN
+
+assert enum._adaptive_inter == 0
+assert enum._retry_pkt[state]
+assert not enum._adaptive_inter_active
+
+= Adaptive inter defaults off
+
+sock = ISOTPTimeoutSocket([UDS(b"\x41")])
+event = ISOTPInterEvent()
+MyTestCase().execute(sock, state, count=1, inter=0.02, stop_event=event)
+assert not sock.wait_tx_done
+assert event.delays == [0.02]
+
+= Stop during backoff does not send a retry or leave TesterPresent disabled
+
+enum = MyTestCase()
+sock = ISOTPTimeoutSocket([OSError(errno.ECOMM, "FC timeout")])
+sender = Mock()
+enum._tester_present_sender = sender
+enum.execute(sock, state, adaptive_inter=True, disable_tps_while_sending=True, stop_event=ISOTPInterEvent(cancel_after=2))
+assert len(sock.sent) == 1
+assert not enum.results
+sender.disable.assert_called_once()
+sender.enable.assert_called_once()
+assert not enum._adaptive_inter_active
+
+= Invalid adaptive inter options
+
+for options in [{"adaptive_inter_step": 0}, {"adaptive_inter_step": float("nan")}, {"adaptive_inter_max": float("inf")}, {"adaptive_inter_step": True}, {"inter": 0.1, "adaptive_inter_max": 0.05}]:
+    try:
+        MyTestCase().execute(ISOTPTimeoutSocket([]), state, adaptive_inter=True, **options)
+        assert False
+    except Scapy_Exception:
+        pass
+
+= Adaptive inter options are inherited by RMBA stages
+
+from scapy.contrib.automotive.uds_scan import UDS_RMBAEnumerator, UDS_Scanner
+
+staged = UDS_RMBAEnumerator()
+scanner = UDS_Scanner(None, test_cases=[staged], adaptive_inter=True)
+for stage in staged.test_cases:
+    stage.check_kwargs(scanner.configuration[stage.__class__.__name__])
+
 + AutomotiveTestCaseExecutorConfiguration tests
 
 = Definitions

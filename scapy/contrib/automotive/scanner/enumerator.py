@@ -8,9 +8,11 @@
 
 
 import abc
+import copy
+import errno
+import math
 import threading
 import time
-import copy
 from collections import defaultdict, OrderedDict
 from itertools import chain
 from typing import NamedTuple
@@ -39,6 +41,8 @@ from typing import (
     Callable,
     cast,
 )
+
+ISOTP_ECOMM = getattr(errno, "ECOMM", 70)
 
 # Definition outside the class ServiceEnumerator to allow pickling
 _AutomotiveTestCaseScanResult = NamedTuple(
@@ -82,6 +86,14 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         'unittest': (bool, None),
         'disable_tps_while_sending': (bool, None),
         'inter': ((int, float), lambda x: x >= 0),
+        'adaptive_inter': (bool, None),
+        'adaptive_inter_step': ((int, float),
+                                lambda x: not isinstance(x, bool) and
+                                math.isfinite(x) and x > 0),
+        'adaptive_inter_max': ((int, float),
+                               lambda x: not isinstance(x, bool) and
+                               math.isfinite(x) and x >= 0),
+        'adaptive_inter_retry': (bool, None),
     })
 
     _supported_kwargs_doc = AutomotiveTestCase._supported_kwargs_doc + """
@@ -130,7 +142,16 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
                                           to not interact with a seed request.
         :type disable_tps_while_sending: bool
         :param inter: delay between two packets during sending
-        :type inter: int or float"""
+        :type inter: int or float
+        :param bool adaptive_inter: Increase inter on native ISO-TP TX flow
+                                    control timeouts. Default is False.
+        :param float adaptive_inter_step: Delay increase in seconds (0.01).
+        :param float adaptive_inter_max: Maximum delay in seconds (0.25),
+                                         at least the initial inter.
+        :param bool adaptive_inter_retry: Retry the request once after a TX
+                                          timeout. Default is True. The delay
+                                          persists for this enumerator,
+                                          including resumed executions."""
 
     def __init__(self):
         # type: () -> None
@@ -143,6 +164,8 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         self._negative_response_blacklist = [0x10, 0x11]  # type: List[int]
         self._requests_per_state_estimated = None  # type: Optional[int]
         self._tester_present_sender = None  # type: Optional[PeriodicSenderThread]
+        self._adaptive_inter = 0.0
+        self._adaptive_inter_active = False
 
     @staticmethod
     @abc.abstractmethod
@@ -311,6 +334,16 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
         stop_event = kwargs.pop("stop_event", None)  # type: Optional[threading.Event]  # noqa: E501
         disable_tps = kwargs.pop("disable_tps_while_sending", False)
         inter = kwargs.pop("inter", 0)
+        adaptive_inter = kwargs.pop("adaptive_inter", False)
+        adaptive_step = kwargs.pop("adaptive_inter_step", 0.01)
+        adaptive_max = kwargs.pop("adaptive_inter_max", 0.25)
+        adaptive_retry = kwargs.pop("adaptive_inter_retry", True)
+
+        if adaptive_inter:
+            if not math.isfinite(inter) or adaptive_max < inter:
+                raise Scapy_Exception(
+                    "adaptive_inter_max must be at least a finite inter")
+            inter = min(adaptive_max, max(inter, self._adaptive_inter))
 
         self._prepare_runtime_estimation(**kwargs)
 
@@ -331,6 +364,11 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
 
         it = self._get_request_iterator(state, **kwargs)
 
+        if adaptive_inter:
+            if not callable(getattr(socket, "set_wait_tx_done", None)):
+                raise Scapy_Exception(
+                    "adaptive_inter requires a native ISO-TP socket")
+
         # log_automotive.debug("[i] Using iterator %s in state %s", it, state)
 
         start_time = time.monotonic()
@@ -343,17 +381,58 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
             else:
                 time.sleep(inter)
 
+            if adaptive_inter and stop_event and stop_event.is_set():
+                return
+
             if disable_tps and self._tester_present_sender:
                 self._tester_present_sender.disable()
 
-            res = self.sr1_with_retry_on_error(req, socket, state, timeout)
-
-            if disable_tps and self._tester_present_sender:
-                self._tester_present_sender.enable()
+            res = None
+            transport_failure = False
+            try:
+                for attempt in range(2 if adaptive_inter and adaptive_retry
+                                     else 1):
+                    if attempt:
+                        if stop_event:
+                            if stop_event.wait(inter):
+                                return
+                        else:
+                            time.sleep(inter)
+                    self._adaptive_inter_active = adaptive_inter
+                    try:
+                        res = self.sr1_with_retry_on_error(
+                            req, socket, state, timeout)
+                        transport_failure = False
+                        break
+                    except OSError as error:
+                        if not adaptive_inter or error.errno != ISOTP_ECOMM:
+                            raise
+                        transport_failure = True
+                        old_inter = inter
+                        inter = min(adaptive_max, inter + adaptive_step)
+                        self._adaptive_inter = inter
+                        log_automotive.info(
+                            "%s %r: ISO-TP errno %d, inter %.6f -> %.6f s",
+                            self.__class__.__name__, state, error.errno,
+                            old_inter, inter)
+                    finally:
+                        self._adaptive_inter_active = False
+            finally:
+                if disable_tps and self._tester_present_sender:
+                    self._tester_present_sender.enable()
 
             self._store_result(state, req, res)
 
-            if self._evaluate_response(state, req, res, **kwargs):
+            response_kwargs = kwargs
+            if transport_failure:
+                # Keep the bounded transport retry separate from ordinary
+                # response-timeout retries, including a resumed retry packet.
+                queued = self._retry_pkt[state]
+                if isinstance(queued, Packet) and bytes(queued) == bytes(req):
+                    self._retry_pkt[state] = []
+                response_kwargs = dict(kwargs, retry_if_none_received=False)
+
+            if self._evaluate_response(state, req, res, **response_kwargs):
                 log_automotive.debug(
                     "Stop test_case execution because of response evaluation")
                 return
@@ -386,9 +465,17 @@ class ServiceEnumerator(AutomotiveTestCase, metaclass=abc.ABCMeta):
     def sr1_with_retry_on_error(self, req, socket, state, timeout):
         # type: (Packet, _SocketUnion, EcuState, int) -> Optional[Packet]
         try:
-            res = socket.sr1(req, timeout=timeout, verbose=False,
-                             chainEX=True, chainCC=True)
+            sr1_kwargs = dict(timeout=timeout, verbose=False,
+                              chainEX=True, chainCC=True)  # type: Dict[str, Any]
+            if self._adaptive_inter_active:
+                # Configure TX completion inside the exchange, under the
+                # SingleConversationSocket lock shared with TesterPresent.
+                sr1_kwargs["wait_tx_done"] = True
+            res = socket.sr1(req, **sr1_kwargs)
         except (OSError, ValueError, Scapy_Exception) as e:
+            if self._adaptive_inter_active and isinstance(e, OSError) and \
+                    e.errno == ISOTP_ECOMM:
+                raise
             if not self._populate_retry(state, req):
                 log_automotive.exception(
                     "Exception during retry. This is bad")
