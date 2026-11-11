@@ -159,11 +159,12 @@ class IGMP(Packet):
             elif typ == 0x32:
                 return IGMPv3_MRT
 
-        # IGMPv3() has no raw bytes yet. Keep that class; falling through to
-        # IGMP_MQ made the pre-2.8 stack IGMPv3()/IGMPv3mr() a v1/v2 query.
+        # IGMPv3: allow default IGMPv3() which is empty for compat with <2.8.0
+        # IGMP: do not let the default IGMP()
         if issubclass(cls, IGMPv3):
             return cls
-        return IGMP_MQ
+        else:
+            return IGMP_MQ
 
     def answers(self, other):
         if other.type == 0x11:
@@ -222,6 +223,16 @@ class IGMPv2_MR(IGMP):
     match_subclass = True
 
 
+_IGMPv3_Type = {
+    0x11: "Membership Query",
+    0x22: "Version 3 - Membership Report",
+    # RFC 4286
+    0x30: "Multicast Router Advertisement",
+    0x31: "Multicast Router Solicitation",
+    0x32: "Multicast Router Termination",
+}
+
+
 class IGMPv3(IGMP):
     """
     IGMP Message Class for v3
@@ -230,18 +241,7 @@ class IGMPv3(IGMP):
     name = "IGMPv3"
 
     fields_desc = [
-        ByteEnumField(
-            "type",
-            0x11,
-            {
-                0x11: "Membership Query",
-                0x22: "Version 3 - Membership Report",
-                # RFC 4286
-                0x30: "Multicast Router Advertisement",
-                0x31: "Multicast Router Solicitation",
-                0x32: "Multicast Router Termination",
-            },
-        ),
+        ByteEnumField("type", 0x11, _IGMPv3_Type),
     ]
 
     @classmethod
@@ -256,53 +256,17 @@ class IGMPv3(IGMP):
         else:
             return self.sprintf(f"IGMPv3 %{t}.type%")
 
-    def _stacked_full_message(self, payload):
-        """True when payload is already a complete IGMPv3 message.
-
-        contrib.igmpv3 aliases IGMPv3mr to IGMPv3_MR. Code written for 2.7
-        still does IGMPv3()/IGMPv3mr(), which used to be one report. IGMPv3_MR
-        already includes the header, so keep that message and drop this one.
-        """
-        return (
-            type(self) is IGMPv3
-            and isinstance(payload, IGMPv3)
-            and type(payload) is not IGMPv3
-        )
-
-    def add_payload(self, payload):
-        # IP()/IGMPv3()/IGMPv3_MR() lands here: IP.add_payload delegates to us.
-        if self._stacked_full_message(payload) and self.underlayer is not None:
-            under = self.underlayer
-            under.remove_payload()
-            under.add_payload(payload)
-            return
-        super(IGMPv3, self).add_payload(payload)
-
-    def __div__(self, other):
-        if isinstance(other, Packet) and self._stacked_full_message(other):
-            other = other.copy()
-            if self.underlayer is not None:
-                under = self.underlayer.copy()
-                under.remove_payload()
-                under.add_payload(other)
-                return under
-            return other
-        return super(IGMPv3, self).__div__(other)
-
-    __truediv__ = __div__
-
 
 class IGMPv3_MQ(IGMPv3):
     """
     IGMPv3 Membership Query
     """
 
-    type = 0x11
     name = "IGMPv3 Membership Query"
     match_subclass = True
 
     fields_desc = [
-        IGMPv3,
+        ByteEnumField("type", 0x11, _IGMPv3_Type),
         _MRCodeField("mrcode", 20, unit="1/10sec"),
         XShortField("chksum", None),
         IPField("gaddr", "0.0.0.0"),
@@ -374,12 +338,11 @@ class IGMPv3_MR(IGMPv3):
     IGMP Membership Report extension for IGMPv3
     """
 
-    type = 0x22
     name = "IGMPv3 Membership Report"
     match_subclass = True
 
     fields_desc = [
-        IGMPv3,
+        ByteEnumField("type", 0x22, _IGMPv3_Type),
         ByteField("reserved", 0),
         XShortField("chksum", None),
         FlagsField(
@@ -405,12 +368,11 @@ class IGMPv3_MRA(IGMPv3):
     IGMP Multicast Router Advertisement per RFC4286
     """
 
-    type = 0x30
     name = "IGMPv3_MRA"
     match_subclass = True
 
     fields_desc = [
-        IGMPv3,
+        ByteEnumField("type", 0x30, _IGMPv3_Type),
         ByteField("advIntvl", 0),
         XShortField("chksum", None),
         ShortField("qryIntvl", 0),
@@ -423,12 +385,11 @@ class IGMPv3_MRS(IGMPv3):
     IGMP Multicast Router Solicitation per RFC4286
     """
 
-    type = 0x31
     name = "IGMPv3_MRS"
     match_subclass = True
 
     fields_desc = [
-        IGMPv3,
+        ByteEnumField("type", 0x31, _IGMPv3_Type),
         ByteField("reserved", 0),
         XShortField("chksum", None),
     ]
@@ -439,12 +400,11 @@ class IGMPv3_MRT(IGMPv3):
     IGMP Multicast Router Termination per RFC4286
     """
 
-    type = 0x31
     name = "IGMPv3_MRT"
     match_subclass = True
 
     fields_desc = [
-        IGMPv3,
+        ByteEnumField("type", 0x31, _IGMPv3_Type),
         ByteField("reserved", 0),
         XShortField("chksum", None),
     ]
