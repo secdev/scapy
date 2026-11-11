@@ -73,7 +73,7 @@ data = bytes(pkt)
 
 = read from test file starting at contact
 from scapy.contrib.tcpcl import *
-filepath = scapy_path("test/pcaps/dtn_tcpclv4_bpv7_transfer.pcapng")
+filepath = scapy_path("test/pcaps/dtn_tcpclv4_bpv7_transfer.pcapng.gz")
 packets = sniff(offline=filepath, session=TCPSession)
 assert len(packets) == 27
 
@@ -121,7 +121,7 @@ assert isinstance(pkt, TCPCLSessTerm)
 = read from test file starting after contact
 from scapy.contrib.tcpcl import *
 conf.debug_dissector = 2
-filepath = scapy_path("test/pcaps/dtn_tcpclv4_bpv7_nocontact.pcapng")
+filepath = scapy_path("test/pcaps/dtn_tcpclv4_bpv7_nocontact.pcapng.gz")
 packets = sniff(offline=filepath, session=TCPSession)
 assert len(packets) == 16
 
