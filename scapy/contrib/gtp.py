@@ -474,6 +474,18 @@ class IE_Base(Packet):
         return p + pay
 
 
+class IE_TLV(IE_Base):
+    # GTPv1 TLV IE (3GPP TS 29.060 7.7): Length counts the octets after
+    # the 1-octet Type and the 2-octet Length.
+    def post_build(self, p, pay):
+        if self.length is None:
+            tmp_len = len(p) - 3
+            if isinstance(self.payload, conf.padding_layer):
+                tmp_len += len(self.payload.load)
+            p = p[:1] + struct.pack("!H", tmp_len) + p[3:]
+        return p + pay
+
+
 class IE_Cause(IE_Base):
     name = "Cause"
     fields_desc = [ByteEnumField("ietype", 1, IEType),
@@ -582,7 +594,7 @@ class IE_ChargingId(IE_Base):
                    XIntField("Charging_id", RandInt())]
 
 
-class IE_EndUserAddress(IE_Base):
+class IE_EndUserAddress(IE_TLV):
     # Supply protocol specific information of the external packet
     name = "End User Address"
     fields_desc = [ByteEnumField("ietype", 128, IEType),
@@ -627,21 +639,15 @@ class APNStrLenField(StrLenField):
         return s
 
 
-class IE_AccessPointName(IE_Base):
+class IE_AccessPointName(IE_TLV):
     # Sent by SGSN or by GGSN as defined in 3GPP TS 23.060
     name = "Access Point Name"
     fields_desc = [ByteEnumField("ietype", 131, IEType),
                    ShortField("length", None),
                    APNStrLenField("APN", "nternet", length_from=lambda x: x.length)]  # noqa: E501
 
-    def post_build(self, p, pay):
-        if self.length is None:
-            tmp_len = len(p) - 3
-            p = p[:2] + struct.pack("!B", tmp_len) + p[3:]
-        return p
 
-
-class IE_ProtocolConfigurationOptions(IE_Base):
+class IE_ProtocolConfigurationOptions(IE_TLV):
     name = "Protocol Configuration Options"
     fields_desc = [ByteEnumField("ietype", 132, IEType),
                    ShortField("length", 4),
@@ -649,7 +655,7 @@ class IE_ProtocolConfigurationOptions(IE_Base):
                                length_from=lambda x: x.length)]
 
 
-class IE_GSNAddress(IE_Base):
+class IE_GSNAddress(IE_TLV):
     name = "GSN Address"
     fields_desc = [ByteEnumField("ietype", 133, IEType),
                    ShortField("length", None),
@@ -658,14 +664,8 @@ class IE_GSNAddress(IE_Base):
                    ConditionalField(IP6Field("ipv6_address", '::1'),
                                     lambda pkt: pkt.length == 16)]
 
-    def post_build(self, p, pay):
-        if self.length is None:
-            tmp_len = len(p) - 3
-            p = p[:2] + struct.pack("!B", tmp_len) + p[3:]
-        return p
 
-
-class IE_MSInternationalNumber(IE_Base):
+class IE_MSInternationalNumber(IE_TLV):
     name = "MS International Number"
     fields_desc = [ByteEnumField("ietype", 134, IEType),
                    ShortField("length", None),
@@ -699,8 +699,17 @@ class QoS_Profile(IE_Base):
                    ByteField("guaranteed_bit_rate_up", None),
                    ByteField("guaranteed_bit_rate_down", None)]
 
+    def post_build(self, p, pay):
+        # Length counts the octets after the 1-octet QoS EI and itself.
+        if self.length is None:
+            tmp_len = len(p) - 2
+            if isinstance(self.payload, conf.padding_layer):
+                tmp_len += len(self.payload.load)
+            p = p[:1] + struct.pack("!B", tmp_len) + p[2:]
+        return p + pay
 
-class IE_QoS(IE_Base):
+
+class IE_QoS(IE_TLV):
     name = "QoS"
     fields_desc = [ByteEnumField("ietype", 135, IEType),
                    ShortField("length", None),
@@ -785,7 +794,7 @@ class IE_QoS(IE_Base):
                                     lambda p: p.length and p.length > 20)]
 
 
-class IE_CommonFlags(IE_Base):
+class IE_CommonFlags(IE_TLV):
     name = "Common Flags"
     fields_desc = [ByteEnumField("ietype", 148, IEType),
                    ShortField("length", None),
@@ -799,21 +808,21 @@ class IE_CommonFlags(IE_Base):
                    BitField("prohibit_payload_compression", 0, 1)]
 
 
-class IE_APNRestriction(IE_Base):
+class IE_APNRestriction(IE_TLV):
     name = "APN Restriction"
     fields_desc = [ByteEnumField("ietype", 149, IEType),
                    ShortField("length", 1),
                    ByteField("restriction_type_value", 0)]
 
 
-class IE_RATType(IE_Base):
+class IE_RATType(IE_TLV):
     name = "Rat Type"
     fields_desc = [ByteEnumField("ietype", 151, IEType),
                    ShortField("length", 1),
                    ByteEnumField("RAT_Type", None, RATType)]
 
 
-class IE_UserLocationInformation(IE_Base):
+class IE_UserLocationInformation(IE_TLV):
     name = "User Location Information"
     fields_desc = [ByteEnumField("ietype", 152, IEType),
                    ShortField("length", None),
@@ -826,7 +835,7 @@ class IE_UserLocationInformation(IE_Base):
                    ShortField("SAC", None)]
 
 
-class IE_MSTimeZone(IE_Base):
+class IE_MSTimeZone(IE_TLV):
     name = "MS Time Zone"
     fields_desc = [ByteEnumField("ietype", 153, IEType),
                    ShortField("length", None),
@@ -835,21 +844,21 @@ class IE_MSTimeZone(IE_Base):
                    XBitField("daylight_saving_time", 0x00, 2)]
 
 
-class IE_IMEI(IE_Base):
+class IE_IMEI(IE_TLV):
     name = "IMEI"
     fields_desc = [ByteEnumField("ietype", 154, IEType),
                    ShortField("length", None),
                    TBCDByteField("IMEI", "", length_from=lambda x: x.length)]
 
 
-class IE_MSInfoChangeReportingAction(IE_Base):
+class IE_MSInfoChangeReportingAction(IE_TLV):
     name = "MS Info Change Reporting Action"
     fields_desc = [ByteEnumField("ietype", 181, IEType),
                    ShortField("length", 1),
                    ByteField("Action", 0)]
 
 
-class IE_DirectTunnelFlags(IE_Base):
+class IE_DirectTunnelFlags(IE_TLV):
     name = "Direct Tunnel Flags"
     # 29.060 7.7.81
     fields_desc = [ByteEnumField("ietype", 182, IEType),
@@ -860,14 +869,14 @@ class IE_DirectTunnelFlags(IE_Base):
                    BitField("DTI", 0, 1)]
 
 
-class IE_BearerControlMode(IE_Base):
+class IE_BearerControlMode(IE_TLV):
     name = "Bearer Control Mode"
     fields_desc = [ByteEnumField("ietype", 184, IEType),
                    ShortField("length", 1),
                    ByteField("bearer_control_mode", 0)]
 
 
-class IE_EvolvedAllocationRetentionPriority(IE_Base):
+class IE_EvolvedAllocationRetentionPriority(IE_TLV):
     name = "Evolved Allocation/Retention Priority"
     # 29.060 7.7.91
     fields_desc = [ByteEnumField("ietype", 191, IEType),
@@ -879,7 +888,7 @@ class IE_EvolvedAllocationRetentionPriority(IE_Base):
                    BitField("PVI", 0, 1)]
 
 
-class IE_CharginGatewayAddress(IE_Base):
+class IE_CharginGatewayAddress(IE_TLV):
     name = "Charging Gateway Address"
     fields_desc = [ByteEnumField("ietype", 251, IEType),
                    ShortField("length", 4),
@@ -890,7 +899,7 @@ class IE_CharginGatewayAddress(IE_Base):
                                     pkt: pkt.length == 16)]
 
 
-class IE_PrivateExtension(IE_Base):
+class IE_PrivateExtension(IE_TLV):
     name = "Private Extension"
     fields_desc = [ByteEnumField("ietype", 255, IEType),
                    ShortField("length", 1),
@@ -899,7 +908,7 @@ class IE_PrivateExtension(IE_Base):
                                length_from=lambda x: x.length)]
 
 
-class IE_ExtensionHeaderList(IE_Base):
+class IE_ExtensionHeaderList(IE_TLV):
     name = "Extension Header List"
     fields_desc = [ByteEnumField("ietype", 141, IEType),
                    FieldLenField("length", None, length_of="extension_headers"),  # noqa: E501
