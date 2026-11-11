@@ -26,15 +26,29 @@ assert pkt.commandId == 0x4
 
 = ENIP List Services Default Values
 pkt=ENIPListServices()
-assert pkt.itemCount == 0
+assert raw(pkt) == b"\x00\x00"
 
 = ENIP List Services Custom Values
 pkt.items.append(ENIPListServicesItem(serviceName=b'test'))
 assert pkt.items[0].itemTypeCode == 0
-assert pkt.items[0].itemLength == 0
 assert pkt.items[0].protocolVersion == 0
 assert pkt.items[0].flag == 0
 assert pkt.items[0].serviceName == b'test'
+pkt = ENIPListServices(raw(pkt))
+assert pkt.itemCount == 1
+assert pkt.items[0].itemLength == 20
+
+= ENIP List Services Reply
+# Reply from a cpppo EtherNet/IP server
+listServicesRepPkt = bytes.fromhex(
+    "0400190000000000000000000000000000000000000000000100"
+    "000113000100200043"
+    "6f6d6d756e69636174696f6e7300")
+pkt = ENIPTCP(listServicesRepPkt)
+assert pkt.itemCount == 1
+assert pkt.items[0].itemTypeCode == 0x100
+assert pkt.items[0].itemLength == 19
+assert pkt.items[0].serviceName == b"Communications\x00"
 
 
 + ENIP List Identity 0x0063
@@ -47,7 +61,7 @@ b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 
 = ENIP List Identity Default Values
 pkt=ENIPListIdentity()
-assert pkt.itemCount == 0
+assert raw(pkt) == b"\x00\x00"
 
 = ENIP List Identity Custom Values
 pkt=ENIPListIdentityItem(sinAddress="192.168.1.1",
@@ -56,6 +70,37 @@ assert pkt.protocolVersion == 0
 assert pkt.sinAddress == "192.168.1.1"
 assert pkt.productNameLength == 4
 assert pkt.productName == b'test'
+
+= ENIP List Identity Reply
+# Reply from a cpppo EtherNet/IP server
+listIdentityRepPkt = bytes.fromhex(
+    "63003c0000000000000000000000000000000000000000000100"
+    "0c003600010000"
+    "02af120000000000000000000000000100"
+    "0e003600140b60311a066c0014313735362d4c36312f42204c4f47495835353631ff")
+pkt = ENIPTCP(listIdentityRepPkt)
+assert pkt.itemCount == 1
+item = pkt.items[0]
+assert item.itemTypeCode == 0x0c
+assert item.itemLength == 54
+assert item.sinPort == 44818
+assert item.deviceType == 0x0e
+assert item.serialNumber == 0x006c061a
+assert item.productNameLength == 20
+assert item.productName == b"1756-L61/B LOGIX5561"
+assert item.state == 0xff
+
+= ENIP List Identity Reply build
+pkt = ENIPListIdentity(items=[ENIPListIdentityItem(
+    itemTypeCode=0x0c, protocolVersion=1, sinFamily=2, sinPort=44818,
+    sinAddress="0.0.0.0", vendorId=1, deviceType=0x0e, productCode=0x36,
+    revisionMajor=20, revisionMinor=11, status=0x3160,
+    serialNumber=0x006c061a, productName=b"1756-L61/B LOGIX5561",
+    state=0xff)])
+assert raw(pkt) == listIdentityRepPkt[24:]
+pkt = ENIPListIdentity(raw(pkt))
+assert pkt.items[0].productName == b"1756-L61/B LOGIX5561"
+assert pkt.items[0].state == 0xff
 
 
 + ENIP List Interfaces
@@ -66,13 +111,34 @@ assert pkt.commandId == 0x64
 
 = ENIP List Interfaces Reply Default Values
 pkt=ENIPListInterfaces()
-assert pkt.itemCount == 0
+assert raw(pkt) == b"\x00\x00"
 
 = ENIP List Interfaces Reply Items Default Values
 pkt=ENIPListInterfacesItem(itemTypeCode=0x0c)
 assert pkt.itemTypeCode == 0x0c
-assert pkt.itemLength == 0
 assert pkt.itemData == b''
+assert raw(pkt) == b"\x0c\x00\x00\x00"
+
+= ENIP List Interfaces Reply
+listInterfacesRepData = b"\x01\x00\x0c\x00\x02\x00\xab\xcd"
+pkt = ENIPListInterfaces(listInterfacesRepData)
+assert pkt.itemCount == 1
+assert pkt.items[0].itemLength == 2
+assert pkt.items[0].itemData == b"\xab\xcd"
+assert raw(ENIPListInterfaces(items=[ENIPListInterfacesItem(
+    itemTypeCode=0x0c, itemData=b"\xab\xcd")])) == listInterfacesRepData
+
+= ENIP List replies with two items
+pkt = ENIPListInterfaces(raw(ENIPListInterfaces(items=[
+    ENIPListInterfacesItem(itemData=b"ab"),
+    ENIPListInterfacesItem(itemData=b"cd")])))
+assert pkt.itemCount == 2
+assert [i.itemData for i in pkt.items] == [b"ab", b"cd"]
+pkt = ENIPListIdentity(raw(ENIPListIdentity(items=[
+    ENIPListIdentityItem(productName=b"A", state=1),
+    ENIPListIdentityItem(productName=b"BC", state=2)])))
+assert pkt.itemCount == 2
+assert [(i.productName, i.state) for i in pkt.items] == [(b"A", 1), (b"BC", 2)]
 
 
 + ENIP Register Session
