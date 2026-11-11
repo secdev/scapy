@@ -33,7 +33,7 @@ from scapy.fields import (
 )
 from scapy.layers.inet6 import IP6Field
 from scapy.packet import bind_layers, Packet, Raw
-from scapy.utils import valid_net, valid_net6
+from scapy.utils import valid_net6
 from scapy.volatile import RandIP, RandShort
 
 
@@ -275,15 +275,13 @@ class IE_IP_Address(gtp.IE_Base):
                    BitField("instance", 0, 4),
                    MultipleTypeField(
                        [
-                           (IPField("address", RandIP()),
-                            (lambda pkt: pkt.length == 4,
-                             lambda pkt, val: pkt.length == 4 or (
-                                 pkt.length is None and
-                                 (val is None or valid_net(val))))),
                            (IP6Field("address", None),
                             (lambda pkt: pkt.length == 16,
                              lambda pkt, val: pkt.length == 16 or (
                                  pkt.length is None and valid_net6(val)))),
+                           (IPField("address", RandIP()),
+                            (lambda pkt: pkt.length == 4,
+                             lambda pkt, val: pkt.length in (4, None))),
                        ],
                        StrFixedLenField("address", None,
                                         length_from=lambda pkt: pkt.length))]
