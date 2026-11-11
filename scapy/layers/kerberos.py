@@ -6009,6 +6009,7 @@ class KerberosSSP(SSP):
                             root=KRB_ERROR(
                                 errorCode=errorCode,
                                 stime=ASN1_GENERALIZED_TIME(now_time),
+                                susec=ASN1_INTEGER(now_time.microsecond),
                                 realm=ap_req.ticket.realm,
                                 sname=ap_req.ticket.sname,
                                 eData=None,
