@@ -43,6 +43,12 @@ assert pkti.params == [180, 0, 0, 0, 0, '1.1.2.2', 0]
 = Build advanced LDPAddress() with LDPLabelMM()
 pkta = LDPAddress(address=['1.1.2.2', '172.16.2.1'])/LDPLabelMM(fec=[('172.16.2.0', 31)])/LDPLabelMM(fec=[('1.1.2.2', 32)])/LDPLabelMM(fec=[('1.1.2.1', 32)])
 
+= Build LDPLabelMM() with prefixes padded to a byte boundary
+pkt = LDPLabelMM(fec=[('10.1.2.0', 24), ('10.128.0.0', 9), ('0.0.0.0', 0), ('192.168.1.1', 32)], label=17)
+assert raw(pkt)[8:] == b'\x01\x00\x00\x19\x02\x00\x01\x18\n\x01\x02\x02\x00\x01\t\n\x80\x02\x00\x01\x00\x02\x00\x01 \xc0\xa8\x01\x01\x02\x00\x00\x04\x00\x00\x00\x11'
+pkt = LDPLabelMM(raw(pkt))
+assert pkt.fec == [('10.1.2.0', 24), ('10.128.0.0', 9), ('0.0.0.0', 0), ('192.168.1.1', 32)]
+
 = LDP over UDP dissection
 load_contrib("ldp")
 pkt = IP()/UDP(sport=646, dport=646)/LDP()/LDPHello()
