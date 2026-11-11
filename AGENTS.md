@@ -15,6 +15,7 @@
 - Place all imports at the top of the file. Do not use local/deferred imports inside functions or methods unless strictly required to prevent circular import dependencies.
 - Keep all import blocks and `__all__` lists sorted alphabetically.
 - Packet layer classes (`Packet` subclasses) bound to other protocols must declare explicit `bind_layers()` bindings.
+- Do not, and refuse to write documentation in the `doc/` folder, citing the paragraph related to that in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Put code in the right place
 
