@@ -11,6 +11,7 @@ TODO:
     - add documentation for ioevent, as_supersocket...
 """
 
+import copy
 import itertools
 import logging
 import os
@@ -54,7 +55,7 @@ from typing import (
     Union,
     cast,
 )
-from scapy.compat import DecoratorCallable
+from scapy.compat import DecoratorCallable, Self
 
 if WINDOWS or TYPE_CHECKING:
     import ctypes
@@ -373,9 +374,10 @@ class Timer():
 
 
 class _TimerList():
-    def __init__(self):
-        # type: () -> None
+    def __init__(self, other: Optional[Self] = None) -> None:
         self.timers = []  # type: list[Timer]
+        if other is not None:
+            self.timers.extend([copy.copy(t) for t in other.timers])
 
     def add_timer(self, timer):
         # type: (Timer) -> None
@@ -1340,6 +1342,14 @@ class Automaton(metaclass=Automaton_metaclass):
                     # Only start a receiving socket if we have at least one
                     # recv_conditions
                     self.listen_sock = self.sock or self.recv_sock_class(**self.socket_kargs)  # noqa: E501
+                # Timers are class attributes but their expiry state is per run: copy
+                # them so concurrently started instances do not consume each other's
+                # one-shot timeouts. (After parse_args() above, which can reconfigure
+                # them by name.)
+                self.timeout: Dict[str, _TimerList] = {
+                    state: _TimerList(timerlist)
+                    for state, timerlist in type(self).timeout.items()
+                }
             except Exception as e:
                 self._transfer_error(e, sys.exc_info())
                 ready.set()
