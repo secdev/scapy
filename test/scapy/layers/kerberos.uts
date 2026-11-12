@@ -1915,7 +1915,7 @@ assert passiveState == GSS_S_COMPLETE
 assert passiveContext.passive
 assert passiveContext.ssp_context.passive
 
-= GSS_Accept_sec_context rejects a replayed AP-REQ
+= GSS_Accept_sec_context rejects a replayed AP-REQ without the replay flag
 
 from scapy.layers.gssapi import GSS_S_DUPLICATE_TOKEN
 

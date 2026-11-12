@@ -5150,7 +5150,19 @@ class KerberosSSP(SSP):
 
         - AES: RFC4121 sect 4.2.6.1
         """
-        Context.RecvSeqNum = signature.root.SND_SEQ
+        # [RFC4121] sect 4.2.1: per-message sequence numbers increase by one.
+        # [RFC2743] sect 1.2.3: replay detection and sequencing are optional
+        if (
+            not Context.passive
+            and Context.flags
+            & (GSS_C_FLAGS.GSS_C_REPLAY_FLAG | GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG)
+            and signature.root.SND_SEQ != Context.RecvSeqNum
+        ):
+            raise ValueError(
+                "ERROR: Sequence numbers don't match: received %s, expected %s"
+                % (signature.root.SND_SEQ, Context.RecvSeqNum)
+            )
+
         if Context.KrbSessionKey.etype in [17, 18]:  # AES
             # Concatenate the ToSign
             ToSign = b"".join(x.data for x in msgs if x.sign)
@@ -5161,8 +5173,11 @@ class KerberosSSP(SSP):
             )
         else:
             raise NotImplementedError
+
         if sig != signature.root.SGN_CKSUM:
             raise ValueError("ERROR: Checksums don't match")
+
+        Context.RecvSeqNum += 1
 
     def GSS_WrapEx(self, Context, msgs, qop_req: GSS_QOP_REQ_FLAGS = 0):
         """
@@ -5350,6 +5365,15 @@ class KerberosSSP(SSP):
         - HMAC-RC4: RFC4757 sect 7.3
         """
         if Context.KrbSessionKey.etype in [17, 18]:  # AES
+            # [RFC4121] sect 4.2.1; [RFC2743] sect 1.2.3
+            if (
+                not Context.passive
+                and Context.flags
+                & (GSS_C_FLAGS.GSS_C_REPLAY_FLAG | GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG)
+                and signature.root.SND_SEQ != Context.RecvSeqNum
+            ):
+                raise ValueError("ERROR: Sequence numbers don't match")
+
             confidentiality = signature.root.Flags.Sealed
             # Real separation starts now: RFC4121 sect 4.2.4
             if confidentiality:
@@ -5392,6 +5416,7 @@ class KerberosSSP(SSP):
                 hdr.root.RRC = 0
                 if f16header != bytes(hdr)[:16]:
                     raise ValueError("ERROR: Headers don't match")
+                Context.RecvSeqNum += 1
                 # 6. Split (and ignore filler)
                 offset = 0
                 for msg in msgs:
@@ -5429,6 +5454,7 @@ class KerberosSSP(SSP):
                 # 4. Compare
                 if sig != Mic:
                     raise ValueError("ERROR: Checksums don't match")
+                Context.RecvSeqNum += 1
                 # Case without msgs
                 if len(msgs) == 1 and not msgs[0].data:
                     msgs[0].data = Data
@@ -5453,6 +5479,14 @@ class KerberosSSP(SSP):
             # 2. Decrypt 'SND_SEQ'
             rc4 = Cipher(decrepit_algorithms.ARC4(Kseq), mode=None).encryptor()
             seq = rc4.update(tok.root.SND_SEQ)[:4]
+            # [RFC4757] sect 7.3; [RFC2743] sect 1.2.3
+            if (
+                not Context.passive
+                and Context.flags
+                & (GSS_C_FLAGS.GSS_C_REPLAY_FLAG | GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG)
+                and struct.unpack(">I", seq)[0] != Context.RecvSeqNum
+            ):
+                raise ValueError("ERROR: Sequence numbers don't match")
             # 3. Compute the 'Kcrypt' key
             Klocal = strxor(Kss, len(Kss) * b"\xf0")
             if Context.KrbSessionKey.etype == 24:  # EXP
@@ -5484,6 +5518,7 @@ class KerberosSSP(SSP):
                 text=bytes(tok)[:8] + Confounder + ToSign,
                 cksum=tok.root.SGN_CKSUM,
             )
+            Context.RecvSeqNum += 1
             return msgs
         else:
             raise NotImplementedError
@@ -5802,6 +5837,8 @@ class KerberosSSP(SSP):
 
             # Retrieve SessionKey
             repPart = ap_rep.encPart.decrypt(Context.STSessionKey)
+            # [RFC4120] sect 3.2.5: initial sequence number for server messages.
+            Context.RecvSeqNum = repPart.seqNumber.val if repPart.seqNumber else 0
             if repPart.subkey is not None:
                 Context.SessionKey = repPart.subkey.keyvalue.val
                 Context.KrbSessionKey = repPart.subkey.toKey()
@@ -5981,65 +6018,6 @@ class KerberosSSP(SSP):
             Context.STSessionKey = tkt.key.toKey()
             authenticator = ap_req.authenticator.decrypt(Context.STSessionKey)
 
-            # Check the ticket validity period, the authenticator timestamp and
-            # prevent against replays.
-            # [RFC4120] sect 3.2.3
-            if not Context.passive:
-                starttime = (tkt.starttime or tkt.authtime).datetime
-                endtime = tkt.endtime.datetime
-                ctime = authenticator.getClientTime()
-                replay_key = (authenticator.getUPN(), ctime)
-                errorCode = None
-                gssErrorCode = GSS_S_DEFECTIVE_CREDENTIAL
-                if not starttime or starttime - now_time > KRB_MaxClockSkew:
-                    errorCode = "KRB_AP_ERR_TKT_NYV"
-                elif not endtime or now_time - endtime > KRB_MaxClockSkew:
-                    errorCode = "KRB_AP_ERR_TKT_EXPIRED"
-                    gssErrorCode = GSS_S_CREDENTIALS_EXPIRED
-                elif not ctime or abs(ctime - now_time) > KRB_MaxClockSkew:
-                    errorCode = "KRB_AP_ERR_SKEW"
-                elif replay_key in self.ReplayCache:
-                    errorCode = "KRB_AP_ERR_REPEAT"
-                    gssErrorCode = GSS_S_DUPLICATE_TOKEN
-                # Don't check times in passive mode: the capture may be old.
-                if errorCode:
-                    warning("KerberosSSP: %s" % errorCode)
-                    err = KRB_GSSAPI_Token(
-                        innerToken=KRB_InnerToken(
-                            TOK_ID=b"\x03\x00",
-                            root=KRB_ERROR(
-                                errorCode=errorCode,
-                                stime=ASN1_GENERALIZED_TIME(now_time),
-                                susec=ASN1_INTEGER(now_time.microsecond),
-                                realm=ap_req.ticket.realm,
-                                sname=ap_req.ticket.sname,
-                                eData=None,
-                            ),
-                        )
-                    )
-                    return Context, err, gssErrorCode
-
-                # Store the time for future detections
-                self.ReplayCache[replay_key] = ctime + KRB_MaxClockSkew
-
-                # We take that opportunity to cleanup any expired items
-                for key, expiry in list(self.ReplayCache.items()):
-                    if expiry < now_time:
-                        self.ReplayCache.pop(key, None)
-
-            # Compute an application session key ([MS-KILE] sect 3.1.1.2)
-            subkey = None
-            if ap_req.apOptions.val[2] == "1":  # mutual-required
-                appkey = Key.new_random_key(
-                    self.SKEY_TYPE,
-                )
-                Context.KrbSessionKey = appkey
-                Context.SessionKey = appkey.key
-                subkey = EncryptionKey.fromKey(appkey)
-            else:
-                Context.KrbSessionKey = self.KEY
-                Context.SessionKey = self.KEY.key
-
             # Eventually process the "checksum"
             if authenticator.cksum and authenticator.cksum.cksumtype == 0x8003:
                 # KRB-Authenticator
@@ -6062,6 +6040,70 @@ class KerberosSSP(SSP):
             ):
                 # Uhoh, we required channel bindings
                 return Context, None, GSS_S_BAD_BINDINGS
+
+            # [RFC4120] sect 3.2.3: initial sequence number for client messages.
+            Context.RecvSeqNum = (
+                authenticator.seqNumber.val if authenticator.seqNumber else 0
+            )
+
+            # Check the ticket validity period, the authenticator timestamp and
+            # prevent against replays.
+            # [RFC4120] sect 3.2.3
+            if not Context.passive:
+                starttime = (tkt.starttime or tkt.authtime).datetime
+                endtime = tkt.endtime.datetime
+                ctime = authenticator.getClientTime()
+                replay_key = (authenticator.getUPN(), ctime)
+                errorCode = None
+                gssErrorCode = GSS_S_DEFECTIVE_CREDENTIAL
+                if not starttime or starttime - now_time > KRB_MaxClockSkew:
+                    errorCode = "KRB_AP_ERR_TKT_NYV"
+                elif not endtime or now_time - endtime > KRB_MaxClockSkew:
+                    errorCode = "KRB_AP_ERR_TKT_EXPIRED"
+                    gssErrorCode = GSS_S_CREDENTIALS_EXPIRED
+                elif not ctime or abs(ctime - now_time) > KRB_MaxClockSkew:
+                    errorCode = "KRB_AP_ERR_SKEW"
+                elif replay_key in self.ReplayCache:
+                    errorCode = "KRB_AP_ERR_REPEAT"
+                    gssErrorCode = GSS_S_DUPLICATE_TOKEN
+
+                if errorCode:
+                    warning("KerberosSSP: %s" % errorCode)
+                    err = KRB_GSSAPI_Token(
+                        innerToken=KRB_InnerToken(
+                            TOK_ID=b"\x03\x00",
+                            root=KRB_ERROR(
+                                errorCode=errorCode,
+                                stime=ASN1_GENERALIZED_TIME(now_time),
+                                susec=ASN1_INTEGER(now_time.microsecond),
+                                realm=ap_req.ticket.realm,
+                                sname=ap_req.ticket.sname,
+                                eData=None,
+                            ),
+                        )
+                    )
+                    return Context, err, gssErrorCode
+
+                # Cache authenticators to avoid replay
+                self.ReplayCache[replay_key] = ctime + KRB_MaxClockSkew
+
+                # We take that opportunity to cleanup any expired items
+                for key, expiry in list(self.ReplayCache.items()):
+                    if expiry < now_time:
+                        self.ReplayCache.pop(key, None)
+
+            # Compute an application session key ([MS-KILE] sect 3.1.1.2)
+            subkey = None
+            if ap_req.apOptions.val[2] == "1":  # mutual-required
+                appkey = Key.new_random_key(
+                    self.SKEY_TYPE,
+                )
+                Context.KrbSessionKey = appkey
+                Context.SessionKey = appkey.key
+                subkey = EncryptionKey.fromKey(appkey)
+            else:
+                Context.KrbSessionKey = self.KEY
+                Context.SessionKey = self.KEY.key
 
             # Build response (RFC4120 sect 3.2.4)
             ap_rep = KRB_AP_REP(encPart=EncryptedData())
@@ -6158,6 +6200,7 @@ class KerberosSSP(SSP):
         if Context.IsAcceptor is not IsAcceptor:
             return
         # Swap everything
+        Context.SendSeqNum, Context.RecvSeqNum = Context.RecvSeqNum, Context.SendSeqNum
         Context.SendSealKeyUsage, Context.RecvSealKeyUsage = (
             Context.RecvSealKeyUsage,
             Context.SendSealKeyUsage,
