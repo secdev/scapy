@@ -9,17 +9,17 @@ Packet holding data encoded in Concise Binary Object Representation (CBOR).
 Modelled after scapy/asn1packet.py.
 """
 
-from scapy.base_classes import Packet_metaclass
-from scapy.packet import Packet
-
 from typing import (
     Any,
     Dict,
+    Optional,
     Tuple,
     Type,
-    Optional,
     cast,
 )
+
+from scapy.base_classes import Packet_metaclass
+from scapy.packet import Packet
 
 
 class CBORPacket_metaclass(Packet_metaclass):

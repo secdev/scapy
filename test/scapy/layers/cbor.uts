@@ -10,6 +10,22 @@
 
 ########### CBOR Basic Types #######################################
 
++ CBOR header lengths
+
+= Indefinite headers use None while definite empty headers use zero
+from scapy.cbor.cborcodec import CBOR_decode_head
+
+for buffer_type in (bytes, bytearray, memoryview):
+    for major_type in (2, 3, 4, 5):
+        indefinite = buffer_type(bytes([(major_type << 5) | 31, 255]))
+        major, length, remaining = CBOR_decode_head(indefinite)
+        assert major == major_type and length is None
+        assert bytes(remaining) == b"\xff"
+        definite = buffer_type(bytes([major_type << 5]))
+        major, length, remaining = CBOR_decode_head(definite)
+        assert major == major_type and length == 0
+        assert not remaining
+
 + CBOR Unsigned Integer
 
 = Encode small unsigned integer (0-23)
@@ -2747,7 +2763,7 @@ except ValueError:
     pass
 
 
-+ Finding 5: recursive CBORF_ANY mutations must invalidate the raw cache
++ Recursive CBORF_ANY mutations appear in rebuilt bytes
 
 = Appending to a decoded root CBORF_ANY array changes serialized bytes
 from scapy.cbor.cbor import (
@@ -5063,7 +5079,7 @@ class FloatPkt(CBOR_Packet):
 wire = b"\xf9\x3e\x00"  # 1.5 as half
 pkt = FloatPkt(wire)
 assert abs(pkt.value - 1.5) < 1e-6
-assert bytes(pkt) == wire  # untouched raw cache
+assert bytes(pkt) == wire  # already in preferred encoding
 pkt.raw_packet_cache = None
 pkt.raw_packet_cache_fields = None
 assert bytes(pkt) == wire  # preferred encoding for 1.5 is half
@@ -5229,7 +5245,7 @@ except TypeError:
 else:
     raise AssertionError("bytes were coerced via str(bytes)")
 
-= CBORF_ANY preserves non-preferred float wire only while raw cache is valid
+= CBORF_ANY float objects preserve received bits until their value is assigned
 from scapy.cbor.cbor import CBOR_FLOAT
 from scapy.cbor.cborfields import CBORF_ANY
 from scapy.cborpacket import CBOR_Packet
@@ -5281,7 +5297,7 @@ rebuilt = bytes(pkt)
 parsed = AnyFloatMutPkt(rebuilt)
 assert parsed.value.val == 2.0
 
-= CBORF_ANY same-value float mutation invalidates the packet raw cache
+= CBORF_ANY same-value float assignment rebuilds preferred encoding
 from scapy.cbor.cbor import CBOR_FLOAT
 from scapy.cbor.cborfields import CBORF_ANY
 from scapy.cborpacket import CBOR_Packet
@@ -5863,7 +5879,7 @@ pkt = MapWithUnknown(wire)
 assert pkt.a == 1
 assert len(pkt.unknown_pairs) == 1
 assert isinstance(pkt.unknown_pairs[0][1], CBOR_FLOAT)
-pkt.a = 2  # invalidate raw cache; unknown members rebuild deterministically
+pkt.a = 2  # unknown members rebuild deterministically
 rebuilt = bytes(pkt)
 assert b"\x61a\x02" in rebuilt
 # preferred half NaN with the same identity
@@ -5988,7 +6004,7 @@ class LifeMap(CBOR_Packet):
 
 wire = b"\xa2\x61a\x01\x61x\x0a"
 pkt = LifeMap(wire)
-pkt.a = 2  # clears explicit / raw cache
+pkt.a = 2
 assert bytes(pkt) == b"\xa2\x61a\x02\x61x\x0a"
 iterated = next(iter(pkt))
 assert bytes(iterated) == b"\xa2\x61a\x02\x61x\x0a"

@@ -19,18 +19,25 @@ from typing import (
     List,
     Optional,
     Set,
+    TYPE_CHECKING,
     Tuple,
     Type,
     TypeVar,
     Union,
     cast,
-    TYPE_CHECKING,
 )
 
 from scapy.compat import plain_str
-from scapy.error import Scapy_Exception, log_runtime
-from scapy.utils import Enum_metaclass, EnumElement
+from scapy.error import (
+    Scapy_Exception,
+    log_runtime,
+)
+from scapy.utils import (
+    EnumElement,
+    Enum_metaclass,
+)
 from scapy.volatile import RandField
+
 
 if TYPE_CHECKING:
     from scapy.cbor import CBORcodec_Object
@@ -834,6 +841,7 @@ def _cbor_float_key_identity(value, encoded=None):
     and sign survive Python's NaN canonicalization.
     """
     if encoded is not None:
+        # The codec imports these object definitions during module loading.
         from scapy.cbor.cborcodec import (
             cbor_float_from_bits,
             cbor_nan_components,

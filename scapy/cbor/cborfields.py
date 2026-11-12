@@ -5,71 +5,10 @@
 """
 Classes that implement CBOR (Concise Binary Object Representation) data
 structures as packet fields.  Modelled after scapy/asn1fields.py.
-
-Public leaf/compound hooks follow Scapy/ASN.1 style (``any2i`` / ``i2m`` /
-``m2i``, ``build`` / ``dissect``). Compounds additionally use
-``_build_counted`` / ``_dissect_counted`` so unframed sequences and array
-budgeting can return an item count; callers outside this module should
-prefer ``build`` / ``dissect``.
 """
 
 import copy
-
 from dataclasses import dataclass
-
-from scapy.cbor.cbor import (
-    CBOR_AdditionalInfo,
-    CBOR_Decoding_Error,
-    CBOR_Encoding_Error,
-    CBOR_FloatAI,
-    CBOR_MajorTypes,
-    CBOR_Object,
-    CBOR_SimpleValue,
-    CBOR_UINT64_MAX,
-    CBOR_UNSIGNED_INTEGER,
-    CBOR_NEGATIVE_INTEGER,
-    CBOR_BYTE_STRING,
-    CBOR_TEXT_STRING,
-    CBOR_ARRAY,
-    CBOR_SEMANTIC_TAG,
-    CBOR_FALSE,
-    CBOR_TRUE,
-    CBOR_NULL,
-    CBOR_UNDEFINED,
-    CBOR_NO_ITEM,
-    CBOR_FLOAT,
-    CBOR_MAP,
-    CBOR_SIMPLE_VALUE,
-)
-from scapy.cbor.cborcodec import (
-    CBOR_BREAK_BYTE,
-    CBOR_Codec_Decoding_Error,
-    CBOR_INDEFINITE,
-    CBOR_decode_head,
-    CBOR_encode_head,
-    CBOR_encode_initial,
-    cbor_count_items,
-    cbor_item_span,
-    cbor_is_break,
-    cbor_consume_break,
-    CBORcodec_Object,
-    CBORcodec_UNSIGNED_INTEGER,
-    CBORcodec_NEGATIVE_INTEGER,
-    CBORcodec_BYTE_STRING,
-    CBORcodec_TEXT_STRING,
-    CBORcodec_SIMPLE_AND_FLOAT,
-)
-from scapy.packet import Packet
-from scapy.volatile import (
-    RandChoice,
-    RandFloat,
-    RandNum,
-    RandString,
-    RandField,
-)
-
-from scapy import packet, fields, config
-
 from typing import (
     Any,
     Callable,
@@ -83,11 +22,66 @@ from typing import (
     TypeVar,
     Union,
     cast,
-    TYPE_CHECKING,
 )
 
-if TYPE_CHECKING:
-    from scapy.cborpacket import CBOR_Packet  # noqa: F401
+from scapy import (
+    config,
+    fields,
+    packet,
+)
+from scapy.cbor.cbor import (
+    CBORMapData,
+    CBOR_ARRAY,
+    CBOR_AdditionalInfo,
+    CBOR_BYTE_STRING,
+    CBOR_Decoding_Error,
+    CBOR_Encoding_Error,
+    CBOR_FALSE,
+    CBOR_FLOAT,
+    CBOR_FloatAI,
+    CBOR_MAP,
+    CBOR_MajorTypes,
+    CBOR_NEGATIVE_INTEGER,
+    CBOR_NO_ITEM,
+    CBOR_NULL,
+    CBOR_Object,
+    CBOR_SEMANTIC_TAG,
+    CBOR_SIMPLE_VALUE,
+    CBOR_SimpleValue,
+    CBOR_TEXT_STRING,
+    CBOR_TRUE,
+    CBOR_UINT64_MAX,
+    CBOR_UNDEFINED,
+    CBOR_UNSIGNED_INTEGER,
+    cbor_map_pairs,
+)
+from scapy.cbor.cborcodec import (
+    CBOR_BREAK_BYTE,
+    CBOR_Codec_Decoding_Error,
+    CBOR_decode_head,
+    CBOR_encode_head,
+    CBOR_encode_initial,
+    CBORcodec_BYTE_STRING,
+    CBORcodec_NEGATIVE_INTEGER,
+    CBORcodec_Object,
+    CBORcodec_SIMPLE_AND_FLOAT,
+    CBORcodec_TEXT_STRING,
+    CBORcodec_UNSIGNED_INTEGER,
+    cbor_consume_break,
+    cbor_count_items,
+    cbor_is_break,
+    cbor_item_span,
+    cbor_skip_item,
+)
+from scapy.cborpacket import CBOR_Packet
+from scapy.packet import Packet
+from scapy.volatile import (
+    RandChoice,
+    RandField,
+    RandFloat,
+    RandNum,
+    RandString,
+)
 
 
 class CBOR_Type_Mismatch(CBOR_Decoding_Error):
@@ -165,11 +159,13 @@ class CBORF_element(object):
             if max_items is None:
                 remaining = self.dissect(pkt, s)
             else:
+                if max_items > self._list_limit():
+                    self._check_list_limit(max_items)
                 # Bound the tail before invoking the public hook, so a
                 # subclass needs only the usual dissect(pkt, bytes) API.
                 tail = memoryview(s)
                 for index in range(max_items):
-                    item, tail = cbor_item_span(tail)
+                    tail = cbor_skip_item(tail)
                 boundary = len(s) - len(tail)
                 remaining = self.dissect(pkt, s[:boundary]) + s[boundary:]
             items = len(pkt.getfieldval(self.name))
@@ -296,7 +292,6 @@ class CBORF_field(CBORF_element, Generic[_I]):
         if isinstance(obj, CBOR_ARRAY):
             return [CBORF_field._object_to_python(item) for item in obj.val]
         if isinstance(obj, CBOR_MAP):
-            from scapy.cbor.cbor import CBORMapData, cbor_map_pairs
             pairs = cbor_map_pairs(obj)
             return CBORMapData([
                 (CBORF_field._object_to_python(k),
@@ -435,19 +430,6 @@ class CBORF_ANY(CBORF_field[Any]):
     def python_to_cbor_object(value):
         # type: (Any) -> Any
         """Convert native Python values into a :class:`CBOR_Object` tree."""
-        from scapy.cbor.cbor import (
-            CBOR_ARRAY,
-            CBOR_BYTE_STRING,
-            CBOR_FALSE,
-            CBOR_FLOAT,
-            CBOR_MAP,
-            CBOR_NEGATIVE_INTEGER,
-            CBOR_NULL,
-            CBOR_TEXT_STRING,
-            CBOR_TRUE,
-            CBOR_UNSIGNED_INTEGER,
-            CBORMapData,
-        )
         convert = CBORF_ANY.python_to_cbor_object
         if isinstance(value, CBOR_Object):
             return value
@@ -640,7 +622,7 @@ def _cbor_decode_byte_string(s, definite_only=False):
         if major_type != CBOR_MajorTypes.BYTE_STRING:
             raise CBOR_Type_Mismatch(
                 "Expected byte string, got major type %d" % major_type)
-        if length is CBOR_INDEFINITE:
+        if length is None:
             raise CBOR_Decoding_Error(
                 "Indefinite-length byte string not allowed here")
     obj, remain = CBORcodec_BYTE_STRING.dec(s)
@@ -1230,7 +1212,7 @@ class CBORF_ARRAY(_CBORF_compound):
         if major_type != CBOR_MajorTypes.ARRAY:
             raise CBOR_Type_Mismatch(
                 "Expected major type 4 (array), got %d" % major_type)
-        if count is CBOR_INDEFINITE:
+        if count is None:
             # Lightweight head/span walk — avoid building CBOR_Object trees
             # just to learn the item budget before the schema pass.
             child_max = sum(
@@ -1341,7 +1323,6 @@ class CBORF_COLLECTION(CBORF_field[List[Any]]):
     def _require_packet_cls(pkt_cls):
         # type: (Any) -> Type[CBOR_Packet]
         """Validate a CBOR_Packet subclass with a non-None CBOR_root."""
-        from scapy.cborpacket import CBOR_Packet
         if (
             isinstance(pkt_cls, type)
             and issubclass(pkt_cls, CBOR_Packet)
@@ -1545,7 +1526,7 @@ class CBORF_ARRAY_OF(CBORF_COLLECTION):
             raise CBOR_Type_Mismatch(
                 "Expected major type 4 (array), got %d" % major_type)
         lst = []  # type: List[Any]
-        if count is CBOR_INDEFINITE:
+        if count is None:
             while True:
                 if cbor_is_break(s):
                     s = cbor_consume_break(s)
@@ -1787,7 +1768,7 @@ class CBORF_MAP(CBORF_element):
                 unknown_pairs.append((key, val_obj))
 
         limit = config.conf.max_list_count
-        if count is CBOR_INDEFINITE:
+        if count is None:
             while True:
                 if cbor_is_break(remaining):
                     remaining = cbor_consume_break(remaining)
@@ -1899,6 +1880,7 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
         if major_type != CBOR_MajorTypes.TAG:
             raise CBOR_Type_Mismatch(
                 "Expected major type 6 (semantic tag), got %d" % major_type)
+        tag_num = cast(int, tag_num)
         if tag_num != self.tag_num:
             raise CBOR_Type_Mismatch(
                 "Expected tag %d, got %d" % (self.tag_num, tag_num))

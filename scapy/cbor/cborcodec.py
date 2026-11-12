@@ -24,12 +24,11 @@ from typing import (
     cast,
 )
 
-from scapy.utils import EnumElement
 from scapy.cbor.cbor import (
     CBORKeyNorm,
     CBORMapData,
-    CBOR_AdditionalInfo,
     CBOR_ARRAY,
+    CBOR_AdditionalInfo,
     CBOR_Codecs,
     CBOR_DECODING_ERROR,
     CBOR_Decoding_Error,
@@ -38,8 +37,8 @@ from scapy.cbor.cbor import (
     CBOR_FALSE,
     CBOR_FLOAT,
     CBOR_FloatAI,
-    CBOR_MajorTypes,
     CBOR_MAP,
+    CBOR_MajorTypes,
     CBOR_NULL,
     CBOR_Object,
     CBOR_SEMANTIC_TAG,
@@ -55,6 +54,7 @@ from scapy.cbor.cbor import (
 )
 from scapy.compat import chb
 from scapy.error import log_runtime
+from scapy.utils import EnumElement
 
 
 MAX_CBOR_NESTING = 128
@@ -73,10 +73,6 @@ _CBORHeadInt = Union[int, EnumElement]
 
 class CBOR_Exception(Exception):
     pass
-
-
-class CBOR_INDEFINITE(object):
-    """Marker returned by :func:`CBOR_decode_head` for indefinite-length items."""
 
 
 class CBOR_Codec_Encoding_Error(CBOR_Encoding_Error):
@@ -181,7 +177,7 @@ def cbor_consume_break(s):
     return s[1:]
 
 
-def _cbor_skip_item(s, depth=0):
+def cbor_skip_item(s, depth=0):
     # type: (_CBORBufT, int) -> _CBORBufT
     """Advance past one well-formed CBOR item without building objects."""
     if depth > MAX_CBOR_NESTING:
@@ -199,7 +195,7 @@ def _cbor_skip_item(s, depth=0):
         CBOR_MajorTypes.BYTE_STRING,
         CBOR_MajorTypes.TEXT_STRING,
     ):
-        if value is CBOR_INDEFINITE:
+        if value is None:
             expected_type = major_type
             while rem and not cbor_is_break(rem):
                 chunk_type, chunk_len, rem = CBOR_decode_head(rem)
@@ -208,7 +204,7 @@ def _cbor_skip_item(s, depth=0):
                         "Indefinite string chunk must be major type %d, "
                         "got %d" % (expected_type, chunk_type),
                         remaining=_cbor_buf_bytes(rem))
-                if chunk_len is CBOR_INDEFINITE:
+                if chunk_len is None:
                     raise CBOR_Codec_Decoding_Error(
                         "Nested indefinite string",
                         remaining=_cbor_buf_bytes(rem))
@@ -226,25 +222,25 @@ def _cbor_skip_item(s, depth=0):
                 remaining=_cbor_buf_bytes(rem))
         return rem[length:]
     if major_type == CBOR_MajorTypes.ARRAY:
-        if value is CBOR_INDEFINITE:
+        if value is None:
             while rem and not cbor_is_break(rem):
-                rem = _cbor_skip_item(rem, depth + 1)
+                rem = cbor_skip_item(rem, depth + 1)
             return cbor_consume_break(rem)
         for _ in range(int(value)):
-            rem = _cbor_skip_item(rem, depth + 1)
+            rem = cbor_skip_item(rem, depth + 1)
         return rem
     if major_type == CBOR_MajorTypes.MAP:
-        if value is CBOR_INDEFINITE:
+        if value is None:
             while rem and not cbor_is_break(rem):
-                rem = _cbor_skip_item(rem, depth + 1)
-                rem = _cbor_skip_item(rem, depth + 1)
+                rem = cbor_skip_item(rem, depth + 1)
+                rem = cbor_skip_item(rem, depth + 1)
             return cbor_consume_break(rem)
         for _ in range(int(value)):
-            rem = _cbor_skip_item(rem, depth + 1)
-            rem = _cbor_skip_item(rem, depth + 1)
+            rem = cbor_skip_item(rem, depth + 1)
+            rem = cbor_skip_item(rem, depth + 1)
         return rem
     if major_type == CBOR_MajorTypes.TAG:
-        return _cbor_skip_item(rem, depth + 1)
+        return cbor_skip_item(rem, depth + 1)
     raise CBOR_Codec_Decoding_Error(
         "Invalid major type: %d" % major_type,
         remaining=_cbor_buf_bytes(rem),
@@ -263,7 +259,7 @@ def cbor_count_items(s, max_count=None, until_break=False):
     while rem and not (until_break and cbor_is_break(rem)):
         if max_count is not None and count >= max_count:
             break
-        rem = _cbor_skip_item(rem)
+        rem = cbor_skip_item(rem)
         count += 1
     return count
 
@@ -272,21 +268,22 @@ def cbor_item_span(s):
     # type: (_CBORBuf) -> Tuple[bytes, bytes]
     """Split *s* into the first structural CBOR item and the remainder.
 
-    Uses :func:`_cbor_skip_item` for boundary finding only. Callers that must
+    Uses :func:`cbor_skip_item` for boundary finding only. Callers that must
     reject semantically invalid CBOR (invalid UTF-8, duplicate map keys, …)
     should decode with :meth:`CBORcodec_Object.decode_cbor_item` instead.
     """
     rem = s if isinstance(s, memoryview) else memoryview(s)
-    after = _cbor_skip_item(rem)
+    after = cbor_skip_item(rem)
     n = len(s) - len(after)
     return bytes(s[:n]), bytes(s[n:])
 
 
 def CBOR_decode_head(s):
-    # type: (_CBORBuf) -> Tuple[int, Union[int, CBOR_INDEFINITE], _CBORBuf]
+    # type: (_CBORBufT) -> Tuple[int, Optional[int], _CBORBufT]
     """
     Decode CBOR initial byte and additional info.
-    Returns: (major_type, value, remaining_bytes)
+    Returns: (major_type, value, remaining_bytes). Indefinite lengths
+    have value=None; a definite empty value has value=0.
     """
     if not s:
         raise CBOR_Codec_Decoding_Error(
@@ -346,7 +343,7 @@ def CBOR_decode_head(s):
                 CBOR_MajorTypes.ARRAY,
                 CBOR_MajorTypes.MAP,
         ):
-            return major_type, CBOR_INDEFINITE, s[1:]
+            return major_type, None, s[1:]
         raise CBOR_Codec_Decoding_Error(
             "Indefinite length not allowed for major type %d" %
             major_type, remaining=_cbor_buf_bytes(s))
@@ -789,7 +786,7 @@ class CBORcodec_UNSIGNED_INTEGER(CBORcodec_Object[int]):
             raise CBOR_Codec_Decoding_Error(
                 "Expected major type 0 (unsigned integer), got %d" % major_type,
                 remaining=s)
-        return cls.cbor_object(value), remainder
+        return cls.cbor_object(cast(int, value)), remainder
 
 
 class CBORcodec_NEGATIVE_INTEGER(CBORcodec_Object[int]):
@@ -825,7 +822,7 @@ class CBORcodec_NEGATIVE_INTEGER(CBORcodec_Object[int]):
                 "Expected major type 1 (negative integer), got %d" % major_type,
                 remaining=s)
         # Decode: -1 - n
-        return cls.cbor_object(-1 - value), remainder
+        return cls.cbor_object(-1 - cast(int, value)), remainder
 
 
 class CBORcodec_BYTE_STRING(CBORcodec_Object[bytes]):
@@ -854,7 +851,7 @@ class CBORcodec_BYTE_STRING(CBORcodec_Object[bytes]):
             raise CBOR_Codec_Decoding_Error(
                 "Expected major type 2 (byte string), got %d" % major_type,
                 remaining=s)
-        if length is CBOR_INDEFINITE:
+        if length is None:
             chunks = []  # type: List[bytes]
             while True:
                 if cbor_is_break(remainder):
@@ -865,7 +862,7 @@ class CBORcodec_BYTE_STRING(CBORcodec_Object[bytes]):
                     raise CBOR_Codec_Decoding_Error(
                         "Indefinite byte string chunk must be major type 2",
                         remaining=remainder)
-                if chunk_len is CBOR_INDEFINITE:
+                if chunk_len is None:
                     raise CBOR_Codec_Decoding_Error(
                         "Nested indefinite byte string", remaining=remainder)
                 if len(remainder) < chunk_len:
@@ -917,7 +914,7 @@ class CBORcodec_TEXT_STRING(CBORcodec_Object[str]):
             raise CBOR_Codec_Decoding_Error(
                 "Expected major type 3 (text string), got %d" % major_type,
                 remaining=s)
-        if length is CBOR_INDEFINITE:
+        if length is None:
             decoded_chunks = []  # type: List[str]
             while True:
                 if cbor_is_break(remainder):
@@ -928,7 +925,7 @@ class CBORcodec_TEXT_STRING(CBORcodec_Object[str]):
                     raise CBOR_Codec_Decoding_Error(
                         "Indefinite text string chunk must be major type 3",
                         remaining=remainder)
-                if chunk_len is CBOR_INDEFINITE:
+                if chunk_len is None:
                     raise CBOR_Codec_Decoding_Error(
                         "Nested indefinite text string", remaining=remainder)
                 if len(remainder) < chunk_len:
@@ -989,7 +986,7 @@ class CBORcodec_ARRAY(CBORcodec_Object[List[Any]]):
                 remaining=s)
 
         items = []
-        if length is CBOR_INDEFINITE:
+        if length is None:
             while True:
                 if cbor_is_break(remainder):
                     remainder = cbor_consume_break(remainder)
@@ -1061,7 +1058,7 @@ class CBORcodec_MAP(CBORcodec_Object[Any]):
             seen_norms.add(norm)
             pairs.append((key, value))
 
-        if length is CBOR_INDEFINITE:
+        if length is None:
             while True:
                 if cbor_is_break(remainder):
                     remainder = cbor_consume_break(remainder)
@@ -1132,7 +1129,7 @@ class CBORcodec_SEMANTIC_TAG(CBORcodec_Object[Tuple[int, Any]]):
 
         item, remainder = CBORcodec_Object.decode_cbor_item(
             remainder, depth=_depth + 1)
-        return cls.cbor_object((tag_num, item)), remainder
+        return cls.cbor_object((cast(int, tag_num), item)), remainder
 
 
 class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]):
