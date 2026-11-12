@@ -95,6 +95,32 @@ for failure, input_count, use_native_socket in [
     win_error.assert_called_once_with()
     if use_native_socket:
         assert ws2_32.WSACloseEvent.call_count == 1
+
+= Automaton - Created events are closed if input setup fails
+~ automaton
+
+native_socket = mock.Mock()
+native_socket.fileno.return_value = 10
+native_socket.__selectable_force_select__ = True
+bad_input = mock.Mock()
+setup_error = OSError("fileno failed")
+bad_input.fileno.side_effect = setup_error
+ws2_32 = mock.Mock()
+ws2_32.WSACreateEvent.return_value = 100
+ws2_32.WSAEventSelect.return_value = 0
+windll = mock.Mock(ws2_32=ws2_32)
+with mock.patch.object(_automaton, "WINDOWS", True):
+    with mock.patch.object(_automaton, "ctypes", _ctypes, create=True):
+        with mock.patch.object(_ctypes, "windll", windll, create=True):
+            try:
+                select_objects([native_socket, bad_input], 0)
+            except OSError as error:
+                assert error is setup_error
+            else:
+                assert False, "Input setup errors must propagate"
+
+ws2_32.WSACloseEvent.assert_called_once_with(100)
+
 ############
 ############
 + Windows arch unit tests
