@@ -391,14 +391,11 @@ class Packet(
             if for_dissect_only:
                 return
 
-            # Deepcopy default references
+            # Deepcopy default references into fields (list/dict/Packet/…)
             for fname in Packet.class_default_fields_ref[cls_name]:
                 value = self.default_fields[fname]
-                try:
-                    self.fields[fname] = value.copy()
-                except AttributeError:
-                    # Python 2.7 - list only
-                    self.fields[fname] = value[:]
+                fld = self.fieldtype[fname]
+                self.fields[fname] = fld.do_copy(value)
 
     def prepare_cached_fields(self, flist):
         # type: (Sequence[AnyField]) -> None
@@ -430,7 +427,7 @@ class Packet(
             if f.holds_packets:
                 class_packetfields.append(f)
 
-            # Remember references
+            # list/dict/set/Packet/RandField: promote copies into fields
             if isinstance(f.default, (list, dict, set, RandField, Packet)):
                 class_default_fields_ref.append(f.name)
 
