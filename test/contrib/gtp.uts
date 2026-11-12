@@ -425,6 +425,14 @@ assert ie.ietype == 251 and ie.address == '::1'
 ie = IE_CharginGatewayAddress(address='2001:db8::2')
 assert raw(ie) == hex_bytes("fb0010" "20010db8000000000000000000000002")
 
+= IE_CharginGatewayAddress(), build/dissect with length
+r = raw(IE_CharginGatewayAddress(length=4, address='10.42.0.2'))
+assert r == hex_bytes("fb0004" "0a2a0002")
+assert IE_CharginGatewayAddress(r).address == '10.42.0.2'
+r = raw(IE_CharginGatewayAddress(length=16, address='fd01:1::2'))
+assert r == hex_bytes("fb0010" "fd010001000000000000000000000002")
+assert IE_CharginGatewayAddress(r).address == 'fd01:1::2'
+
 = IE_PrivateExtension(), basic instantiation
 ie = IE_PrivateExtension(extention_value='hello')
 ie.ietype == 255 and ie.extention_value == b'hello'
