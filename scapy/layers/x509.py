@@ -760,8 +760,7 @@ class X509_ExtExtendedKeyUsage(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE_OF("extendedKeyUsage", [], ASN1P_OID)
 
     def get_extendedKeyUsage(self):
-        eku_array = self.extendedKeyUsage
-        return [eku.oid.oidname for eku in eku_array]
+        return [eku.oid for eku in self.extendedKeyUsage]
 
 
 class X509_ExtNoticeReference(ASN1_Packet):

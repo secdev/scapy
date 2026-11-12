@@ -4268,6 +4268,7 @@ class KerberosClient(Automaton):
                             padata.padataValue.rep.dhSignedData,
                             eContentType=ASN1_OID("id-pkinit-DHKeyData"),
                             no_verify_cert=self.no_verify_cert,
+                            ekus=[ASN1_OID("id-pkinit-KPKdc")],
                         )
 
                         # If 'etype' is None, we're in an error. Since we verified

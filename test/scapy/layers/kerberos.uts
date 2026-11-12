@@ -281,7 +281,12 @@ cms = CMS_Engine(CertList([ca]))
 # allow_expired: this is a real captured MIT Kerberos exchange, and its client
 # certificate was valid 2025-09-20 to 2026-09-20. The signature it carries is
 # genuine; only the clock has moved on.
-authpack = cms.verify(signedauthpack, ASN1_OID('id-pkinit-authData'), allow_expired=True)
+authpack = cms.verify(
+    signedauthpack,
+    ASN1_OID('id-pkinit-authData'),
+    allow_expired=True,
+    ekus=[ASN1_OID('emailProtection'), ASN1_OID('clientAuth')],
+)
 assert isinstance(authpack, KRB_AuthPack)
 
 = PKINIT - Resign AuthPack and re-verify signature
@@ -298,7 +303,12 @@ signed = cms.sign(
     key,
 )
 
-authpack = cms.verify(signed, ASN1_OID('id-pkinit-authData'), allow_expired=True)
+authpack = cms.verify(
+    signed,
+    ASN1_OID('id-pkinit-authData'),
+    allow_expired=True,
+    ekus=[ASN1_OID('emailProtection'), ASN1_OID('clientAuth')],
+)
 assert isinstance(authpack, KRB_AuthPack)
 
 = PKINIT - Parse AS-REP with CMS structures (MIT Kerberos)
