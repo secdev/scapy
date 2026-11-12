@@ -2826,12 +2826,72 @@ assert map_data[CBOR_FLOAT(1.0)].val == "f"
 
 + Finding 10: nested packet builds must traverse each child schema once
 
+= Root and nested compound fields honor public build, dissect, and m2i overrides
+from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_ITEMS, CBORF_MAP, CBORF_INTEGER
+from scapy.cborpacket import CBOR_Packet
+
+for container, wire in (
+    (CBORF_ARRAY, b"\x81\x01"),
+    (CBORF_MAP, b"\xa1\x61n\x01"),
+    (CBORF_ITEMS, b"\x01"),
+):
+    events = []
+    class HookedContainer(container):
+        def build(self, pkt):
+            events.append("build")
+            return super().build(pkt)
+        def dissect(self, pkt, data):
+            events.append("dissect")
+            return super().dissect(pkt, data)
+        def m2i(self, pkt, data):
+            events.append("m2i")
+            return super().m2i(pkt, data)
+    class HookRoot(CBOR_Packet):
+        CBOR_root = HookedContainer(CBORF_INTEGER("n", 1))
+    class HookNested(CBOR_Packet):
+        CBOR_root = CBORF_ARRAY(HookedContainer(CBORF_INTEGER("n", 1)))
+    for packet_type, expected in ((HookRoot, wire), (HookNested, b"\x81" + wire)):
+        events[:] = []
+        assert bytes(packet_type()) == expected
+        assert events == ["build"]
+        events[:] = []
+        decoded = packet_type(expected)
+        assert decoded.n == 1
+        assert events == ["dissect", "m2i"]
+
+= A bounded remainder invokes standard public hook signatures and leaves outer siblings
+from scapy.cbor.cborfields import CBORF_REMAINDER_OF, CBORF_UNSIGNED_INTEGER
+
+remainder_events = []
+class HookedRemainder(CBORF_REMAINDER_OF):
+    def build(self, pkt):
+        remainder_events.append("build")
+        return super().build(pkt)
+    def dissect(self, pkt, data):
+        remainder_events.append("dissect")
+        return super().dissect(pkt, data)
+    def m2i(self, pkt, data):
+        remainder_events.append("m2i")
+        return super().m2i(pkt, data)
+
+class HookedTail(CBOR_Packet):
+    CBOR_root = CBORF_ITEMS(
+        CBORF_ARRAY(HookedRemainder("values", [], CBORF_UNSIGNED_INTEGER)),
+        CBORF_UNSIGNED_INTEGER("outer", 0),
+    )
+
+pkt = HookedTail(b"\x82\x01\x02\x03")
+assert pkt.values == [1, 2] and pkt.outer == 3
+assert remainder_events == ["dissect", "m2i"]
+assert bytes(pkt) == b"\x82\x01\x02\x03"
+assert remainder_events[-1] == "build"
+
 = CBORF_PACKET builds a child root exactly once
 class RRCountingArray(CBORF_ARRAY):
     calls = 0
-    def _build_counted(self, pkt):
+    def build(self, pkt):
         type(self).calls += 1
-        return super()._build_counted(pkt)
+        return super().build(pkt)
 
 class RRCountedChild(CBOR_Packet):
     CBOR_root = RRCountingArray(CBORF_UNSIGNED_INTEGER("value", 1))

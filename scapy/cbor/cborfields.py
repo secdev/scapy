@@ -150,19 +150,51 @@ class CBORF_element(object):
 
     def _build_counted(self, pkt):
         # type: (CBOR_Packet) -> _CBORBuildResult
-        raise NotImplementedError
+        data = self.build(pkt)
+        if isinstance(self, CBORF_REMAINDER_OF):
+            items = len(pkt.getfieldval(self.name))
+        elif isinstance(self, CBORF_ITEMS):
+            items = cbor_count_items(data)
+        else:
+            items = int(bool(data))
+        return _CBORBuildResult(data, items)
 
-    def _dissect_counted(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> _CBORParseResult
-        raise NotImplementedError
+    def _dissect_counted(self, pkt, s, max_items=None):
+        # type: (CBOR_Packet, bytes, Optional[int]) -> _CBORParseResult
+        if isinstance(self, CBORF_REMAINDER_OF):
+            if max_items is None:
+                remaining = self.dissect(pkt, s)
+            else:
+                # Bound the tail before invoking the public hook, so a
+                # subclass needs only the usual dissect(pkt, bytes) API.
+                tail = memoryview(s)
+                for index in range(max_items):
+                    item, tail = cbor_item_span(tail)
+                boundary = len(s) - len(tail)
+                remaining = self.dissect(pkt, s[:boundary]) + s[boundary:]
+            items = len(pkt.getfieldval(self.name))
+        else:
+            remaining = self.dissect(pkt, s)
+            if isinstance(self, CBORF_ITEMS):
+                consumed = len(s) - len(remaining)
+                items = cbor_count_items(memoryview(s)[:consumed])
+            else:
+                items = int(len(remaining) < len(s))
+        return _CBORParseResult(remaining=remaining, items=items)
 
     def build(self, pkt):
         # type: (CBOR_Packet) -> bytes
-        return self._build_counted(pkt).data
+        raise NotImplementedError
+
+    def m2i(self, pkt, s):
+        # type: (CBOR_Packet, bytes) -> Tuple[Any, bytes]
+        raise NotImplementedError
 
     def dissect(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> bytes
-        return self._dissect_counted(pkt, s).remaining
+        # Compounds assign their children rather than a container field.
+        value, remaining = self.m2i(pkt, s)
+        return remaining
 
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
@@ -300,15 +332,6 @@ class CBORF_field(CBORF_element, Generic[_I]):
         val, remain = self.m2i(pkt, s)
         pkt.setfieldval(self.name, val)
         return remain
-
-    def _build_counted(self, pkt):
-        # type: (CBOR_Packet) -> _CBORBuildResult
-        return _CBORBuildResult(self.build(pkt), 1)
-
-    def _dissect_counted(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> _CBORParseResult
-        remain = self.dissect(pkt, s)
-        return _CBORParseResult(remaining=remain, items=1)
 
     def _parse_value(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> _CBORParseResult
@@ -456,7 +479,6 @@ class CBORF_ANY(CBORF_field[Any]):
             ]))
         raise TypeError("Cannot convert %r to CBOR_Object" % (type(value),))
 
-
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> Any
         if x is None or x is CBOR_NO_ITEM:
@@ -471,13 +493,6 @@ class CBORF_ANY(CBORF_field[Any]):
         if val is None:
             return b""
         return self.i2m(pkt, val)
-
-    def _build_counted(self, pkt):
-        # type: (CBOR_Packet) -> _CBORBuildResult
-        data = self.build(pkt)
-        if not data:
-            return _CBORBuildResult(b"", 0)
-        return _CBORBuildResult(data, 1)
 
     def m2i(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> Tuple[Any, bytes]
@@ -938,7 +953,6 @@ class CBORF_FLOAT(CBORF_field[float]):
         # type: (Any) -> bytes
         return CBORcodec_SIMPLE_AND_FLOAT.enc(float(x))
 
-
     def randval(self):
         # type: () -> RandFloat
         return RandFloat(0, 2 ** 32)
@@ -1048,22 +1062,19 @@ class CBORF_ITEMS(_CBORF_compound):
         super(CBORF_ITEMS, self).__init__(*seq)
         self._reject_nonterminal_remainder_of()
 
-    def _build_counted(self, pkt):
-        # type: (CBOR_Packet) -> _CBORBuildResult
+    def build(self, pkt):
+        # type: (CBOR_Packet) -> bytes
         data, total_items = self._build_children(pkt)
-        return _CBORBuildResult(data, total_items)
+        return data
 
-    def _dissect_counted(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> _CBORParseResult
+    def m2i(self, pkt, s):
+        # type: (CBOR_Packet, bytes) -> Tuple[Any, bytes]
         # Stream schema fields greedily left-to-right; leave trailing bytes
         # for the parent without requiring them to be well-formed CBOR.
         remaining = s
-        total_items = 0
         for field in self.seq:
-            result = field._dissect_counted(pkt, remaining)
-            remaining = result.remaining
-            total_items += result.items
-        return _CBORParseResult(remaining=remaining, items=total_items)
+            remaining = field.dissect(pkt, remaining)
+        return [], remaining
 
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
@@ -1125,7 +1136,7 @@ class CBORF_ARRAY(_CBORF_compound):
         # type: (Tuple[Any, ...]) -> List[Any]
         flat = []  # type: List[Any]
         for field in seq:
-            if isinstance(field, CBORF_ITEMS):
+            if type(field) is CBORF_ITEMS:
                 flat.extend(CBORF_ARRAY._flatten_items(field.seq))
             else:
                 flat.append(field)
@@ -1196,8 +1207,8 @@ class CBORF_ARRAY(_CBORF_compound):
             raise CBOR_Decoding_Error("CBOR item count mismatch")
         return remaining
 
-    def _build_counted(self, pkt):
-        # type: (CBOR_Packet) -> _CBORBuildResult
+    def build(self, pkt):
+        # type: (CBOR_Packet) -> bytes
         items_data, total_items = self._build_children(pkt)
         if self.encode_indefinite:
             data = (
@@ -1210,10 +1221,10 @@ class CBORF_ARRAY(_CBORF_compound):
         else:
             data = CBOR_encode_head(CBOR_MajorTypes.ARRAY, total_items)
             data += items_data
-        return _CBORBuildResult(data, 1)
+        return data
 
-    def _dissect_counted(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> _CBORParseResult
+    def m2i(self, pkt, s):
+        # type: (CBOR_Packet, bytes) -> Tuple[Any, bytes]
         try:
             major_type, count, remaining = CBOR_decode_head(s)
         except CBOR_Codec_Decoding_Error as e:
@@ -1248,7 +1259,7 @@ class CBORF_ARRAY(_CBORF_compound):
             remaining = self._dissect_children_budgeted(
                 pkt, remaining, count
             )
-        return _CBORParseResult(remaining=remaining, items=1)
+        return [], remaining
 
 
 class CBORF_ARRAY_INDEFINITE(CBORF_ARRAY):
@@ -1268,11 +1279,6 @@ _ARRAY_T = Union[
 class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
     """Shared machinery for homogeneous CBOR collections."""
     islist = 1
-
-    def build(self, pkt):
-        # type: (CBOR_Packet) -> bytes
-        # Collections are not leaf encoders; use counted compound build.
-        return self._build_counted(pkt).data
 
     def __init__(self,
                  name,  # type: str
@@ -1332,7 +1338,6 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
             self.cls = self._require_packet_cls(pkt_cls)
             self.holds_packets = 1
         super(_CBORF_HOMOGENEOUS, self).__init__(name, default)
-
 
     @staticmethod
     def _require_packet_cls(pkt_cls):
@@ -1466,15 +1471,13 @@ class CBORF_REMAINDER_OF(_CBORF_HOMOGENEOUS):
     _open_repr = "("
     _close_repr = ")"
 
-    def _decode_items(self, pkt, data, max_items=None):
-        # type: (CBOR_Packet, bytes, Optional[int]) -> Tuple[List[Any], bytes, int]
+    def m2i(self, pkt, s):
+        # type: (CBOR_Packet, bytes) -> Tuple[List[Any], bytes]
         """Decode zero or more immediate CBOR items; do not consume break."""
         values = []  # type: List[Any]
-        remaining = data
+        remaining = s
         consumed = 0
         while remaining and not cbor_is_break(remaining):
-            if max_items is not None and consumed >= max_items:
-                break
             self._check_list_limit(consumed)
             before_len = len(remaining)
             item, next_remaining = self._decode_element(
@@ -1488,29 +1491,11 @@ class CBORF_REMAINDER_OF(_CBORF_HOMOGENEOUS):
             values.append(item)
             consumed += 1
             remaining = next_remaining
-        return values, remaining, consumed
-
-    def m2i(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> Tuple[List[Any], bytes]
-        values, remaining, _consumed = self._decode_items(pkt, s)
         return values, remaining
 
-    def _dissect_counted(self, pkt, s, max_items=None):
-        # type: (CBOR_Packet, bytes, Optional[int]) -> _CBORParseResult
-        values, remaining, consumed = self._decode_items(
-            pkt, s, max_items=max_items
-        )
-        pkt.setfieldval(self.name, values)
-        return _CBORParseResult(remaining=remaining, items=consumed)
-
-    def _build_counted(self, pkt):
-        # type: (CBOR_Packet) -> _CBORBuildResult
-        val = pkt.getfieldval(self.name)
-        if val is None:
-            raise CBOR_Encoding_Error(
-                "Required collection field %r is None" % self.name)
-        parts = [self._encode_element(pkt, item) for item in val]
-        return _CBORBuildResult(b"".join(parts), len(val))
+    def i2m(self, pkt, x):
+        # type: (CBOR_Packet, Any) -> bytes
+        return b"".join(self._encode_element(pkt, item) for item in x)
 
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
@@ -1590,14 +1575,6 @@ class CBORF_ARRAY_OF(_CBORF_HOMOGENEOUS):
             + b"".join(parts)
         )
 
-    def _build_counted(self, pkt):
-        # type: (CBOR_Packet) -> _CBORBuildResult
-        val = pkt.getfieldval(self.name)
-        if val is None:
-            raise CBOR_Encoding_Error(
-                "Required collection field %r is None" % self.name)
-        return _CBORBuildResult(self.i2m(pkt, val), 1)
-
 
 class _CBORF_MAP_UNKNOWN(CBORF_field[List[Tuple[str, Any]]]):
     """Per-map storage for unknown text-key extension pairs.
@@ -1617,7 +1594,6 @@ class _CBORF_MAP_UNKNOWN(CBORF_field[List[Tuple[str, Any]]]):
     def do_copy(self, x):  # type: ignore[override]
         # type: (Any) -> Any
         return copy.deepcopy(x)
-
 
     def is_empty(self, pkt):
         # type: (CBOR_Packet) -> bool
@@ -1723,8 +1699,8 @@ class CBORF_MAP(CBORF_element):
             for child in field.get_fields_list()
         ] + [self._unknown_field]
 
-    def _build_counted(self, pkt):
-        # type: (CBOR_Packet) -> _CBORBuildResult
+    def build(self, pkt):
+        # type: (CBOR_Packet) -> bytes
         # Emit pairs sorted by encoded key bytes (RFC 8949 core deterministic).
         pairs = []  # type: List[Tuple[bytes, bytes]]
         for fld in self.seq:
@@ -1760,10 +1736,10 @@ class CBORF_MAP(CBORF_element):
             parts.append(key_bytes)
             parts.append(value_bytes)
         data = CBOR_encode_head(CBOR_MajorTypes.MAP, len(pairs)) + b"".join(parts)
-        return _CBORBuildResult(data, 1)
+        return data
 
-    def _dissect_counted(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> _CBORParseResult
+    def m2i(self, pkt, s):
+        # type: (CBOR_Packet, bytes) -> Tuple[Any, bytes]
         try:
             major_type, count, remaining = CBOR_decode_head(s)
         except CBOR_Codec_Decoding_Error as e:
@@ -1872,7 +1848,7 @@ class CBORF_MAP(CBORF_element):
                     "Required map field %r is missing" % fld.name
                 )
         pkt.setfieldval(self._unknown_field.name, unknown_pairs)
-        return _CBORParseResult(remaining=remaining, items=1)
+        return [], remaining
 
 
 class CBORF_SEMANTIC_TAG(CBORF_element):
@@ -1946,22 +1922,22 @@ class CBORF_SEMANTIC_TAG(CBORF_element):
             and tag_num == self.tag_num
         )
 
-    def _dissect_counted(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> _CBORParseResult
+    def m2i(self, pkt, s):
+        # type: (CBOR_Packet, bytes) -> Tuple[Any, bytes]
         remaining = self._parse_tag_head(s)
         inner = self.inner_field._dissect_counted(pkt, remaining)
         if inner.items != 1:
             raise CBOR_Decoding_Error(
                 "Semantic tag content must be exactly one CBOR item")
-        return _CBORParseResult(remaining=inner.remaining, items=1)
+        return [], inner.remaining
 
-    def _build_counted(self, pkt):
-        # type: (CBOR_Packet) -> _CBORBuildResult
+    def build(self, pkt):
+        # type: (CBOR_Packet) -> bytes
         inner = self.inner_field._build_counted(pkt)
         if inner.items != 1:
             raise CBOR_Encoding_Error(
                 "Semantic tag content must be exactly one CBOR item")
-        return _CBORBuildResult(self._encode_tagged(inner.data), 1)
+        return self._encode_tagged(inner.data)
 
     def _parse_value(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> _CBORParseResult
@@ -2028,18 +2004,24 @@ class CBORF_optional(CBORF_element):
         # type: (str) -> Any
         return getattr(self._field, attr)
 
-    def _build_counted(self, pkt):
-        # type: (CBOR_Packet) -> _CBORBuildResult
+    def build(self, pkt):
+        # type: (CBOR_Packet) -> bytes
         if self._field.is_empty(pkt):
-            return _CBORBuildResult(b"", 0)
-        return self._field._build_counted(pkt)
+            return b""
+        return self._field.build(pkt)
 
-    def _dissect_counted(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> _CBORParseResult
+    def m2i(self, pkt, s):
+        # type: (CBOR_Packet, bytes) -> Tuple[Any, bytes]
+        if not self._field.matches_next_item(pkt, s):
+            return None, s
+        return self._field.m2i(pkt, s)
+
+    def dissect(self, pkt, s):
+        # type: (CBOR_Packet, bytes) -> bytes
         if not self._field.matches_next_item(pkt, s):
             self._field.mark_absent(pkt)
-            return _CBORParseResult(remaining=s, items=0)
-        return self._field._dissect_counted(pkt, s)
+            return s
+        return self._field.dissect(pkt, s)
 
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
@@ -2118,17 +2100,23 @@ class CBORF_CONDITIONAL(CBORF_element, fields.ConditionalField):
     def owners(self):
         return self.fld.owners
 
-    def _build_counted(self, pkt):
-        # type: (CBOR_Packet) -> _CBORBuildResult
+    def build(self, pkt):
+        # type: (CBOR_Packet) -> bytes
         if self._evalcond(pkt):
-            return self.fld._build_counted(pkt)
-        return _CBORBuildResult(b"", 0)
+            return self.fld.build(pkt)
+        return b""
 
-    def _dissect_counted(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> _CBORParseResult
+    def m2i(self, pkt, s):
+        # type: (CBOR_Packet, bytes) -> Tuple[Any, bytes]
         if self._evalcond(pkt):
-            return self.fld._dissect_counted(pkt, s)
-        return _CBORParseResult(remaining=s, items=0)
+            return self.fld.m2i(pkt, s)
+        return None, s
+
+    def dissect(self, pkt, s):
+        # type: (CBOR_Packet, bytes) -> bytes
+        if self._evalcond(pkt):
+            return self.fld.dissect(pkt, s)
+        return s
 
     def min_items(self, pkt):
         # type: (CBOR_Packet) -> int
