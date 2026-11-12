@@ -33,6 +33,7 @@ from scapy.fields import (
     FlagsField,
     IPField,
     IntField,
+    MultipleTypeField,
     PacketListField,
     ShortField,
     StrFixedLenField,
@@ -657,12 +658,24 @@ class IE_ProtocolConfigurationOptions(IE_TLV):
 
 class IE_GSNAddress(IE_TLV):
     name = "GSN Address"
+    deprecated_fields = {
+        "ipv4_address": ("address", "2.8.1"),
+        "ipv6_address": ("address", "2.8.1"),
+    }
     fields_desc = [ByteEnumField("ietype", 133, IEType),
                    ShortField("length", None),
-                   ConditionalField(IPField("ipv4_address", RandIP()),
-                                    lambda pkt: pkt.length == 4),
-                   ConditionalField(IP6Field("ipv6_address", '::1'),
-                                    lambda pkt: pkt.length == 16)]
+                   MultipleTypeField(
+                       [
+                           (IP6Field("address", "::1"),
+                            (lambda pkt: pkt.length == 16,
+                             lambda pkt, val: pkt.length == 16 or (
+                                 pkt.length is None and ":" in str(val)))),
+                           (IPField("address", RandIP()),
+                            (lambda pkt: pkt.length == 4,
+                             lambda pkt, val: pkt.length in (4, None))),
+                       ],
+                       StrFixedLenField("address", None,
+                                        length_from=lambda pkt: pkt.length))]
 
 
 class IE_MSInternationalNumber(IE_TLV):
@@ -890,13 +903,24 @@ class IE_EvolvedAllocationRetentionPriority(IE_TLV):
 
 class IE_CharginGatewayAddress(IE_TLV):
     name = "Charging Gateway Address"
+    deprecated_fields = {
+        "ipv4_address": ("address", "2.8.1"),
+        "ipv6_address": ("address", "2.8.1"),
+    }
     fields_desc = [ByteEnumField("ietype", 251, IEType),
-                   ShortField("length", 4),
-                   ConditionalField(IPField("ipv4_address", "127.0.0.1"),
-                                    lambda
-                                    pkt: pkt.length == 4),
-                   ConditionalField(IP6Field("ipv6_address", "::1"), lambda
-                                    pkt: pkt.length == 16)]
+                   ShortField("length", None),
+                   MultipleTypeField(
+                       [
+                           (IP6Field("address", "::1"),
+                            (lambda pkt: pkt.length == 16,
+                             lambda pkt, val: pkt.length == 16 or (
+                                 pkt.length is None and ":" in str(val)))),
+                           (IPField("address", "127.0.0.1"),
+                            (lambda pkt: pkt.length == 4,
+                             lambda pkt, val: pkt.length in (4, None))),
+                       ],
+                       StrFixedLenField("address", None,
+                                        length_from=lambda pkt: pkt.length))]
 
 
 class IE_PrivateExtension(IE_TLV):
@@ -986,8 +1010,8 @@ class GTPEchoResponse(Packet):
 class GTPCreatePDPContextRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Create PDP Context Request"
-    fields_desc = [PacketListField("IE_list", [IE_TEIDI(), IE_NSAPI(), IE_GSNAddress(length=4, ipv4_address=RandIP()),  # noqa: E501
-                                               IE_GSNAddress(length=4, ipv4_address=RandIP()),  # noqa: E501
+    fields_desc = [PacketListField("IE_list", [IE_TEIDI(), IE_NSAPI(), IE_GSNAddress(length=4, address=RandIP()),  # noqa: E501
+                                               IE_GSNAddress(length=4, address=RandIP()),  # noqa: E501
                                                IE_NotImplementedTLV(ietype=135, length=15, data=RandString(15))],  # noqa: E501
                                    IE_Dispatcher)]
 
@@ -1064,7 +1088,7 @@ class GTPPDUNotificationRequest(Packet):
                                                IE_TEICP(TEICI=RandInt()),
                                                IE_EndUserAddress(PDPTypeNumber=0x21),  # noqa: E501
                                                IE_AccessPointName(),
-                                               IE_GSNAddress(ipv4_address="127.0.0.1"),  # noqa: E501
+                                               IE_GSNAddress(address="127.0.0.1"),  # noqa: E501
                                                ], IE_Dispatcher)]
 
 
