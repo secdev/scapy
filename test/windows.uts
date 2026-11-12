@@ -5,7 +5,6 @@
 + Configuration
 
 = Imports
-~ automaton
 
 from unittest import mock
 
