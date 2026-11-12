@@ -34,7 +34,8 @@ Defining packets
 ----------------
 
 Define a ``CBOR_root`` instead of ``fields_desc``. ``CBORF_ARRAY`` places
-fields in a CBOR array; typed fields expose Python values, not CBOR objects::
+fields in a CBOR array. Integer, string, Boolean, and float fields expose
+Python values::
 
     >>> from scapy.cborpacket import CBOR_Packet
     >>> from scapy.cbor import CBORF_ARRAY, CBORF_TEXT_STRING, CBORF_UNSIGNED_INTEGER
@@ -58,7 +59,8 @@ Both definite and indefinite arrays can be decoded. Use
 ``CBORF_ARRAY_INDEFINITE`` to build an indefinite array, or ``CBORF_ITEMS``
 to concatenate fields without an array header.
 
-For a homogeneous array, use ``CBORF_ARRAY_OF("values", [],
+For an array whose elements use the same field or packet decoder, use
+``CBORF_ARRAY_OF("values", [],
 pkt_cls=CBORF_UNSIGNED_INTEGER)``. ``CBORF_PACKET("child", None,
 pkt_cls=Message)`` embeds a packet as one CBOR item;
 ``CBORF_BYTE_STRING_PACKET`` wraps the packet bytes in a CBOR byte string
@@ -69,24 +71,35 @@ Optional fields
 ---------------
 
 Wrap a field in ``CBORF_optional`` to allow it to be omitted. Missing decoded
-fields contain ``CBOR_ABSENT``. For optional typed scalars such as integers,
-use ``None`` to omit the field when building.
+fields contain ``None``. Use ``None`` as the default or assign it to omit an
+optional field when building.
 
 ``CBORF_ANY`` keeps CBOR objects rather than converting them to Python values.
-For this field, ``None`` means a present CBOR null, not an omitted item::
+Use ``CBOR_NULL()`` or ``CBOR_UNDEFINED()`` for a present null or undefined
+value::
 
-    >>> from scapy.cbor import CBOR_ABSENT, CBORF_ANY, CBORF_optional
+    >>> from scapy.cbor import CBOR_NULL, CBOR_UNDEFINED, CBORF_ANY, CBORF_optional
     >>> class OptionalValue(CBOR_Packet):
     ...     CBOR_root = CBORF_ARRAY(
-    ...         CBORF_optional(CBORF_ANY("value", CBOR_ABSENT)),
+    ...         CBORF_optional(CBORF_ANY("value", None)),
     ...     )
     ...
     >>> bytes(OptionalValue()).hex()
     '80'
     >>> bytes(OptionalValue(value=None)).hex()
+    '80'
+    >>> bytes(OptionalValue(value=CBOR_NULL())).hex()
     '81f6'
-    >>> OptionalValue(b"\x80").getfieldval("value") is CBOR_ABSENT
+    >>> bytes(OptionalValue(value=CBOR_UNDEFINED())).hex()
+    '81f7'
+    >>> OptionalValue(b"\x80").value is None
     True
+    >>> isinstance(OptionalValue(b"\x81\xf6").value, CBOR_NULL)
+    True
+
+``CBORF_NULL`` and ``CBORF_UNDEFINED`` also retain explicit CBOR objects for
+present values. Within Python lists and dictionaries passed to the codec or
+``CBORF_ANY``, ``None`` still encodes CBOR null.
 
 Maps
 ----
@@ -111,6 +124,26 @@ keys such as ``1`` and ``True`` distinct. ``cbor_pairs()`` returns the pairs;
 ``as_dict()`` raises ``ValueError`` if conversion would lose key distinctions
 or a key cannot be used in a Python dictionary.
 
+Rebuilding packets
+------------------
+
+Decoded packets are rebuilt from their fields when encoded. The schema
+determines the container form and map-key order; typed floats use the shortest
+exact encoding. Non-preferred input can therefore change even when no field
+has been edited. The received input remains available in ``pkt.original``::
+
+    >>> decoded = Message(bytes.fromhex("9f1801626869ff"))
+    >>> decoded.version, decoded.label
+    (1, 'hi')
+    >>> decoded.original.hex()
+    '9f1801626869ff'
+    >>> bytes(decoded).hex()
+    '8201626869'
+
+``CBORF_ANY`` retains its CBOR object values. Individual objects such as
+``CBOR_FLOAT`` can preserve their received float encoding until their ``.val``
+is assigned. This does not guarantee an exact-byte round trip for the packet.
+
 Invalid data
 ------------
 
@@ -121,9 +154,6 @@ Invalid data
     >>> obj, remainder = CBORcodec_Object.safedec(b"\xff")
     >>> isinstance(obj, CBOR_DECODING_ERROR)
     True
-
-Unmodified decoded packets retain their received encoding. Changing fields
-rebuilds the affected data; typed floats then use the shortest exact encoding.
 
 See :mod:`scapy.cbor.cborfields` and :mod:`scapy.cbor.cborcodec` for the
 field and codec APIs.
