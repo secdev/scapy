@@ -1073,6 +1073,7 @@ class Cert(metaclass=_CertMaker):
         self.subject_str = tbsCert.get_subject_str()
         self.subject_hash = hash(self.subject_str)
         self.authorityKeyID = None
+        self.extKeyUsage = None
 
         self.notBefore_str = tbsCert.validity.not_before.pretty_time
         try:
@@ -1222,10 +1223,7 @@ class Cert(metaclass=_CertMaker):
         if now is None:
             now = time.gmtime()
         now = calendar.timegm(now)
-        return (
-            calendar.timegm(self.notBefore) <= now <=
-            calendar.timegm(self.notAfter)
-        )
+        return calendar.timegm(self.notBefore) <= now <= calendar.timegm(self.notAfter)
 
     def matchesHostname(self, hostname):
         """
@@ -1845,7 +1843,14 @@ class CertTree(CertList):
         else:
             return None
 
-    def verify(self, cert, hostname=None, now=None, allow_expired=False):
+    def verify(
+        self,
+        cert: Cert,
+        hostname: str = None,
+        now: time.struct_time = None,
+        allow_expired: bool = False,
+        ekus: Optional[List[ASN1_OID]] = None,
+    ):
         """
         Verify that a certificate is properly signed, current, and the right one.
 
@@ -1861,11 +1866,14 @@ class CertTree(CertList):
             validity period. Useful when checking a signature made while the
             certificate was still valid, or against a stored capture, where
             the dates say nothing about whether the signature was genuine.
+        :param ekus: if provided, verifies that the signer certificate has the
+            following EKUs.
         """
         # Check that we can find a chain to this certificate
         chain = self.getchain(cert)
         if not chain:
             raise ValueError("Certificate verification failed !")
+
         # Nothing in the chain may have expired or be in the future: an issuer
         # that is out of date does not vouch for anything below it. A chain can
         # also hold a CSR, which has no validity period to check.
@@ -1876,34 +1884,42 @@ class CertTree(CertList):
         # so that a non-CA certificate can still be pinned.
         intermediates = len(chain) - 2
         for i, c in enumerate(chain):
-            if isinstance(c, Cert) and not allow_expired and \
-                    not c.isValidAt(now):
+            if isinstance(c, Cert) and not allow_expired and not c.isValidAt(now):
                 raise ValueError(
                     "Certificate %s is outside its validity period "
-                    "(%s to %s) !" % (
-                        c.subject_str, c.notBefore_str, c.notAfter_str
-                    )
+                    "(%s to %s) !" % (c.subject_str, c.notBefore_str, c.notAfter_str)
                 )
             if i < intermediates:
                 if not c.cA:
                     raise ValueError(
-                        "Certificate %s is not a CA but issued %s !" % (
-                            c.subject_str, chain[i + 1].subject_str
-                        )
+                        "Certificate %s is not a CA but issued %s !"
+                        % (c.subject_str, chain[i + 1].subject_str)
                     )
-                if c.pathLenConstraint is not None and \
-                        intermediates - i - 1 > c.pathLenConstraint:
+                if (
+                    c.pathLenConstraint is not None
+                    and intermediates - i - 1 > c.pathLenConstraint
+                ):
                     raise ValueError(
-                        "Certificate %s allows at most %d CA below it !" % (
-                            c.subject_str, c.pathLenConstraint
-                        )
+                        "Certificate %s allows at most %d CA below it !"
+                        % (c.subject_str, c.pathLenConstraint)
                     )
+
+        # Check hostname
         if hostname is not None and not cert.matchesHostname(hostname):
             raise ValueError(
-                "Certificate %s was not issued to %s !" % (
-                    cert.subject_str, plain_str(hostname)
-                )
+                "Certificate %s was not issued to %s !"
+                % (cert.subject_str, plain_str(hostname))
             )
+
+        # Check ekus
+        if ekus is not None:
+            certificate_ekus = [eku.oidname for eku in (cert.extKeyUsage or [])]
+            for eku in ekus:
+                if eku.oidname not in certificate_ekus:
+                    raise ValueError(
+                        "Certificate %s does not contain the required EKU %s !"
+                        % (cert.subject_str, eku.oidname)
+                    )
 
     def show(self, ret: bool = False):
         """
@@ -2131,6 +2147,7 @@ class CMS_Engine:
         eContent: Optional[bytes] = None,
         no_verify_cert: bool = False,
         allow_expired: bool = False,
+        ekus: Optional[List[ASN1_OID]] = None,
     ):
         """
         Verify a CMS message against the list of trusted certificates,
@@ -2144,6 +2161,8 @@ class CMS_Engine:
             validity period. A CMS signature is often checked long after it was
             made, so an expired signer does not by itself mean the signature is
             not genuine.
+        :param ekus: if provided, verifies that the signer certificate has the
+            following EKUs.
         """
         if contentInfo.contentType.oidname != "id-signedData":
             raise ValueError("ContentInfo isn't signed !")
@@ -2173,7 +2192,7 @@ class CMS_Engine:
 
             # Verify certificate signature
             if not no_verify_cert:
-                certTree.verify(cert, allow_expired=allow_expired)
+                certTree.verify(cert, allow_expired=allow_expired, ekus=ekus)
 
             # Verify the message hash
             if signerInfo.signedAttrs:
