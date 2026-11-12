@@ -1142,33 +1142,10 @@ class CBORF_ARRAY(_CBORF_compound):
                 flat.append(field)
         return flat
 
-    @staticmethod
-    def _reserved_items(field, pkt, resolved):
-        # type: (Any, CBOR_Packet, set) -> int
-        """Items this suffix field must keep against a preceding optional."""
-        if isinstance(field, CBORF_optional):
-            return 0
-        if isinstance(field, CBORF_CONDITIONAL):
-            if field.depends_on is None:
-                return 0
-            unknown = [
-                name for name in field.depends_on
-                if name not in pkt.fieldtype
-            ]
-            if unknown:
-                raise ValueError(
-                    "Unknown CBOR conditional dependency: %s "
-                    "(field %r)"
-                    % (", ".join(unknown), field.fld.name)
-                )
-            if not all(name in resolved for name in field.depends_on):
-                return 0
-        return field.min_items(pkt)
-
-    def _dissect_children_budgeted(self, pkt, s, count):
+    def _dissect_children(self, pkt, s, item_count):
         # type: (CBOR_Packet, bytes, int) -> bytes
         remaining = s
-        items_left = count
+        items_left = item_count
         # Presence known so far. False conditionals are resolved without
         # appearing in pkt.fields.
         resolved = set(pkt.fields)
@@ -1179,10 +1156,31 @@ class CBORF_ARRAY(_CBORF_compound):
                     field.mark_absent(pkt)
                     skip = True
                 else:
-                    reserved = sum(
-                        self._reserved_items(suffix, pkt, resolved)
-                        for suffix in self.seq[index + 1:]
-                    )
+                    # Keep enough immediate array items for required tail
+                    # fields. A conditional can reserve only after its
+                    # explicitly named discriminators have been resolved.
+                    reserved = 0
+                    for suffix in self.seq[index + 1:]:
+                        if isinstance(suffix, CBORF_optional):
+                            continue
+                        if isinstance(suffix, CBORF_CONDITIONAL):
+                            if suffix.depends_on is None:
+                                continue
+                            unknown = [
+                                name for name in suffix.depends_on
+                                if name not in pkt.fieldtype
+                            ]
+                            if unknown:
+                                raise ValueError(
+                                    "Unknown CBOR conditional dependency: %s "
+                                    "(field %r)"
+                                    % (", ".join(unknown), suffix.fld.name)
+                                )
+                            if not all(
+                                name in resolved for name in suffix.depends_on
+                            ):
+                                continue
+                        reserved += suffix.min_items(pkt)
                     if items_left <= reserved:
                         field.mark_absent(pkt)
                         skip = True
@@ -1248,7 +1246,7 @@ class CBORF_ARRAY(_CBORF_compound):
                 raise CBOR_Decoding_Error(str(e))
             if item_count > child_max:
                 raise CBOR_Decoding_Error("CBOR item count mismatch")
-            remaining = self._dissect_children_budgeted(
+            remaining = self._dissect_children(
                 pkt, remaining, item_count
             )
             try:
@@ -1256,7 +1254,7 @@ class CBORF_ARRAY(_CBORF_compound):
             except CBOR_Codec_Decoding_Error as e:
                 raise CBOR_Decoding_Error(str(e))
         else:
-            remaining = self._dissect_children_budgeted(
+            remaining = self._dissect_children(
                 pkt, remaining, count
             )
         return [], remaining
@@ -1276,8 +1274,8 @@ _ARRAY_T = Union[
 ]
 
 
-class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
-    """Shared machinery for homogeneous CBOR collections."""
+class CBORF_COLLECTION(CBORF_field[List[Any]]):
+    """Base for collections whose elements share one field or packet decoder."""
     islist = 1
 
     def __init__(self,
@@ -1322,7 +1320,7 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
             # Nested packet-valued collections would store list[list[Packet]]
             # while Scapy cache/copy assume flat list[Packet].
             if (
-                isinstance(self.item_field, _CBORF_HOMOGENEOUS)
+                isinstance(self.item_field, CBORF_COLLECTION)
                 and getattr(self.item_field, "holds_packets", False)
             ):
                 raise ValueError(
@@ -1337,7 +1335,7 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
         else:
             self.cls = self._require_packet_cls(pkt_cls)
             self.holds_packets = 1
-        super(_CBORF_HOMOGENEOUS, self).__init__(name, default)
+        super(CBORF_COLLECTION, self).__init__(name, default)
 
     @staticmethod
     def _require_packet_cls(pkt_cls):
@@ -1442,9 +1440,9 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
         return "<%s %s>" % (self.__class__.__name__, self.name)
 
 
-class CBORF_REMAINDER_OF(_CBORF_HOMOGENEOUS):
+class CBORF_REMAINDER_OF(CBORF_COLLECTION):
     """
-    Unframed sequence of homogeneous elements (no CBOR array head).
+    Unframed sequence whose elements share one field or packet decoder (no CBOR array head).
 
     Preferred constructors (ASN1F_SEQUENCE_OF / PacketListField style)::
 
@@ -1506,9 +1504,9 @@ class CBORF_REMAINDER_OF(_CBORF_HOMOGENEOUS):
         return self._list_limit()
 
 
-class CBORF_ARRAY_OF(_CBORF_HOMOGENEOUS):
+class CBORF_ARRAY_OF(CBORF_COLLECTION):
     """
-    CBOR array of homogeneous elements (major type 4).
+    CBOR array whose elements share one field or packet decoder (major type 4).
 
     Preferred constructors::
 
@@ -2147,7 +2145,7 @@ class CBORF_PACKET(CBORF_field['CBOR_Packet']):
                  pkt_cls,  # type: Type[CBOR_Packet]
                  ):
         # type: (...) -> None
-        self.cls = _CBORF_HOMOGENEOUS._require_packet_cls(pkt_cls)
+        self.cls = CBORF_COLLECTION._require_packet_cls(pkt_cls)
         super(CBORF_PACKET, self).__init__(name, default)
 
     def m2i(self, pkt, s):

@@ -67,6 +67,7 @@ from scapy.cbor.cborfields import (
     CBORF_MAP,
     CBORF_SEMANTIC_TAG,
     CBORF_optional,
+    CBORF_COLLECTION,
     CBORF_CONDITIONAL,
     CBORF_PACKET,
     CBORF_BYTE_STRING_PACKET,
@@ -135,6 +136,7 @@ __all__ = [
     "CBORF_SEMANTIC_TAG",
     # Complex fields
     "CBORF_optional",
+    "CBORF_COLLECTION",
     "CBORF_CONDITIONAL",
     "CBORF_PACKET",
     "CBORF_BYTE_STRING_PACKET",
