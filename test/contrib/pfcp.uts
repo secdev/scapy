@@ -767,6 +767,17 @@ cases = [
     dict(
         hex="006700050280df69b2",
         expect=IE_RemoteGTP_U_Peer(V4=1, ipv4="128.223.105.178")),
+    dict(
+        hex="005d000110",
+        expect=IE_UE_IP_Address(CHV4=1)),
+    dict(
+        hex="005d00120920010db800000000000000000000000004",
+        expect=IE_UE_IP_Address(V6=1, ipv6="2001:db8::", IPv6D=1,
+                                ipv6_prefix_delegation_bits=4)),
+    dict(
+        hex="005d00124120010db800000000000000000000000038",
+        expect=IE_UE_IP_Address(V6=1, ipv6="2001:db8::", IP6PL=1,
+                                ipv6_prefix_length=56)),
 ]
 
 for case in cases:
