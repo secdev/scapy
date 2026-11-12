@@ -5792,6 +5792,26 @@ from scapy.cbor.cborcodec import CBORcodec_Object
 value = CBOR_FLOAT(1.5, encoded=bytes.fromhex("fb3ff8000000000000"))
 assert CBORcodec_Object.encode_cbor_item_deterministic(value) == bytes.fromhex("f93e00")
 
+= Float codec preserves NaN payload bits while selecting preferred widths
+from scapy.cbor.cbor import CBOR_FLOAT
+from scapy.cbor.cborcodec import CBORcodec_SIMPLE_AND_FLOAT
+
+# A one-bit binary16 NaN fraction is right-padded with 13/42 zero bits
+# in binary32/binary64. It can shorten without changing its payload.
+for received, preferred in (
+    ("f97c01", "f97c01"),
+    ("fa7f802000", "f97c01"),
+    ("fb7ff0040000000000", "f97c01"),
+    ("fbfff0040000000000", "f9fc01"),
+    ("fb7ff8000020000000", "fa7fc00001"),
+    ("fb7ff8000000000001", "fb7ff8000000000001"),
+):
+    value = CBOR_FLOAT(float("nan"), encoded=bytes.fromhex(received))
+    assert CBORcodec_SIMPLE_AND_FLOAT.enc_float(value) == bytes.fromhex(preferred)
+
+assert CBORcodec_SIMPLE_AND_FLOAT.enc_float(1.5) == bytes.fromhex("f93e00")
+assert CBORcodec_SIMPLE_AND_FLOAT.enc_float(-0.0) == bytes.fromhex("f98000")
+
 = Deterministic NaN encoding preserves sign and preferred width
 from scapy.cbor.cbor import CBOR_FLOAT, _cbor_key_equivalent
 from scapy.cbor.cborcodec import CBORcodec_Object

@@ -346,7 +346,7 @@ class CBOR_KeyKind(metaclass=Enum_metaclass):
 # Recursive hashable RFC 8949 map-key norm.
 # First element is a ``CBOR_KeyKind`` ``EnumElement`` (typed ``Any`` because
 # ``Enum_metaclass`` members are ``int`` in the class body).
-_CBORKeyNorm = Union[
+CBORKeyNorm = Union[
     Tuple[Any, None],
     Tuple[Any, bool],
     Tuple[Any, int],
@@ -354,10 +354,10 @@ _CBORKeyNorm = Union[
     Tuple[Any, str],
     Tuple[Any, float],
     Tuple[Any, int, int],
-    Tuple[Any, Tuple["_CBORKeyNorm", ...]],
-    Tuple[Any, FrozenSet[Tuple["_CBORKeyNorm", "_CBORKeyNorm"]]],
-    Tuple[Any, int, "_CBORKeyNorm"],
-    Tuple[Any, str, "_CBORKeyNorm"],
+    Tuple[Any, Tuple["CBORKeyNorm", ...]],
+    Tuple[Any, FrozenSet[Tuple["CBORKeyNorm", "CBORKeyNorm"]]],
+    Tuple[Any, int, "CBORKeyNorm"],
+    Tuple[Any, str, "CBORKeyNorm"],
     Tuple[Any, str, str],
 ]
 
@@ -518,9 +518,9 @@ class CBORMapData(object):
         # type: () -> Dict[Any, Any]
         """Convert to a Python dict, raising if CBOR key distinctions would be lost."""
         out = {}  # type: Dict[Any, Any]
-        used_norms = set()  # type: Set[_CBORKeyNorm]
+        used_norms = set()  # type: Set[CBORKeyNorm]
         for key, value in self._pairs:
-            norm = _cbor_key_norm(key)
+            norm = cbor_key_norm(key)
             if norm in used_norms:
                 raise ValueError(
                     "CBOR map keys are equivalent under RFC 8949; "
@@ -642,7 +642,7 @@ class CBORMapData(object):
         return "CBORMapData(%r)" % (self.items(),)
 
 
-def _cbor_map_pairs(mapping):
+def cbor_map_pairs(mapping):
     # type: (Any) -> List[Tuple[Any, Any]]
     """Return ordered ``(key, value)`` pairs from a CBOR map representation.
 
@@ -678,7 +678,7 @@ class CBOR_MAP(CBOR_Object[Any]):
     def strshow(self, lvl=0):
         # type: (int) -> str
         s = ("  " * lvl) + ("# CBOR_MAP:") + "\n"
-        for k, v in _cbor_map_pairs(self.val):
+        for k, v in cbor_map_pairs(self.val):
             s += ("  " * (lvl + 1)) + "Key: "
             if hasattr(k, 'strshow'):
                 s += k.strshow(0).strip() + "\n"
@@ -802,7 +802,7 @@ class CBOR_FLOAT(CBOR_Object[float]):
         return super(CBOR_FLOAT, self).enc(codec)
 
 
-def _cbor_float_wire_parts(encoded):
+def cbor_float_wire_parts(encoded):
     # type: (bytes) -> Tuple[int, int]
     """Return ``(ai, bits)`` for a definite CBOR float encoding."""
     wire = bytes(encoded)
@@ -825,7 +825,7 @@ def _cbor_float_wire_parts(encoded):
 
 
 def _cbor_float_key_identity(value, encoded=None):
-    # type: (float, Optional[bytes]) -> _CBORKeyNorm
+    # type: (float, Optional[bytes]) -> CBORKeyNorm
     """Return RFC 8949 floating-point map-key identity for *value*.
 
     Finite ``+0.0`` / ``-0.0`` collapse.  NaNs compare by sign and
@@ -835,15 +835,15 @@ def _cbor_float_key_identity(value, encoded=None):
     """
     if encoded is not None:
         from scapy.cbor.cborcodec import (
-            _cbor_float_from_bits,
-            _cbor_nan_components,
+            cbor_float_from_bits,
+            cbor_nan_components,
         )
-        ai, bits = _cbor_float_wire_parts(encoded)
-        comps = _cbor_nan_components(ai, bits)
+        ai, bits = cbor_float_wire_parts(encoded)
+        comps = cbor_nan_components(ai, bits)
         if comps is not None:
             sign, significand52 = comps
             return (CBOR_KeyKind.NAN, sign, significand52)
-        return _cbor_float_key_identity(_cbor_float_from_bits(ai, bits))
+        return _cbor_float_key_identity(cbor_float_from_bits(ai, bits))
 
     fval = float(value)
     if math.isnan(fval):
@@ -856,8 +856,8 @@ def _cbor_float_key_identity(value, encoded=None):
     return (CBOR_KeyKind.FINITE, fval)
 
 
-def _cbor_key_norm(value):
-    # type: (Any) -> _CBORKeyNorm
+def cbor_key_norm(value):
+    # type: (Any) -> CBORKeyNorm
     """Return a hashable RFC 8949 map-key equivalence form for *value*.
 
     Integers and floats remain distinct groups.  Floating ``+0.0`` and
@@ -889,31 +889,31 @@ def _cbor_key_norm(value):
         if isinstance(value, CBOR_ARRAY):
             return (
                 CBOR_KeyKind.ARRAY,
-                tuple(_cbor_key_norm(v) for v in value.val),
+                tuple(cbor_key_norm(v) for v in value.val),
             )
         if isinstance(value, CBOR_MAP):
             return (
                 CBOR_KeyKind.MAP,
                 frozenset(
-                    (_cbor_key_norm(k), _cbor_key_norm(v))
-                    for k, v in _cbor_map_pairs(value)
+                    (cbor_key_norm(k), cbor_key_norm(v))
+                    for k, v in cbor_map_pairs(value)
                 ),
             )
         if isinstance(value, CBOR_SEMANTIC_TAG):
             tag_num, inner = value.val
-            return (CBOR_KeyKind.TAG, int(tag_num), _cbor_key_norm(inner))
+            return (CBOR_KeyKind.TAG, int(tag_num), cbor_key_norm(inner))
         if isinstance(value, CBOR_SIMPLE_VALUE):
             return (CBOR_KeyKind.SIMPLE, int(value.val))
         return (
             CBOR_KeyKind.OBJ,
             type(value).__name__,
-            _cbor_key_norm(value.val),
+            cbor_key_norm(value.val),
         )
     if isinstance(value, CBORMapData):
         return (
             CBOR_KeyKind.MAP,
             frozenset(
-                (_cbor_key_norm(k), _cbor_key_norm(v))
+                (cbor_key_norm(k), cbor_key_norm(v))
                 for k, v in value.cbor_pairs()
             ),
         )
@@ -921,7 +921,7 @@ def _cbor_key_norm(value):
         return (
             CBOR_KeyKind.MAP,
             frozenset(
-                (_cbor_key_norm(k), _cbor_key_norm(v))
+                (cbor_key_norm(k), cbor_key_norm(v))
                 for k, v in value.items()
             ),
         )
@@ -936,17 +936,17 @@ def _cbor_key_norm(value):
     if isinstance(value, str):
         return (CBOR_KeyKind.TSTR, value)
     if isinstance(value, list):
-        return (CBOR_KeyKind.ARRAY, tuple(_cbor_key_norm(v) for v in value))
+        return (CBOR_KeyKind.ARRAY, tuple(cbor_key_norm(v) for v in value))
     if isinstance(value, tuple) and len(value) == 2 and isinstance(value[0], int):
         # Bare semantic-tag tuple (tag_num, inner), as stored on CBOR_SEMANTIC_TAG.
-        return (CBOR_KeyKind.TAG, int(value[0]), _cbor_key_norm(value[1]))
+        return (CBOR_KeyKind.TAG, int(value[0]), cbor_key_norm(value[1]))
     return (CBOR_KeyKind.OTHER, type(value).__name__, repr(value))
 
 
 def _cbor_key_equivalent(a, b):
     # type: (Any, Any) -> bool
     """Return True when *a* and *b* are equivalent CBOR map keys (RFC 8949)."""
-    return _cbor_key_norm(a) == _cbor_key_norm(b)
+    return cbor_key_norm(a) == cbor_key_norm(b)
 
 
 class _CBOR_ERROR(CBOR_Object[Union[bytes, CBOR_Object[Any]]]):

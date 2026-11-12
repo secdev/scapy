@@ -296,8 +296,8 @@ class CBORF_field(CBORF_element, Generic[_I]):
         if isinstance(obj, CBOR_ARRAY):
             return [CBORF_field._object_to_python(item) for item in obj.val]
         if isinstance(obj, CBOR_MAP):
-            from scapy.cbor.cbor import CBORMapData, _cbor_map_pairs
-            pairs = _cbor_map_pairs(obj)
+            from scapy.cbor.cbor import CBORMapData, cbor_map_pairs
+            pairs = cbor_map_pairs(obj)
             return CBORMapData([
                 (CBORF_field._object_to_python(k),
                  CBORF_field._object_to_python(v))
@@ -1442,7 +1442,8 @@ class CBORF_COLLECTION(CBORF_field[List[Any]]):
 
 class CBORF_REMAINDER_OF(CBORF_COLLECTION):
     """
-    Unframed sequence whose elements share one field or packet decoder (no CBOR array head).
+    Unframed sequence whose elements share one field or packet decoder.
+    No CBOR array head is emitted.
 
     Preferred constructors (ASN1F_SEQUENCE_OF / PacketListField style)::
 

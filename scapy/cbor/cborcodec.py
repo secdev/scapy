@@ -7,6 +7,7 @@ CBOR Codec Implementation - RFC 8949
 Following the BER paradigm for ASN.1
 """
 
+import math
 import struct
 from typing import (
     Any,
@@ -25,19 +26,32 @@ from typing import (
 
 from scapy.utils import EnumElement
 from scapy.cbor.cbor import (
+    CBORKeyNorm,
+    CBORMapData,
     CBOR_AdditionalInfo,
+    CBOR_ARRAY,
     CBOR_Codecs,
     CBOR_DECODING_ERROR,
     CBOR_Decoding_Error,
     CBOR_Encoding_Error,
     CBOR_Error,
+    CBOR_FALSE,
+    CBOR_FLOAT,
     CBOR_FloatAI,
     CBOR_MajorTypes,
+    CBOR_MAP,
+    CBOR_NULL,
     CBOR_Object,
+    CBOR_SEMANTIC_TAG,
+    CBOR_SIMPLE_VALUE,
     CBOR_SimpleValue,
+    CBOR_TRUE,
     CBOR_UINT64_MAX,
+    CBOR_UNDEFINED,
     _CBOR_ERROR,
-    _CBORKeyNorm,
+    cbor_float_wire_parts,
+    cbor_key_norm,
+    cbor_map_pairs,
 )
 from scapy.compat import chb
 from scapy.error import log_runtime
@@ -350,7 +364,7 @@ def CBOR_decode_head(s):
             remaining=_cbor_buf_bytes(s))
 
 
-def _cbor_float_from_bits(ai, bits):
+def cbor_float_from_bits(ai, bits):
     # type: (int, int) -> float
     if ai == CBOR_FloatAI.HALF:
         return struct.unpack(">e", struct.pack(">H", bits & 0xffff))[0]
@@ -362,7 +376,6 @@ def _cbor_float_from_bits(ai, bits):
 def _cbor_float_to_half_bits(value):
     # type: (float) -> Optional[int]
     """Return IEEE binary16 bits when *value* round-trips exactly."""
-    import math
     if math.isnan(value):
         # Callers that care about NaN payloads must use bit-pattern helpers.
         return 0x7E00
@@ -416,7 +429,7 @@ def _cbor_nan_preferred_ai(ai, bits):
     return ai
 
 
-def _cbor_nan_components(ai, bits):
+def cbor_nan_components(ai, bits):
     # type: (int, int) -> Optional[Tuple[int, int]]
     """Return ``(sign, significand52)`` for a NaN pattern, else ``None``.
 
@@ -570,10 +583,6 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
     def encode_cbor_item(item):
         # type: (Any) -> bytes
         """Encode a Python value to CBOR bytes"""
-        from scapy.cbor.cbor import (
-            CBOR_Object,
-            CBORMapData,
-        )
 
         if isinstance(item, CBOR_Object):
             return item.enc()
@@ -607,10 +616,9 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
     def _reject_duplicate_map_keys(pairs):
         # type: (Iterable[Tuple[Any, Any]]) -> None
         """Raise if *pairs* contain CBOR-equivalent duplicate keys."""
-        from scapy.cbor.cbor import _cbor_key_norm
-        seen_norms = set()  # type: Set[_CBORKeyNorm]
+        seen_norms = set()  # type: Set[CBORKeyNorm]
         for key, _value in pairs:
-            norm = _cbor_key_norm(key)
+            norm = cbor_key_norm(key)
             if norm in seen_norms:
                 raise CBOR_Codec_Encoding_Error(
                     "Duplicate CBOR map key: %r" % (key,)
@@ -649,106 +657,42 @@ class CBORcodec_Object(Generic[_K], metaclass=CBORcodec_metaclass):
         :class:`~scapy.cbor.cbor.CBOR_Object` instances are accepted and reduced
         to native values (preferred float encoding, deterministic nested maps).
         """
-        import math
-        from scapy.cbor.cbor import (
-            CBOR_Object,
-            CBOR_ARRAY,
-            CBOR_FLOAT,
-            CBOR_MAP,
-            CBOR_SEMANTIC_TAG,
-            CBOR_SIMPLE_VALUE,
-            CBOR_UNDEFINED,
-            CBORMapData,
-            _cbor_float_wire_parts,
-            _cbor_map_pairs,
-        )
+        encode = CBORcodec_Object.encode_cbor_item_deterministic
 
-        if isinstance(item, CBOR_Object):
-            if isinstance(item, CBOR_UNDEFINED):
-                return CBOR_UNDEFINED().enc()
-            if isinstance(item, CBOR_FLOAT):
-                encoded = getattr(item, "_encoded", None)
-                if encoded is not None and math.isnan(float(item.val)):
-                    try:
-                        ai, bits = _cbor_float_wire_parts(encoded)
-                    except ValueError as exc:
-                        raise CBOR_Codec_Encoding_Error(str(exc))
-                    comps = _cbor_nan_components(ai, bits)
-                    if comps is None:
-                        raise CBOR_Codec_Encoding_Error(
-                            "encoded float is not a NaN: %r"
-                            % (bytes(encoded),)
-                        )
-                    sign, significand52 = comps
-                    preferred = _cbor_nan_preferred_ai(ai, bits)
-                    if preferred == CBOR_FloatAI.HALF:
-                        fraction = (significand52 >> 42) & 0x3ff
-                        nan_bits = (sign << 15) | (0x1f << 10) | fraction
-                        return (
-                            CBOR_encode_initial(
-                                CBOR_MajorTypes.SIMPLE_AND_FLOAT,
-                                CBOR_FloatAI.HALF)
-                            + struct.pack(">H", nan_bits)
-                        )
-                    if preferred == CBOR_FloatAI.SINGLE:
-                        fraction = (significand52 >> 29) & 0x7fffff
-                        nan_bits = (sign << 31) | (0xff << 23) | fraction
-                        return (
-                            CBOR_encode_initial(
-                                CBOR_MajorTypes.SIMPLE_AND_FLOAT,
-                                CBOR_FloatAI.SINGLE)
-                            + struct.pack(">I", nan_bits)
-                        )
-                    if preferred == CBOR_FloatAI.DOUBLE:
-                        nan_bits = (
-                            (sign << 63) |
-                            (0x7ff << 52) |
-                            (significand52 & ((1 << 52) - 1))
-                        )
-                        return (
-                            CBOR_encode_initial(
-                                CBOR_MajorTypes.SIMPLE_AND_FLOAT,
-                                CBOR_FloatAI.DOUBLE)
-                            + struct.pack(">Q", nan_bits)
-                        )
-                    raise CBOR_Codec_Encoding_Error(
-                        "Invalid NaN float AI: %d" % preferred)
-                # Finite floats ignore original width; rebuild preferred form.
-                return CBORcodec_SIMPLE_AND_FLOAT.enc(float(item.val))
-            if isinstance(item, CBOR_ARRAY):
-                return CBORcodec_Object.encode_cbor_item_deterministic(
-                    list(item.val)
-                )
-            if isinstance(item, CBOR_MAP):
-                return CBORcodec_Object._encode_cbor_map_deterministic(
-                    _cbor_map_pairs(item)
-                )
-            if isinstance(item, CBOR_SEMANTIC_TAG):
-                tag_num, inner = item.val
-                return (
-                    CBOR_encode_head(CBOR_MajorTypes.TAG, tag_num)
-                    + CBORcodec_Object.encode_cbor_item_deterministic(inner)
-                )
-            if isinstance(item, CBOR_SIMPLE_VALUE):
-                return CBORcodec_SIMPLE_AND_FLOAT.enc(item)
-            return CBORcodec_Object.encode_cbor_item_deterministic(item.val)
+        # Float encoding belongs to its codec: NaN payload bits must survive
+        # preferred-width selection rather than conversion to a Python NaN.
+        if isinstance(item, CBOR_FLOAT):
+            return CBORcodec_SIMPLE_AND_FLOAT.enc_float(item)
+        if isinstance(item, CBOR_UNDEFINED):
+            return CBORcodec_SIMPLE_AND_FLOAT.enc(item)
+        if isinstance(item, CBOR_SIMPLE_VALUE):
+            return CBORcodec_SIMPLE_AND_FLOAT.enc(item)
+
+        # Every map, including nested unknown schema members, sorts its
+        # deterministically encoded keys in bytewise lexicographic order.
+        if isinstance(item, CBOR_MAP):
+            return CBORcodec_Object._encode_cbor_map_deterministic(
+                cbor_map_pairs(item)
+            )
         if isinstance(item, CBORMapData):
             return CBORcodec_Object._encode_cbor_map_deterministic(
                 item.cbor_pairs()
             )
         if isinstance(item, dict):
-            return CBORcodec_Object._encode_cbor_map_deterministic(
-                list(item.items())
-            )
+            return CBORcodec_Object._encode_cbor_map_deterministic(item.items())
+
+        if isinstance(item, CBOR_SEMANTIC_TAG):
+            tag_num, inner = item.val
+            return CBOR_encode_head(CBOR_MajorTypes.TAG, tag_num) + encode(inner)
+        if isinstance(item, CBOR_ARRAY):
+            item = list(item.val)
         if isinstance(item, list):
-            encoded_items = [
-                CBORcodec_Object.encode_cbor_item_deterministic(element)
-                for element in item
-            ]
             return (
-                CBOR_encode_head(CBOR_MajorTypes.ARRAY, len(encoded_items))
-                + b"".join(encoded_items)
+                CBOR_encode_head(CBOR_MajorTypes.ARRAY, len(item))
+                + b"".join(encode(element) for element in item)
             )
+        if isinstance(item, CBOR_Object):
+            return encode(item.val)
         return CBORcodec_Object.encode_cbor_item(item)
 
     @staticmethod
@@ -821,7 +765,6 @@ class CBORcodec_UNSIGNED_INTEGER(CBORcodec_Object[int]):
     @classmethod
     def enc(cls, obj):
         # type: (Union[int, CBOR_Object[int]]) -> bytes
-        from scapy.cbor.cbor import CBOR_Object
         i = obj.val if isinstance(obj, CBOR_Object) else obj
         if i < 0:
             raise CBOR_Codec_Encoding_Error(
@@ -856,7 +799,6 @@ class CBORcodec_NEGATIVE_INTEGER(CBORcodec_Object[int]):
     @classmethod
     def enc(cls, obj):
         # type: (Union[int, CBOR_Object[int]]) -> bytes
-        from scapy.cbor.cbor import CBOR_Object
         i = obj.val if isinstance(obj, CBOR_Object) else obj
         if i >= 0:
             raise CBOR_Codec_Encoding_Error(
@@ -893,7 +835,6 @@ class CBORcodec_BYTE_STRING(CBORcodec_Object[bytes]):
     @classmethod
     def enc(cls, obj):
         # type: (Union[bytes, CBOR_Object[bytes]]) -> bytes
-        from scapy.cbor.cbor import CBOR_Object
         data = obj.val if isinstance(obj, CBOR_Object) else obj
         if not isinstance(data, bytes):
             data = bytes(data)
@@ -952,7 +893,6 @@ class CBORcodec_TEXT_STRING(CBORcodec_Object[str]):
     @classmethod
     def enc(cls, obj):
         # type: (Union[str, CBOR_Object[str]]) -> bytes
-        from scapy.cbor.cbor import CBOR_Object
         text = obj.val if isinstance(obj, CBOR_Object) else obj
         if isinstance(text, str):
             text_bytes = text.encode('utf-8')
@@ -1025,7 +965,6 @@ class CBORcodec_ARRAY(CBORcodec_Object[List[Any]]):
     @classmethod
     def enc(cls, obj):
         # type: (Union[List[Any], CBOR_Object[List[Any]]]) -> bytes
-        from scapy.cbor.cbor import CBOR_Object
         array = obj.val if isinstance(obj, CBOR_Object) else obj
         parts = [CBOR_encode_head(CBOR_MajorTypes.ARRAY, len(array))]
         parts.extend(
@@ -1085,9 +1024,8 @@ class CBORcodec_MAP(CBORcodec_Object[Any]):
     @classmethod
     def enc(cls, obj):
         # type: (Any) -> bytes
-        from scapy.cbor.cbor import CBOR_Object, _cbor_map_pairs
         mapping = obj.val if isinstance(obj, CBOR_Object) else obj
-        pairs = _cbor_map_pairs(mapping)
+        pairs = cbor_map_pairs(mapping)
         CBORcodec_Object._reject_duplicate_map_keys(pairs)
         parts = [CBOR_encode_head(CBOR_MajorTypes.MAP, len(pairs))]
         for key, value in pairs:
@@ -1103,7 +1041,6 @@ class CBORcodec_MAP(CBORcodec_Object[Any]):
                _depth=0,  # type: int
                ):
         # type: (...) -> Tuple[CBOR_Object[Any], bytes]
-        from scapy.cbor.cbor import CBORMapData
         cls.check_string(s)
         major_type, length, remainder = CBOR_decode_head(s)
         if major_type != CBOR_MajorTypes.MAP:
@@ -1112,12 +1049,11 @@ class CBORcodec_MAP(CBORcodec_Object[Any]):
                 remaining=s)
 
         pairs = []  # type: List[Tuple[Any, Any]]
-        seen_norms = set()  # type: Set[_CBORKeyNorm]
+        seen_norms = set()  # type: Set[CBORKeyNorm]
 
         def _add_pair(key, value):
             # type: (Any, Any) -> None
-            from scapy.cbor.cbor import _cbor_key_norm
-            norm = _cbor_key_norm(key)
+            norm = cbor_key_norm(key)
             if norm in seen_norms:
                 raise CBOR_Codec_Decoding_Error(
                     "Duplicate CBOR map key: %r" % (key,),
@@ -1165,7 +1101,6 @@ class CBORcodec_SEMANTIC_TAG(CBORcodec_Object[Tuple[int, Any]]):
     @classmethod
     def enc(cls, obj):
         # type: (Union[Tuple[int, Any], CBOR_Object[Tuple[int, Any]]]) -> bytes
-        from scapy.cbor.cbor import CBOR_Object
         tagged_item = obj.val if isinstance(obj, CBOR_Object) else obj
         tag_num, item = tagged_item
         if tag_num < 0 or tag_num > CBOR_UINT64_MAX:
@@ -1205,11 +1140,47 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
     tag = CBOR_MajorTypes.SIMPLE_AND_FLOAT
 
     @classmethod
+    def enc_float(cls, obj):
+        # type: (Union[float, CBOR_Object[Any]]) -> bytes
+        """Encode a float in preferred width, preserving explicit NaN bits."""
+        value = float(obj.val) if isinstance(obj, CBOR_Object) else float(obj)
+        encoded = obj._encoded if isinstance(obj, CBOR_FLOAT) else None
+        if encoded is None or not math.isnan(value):
+            return _cbor_encode_preferred_float(value)
+
+        # Python float conversions can change NaN payload/signaling bits.
+        # Read the received bit pattern and normalize its fraction to the
+        # 52-bit binary64 width before selecting a shorter representation.
+        try:
+            ai, bits = cbor_float_wire_parts(encoded)
+        except ValueError as exc:
+            raise CBOR_Codec_Encoding_Error(str(exc))
+        components = cbor_nan_components(ai, bits)
+        if components is None:
+            raise CBOR_Codec_Encoding_Error(
+                "encoded float is not a NaN: %r" % (bytes(encoded),)
+            )
+        sign, significand52 = components
+        preferred = _cbor_nan_preferred_ai(ai, bits)
+        if preferred == CBOR_FloatAI.HALF:
+            # binary16 has 10 fraction bits: remove 52 - 10 zero bits.
+            fraction = significand52 >> 42
+            nan_bits = (sign << 15) | (0x1f << 10) | fraction
+            packed = struct.pack(">H", nan_bits)
+        elif preferred == CBOR_FloatAI.SINGLE:
+            # binary32 has 23 fraction bits: remove 52 - 23 zero bits.
+            fraction = significand52 >> 29
+            nan_bits = (sign << 31) | (0xff << 23) | fraction
+            packed = struct.pack(">I", nan_bits)
+        else:
+            # Nonzero low fraction bits require all 52 bits of binary64.
+            nan_bits = (sign << 63) | (0x7ff << 52) | significand52
+            packed = struct.pack(">Q", nan_bits)
+        return CBOR_encode_initial(cls.tag, preferred) + packed
+
+    @classmethod
     def enc(cls, obj):
         # type: (Union[int, float, bool, None, CBOR_Object[Any]]) -> bytes
-        from scapy.cbor.cbor import (
-            CBOR_FALSE, CBOR_TRUE, CBOR_NULL, CBOR_UNDEFINED, CBOR_Object
-        )
 
         # Check if obj is a CBOR object instance (for special cases like UNDEFINED)
         if isinstance(obj, CBOR_UNDEFINED):
@@ -1240,10 +1211,7 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
             return CBOR_encode_initial(
                 CBOR_MajorTypes.SIMPLE_AND_FLOAT, CBOR_SimpleValue.NULL)
         elif isinstance(val, float):
-            # Preferred serialization (RFC 8949): shortest float that
-            # preserves the numeric value. Received non-preferred widths are
-            # preserved via packet raw caches, not by this encoder.
-            return _cbor_encode_preferred_float(val)
+            return cls.enc_float(val)
         elif isinstance(val, int) and 0 <= val <= 23:
             # Simple value 0-23
             return CBOR_encode_head(CBOR_MajorTypes.SIMPLE_AND_FLOAT, val)
@@ -1265,10 +1233,6 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
                _depth=0,  # type: int
                ):
         # type: (...) -> Tuple[CBOR_Object[Any], bytes]
-        from scapy.cbor.cbor import (
-            CBOR_FALSE, CBOR_TRUE, CBOR_NULL, CBOR_UNDEFINED,
-            CBOR_FLOAT, CBOR_SIMPLE_VALUE
-        )
 
         cls.check_string(s)
 
@@ -1306,7 +1270,7 @@ class CBORcodec_SIMPLE_AND_FLOAT(CBORcodec_Object[Union[int, float, bool, None]]
                     "Not enough bytes for float", remaining=s)
             fmt = {2: ">H", 4: ">I", 8: ">Q"}[width]
             bits = struct.unpack(fmt, s[1:1 + width])[0]
-            float_val = _cbor_float_from_bits(additional_info, bits)
+            float_val = cbor_float_from_bits(additional_info, bits)
             encoded = _cbor_buf_bytes(s[:1 + width])
             return CBOR_FLOAT(float_val, encoded=encoded), s[1 + width:]
         elif additional_info < 24:
