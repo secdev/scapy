@@ -1766,7 +1766,7 @@ class CertTree(CertList):
         certList = CertList(certList)
 
         # Find the ROOT CAs if store isn't specified
-        if not rootCAs:
+        if rootCAs is None:
             # Build cert store.
             self.rootCAs = CertList([x for x in certList if x.isSelfSigned()])
             # And remove those certs from the list
