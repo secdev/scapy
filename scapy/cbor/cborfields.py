@@ -14,8 +14,6 @@ prefer ``build`` / ``dissect``.
 """
 
 import copy
-import math
-import struct
 
 from dataclasses import dataclass
 
@@ -62,7 +60,6 @@ from scapy.cbor.cborcodec import (
     CBORcodec_SIMPLE_AND_FLOAT,
 )
 from scapy.packet import Packet
-from scapy.utils import Enum_metaclass
 from scapy.volatile import (
     RandChoice,
     RandFloat,
@@ -385,29 +382,6 @@ class CBORF_field(CBORF_element, Generic[_I]):
         return copy.copy(self)
 
 
-class _CBORFingerprintKind(metaclass=Enum_metaclass):
-    """Private discriminator for ``CBORF_ANY`` raw-cache fingerprints."""
-    name = "CBOR_FINGERPRINT_KIND"
-    UNDEF = 3
-    ARRAY = 7
-    MAP = 8
-    TAG = 9
-    OBJ = 11
-    NAN = 13
-    FINITE = 14
-    SENTINEL = 15
-    FLOAT = 16
-    INF = 17
-    ZERO = 18
-    MAPDATA = 19
-    LIST = 20
-    DICT = 21
-    PY = 22
-
-
-_CBORFingerprint = Tuple[Any, ...]
-
-
 class CBORF_ANY(CBORF_field[Any]):
     """Represent any well-formed CBOR value as a lossless ``CBOR_Object``."""
     ismutable = True
@@ -482,78 +456,6 @@ class CBORF_ANY(CBORF_field[Any]):
             ]))
         raise TypeError("Cannot convert %r to CBOR_Object" % (type(value),))
 
-    @staticmethod
-    def _cache_fingerprint(obj):
-        # type: (Any) -> _CBORFingerprint
-        """Recursive rebuild-relevant fingerprint for ``CBORF_ANY`` values."""
-        from scapy.cbor.cbor import CBORMapData
-        fingerprint = CBORF_ANY._cache_fingerprint
-        Kind = _CBORFingerprintKind
-        if obj is None or obj is CBOR_NO_ITEM:
-            return (Kind.SENTINEL, obj)
-        if isinstance(obj, CBOR_UNDEFINED):
-            return (Kind.UNDEF,)
-        if isinstance(obj, CBOR_FLOAT):
-            fval = float(obj.val)
-            if math.isnan(fval):
-                token = (Kind.NAN,)  # type: Tuple[Any, ...]
-            elif math.isinf(fval):
-                token = (Kind.INF, math.copysign(1.0, fval))
-            elif fval == 0.0:
-                token = (Kind.ZERO, math.copysign(1.0, fval))
-            else:
-                token = (Kind.FINITE, fval)
-            encoded = getattr(obj, "_encoded", None)
-            return (Kind.FLOAT, token, encoded)
-        if isinstance(obj, CBOR_ARRAY):
-            return (
-                Kind.ARRAY,
-                tuple(fingerprint(item) for item in obj.val),
-            )
-        if isinstance(obj, CBOR_MAP):
-            from scapy.cbor.cbor import _cbor_map_pairs
-            pairs = _cbor_map_pairs(obj)
-            return (
-                Kind.MAP,
-                tuple(
-                    (fingerprint(key), fingerprint(value))
-                    for key, value in pairs
-                ),
-            )
-        if isinstance(obj, CBORMapData):
-            return (
-                Kind.MAPDATA,
-                tuple(
-                    (fingerprint(key), fingerprint(value))
-                    for key, value in obj.cbor_pairs()
-                ),
-            )
-        if isinstance(obj, CBOR_SEMANTIC_TAG):
-            tag_num, inner = obj.val
-            return (Kind.TAG, int(tag_num), fingerprint(inner))
-        if isinstance(obj, CBOR_Object):
-            return (Kind.OBJ, type(obj).__name__, fingerprint(obj.val))
-        if isinstance(obj, list):
-            return (Kind.LIST, tuple(fingerprint(item) for item in obj))
-        if isinstance(obj, dict):
-            return (
-                Kind.DICT,
-                tuple(
-                    (fingerprint(key), fingerprint(value))
-                    for key, value in obj.items()
-                ),
-            )
-        return (Kind.PY, type(obj).__name__, obj)
-
-    def cache_fingerprint(self, x):
-        # type: (Any) -> _CBORFingerprint
-        """Snapshot for Scapy mutable raw-cache comparison.
-
-        Includes ``CBOR_FLOAT._encoded`` so explicit ``.val`` assignment that
-        clears the wire cache is visible even when the semantic float is
-        unchanged.
-        """
-        return self._cache_fingerprint(x)
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> Any
@@ -995,9 +897,8 @@ class CBORF_UNDEFINED(CBORF_field[CBOR_UNDEFINED]):
 class CBORF_FLOAT(CBORF_field[float]):
     """CBOR float field (major type 7).
 
-    Stores a plain Python ``float``. Exact received encodings are preserved
-    only while the packet ``raw_packet_cache`` remains valid; after semantic
-    rebuild, preferred (shortest exact) encoding is used.
+    Stores a plain Python ``float`` and rebuilds using the preferred
+    (shortest exact) encoding.
     """
     CBOR_tag = CBOR_MajorTypes.SIMPLE_AND_FLOAT
 
@@ -1037,12 +938,6 @@ class CBORF_FLOAT(CBORF_field[float]):
         # type: (Any) -> bytes
         return CBORcodec_SIMPLE_AND_FLOAT.enc(float(x))
 
-    def cache_fingerprint(self, x):
-        # type: (Any) -> Any
-        """Wire-sensitive snapshot: distinguishes +0.0/-0.0 and NaN bits."""
-        if x is None:
-            return x
-        return struct.pack(">d", float(x))
 
     def randval(self):
         # type: () -> RandFloat
@@ -1438,19 +1333,6 @@ class _CBORF_HOMOGENEOUS(CBORF_field[List[Any]]):
             self.holds_packets = 1
         super(_CBORF_HOMOGENEOUS, self).__init__(name, default)
 
-    def cache_fingerprint(self, x):
-        # type: (Any) -> Any
-        """Compose item fingerprints when the element field provides them.
-
-        Packet-valued collections return ``None`` so the parent packet uses
-        nested ``_raw_packet_cache_field_value`` composition.
-        """
-        if self.holds_packets or self.item_field is None or x is None:
-            return None
-        item_fp = getattr(self.item_field, "cache_fingerprint", None)
-        if item_fp is None:
-            return None
-        return tuple(item_fp(item) for item in x)
 
     @staticmethod
     def _require_packet_cls(pkt_cls):
@@ -1736,16 +1618,6 @@ class _CBORF_MAP_UNKNOWN(CBORF_field[List[Tuple[str, Any]]]):
         # type: (Any) -> Any
         return copy.deepcopy(x)
 
-    def cache_fingerprint(self, x):
-        # type: (Any) -> _CBORFingerprint
-        """Wire-sensitive fingerprint for unknown text-key extension pairs."""
-        if not x:
-            return ()
-        fingerprint = CBORF_ANY._cache_fingerprint
-        return tuple(
-            (fingerprint(key), fingerprint(value))
-            for key, value in x
-        )
 
     def is_empty(self, pkt):
         # type: (CBOR_Packet) -> bool
@@ -1783,9 +1655,8 @@ class CBORF_MAP(CBORF_element):
 
     Unknown received key/value pairs are retained in a dedicated packet field
     (``unknown_field``, default ``"_cbor_unknown"``) as ordered ``(key, value)``
-    pairs.  While the packet raw cache is valid the exact received bytes are
-    preserved; after any mutation unknown members are re-encoded using
-    core-deterministic CBOR together with known fields. Schemas with more than
+    pairs. Unknown members are re-encoded using core-deterministic CBOR
+    together with known fields. Schemas with more than
     one map must pass distinct ``unknown_field=`` names.
 
     Example::

@@ -462,7 +462,7 @@ assert bytes(pkt) == b"\x82\xf6\x02"
 
 + Nested CBOR packet dissection lifecycle
 
-= CBORF_PACKET runs child dissection hooks and retains the exact child bytes
+= CBORF_PACKET runs child dissection hooks and retains the original input
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_PACKET,
@@ -491,7 +491,7 @@ pkt = LifecycleDirectParent(b"\x81\x01\xff")
 child = pkt.child
 assert LifecycleDirectChild.events == ["pre", "do", "post"]
 assert child.original == b"\x81\x01"
-assert child.raw_packet_cache == b"\x81\x01"
+assert child.raw_packet_cache is None
 
 = Packet-valued CBORF_ARRAY_OF runs child hooks and retains each item span
 from scapy.cbor.cborfields import (
@@ -522,7 +522,7 @@ pkt = LifecycleArrayParent(b"\x81\x81\x01")
 child = pkt.items[0]
 assert LifecycleArrayChild.events == ["pre", "do", "post"]
 assert child.original == b"\x81\x01"
-assert child.raw_packet_cache == b"\x81\x01"
+assert child.raw_packet_cache is None
 
 = Packet-valued CBORF_REMAINDER_OF runs child hooks and retains each item span
 from scapy.cbor.cborfields import (
@@ -553,9 +553,9 @@ pkt = LifecycleSequenceParent(b"\x81\x01")
 child = pkt.items[0]
 assert LifecycleSequenceChild.events == ["pre", "do", "post"]
 assert child.original == b"\x81\x01"
-assert child.raw_packet_cache == b"\x81\x01"
+assert child.raw_packet_cache is None
 
-= Nested field edits invalidate parent raw_packet_cache on rebuild
+= Nested field edits appear in parent rebuilds without a packet cache
 from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_INTEGER, CBORF_PACKET
 from scapy.cborpacket import CBOR_Packet
 
@@ -567,7 +567,7 @@ class CacheParent(CBOR_Packet):
 
 raw = bytes(CacheParent(child=CacheChild(val=7)))
 pkt = CacheParent(raw)
-assert pkt.raw_packet_cache is not None
+assert pkt.raw_packet_cache is None
 assert pkt.child.val == 7
 pkt.child.val = 9
 assert pkt.child.raw_packet_cache is None
@@ -669,7 +669,7 @@ assert pkt.a.val[1].val == 2
 pkt.b = 1
 assert bytes(pkt) == b"\x82\xa1\x01\x02\x01"
 
-= In-place mutation of CBORF_ANY list invalidates raw cache
+= In-place mutation of CBORF_ANY list appears in rebuilt bytes
 from scapy.cbor.cborfields import CBORF_ANY
 from scapy.cbor.cbor import CBOR_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
@@ -678,11 +678,11 @@ class AnyRoot(CBOR_Packet):
     CBOR_root = CBORF_ANY("value", None)
 
 pkt = AnyRoot(b"\x82\x01\x02")
-assert pkt.raw_packet_cache == b"\x82\x01\x02"
+assert pkt.raw_packet_cache is None
 pkt.value.val.append(CBOR_UNSIGNED_INTEGER(3))
 assert bytes(pkt) == b"\x83\x01\x02\x03"
 
-= Nested packet in-place ANY mutation invalidates the parent raw cache
+= Nested packet in-place ANY mutation appears in parent rebuilds
 from scapy.cbor.cborfields import CBORF_ANY, CBORF_PACKET
 from scapy.cbor.cbor import CBOR_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
@@ -698,7 +698,7 @@ pkt.child.value.val.append(CBOR_UNSIGNED_INTEGER(2))
 assert bytes(pkt.child) == bytes.fromhex("820102")
 assert bytes(pkt) == bytes.fromhex("820102")
 
-= ARRAY_OF(CBORF_ANY) same-value float mutation invalidates raw cache
+= ARRAY_OF(CBORF_ANY) rebuilds after same-value float mutation
 from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_ANY
 from scapy.cborpacket import CBOR_Packet
 
@@ -709,7 +709,7 @@ pkt = AnyArrayFloatPkt(bytes.fromhex("81f90000"))
 pkt.values[0].val = -0.0
 assert bytes(pkt) == bytes.fromhex("81f98000")
 
-= Nested CBORF_FLOAT signed-zero mutation invalidates parent raw cache
+= Nested CBORF_FLOAT signed-zero mutation appears in parent rebuilds
 from scapy.cbor.cborfields import CBORF_FLOAT, CBORF_PACKET
 from scapy.cborpacket import CBOR_Packet
 
@@ -724,7 +724,7 @@ pkt.child.value = -0.0
 assert bytes(pkt.child) == bytes.fromhex("f98000")
 assert bytes(pkt) == bytes.fromhex("f98000")
 
-= ARRAY_OF(CBORF_FLOAT) signed-zero mutation invalidates raw cache
+= ARRAY_OF(CBORF_FLOAT) rebuilds after signed-zero mutation
 from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_FLOAT
 from scapy.cborpacket import CBOR_Packet
 
@@ -735,7 +735,7 @@ pkt = FloatList(bytes.fromhex("81f90000"))
 pkt.values[0] = -0.0
 assert bytes(pkt) == bytes.fromhex("81f98000")
 
-= REMAINDER_OF(CBORF_FLOAT) signed-zero mutation invalidates raw cache
+= REMAINDER_OF(CBORF_FLOAT) rebuilds after signed-zero mutation
 from scapy.cbor.cborfields import CBORF_FLOAT, CBORF_REMAINDER_OF
 from scapy.cborpacket import CBOR_Packet
 
@@ -746,7 +746,7 @@ pkt = FloatRemainder(bytes.fromhex("f90000"))
 pkt.values[0] = -0.0
 assert bytes(pkt) == bytes.fromhex("f98000")
 
-= Packet-valued ARRAY_OF and REMAINDER_OF fingerprint copy and wire cache
+= Packet-valued ARRAY_OF and REMAINDER_OF rebuild copied values
 from scapy.cbor.cborfields import (
     CBORF_ANY,
     CBORF_ARRAY_OF,
@@ -817,7 +817,7 @@ for cls in (SeqOfChildCls, SeqOfChildFld):
     pkt.items[0].value.val = -0.0
     assert bytes(pkt) == bytes.fromhex("f98000")
 
-= Unknown map float mutation invalidates raw cache
+= Unknown map float mutation appears in rebuilt bytes
 from scapy.cbor.cborfields import CBORF_MAP, CBORF_UNSIGNED_INTEGER, CBORF_optional
 from scapy.cborpacket import CBOR_Packet
 
@@ -1168,19 +1168,6 @@ try:
     assert False, "EmptyCBOR accepted by PACKET"
 except ValueError:
     pass
-
-= Generic CBOR_Object fingerprint recurses into mutable .val
-from scapy.cbor.cbor import CBOR_Object, CBOR_UNSIGNED_INTEGER
-from scapy.cbor.cborfields import CBORF_ANY
-
-class MutableListObj(CBOR_Object):
-    tag = None  # type: ignore
-
-obj = MutableListObj([CBOR_UNSIGNED_INTEGER(1)])
-snap = CBORF_ANY._cache_fingerprint(obj)
-obj.val.append(CBOR_UNSIGNED_INTEGER(2))
-# Snapshot must not alias .val; otherwise in-place mutation keeps equality.
-assert CBORF_ANY._cache_fingerprint(obj) != snap
 
 = Optional cannot wrap REMAINDER_OF
 from scapy.cbor.cborfields import (
@@ -1534,7 +1521,7 @@ assert bytes(pkt) == b"\x81\x00"
 pkt = OptionalBeforeFlag(b"\x9f\x00\xff")
 assert pkt.label is None
 assert pkt.flag == 0
-assert bytes(pkt) == b"\x9f\x00\xff"
+assert bytes(pkt) == b"\x81\x00"
 pkt.clear_cache()
 assert bytes(pkt) == b"\x81\x00"
 
@@ -2083,7 +2070,7 @@ assert pkt.flag == 0
 assert "a" not in pkt.fields
 assert pkt.opt is None
 assert pkt.b == 7
-assert bytes(pkt) == b"\x9f\x00\x07\xff"
+assert bytes(pkt) == b"\x82\x00\x07"
 
 = Unknown depends_on name raises during suffix reservation
 from scapy.cbor.cborfields import (
@@ -2155,7 +2142,7 @@ class ConditionalArrayIndef(CBOR_Packet):
 
 pkt = ConditionalArrayIndef(b"\x9f\x00\xff")
 assert pkt.flag == 0
-assert bytes(pkt) == b"\x9f\x00\xff"
+assert bytes(pkt) == b"\x81\x00"
 pkt.clear_cache()
 assert bytes(pkt) == b"\x81\x00"
 
@@ -3272,16 +3259,16 @@ except ValueError:
 else:
     raise AssertionError("ambiguous separated unbounded sequences were accepted")
 
-+ Finding 8 - Nested rebuild must preserve a valid child raw cache
++ Nested packet rebuild normalization
 
-= Parent rebuild preserves untouched child wire representation
+= Parent rebuild normalizes overlong child integers
 from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_PACKET, CBORF_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
 
 class OverlongUintChild(CBOR_Packet):
     CBOR_root = CBORF_UNSIGNED_INTEGER("value", 0)
 
-class ParentWithRawCachedChild(CBOR_Packet):
+class ParentWithOverlongChild(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_UNSIGNED_INTEGER("sibling", 0),
         CBORF_PACKET("child", None, OverlongUintChild),
@@ -3289,16 +3276,15 @@ class ParentWithRawCachedChild(CBOR_Packet):
 
 # 0x18 0x01 is a valid but non-preferred encoding of integer 1.
 wire = b"\x82\x00\x18\x01"
-pkt = ParentWithRawCachedChild(wire)
-assert bytes(pkt.child) == b"\x18\x01"
+pkt = ParentWithOverlongChild(wire)
+assert bytes(pkt.child) == b"\x01"
 
-# Rebuilding the parent after changing only a sibling must not normalize the
-# untouched nested child from 0x18 0x01 to 0x01.
+# Parent and child rebuilds both use preferred integer encoding.
 pkt.sibling = 1
-assert bytes(pkt) == b"\x82\x01\x18\x01"
-assert bytes(pkt.child) == b"\x18\x01"
+assert bytes(pkt) == b"\x82\x01\x01"
+assert bytes(pkt.child) == b"\x01"
 
-= Parent rebuild preserves an untouched child encoded as an indefinite array
+= Parent rebuild normalizes an indefinite child array
 from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_PACKET, CBORF_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
 
@@ -3315,11 +3301,11 @@ class ParentWithIndefiniteChild(CBOR_Packet):
 
 wire = b"\x82\x00\x9f\x01\xff"
 pkt = ParentWithIndefiniteChild(wire)
-assert bytes(pkt.child) == b"\x9f\x01\xff"
+assert bytes(pkt.child) == b"\x81\x01"
 pkt.sibling = 1
-assert bytes(pkt) == b"\x82\x01\x9f\x01\xff"
+assert bytes(pkt) == b"\x82\x01\x81\x01"
 
-= REMAINDER_OF preserves raw representations of untouched packet children
+= REMAINDER_OF normalizes packet children while preserving their values
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_REMAINDER_OF,
@@ -3340,10 +3326,10 @@ class ParentWithChildSequence(CBOR_Packet):
 
 wire = b"\x83\x00\x9f\x01\xff\x81\x02"
 pkt = ParentWithChildSequence(wire)
-assert bytes(pkt.children[0]) == b"\x9f\x01\xff"
+assert bytes(pkt.children[0]) == b"\x81\x01"
 assert bytes(pkt.children[1]) == b"\x81\x02"
 pkt.sibling = 1
-assert bytes(pkt) == b"\x83\x01\x9f\x01\xff\x81\x02"
+assert bytes(pkt) == b"\x83\x01\x81\x01\x81\x02"
 
 = Mutating a nested child invalidates the parent cache and rebuilds the child
 from scapy.cbor.cborfields import CBORF_ARRAY, CBORF_PACKET, CBORF_UNSIGNED_INTEGER
@@ -3362,7 +3348,7 @@ pkt = ParentWithMutableChild(b"\x82\x00\x18\x01")
 pkt.child.value = 2
 assert bytes(pkt) == b"\x82\x00\x02"
 
-= Same-semantic nested child assignment invalidates parent overlong cache
+= Same-value nested assignment keeps preferred integer encoding
 from scapy.cbor.cborfields import CBORF_PACKET, CBORF_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
 
@@ -3373,14 +3359,14 @@ class SameValueParent(CBOR_Packet):
     CBOR_root = CBORF_PACKET("child", None, SameValueChild)
 
 pkt = SameValueParent(b"\x18\x01")
-assert bytes(pkt) == b"\x18\x01"
-assert bytes(pkt.child) == b"\x18\x01"
+assert bytes(pkt) == b"\x01"
+assert bytes(pkt.child) == b"\x01"
 pkt.child.value = 1
 assert pkt.child.raw_packet_cache is None
 assert bytes(pkt.child) == b"\x01"
 assert bytes(pkt) == b"\x01"
 
-= Same-semantic ARRAY_OF child assignment invalidates parent overlong cache
+= Same-value ARRAY_OF child assignment keeps preferred integer encoding
 from scapy.cbor.cborfields import CBORF_ARRAY_OF, CBORF_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
 
@@ -3391,7 +3377,7 @@ class SameValueChildren(CBOR_Packet):
     CBOR_root = CBORF_ARRAY_OF("children", [], SameValueListChild)
 
 pkt = SameValueChildren(b"\x81\x18\x01")
-assert bytes(pkt) == b"\x81\x18\x01"
+assert bytes(pkt) == b"\x81\x01"
 pkt.children[0].value = 1
 assert pkt.children[0].raw_packet_cache is None
 assert bytes(pkt) == b"\x81\x01"
@@ -3671,7 +3657,7 @@ assert pkt.value.val[1].val == 2
 pkt.sibling = 1
 assert bytes(pkt) == b"\x82\xa1\x01\x02\x01"
 
-= In-place mutation of a generic ANY array invalidates the packet raw cache
+= In-place mutation of a generic ANY array appears in rebuilt bytes
 from scapy.cbor.cborfields import CBORF_ANY, CBORF_ARRAY, CBORF_UNSIGNED_INTEGER
 from scapy.cborpacket import CBOR_Packet
 
@@ -3752,7 +3738,7 @@ wide_half = CBOR_FLOAT(
 )
 assert enc(wide_half) == bytes.fromhex("f97f00")
 
-= Unframed SEQUENCE cache returns exact bytes without rebuild
+= Unframed ITEMS rebuilds using preferred integer encodings
 from scapy.cbor.cborfields import (
     CBORF_PACKET,
     CBORF_ITEMS,
@@ -3770,10 +3756,10 @@ class SeqChild(CBOR_Packet):
 # Overlong encoding of 1, then 2: two top-level items
 overlong = b"\x18\x01\x02"
 child = SeqChild(overlong)
-assert child.raw_packet_cache == overlong
-assert bytes(child) == overlong
+assert child.raw_packet_cache is None
+assert bytes(child) == b"\x01\x02"
 
-= Absent optional scalar preserves non-preferred following encoding
+= Absent optional scalar permits normalization of the following integer
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_BOOLEAN,
@@ -3792,8 +3778,8 @@ raw = b"\x81\x18\x00"
 pkt = OptionalThenInt(raw)
 assert pkt.maybe is None
 assert pkt.value == 0
-assert bytes(pkt) == raw
-assert pkt.raw_packet_cache == raw
+assert bytes(pkt) == b"\x81\x00"
+assert pkt.raw_packet_cache is None
 
 pkt = OptionalThenInt(raw)
 pkt.value = 1
@@ -3805,7 +3791,7 @@ rebuilt = bytes(pkt)
 assert rebuilt != raw
 assert OptionalThenInt(rebuilt).maybe is True
 
-= Absent optional integer preserves overlong follower
+= Absent optional integer permits normalization of the required integer
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_UNSIGNED_INTEGER,
@@ -3823,9 +3809,9 @@ raw = b"\x81\x18\x00"
 pkt = OptIntThenInt(raw)
 assert pkt.opt is None
 assert pkt.value == 0
-assert bytes(pkt) == raw
+assert bytes(pkt) == b"\x81\x00"
 
-= Multiple absent optionals preserve untouched raw cache
+= Multiple absent optionals remain omitted during normalization
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_BOOLEAN,
@@ -3845,9 +3831,9 @@ raw = b"\x81\x18\x00"
 pkt = MultiAbsent(raw)
 assert pkt.a is None and pkt.b is None
 assert pkt.value == 0
-assert bytes(pkt) == raw
+assert bytes(pkt) == b"\x81\x00"
 
-= Nested packet with absent optional preserves exact child bytes
+= Nested packet with absent optional rebuilds its child values
 from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_BOOLEAN,
@@ -3870,10 +3856,10 @@ raw = b"\x81\x18\x00"
 pkt = NestedOptParent(raw)
 assert pkt.child.maybe is None
 assert pkt.child.value == 0
-assert bytes(pkt) == raw
-assert pkt.child.raw_packet_cache == raw
+assert bytes(pkt) == b"\x81\x00"
+assert pkt.child.raw_packet_cache is None
 
-= Absent optional map member preserves non-preferred known value
+= Absent optional map member permits normalization of the known value
 from scapy.cbor.cborfields import (
     CBORF_BOOLEAN,
     CBORF_MAP,
@@ -3893,7 +3879,7 @@ raw = b"\xa1\x65value\x18\x00"
 pkt = OptMap(raw)
 assert pkt.maybe is None
 assert pkt.value == 0
-assert bytes(pkt) == raw
+assert bytes(pkt) == b"\xa1\x65value\x00"
 
 = Unframed SEQUENCE optional parsing is greedy left-to-right
 from scapy.cbor.cbor import CBOR_Decoding_Error
@@ -4670,11 +4656,11 @@ class ExtensibleMap(CBOR_Packet):
 wire = b"\xa2\x61x\x01\x61a\x07"
 pkt = ExtensibleMap(wire)
 assert pkt.a == 7
-# Exact received bytes are retained while the packet is untouched.
-assert bytes(pkt) == wire
+# Fixed maps rebuild in deterministic key order.
+assert bytes(pkt) == b"\xa2\x61a\x07\x61x\x01"
 
-# Mutation invalidates Scapy's raw packet cache.  Rebuilding must not silently
-# discard the unknown extension member.  Fixed maps build deterministically,
+# Rebuilding after mutation retains the unknown extension member.
+# Fixed maps build deterministically,
 # therefore "a" sorts before "x".
 pkt.a = 8
 assert bytes(pkt) == b"\xa2\x61a\x08\x61x\x01"
@@ -4783,7 +4769,7 @@ class DeterministicUnknownMap(CBOR_Packet):
 # known "z":1, unknown "a":1 with non-preferred key (78 01 61) and value (18 01)
 wire = b"\xa2\x61z\x01\x78\x01\x61\x18\x01"
 pkt = DeterministicUnknownMap(wire)
-assert bytes(pkt) == wire
+assert bytes(pkt) == b"\xa2\x61a\x01\x61z\x01"
 pkt.z = 2
 assert bytes(pkt) == b"\xa2\x61a\x01\x61z\x02"
 
@@ -4800,7 +4786,7 @@ class NestedUnknownMap(CBOR_Packet):
 # known z:1, unknown x:{b:1,a:2} with nested keys out of deterministic order
 wire = b"\xa2\x61z\x01\x61x\xa2\x61b\x01\x61a\x02"
 pkt = NestedUnknownMap(wire)
-assert bytes(pkt) == wire
+assert bytes(pkt) == b"\xa2\x61x\xa2\x61a\x02\x61b\x01\x61z\x01"
 pkt.z = 2
 assert bytes(pkt) == b"\xa2\x61x\xa2\x61a\x02\x61b\x01\x61z\x02"
 
@@ -4844,7 +4830,7 @@ class IndefUIntArray(CBOR_Packet):
 wire = b"\x9f\x01\x02\x03\xff"
 pkt = IndefUIntArray(wire)
 assert pkt.values == [1, 2, 3]
-assert bytes(pkt) == wire
+assert bytes(pkt) == b"\x83\x01\x02\x03"
 
 
 = CBORF_ARRAY_OF decodes indefinite-length packet arrays
@@ -5038,7 +5024,7 @@ pkt = TwoInts(b"\x01\x02\x03")
 assert pkt.a == 1 and pkt.b == 2
 assert isinstance(pkt.payload, Raw)
 assert bytes(pkt.payload) == b"\x03"
-assert pkt.raw_packet_cache == b"\x01\x02"
+assert pkt.raw_packet_cache is None
 # Remaining third item is not consumed by the schema
 remain = TwoInts.CBOR_root._dissect_counted(TwoInts(), b"\x01\x02\x03").remaining
 assert remain == b"\x03"
@@ -5151,7 +5137,7 @@ else:
 obj, rem = CBOR_Codecs.CBOR.dec(b"\x7f\x62\xc3\xa4\x61\x61\xff")
 assert rem == b"" and obj.val == "äa"
 
-= CBORF_FLOAT preserves non-preferred NaN payload only while raw cache is valid
+= CBORF_FLOAT rebuilds native NaN values using preferred encoding
 from scapy.cbor.cborfields import CBORF_FLOAT
 from scapy.cborpacket import CBOR_Packet
 
@@ -5162,7 +5148,7 @@ class FloatPkt(CBOR_Packet):
 wire = bytes.fromhex("fb7ff8000000000001")
 pkt = FloatPkt(wire)
 assert pkt.value != pkt.value  # NaN
-assert bytes(pkt) == wire
+assert bytes(pkt) == bytes.fromhex("f97e00")
 pkt.raw_packet_cache = None
 pkt.raw_packet_cache_fields = None
 # After cache clear, rebuild uses preferred quiet NaN (binary16).

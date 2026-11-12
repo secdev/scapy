@@ -1200,7 +1200,7 @@ for length in (0, 1, 23, 24, 255, 256):
 wire = cbor2.dumps([1, 2, 3], indefinite_containers=True)
 pkt = RRCbor2UIntArray(wire)
 assert pkt.values == [1, 2, 3]
-assert bytes(pkt) == wire
+assert bytes(pkt) == cbor2.dumps([1, 2, 3])
 
 = CBORF_SEMANTIC_TAG decodes and rebuilds a cbor2-generated tag
 
