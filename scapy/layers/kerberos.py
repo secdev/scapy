@@ -6084,7 +6084,7 @@ class KerberosSSP(SSP):
                     )
                     return Context, err, gssErrorCode
 
-                # Cache authenticators to avoid replay
+                # Store the time for future detections
                 self.ReplayCache[replay_key] = ctime + KRB_MaxClockSkew
 
                 # We take that opportunity to cleanup any expired items
