@@ -50,7 +50,6 @@ from scapy.cbor.cborfields import (
     CBORF_element,
     CBORF_field,
     CBORF_ANY,
-    CBOR_ABSENT,
     CBORF_UNSIGNED_INTEGER,
     CBORF_NEGATIVE_INTEGER,
     CBORF_INTEGER,
@@ -116,7 +115,6 @@ __all__ = [
     "CBORF_element",
     "CBORF_field",
     "CBORF_ANY",
-    "CBOR_ABSENT",
     # Scalar fields
     "CBORF_UNSIGNED_INTEGER",
     "CBORF_NEGATIVE_INTEGER",

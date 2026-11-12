@@ -352,8 +352,7 @@ class OptionalTaggedThenFallback(CBOR_Packet):
     )
 
 pkt = OptionalTaggedThenFallback(b"\x81\x07")
-from scapy.cbor.cborfields import CBOR_ABSENT
-assert pkt.tagged_value is CBOR_ABSENT
+assert pkt.tagged_value is None
 assert pkt.fallback.val == 7
 
 = A matching optional semantic tag with the wrong inner type is malformed
@@ -412,7 +411,6 @@ except CBOR_Decoding_Error:
 # reserved the only item, mark the optional absent and let the trailing
 # field consume the item (even if outer types match).
 from scapy.cbor.cborfields import (
-    CBOR_ABSENT,
     CBORF_ANY,
     CBORF_ARRAY,
     CBORF_SEMANTIC_TAG,
@@ -431,9 +429,9 @@ class OptionalTaggedBeforeAny(CBOR_Packet):
 
 # Tag 2 does not match optional tag 1 → absent; ANY consumes the item.
 pkt = OptionalTaggedBeforeAny(b"\x81\xc2\x01")
-assert pkt.getfieldval("tagged_value") is CBOR_ABSENT
+assert pkt.getfieldval("tagged_value") is None
 assert pkt.getfieldval("fallback") is not None
-assert pkt.getfieldval("fallback") is not CBOR_ABSENT
+assert pkt.getfieldval("fallback") is not None
 
 + Optional CBOR null presence
 
@@ -636,7 +634,7 @@ except CBOR_Codec_Decoding_Error:
 + CBORF_ANY map identity and mutability
 
 = Empty CBORF_ANY map survives sibling mutation as a map
-from scapy.cbor.cborfields import CBORF_ANY, CBORF_ARRAY, CBORF_UNSIGNED_INTEGER, CBOR_ABSENT
+from scapy.cbor.cborfields import CBORF_ANY, CBORF_ARRAY, CBORF_UNSIGNED_INTEGER
 from scapy.cbor.cbor import CBOR_MAP, CBORMapData
 from scapy.cborpacket import CBOR_Packet
 
@@ -864,7 +862,6 @@ from scapy.cbor.cborfields import (
     CBORF_BOOLEAN,
     CBORF_FLOAT,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -875,7 +872,7 @@ class OptBoolFloat(CBOR_Packet):
     )
 
 pkt = OptBoolFloat(b"\x81\xf9\x3e\x00")  # [1.5] as float16
-assert pkt.flag is CBOR_ABSENT
+assert pkt.flag is None
 assert abs(pkt.num - 1.5) < 1e-6
 
 = Optional boolean leaves a required null for the next field
@@ -884,7 +881,6 @@ from scapy.cbor.cborfields import (
     CBORF_BOOLEAN,
     CBORF_NULL,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -895,8 +891,8 @@ class OptBoolNull(CBOR_Packet):
     )
 
 pkt = OptBoolNull(b"\x81\xf6")
-assert pkt.flag is CBOR_ABSENT
-assert pkt.nil is None
+assert pkt.flag is None
+assert isinstance(pkt.nil, CBOR_NULL)
 
 = Optional null leaves a required boolean for the next field
 from scapy.cbor.cborfields import (
@@ -904,7 +900,6 @@ from scapy.cbor.cborfields import (
     CBORF_BOOLEAN,
     CBORF_NULL,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -915,7 +910,7 @@ class OptNullBool(CBOR_Packet):
     )
 
 pkt = OptNullBool(b"\x81\xf5")
-assert pkt.nil is CBOR_ABSENT
+assert pkt.nil is None
 assert pkt.flag is True
 
 = Optional undefined leaves a required float for the next field
@@ -924,7 +919,6 @@ from scapy.cbor.cborfields import (
     CBORF_FLOAT,
     CBORF_UNDEFINED,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -935,7 +929,7 @@ class OptUndefFloat(CBOR_Packet):
     )
 
 pkt = OptUndefFloat(b"\x81\xf9\x3e\x00")
-assert pkt.u is CBOR_ABSENT
+assert pkt.u is None
 assert abs(pkt.num - 1.5) < 1e-6
 
 = Optional float leaves a required boolean for the next field
@@ -944,7 +938,6 @@ from scapy.cbor.cborfields import (
     CBORF_BOOLEAN,
     CBORF_FLOAT,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -955,7 +948,7 @@ class OptFloatBool(CBOR_Packet):
     )
 
 pkt = OptFloatBool(b"\x81\xf4")
-assert pkt.num is CBOR_ABSENT
+assert pkt.num is None
 assert pkt.flag is False
 
 = Absent optional ANY stays absent after cache invalidation
@@ -964,7 +957,6 @@ from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -975,7 +967,7 @@ class OptAnyTail(CBOR_Packet):
     )
 
 pkt = OptAnyTail(b"\x81\x00")
-assert pkt.extra is CBOR_ABSENT
+assert pkt.extra is None
 pkt.n = 1
 assert bytes(pkt) == b"\x81\x01"
 
@@ -989,7 +981,6 @@ from scapy.cbor.cborfields import (
     CBORF_TEXT_STRING,
     CBORF_UNDEFINED,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -1004,11 +995,11 @@ class OptMapPkt(CBOR_Packet):
     )
 
 pkt = OptMapPkt(b"\xa1\x61n\x00")
-assert pkt.any is CBOR_ABSENT
-assert pkt.nil is CBOR_ABSENT
-assert pkt.u is CBOR_ABSENT
-assert pkt.ts is CBOR_ABSENT
-assert pkt.endpoint is CBOR_ABSENT
+assert pkt.any is None
+assert pkt.nil is None
+assert pkt.u is None
+assert pkt.ts is None
+assert pkt.endpoint is None
 pkt.n = 1
 assert bytes(pkt) == b"\xa1\x61n\x01"
 
@@ -1397,7 +1388,6 @@ from scapy.cbor.cborfields import (
     CBORF_REMAINDER_OF,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -1420,7 +1410,7 @@ class BoolThenSeqOf(CBOR_Packet):
 
 # Type mismatch leaves the item for the trailing REMAINDER_OF.
 pkt = BoolThenSeqOf(b"\x81\x07")
-assert pkt.opt is CBOR_ABSENT
+assert pkt.opt is None
 assert pkt.vals == [7]
 
 = Conditional trailing field follows a false discriminator with optional present
@@ -1452,7 +1442,6 @@ from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -1463,7 +1452,7 @@ class OptThenReq(CBOR_Packet):
     )
 
 pkt = OptThenReq(b"\x81\x07")
-assert pkt.opt is CBOR_ABSENT
+assert pkt.opt is None
 assert pkt.req == 7
 
 = Active conditional reserves against a same-type optional
@@ -1472,7 +1461,6 @@ from scapy.cbor.cborfields import (
     CBORF_CONDITIONAL,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -1489,7 +1477,7 @@ class ConditionalTail(CBOR_Packet):
 
 pkt = ConditionalTail(b"\x82\x01\x07")
 assert pkt.flag == 1
-assert pkt.opt is CBOR_ABSENT
+assert pkt.opt is None
 assert pkt.req == 7
 
 = String depends_on reserves against a same-type optional
@@ -1498,7 +1486,6 @@ from scapy.cbor.cborfields import (
     CBORF_CONDITIONAL,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -1515,12 +1502,11 @@ class ConditionalTailStrDepends(CBOR_Packet):
 
 pkt = ConditionalTailStrDepends(b"\x82\x01\x07")
 assert pkt.flag == 1
-assert pkt.opt is CBOR_ABSENT
+assert pkt.opt is None
 assert pkt.req == 7
 
 = Optional text before discriminator omits default-off conditional
 from scapy.cbor.cborfields import (
-    CBOR_ABSENT,
     CBORF_ARRAY,
     CBORF_CONDITIONAL,
     CBORF_INTEGER,
@@ -1541,12 +1527,12 @@ class OptionalBeforeFlag(CBOR_Packet):
     )
 
 pkt = OptionalBeforeFlag(b"\x81\x00")
-assert pkt.label is CBOR_ABSENT
+assert pkt.label is None
 assert pkt.flag == 0
 assert bytes(pkt) == b"\x81\x00"
 
 pkt = OptionalBeforeFlag(b"\x9f\x00\xff")
-assert pkt.label is CBOR_ABSENT
+assert pkt.label is None
 assert pkt.flag == 0
 assert bytes(pkt) == b"\x9f\x00\xff"
 pkt.clear_cache()
@@ -1564,7 +1550,6 @@ assert pkt.value == 5
 
 = Known discriminator reserves conditional past an unrelated required field
 from scapy.cbor.cborfields import (
-    CBOR_ABSENT,
     CBORF_ARRAY,
     CBORF_CONDITIONAL,
     CBORF_INTEGER,
@@ -1588,7 +1573,7 @@ wire = bytes(OptionalThenRequiredThenCond(flag=1, required=5, value=9))
 assert wire == bytes.fromhex("83010509")
 pkt = OptionalThenRequiredThenCond(wire)
 assert pkt.flag == 1
-assert pkt.optional is CBOR_ABSENT
+assert pkt.optional is None
 assert pkt.required == 5
 assert pkt.value == 9
 assert bytes(pkt) == wire
@@ -1596,7 +1581,7 @@ assert bytes(pkt) == wire
 wire_indef = b"\x9f\x01\x05\x09\xff"
 pkt = OptionalThenRequiredThenCond(wire_indef)
 assert pkt.flag == 1
-assert pkt.optional is CBOR_ABSENT
+assert pkt.optional is None
 assert pkt.required == 5
 assert pkt.value == 9
 
@@ -1614,17 +1599,16 @@ wire_off = bytes(OptionalThenRequiredThenCond(flag=0, required=5))
 assert wire_off == bytes.fromhex("820005")
 pkt = OptionalThenRequiredThenCond(wire_off)
 assert pkt.flag == 0
-assert pkt.optional is CBOR_ABSENT
+assert pkt.optional is None
 assert pkt.required == 5
 
 pkt = OptionalThenRequiredThenCond(b"\x9f\x00\x05\xff")
 assert pkt.flag == 0
-assert pkt.optional is CBOR_ABSENT
+assert pkt.optional is None
 assert pkt.required == 5
 
 = String depends_on reserves past an unrelated required field
 from scapy.cbor.cborfields import (
-    CBOR_ABSENT,
     CBORF_ARRAY,
     CBORF_CONDITIONAL,
     CBORF_INTEGER,
@@ -1648,14 +1632,13 @@ wire = bytes(OptionalThenRequiredThenCondStr(flag=1, required=5, value=9))
 assert wire == bytes.fromhex("83010509")
 pkt = OptionalThenRequiredThenCondStr(wire)
 assert pkt.flag == 1
-assert pkt.optional is CBOR_ABSENT
+assert pkt.optional is None
 assert pkt.required == 5
 assert pkt.value == 9
 assert bytes(pkt) == wire
 
 = getfieldval predicate reserves conditional past an unrelated required field
 from scapy.cbor.cborfields import (
-    CBOR_ABSENT,
     CBORF_ARRAY,
     CBORF_CONDITIONAL,
     CBORF_INTEGER,
@@ -1678,7 +1661,7 @@ class OptionalThenRequiredThenCondGet(CBOR_Packet):
 wire = bytes.fromhex("83010509")
 pkt = OptionalThenRequiredThenCondGet(wire)
 assert pkt.flag == 1
-assert pkt.optional is CBOR_ABSENT
+assert pkt.optional is None
 assert pkt.required == 5
 assert pkt.value == 9
 assert bytes(pkt) == wire
@@ -1690,12 +1673,11 @@ assert pkt.flag == 1 and pkt.optional == 7 and pkt.required == 5 and pkt.value =
 wire_off = bytes.fromhex("820005")
 pkt = OptionalThenRequiredThenCondGet(wire_off)
 assert pkt.flag == 0
-assert pkt.optional is CBOR_ABSENT
+assert pkt.optional is None
 assert pkt.required == 5
 
 = Subclass method predicate reserves conditional past an unrelated required field
 from scapy.cbor.cborfields import (
-    CBOR_ABSENT,
     CBORF_ARRAY,
     CBORF_CONDITIONAL,
     CBORF_INTEGER,
@@ -1720,19 +1702,18 @@ class OptionalThenRequiredThenCondMethod(CBOR_Packet):
 wire = bytes.fromhex("83010509")
 pkt = OptionalThenRequiredThenCondMethod(wire)
 assert pkt.flag == 1
-assert pkt.optional is CBOR_ABSENT
+assert pkt.optional is None
 assert pkt.required == 5
 assert pkt.value == 9
 
 wire_off = bytes.fromhex("820005")
 pkt = OptionalThenRequiredThenCondMethod(wire_off)
 assert pkt.flag == 0
-assert pkt.optional is CBOR_ABSENT
+assert pkt.optional is None
 assert pkt.required == 5
 
 = isinstance predicate sees a real packet
 from scapy.cbor.cborfields import (
-    CBOR_ABSENT,
     CBORF_ARRAY,
     CBORF_CONDITIONAL,
     CBORF_INTEGER,
@@ -1757,19 +1738,18 @@ class OptionalThenRequiredThenCondIsInstance(CBOR_Packet):
 wire = bytes.fromhex("83010509")
 pkt = OptionalThenRequiredThenCondIsInstance(wire)
 assert pkt.flag == 1
-assert pkt.optional is CBOR_ABSENT
+assert pkt.optional is None
 assert pkt.required == 5
 assert pkt.value == 9
 
 wire_off = bytes.fromhex("820005")
 pkt = OptionalThenRequiredThenCondIsInstance(wire_off)
 assert pkt.flag == 0
-assert pkt.optional is CBOR_ABSENT
+assert pkt.optional is None
 assert pkt.required == 5
 
 = get_field predicate sees a real packet
 from scapy.cbor.cborfields import (
-    CBOR_ABSENT,
     CBORF_ARRAY,
     CBORF_CONDITIONAL,
     CBORF_INTEGER,
@@ -1792,19 +1772,18 @@ class OptionalThenRequiredThenCondGetField(CBOR_Packet):
 wire = bytes.fromhex("83010509")
 pkt = OptionalThenRequiredThenCondGetField(wire)
 assert pkt.flag == 1
-assert pkt.optional is CBOR_ABSENT
+assert pkt.optional is None
 assert pkt.required == 5
 assert pkt.value == 9
 
 wire_off = bytes.fromhex("820005")
 pkt = OptionalThenRequiredThenCondGetField(wire_off)
 assert pkt.flag == 0
-assert pkt.optional is CBOR_ABSENT
+assert pkt.optional is None
 assert pkt.required == 5
 
 = Unread discriminator does not starve a same-type optional
 from scapy.cbor.cborfields import (
-    CBOR_ABSENT,
     CBORF_ARRAY,
     CBORF_CONDITIONAL,
     CBORF_INTEGER,
@@ -1925,7 +1904,6 @@ assert grouped.flag == 1 and grouped.value == 5
 
 = Grouped ITEMS optionals respect enclosing ARRAY budget
 from scapy.cbor.cborfields import (
-    CBOR_ABSENT,
     CBORF_ARRAY,
     CBORF_INTEGER,
     CBORF_ITEMS,
@@ -1944,13 +1922,13 @@ class GroupedOptionals(CBOR_Packet):
 
 pkt = GroupedOptionals(b"\x82\x01\x02")
 assert pkt.a == 1
-assert pkt.b is CBOR_ABSENT
+assert pkt.b is None
 assert pkt.tail == 2
 assert bytes(pkt) == b"\x82\x01\x02"
 
 pkt = GroupedOptionals(b"\x9f\x01\x02\xff")
 assert pkt.a == 1
-assert pkt.b is CBOR_ABSENT
+assert pkt.b is None
 assert pkt.tail == 2
 
 = Default-on trailing conditional round-trips when the discriminator is off
@@ -2046,7 +2024,6 @@ from scapy.cbor.cborfields import (
     CBORF_CONDITIONAL,
     CBORF_INTEGER,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -2061,7 +2038,7 @@ class AlwaysPresentTail(CBOR_Packet):
     )
 
 pkt = AlwaysPresentTail(b"\x81\x07")
-assert pkt.opt is CBOR_ABSENT
+assert pkt.opt is None
 assert pkt.required == 7
 
 = Skipped conditional is resolved for a later same-type conditional
@@ -2070,7 +2047,6 @@ from scapy.cbor.cborfields import (
     CBORF_CONDITIONAL,
     CBORF_INTEGER,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -2098,14 +2074,14 @@ assert wire == bytes.fromhex("820007")
 decoded = ConditionalDependency(wire)
 assert decoded.flag == 0
 assert "a" not in decoded.fields
-assert decoded.opt is CBOR_ABSENT
+assert decoded.opt is None
 assert decoded.b == 7
 assert bytes(decoded) == wire
 
 pkt = ConditionalDependency(b"\x9f\x00\x07\xff")
 assert pkt.flag == 0
 assert "a" not in pkt.fields
-assert pkt.opt is CBOR_ABSENT
+assert pkt.opt is None
 assert pkt.b == 7
 assert bytes(pkt) == b"\x9f\x00\x07\xff"
 
@@ -2189,7 +2165,6 @@ from scapy.cbor.cborfields import (
     CBORF_CONDITIONAL,
     CBORF_INTEGER,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -2206,7 +2181,7 @@ class ConditionalWithOpt(CBOR_Packet):
 
 pkt = ConditionalWithOpt(b"\x81\x00")
 assert pkt.flag == 0
-assert pkt.opt is CBOR_ABSENT
+assert pkt.opt is None
 assert bytes(pkt) == b"\x81\x00"
 
 = Default-off conditional enables on wire (definite and indefinite)
@@ -2255,7 +2230,6 @@ assert bytes(pkt) == b"\x81\x02"
 
 = Zero-budget nested ITEMS optional clears default
 from scapy.cbor.cborfields import (
-    CBOR_ABSENT,
     CBORF_ARRAY,
     CBORF_INTEGER,
     CBORF_ITEMS,
@@ -2271,7 +2245,7 @@ class NestedOptional(CBOR_Packet):
     )
 
 pkt = NestedOptional(b"\x80")
-assert pkt.value is CBOR_ABSENT
+assert pkt.value is None
 pkt.clear_cache()
 assert bytes(pkt) == b"\x80"
 
@@ -2280,7 +2254,6 @@ from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_BYTE_STRING,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -2293,7 +2266,7 @@ class OptionalDefinite(CBOR_Packet):
     )
 
 pkt = OptionalDefinite(b"\x81\x5f\x41a\xff")
-assert pkt.opt is CBOR_ABSENT
+assert pkt.opt is None
 assert pkt.value == b"a"
 
 = Conditional disabled by default enables on wire with present value
@@ -3081,24 +3054,24 @@ for wire in (b"\xf0", b"\xf8\x20", b"\xf8\xff"):
 
 + Finding 1 - CBOR sentinel identity survives Scapy copying
 
-= CBOR_ABSENT and CBOR_UNDEFINED survive Packet.copy and deepcopy
+= None and CBOR_UNDEFINED survive Packet.copy and deepcopy
 import copy
 from scapy.cbor import CBOR_UNDEFINED
-from scapy.cbor.cborfields import CBORF_ANY, CBORF_ARRAY, CBORF_optional, CBOR_ABSENT
+from scapy.cbor.cborfields import CBORF_ANY, CBORF_ARRAY, CBORF_optional
 from scapy.cborpacket import CBOR_Packet
 
 class OptionalAnyCopy(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
-        CBORF_optional(CBORF_ANY("value", CBOR_ABSENT)),
+        CBORF_optional(CBORF_ANY("value", None)),
     )
 
 class UndefinedAnyCopy(CBOR_Packet):
     CBOR_root = CBORF_ANY("value", CBOR_UNDEFINED())
 
 absent = OptionalAnyCopy(b"\x80")
-assert absent.getfieldval("value") is CBOR_ABSENT
-assert absent.copy().getfieldval("value") is CBOR_ABSENT
-assert copy.deepcopy(absent).getfieldval("value") is CBOR_ABSENT
+assert absent.getfieldval("value") is None
+assert absent.copy().getfieldval("value") is None
+assert copy.deepcopy(absent).getfieldval("value") is None
 assert bytes(absent.copy()) == b"\x80"
 
 undefined = UndefinedAnyCopy(b"\xf7")
@@ -3110,25 +3083,54 @@ assert bytes(undefined.copy()) == b"\xf7"
 = CBOR structural sentinels preserve singleton identity under copy operations
 import copy
 from scapy.cbor.cbor import CBOR_NO_ITEM, CBOR_UNDEFINED
-from scapy.cbor.cborfields import CBOR_ABSENT
 
-for sentinel in (CBOR_ABSENT, CBOR_UNDEFINED(), CBOR_NO_ITEM):
+for sentinel in (None, CBOR_UNDEFINED(), CBOR_NO_ITEM):
     assert copy.copy(sentinel) is sentinel
     assert copy.deepcopy(sentinel) is sentinel
 
+= None omits optional fields while null and undefined remain explicit values
+from scapy.cbor.cbor import CBOR_NULL, CBOR_UNDEFINED
+from scapy.cbor.cborfields import CBORF_ANY, CBORF_ARRAY, CBORF_NULL, CBORF_UNDEFINED, CBORF_optional
+from scapy.cborpacket import CBOR_Packet
+
+for field_type, present, encoded in (
+    (CBORF_ANY, CBOR_NULL(), b"\xf6"),
+    (CBORF_ANY, CBOR_UNDEFINED(), b"\xf7"),
+    (CBORF_NULL, CBOR_NULL(), b"\xf6"),
+    (CBORF_UNDEFINED, CBOR_UNDEFINED(), b"\xf7"),
+):
+    class OptionalValue(CBOR_Packet):
+        CBOR_root = CBORF_ARRAY(CBORF_optional(field_type("value", None)))
+    pkt = OptionalValue()
+    assert pkt.value is None
+    assert bytes(pkt) == b"\x80"
+    pkt.value = present
+    assert isinstance(pkt.value, type(present))
+    assert bytes(pkt) == b"\x81" + encoded
+    decoded = OptionalValue(bytes(pkt))
+    assert isinstance(decoded.value, type(present))
+    decoded.value = None
+    assert bytes(decoded) == b"\x80"
+
+= Native None within generic collections still represents CBOR null
+class NestedNulls(CBOR_Packet):
+    CBOR_root = CBORF_ANY("value", None)
+
+assert bytes(NestedNulls(value=[None, {"n": None}])) == b"\x82\xf6\xa1\x61n\xf6"
+
 = Fresh optional ANY default is absent before any dissection occurs
-from scapy.cbor.cborfields import CBORF_ANY, CBORF_ARRAY, CBORF_optional, CBOR_ABSENT
+from scapy.cbor.cborfields import CBORF_ANY, CBORF_ARRAY, CBORF_optional
 from scapy.cborpacket import CBOR_Packet
 
 class OptionalAnyFreshDefault(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
-        CBORF_optional(CBORF_ANY("value", CBOR_ABSENT)),
+        CBORF_optional(CBORF_ANY("value", None)),
     )
 
 fresh = OptionalAnyFreshDefault()
-assert fresh.getfieldval("value") is CBOR_ABSENT
+assert fresh.getfieldval("value") is None
 assert bytes(fresh) == b"\x80"
-assert fresh.copy().getfieldval("value") is CBOR_ABSENT
+assert fresh.copy().getfieldval("value") is None
 assert bytes(fresh.copy()) == b"\x80"
 
 = Undefined values nested in a generic map survive packet copies
@@ -3155,20 +3157,19 @@ from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_BOOLEAN,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
 class OptionalBoolThenAnyArray(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_optional(CBORF_BOOLEAN("maybe", None)),
-        CBORF_ANY("required", CBOR_ABSENT),
+        CBORF_ANY("required", None),
     )
 
 # One array item is reserved for the required trailing field, so the
 # optional Boolean stays absent even though the item is Boolean.
 arr = OptionalBoolThenAnyArray(b"\x81\xf5")
-assert arr.getfieldval("maybe") is CBOR_ABSENT
+assert arr.getfieldval("maybe") is None
 assert arr.required.val is True
 assert bytes(arr) == b"\x81\xf5"
 
@@ -3178,18 +3179,17 @@ from scapy.cbor.cborfields import (
     CBORF_ARRAY_INDEFINITE,
     CBORF_BOOLEAN,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
 class OptionalBoolThenAnyIndefinite(CBOR_Packet):
     CBOR_root = CBORF_ARRAY_INDEFINITE(
         CBORF_optional(CBORF_BOOLEAN("maybe", None)),
-        CBORF_ANY("required", CBOR_ABSENT),
+        CBORF_ANY("required", None),
     )
 
 pkt = OptionalBoolThenAnyIndefinite(b"\x9f\xf5\xff")
-assert pkt.getfieldval("maybe") is CBOR_ABSENT
+assert pkt.getfieldval("maybe") is None
 assert pkt.required.val is True
 assert bytes(pkt) == b"\x9f\xf5\xff"
 
@@ -3199,18 +3199,17 @@ from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_BOOLEAN,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
 class OptionalAnyThenBoolArray(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
-        CBORF_optional(CBORF_ANY("maybe", CBOR_ABSENT)),
+        CBORF_optional(CBORF_ANY("maybe", None)),
         CBORF_BOOLEAN("required", None),
     )
 
 arr = OptionalAnyThenBoolArray(b"\x81\xf5")
-assert arr.getfieldval("maybe") is CBOR_ABSENT
+assert arr.getfieldval("maybe") is None
 assert arr.required is True
 
 = Optional packet does not consume an item reserved for a trailing required ANY
@@ -3220,7 +3219,6 @@ from scapy.cbor.cborfields import (
     CBORF_BOOLEAN,
     CBORF_PACKET,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -3230,11 +3228,11 @@ class BooleanChild(CBOR_Packet):
 class OptionalPacketThenAny(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
         CBORF_optional(CBORF_PACKET("child", None, BooleanChild)),
-        CBORF_ANY("required", CBOR_ABSENT),
+        CBORF_ANY("required", None),
     )
 
 pkt = OptionalPacketThenAny(b"\x81\xf5")
-assert pkt.getfieldval("child") is CBOR_ABSENT
+assert pkt.getfieldval("child") is None
 assert pkt.required.val is True
 
 = Nonterminal REMAINDER_OF is rejected in unframed sequences
@@ -3623,7 +3621,6 @@ from scapy.cbor.cborfields import (
     CBORF_NULL,
     CBORF_UNDEFINED,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -3647,15 +3644,15 @@ class OptionalUndefinedThenBool(CBOR_Packet):
 
 # Half-precision 1.5 is a float, not a Boolean even though both are major type 7.
 pkt = OptionalBoolThenFloat(b"\x81\xf9\x3e\x00")
-assert pkt.getfieldval("maybe") is CBOR_ABSENT
+assert pkt.getfieldval("maybe") is None
 assert pkt.required == 1.5
 
 pkt = OptionalNullThenBool(b"\x81\xf5")
-assert pkt.getfieldval("maybe") is CBOR_ABSENT
+assert pkt.getfieldval("maybe") is None
 assert pkt.required is True
 
 pkt = OptionalUndefinedThenBool(b"\x81\xf4")
-assert pkt.getfieldval("maybe") is CBOR_ABSENT
+assert pkt.getfieldval("maybe") is None
 assert pkt.required is False
 
 = Generic ANY preserves CBOR map identity when an unrelated sibling is changed
@@ -3782,7 +3779,6 @@ from scapy.cbor.cborfields import (
     CBORF_BOOLEAN,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -3794,7 +3790,7 @@ class OptionalThenInt(CBOR_Packet):
 
 raw = b"\x81\x18\x00"
 pkt = OptionalThenInt(raw)
-assert pkt.maybe is CBOR_ABSENT
+assert pkt.maybe is None
 assert pkt.value == 0
 assert bytes(pkt) == raw
 assert pkt.raw_packet_cache == raw
@@ -3814,7 +3810,6 @@ from scapy.cbor.cborfields import (
     CBORF_ARRAY,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -3826,7 +3821,7 @@ class OptIntThenInt(CBOR_Packet):
 
 raw = b"\x81\x18\x00"
 pkt = OptIntThenInt(raw)
-assert pkt.opt is CBOR_ABSENT
+assert pkt.opt is None
 assert pkt.value == 0
 assert bytes(pkt) == raw
 
@@ -3836,7 +3831,6 @@ from scapy.cbor.cborfields import (
     CBORF_BOOLEAN,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -3849,7 +3843,7 @@ class MultiAbsent(CBOR_Packet):
 
 raw = b"\x81\x18\x00"
 pkt = MultiAbsent(raw)
-assert pkt.a is CBOR_ABSENT and pkt.b is CBOR_ABSENT
+assert pkt.a is None and pkt.b is None
 assert pkt.value == 0
 assert bytes(pkt) == raw
 
@@ -3860,7 +3854,6 @@ from scapy.cbor.cborfields import (
     CBORF_PACKET,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -3875,7 +3868,7 @@ class NestedOptParent(CBOR_Packet):
 
 raw = b"\x81\x18\x00"
 pkt = NestedOptParent(raw)
-assert pkt.child.maybe is CBOR_ABSENT
+assert pkt.child.maybe is None
 assert pkt.child.value == 0
 assert bytes(pkt) == raw
 assert pkt.child.raw_packet_cache == raw
@@ -3886,7 +3879,6 @@ from scapy.cbor.cborfields import (
     CBORF_MAP,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -3899,7 +3891,7 @@ class OptMap(CBOR_Packet):
 # map with only "value": overlong 0
 raw = b"\xa1\x65value\x18\x00"
 pkt = OptMap(raw)
-assert pkt.maybe is CBOR_ABSENT
+assert pkt.maybe is None
 assert pkt.value == 0
 assert bytes(pkt) == raw
 
@@ -3910,7 +3902,6 @@ from scapy.cbor.cborfields import (
     CBORF_ITEMS,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -3937,7 +3928,7 @@ class TypedSequence(CBOR_Packet):
     )
 
 pkt = TypedSequence(b"\x07")
-assert pkt.optional is CBOR_ABSENT
+assert pkt.optional is None
 assert pkt.required == 7
 
 pkt = TypedSequence(b"\xf5\x07")
@@ -3946,7 +3937,7 @@ assert pkt.required == 7
 
 pkt = TypedSequence()
 result = TypedSequence.CBOR_root._dissect_counted(pkt, b"\x07\x18")
-assert pkt.optional is CBOR_ABSENT
+assert pkt.optional is None
 assert pkt.required == 7
 assert result.remaining == b"\x18"
 
@@ -3955,7 +3946,6 @@ from scapy.cbor.cborfields import (
     CBORF_BOOLEAN,
     CBORF_ITEMS,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -3967,7 +3957,7 @@ class OptionalOnly(CBOR_Packet):
 # Packet(b"") skips dissect (empty bytes are falsy); drive the schema directly.
 pkt = OptionalOnly()
 result = OptionalOnly.CBOR_root._dissect_counted(pkt, b"")
-assert pkt.maybe is CBOR_ABSENT
+assert pkt.maybe is None
 assert result.remaining == b""
 
 # CBORF_PACKET represents exactly one CBOR item: embedding a multi-item
@@ -4724,7 +4714,6 @@ assert bytes(pkt) == (
 
 = Optional tagged map with only unknown members survives a sibling mutation
 from scapy.cbor.cborfields import (
-    CBOR_ABSENT,
     CBORF_ARRAY,
     CBORF_MAP,
     CBORF_SEMANTIC_TAG,
@@ -4751,7 +4740,7 @@ class OptionalTaggedUnknownMap(CBOR_Packet):
 # [42({"x": 1}), 2]
 wire = bytes.fromhex("82d82aa161780102")
 pkt = OptionalTaggedUnknownMap(wire)
-assert pkt.known is CBOR_ABSENT
+assert pkt.known is None
 assert pkt._cbor_unknown[0][0] == "x"
 assert pkt.tail == 2
 assert bytes(pkt) == wire
@@ -5110,7 +5099,6 @@ from scapy.cbor.cborfields import (
     CBORF_SEMANTIC_TAG,
     CBORF_UNSIGNED_INTEGER,
     CBORF_optional,
-    CBOR_ABSENT,
 )
 from scapy.cborpacket import CBOR_Packet
 
@@ -5124,11 +5112,11 @@ class OptionalTaggedBeforeAny(CBOR_Packet):
 
 # Outer type matches the optional, but the sole item is reserved for ANY.
 pkt = OptionalTaggedBeforeAny(b"\x81\xc1\x61x")
-assert pkt.getfieldval("tagged_value") is CBOR_ABSENT
+assert pkt.getfieldval("tagged_value") is None
 assert pkt.fallback is not None
 
 ok = OptionalTaggedBeforeAny(b"\x81\xc1\x01")
-assert ok.getfieldval("tagged_value") is CBOR_ABSENT
+assert ok.getfieldval("tagged_value") is None
 assert ok.fallback is not None
 
 = CBORF_MAP rejects non-text map keys

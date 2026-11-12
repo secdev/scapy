@@ -54,7 +54,6 @@ from scapy.cbor.cborcodec import (
     MAX_CBOR_NESTING,
 )
 from scapy.cbor.cborfields import (
-    CBOR_ABSENT,
     CBORF_ANY,
     CBORF_ARRAY,
     CBORF_ARRAY_OF,
@@ -355,12 +354,12 @@ def rr_random_value(rng, depth=0, include_float=True):
 
 
 class RRCbor2AnyRoot(CBOR_Packet):
-    CBOR_root = CBORF_ANY("value", CBOR_ABSENT)
+    CBOR_root = CBORF_ANY("value", None)
 
 
 class RRCbor2AnyEnvelope(CBOR_Packet):
     CBOR_root = CBORF_ARRAY(
-        CBORF_ANY("value", CBOR_ABSENT),
+        CBORF_ANY("value", None),
         CBORF_UNSIGNED_INTEGER("tail", 0),
     )
 
@@ -1163,7 +1162,7 @@ for value in (False, True):
 
 wire = cbor2.dumps(None)
 pkt = RRCbor2Null(wire)
-assert pkt.value is None
+assert isinstance(pkt.value, CBOR_NULL)
 pkt.clear_cache()
 assert bytes(pkt) == wire
 
@@ -1171,7 +1170,7 @@ assert bytes(pkt) == wire
 
 wire = cbor2.dumps(cbor2.undefined)
 pkt = RRCbor2Undefined(wire)
-assert pkt.value is None
+assert isinstance(pkt.value, CBOR_UNDEFINED)
 pkt.clear_cache()
 assert bytes(pkt) == wire
 

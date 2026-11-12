@@ -112,28 +112,6 @@ class _CBORParseResult(object):
     items: int = 0
 
 
-# Sentinel for an optional field that was not present on the wire.
-# Distinct from Python ``None``, which encodes CBOR null for CBORF_ANY.
-# Identity must survive copy/deepcopy used by Packet default caches.
-
-
-class _CBORAbsent(object):
-    def __repr__(self):
-        # type: () -> str
-        return "CBOR_ABSENT"
-
-    def __copy__(self):
-        # type: () -> _CBORAbsent
-        return self
-
-    def __deepcopy__(self, memo):
-        # type: (dict) -> _CBORAbsent
-        return self
-
-
-CBOR_ABSENT = _CBORAbsent()
-
-
 def _encode_exactly_one_cbor_item(val, context="value"):
     # type: (Any, str) -> bytes
     """Serialize *val* and require it to be exactly one well-formed CBOR item.
@@ -266,8 +244,6 @@ class CBORF_field(CBORF_element, Generic[_I]):
                     % self.name
                 )
             return data
-        # Do not special-case None here: for CBORF_ANY, None is CBOR null.
-        # Absent/optional skipping is handled in _build_counted().
         return self._encode_leaf(x)
 
     def _encode_leaf(self, x):
@@ -304,7 +280,7 @@ class CBORF_field(CBORF_element, Generic[_I]):
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> _I
-        if x is CBOR_ABSENT or x is CBOR_NO_ITEM:
+        if x is None or x is CBOR_NO_ITEM:
             return cast(_I, x)
         if isinstance(x, CBOR_UNDEFINED):
             return cast(_I, x)
@@ -353,7 +329,7 @@ class CBORF_field(CBORF_element, Generic[_I]):
 
     def do_copy(self, x):
         # type: (Any) -> Any
-        if x is CBOR_ABSENT or x is CBOR_NO_ITEM:
+        if x is None or x is CBOR_NO_ITEM:
             return x
         if isinstance(x, CBOR_UNDEFINED):
             return x
@@ -370,21 +346,13 @@ class CBORF_field(CBORF_element, Generic[_I]):
 
     def mark_absent(self, pkt):
         # type: (CBOR_Packet) -> None
-        """Record that this field was not present on the wire.
-
-        Assign ``CBOR_ABSENT`` without ``any2i`` so integer leaves that
-        reject non-int values still accept the presence sentinel.
-        """
-        pkt.fields[self.name] = CBOR_ABSENT
-        pkt.explicit = 0
-        pkt.raw_packet_cache = None
-        pkt.raw_packet_cache_fields = None
-        pkt.wirelen = None
+        """Record absence without confusing it with an explicit CBOR null."""
+        pkt.setfieldval(self.name, None)
 
     def is_empty(self, pkt):
         # type: (CBOR_Packet) -> bool
         val = pkt.getfieldval(self.name)
-        return val is None or val is CBOR_ABSENT
+        return val is None
 
     def matches_next_item(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> bool
@@ -446,8 +414,7 @@ class CBORF_ANY(CBORF_field[Any]):
 
     def is_empty(self, pkt):
         # type: (CBOR_Packet) -> bool
-        # Python None / CBOR null is a real value; only CBOR_ABSENT means absent.
-        return pkt.getfieldval(self.name) is CBOR_ABSENT
+        return pkt.getfieldval(self.name) is None
 
     def matches_next_item(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> bool
@@ -461,7 +428,7 @@ class CBORF_ANY(CBORF_field[Any]):
 
     def do_copy(self, x):  # type: ignore[override]
         # type: (Any) -> Any
-        if x is CBOR_ABSENT or x is CBOR_NO_ITEM:
+        if x is None or x is CBOR_NO_ITEM:
             return x
         if isinstance(x, CBOR_UNDEFINED):
             return x
@@ -522,7 +489,7 @@ class CBORF_ANY(CBORF_field[Any]):
         from scapy.cbor.cbor import CBORMapData
         fingerprint = CBORF_ANY._cache_fingerprint
         Kind = _CBORFingerprintKind
-        if obj is CBOR_ABSENT or obj is CBOR_NO_ITEM:
+        if obj is None or obj is CBOR_NO_ITEM:
             return (Kind.SENTINEL, obj)
         if isinstance(obj, CBOR_UNDEFINED):
             return (Kind.UNDEF,)
@@ -590,7 +557,7 @@ class CBORF_ANY(CBORF_field[Any]):
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> Any
-        if x is CBOR_ABSENT or x is CBOR_NO_ITEM:
+        if x is None or x is CBOR_NO_ITEM:
             return x
         if isinstance(x, CBOR_UNDEFINED):
             return x
@@ -599,7 +566,7 @@ class CBORF_ANY(CBORF_field[Any]):
     def build(self, pkt):
         # type: (CBOR_Packet) -> bytes
         val = pkt.getfieldval(self.name)
-        if val is CBOR_ABSENT:
+        if val is None:
             return b""
         return self.i2m(pkt, val)
 
@@ -616,7 +583,7 @@ class CBORF_ANY(CBORF_field[Any]):
 
     def _encode_leaf(self, x):
         # type: (Any) -> bytes
-        if x is CBOR_ABSENT:
+        if x is None:
             return b""
         return CBORcodec_Object.encode_cbor_item(x)
 
@@ -920,8 +887,6 @@ class CBORF_BOOLEAN(CBORF_field[bool]):
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> bool
-        if x is CBOR_ABSENT:
-            return CBOR_ABSENT  # type: ignore
         if x is None:
             return None  # type: ignore
         if isinstance(x, (CBOR_FALSE, CBOR_TRUE)):
@@ -947,16 +912,16 @@ class CBORF_BOOLEAN(CBORF_field[bool]):
         return RandChoice(True, False)
 
 
-class CBORF_NULL(CBORF_field[None]):
+class CBORF_NULL(CBORF_field[CBOR_NULL]):
     """CBOR null field (major type 7, simple value 22)."""
     CBOR_tag = CBOR_MajorTypes.SIMPLE_AND_FLOAT
 
     def __init__(self,
                  name,  # type: str
-                 default=None,  # type: None
+                 default=CBOR_NULL(),  # type: Optional[CBOR_NULL]
                  ):
         # type: (...) -> None
-        super(CBORF_NULL, self).__init__(name, None)
+        super(CBORF_NULL, self).__init__(name, default)
 
     def matches_next_item(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> bool
@@ -967,51 +932,36 @@ class CBORF_NULL(CBORF_field[None]):
         )[0]
 
     def any2i(self, pkt, x):
-        # type: (CBOR_Packet, Any) -> None
-        if x is CBOR_ABSENT:
-            return CBOR_ABSENT  # type: ignore
-        return None
+        # type: (CBOR_Packet, Any) -> CBOR_NULL
+        if x is None:
+            return None  # type: ignore
+        if not isinstance(x, CBOR_NULL):
+            raise TypeError("Expected CBOR_NULL or None")
+        return x
 
     def m2i(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> Tuple[None, bytes]
+        # type: (CBOR_Packet, bytes) -> Tuple[CBOR_NULL, bytes]
         obj, remain = CBORcodec_SIMPLE_AND_FLOAT.dec(s)
         if not isinstance(obj, CBOR_NULL):
             raise CBOR_Type_Mismatch(
                 "Expected null, got %r" % obj)
-        return None, remain
+        return obj, remain
 
     def _encode_leaf(self, x):
         # type: (Any) -> bytes
         return CBOR_NULL().enc()
 
-    def build(self, pkt):
-        # type: (CBOR_Packet) -> bytes
-        if pkt.getfieldval(self.name) is CBOR_ABSENT:
-            return b""
-        return self._encode_leaf(None)
 
-    def _build_counted(self, pkt):
-        # type: (CBOR_Packet) -> _CBORBuildResult
-        data = self.build(pkt)
-        if not data:
-            return _CBORBuildResult(b"", 0)
-        return _CBORBuildResult(data, 1)
-
-    def is_empty(self, pkt):
-        # type: (CBOR_Packet) -> bool
-        return pkt.getfieldval(self.name) is CBOR_ABSENT
-
-
-class CBORF_UNDEFINED(CBORF_field[None]):
+class CBORF_UNDEFINED(CBORF_field[CBOR_UNDEFINED]):
     """CBOR undefined field (major type 7, simple value 23)."""
     CBOR_tag = CBOR_MajorTypes.SIMPLE_AND_FLOAT
 
     def __init__(self,
                  name,  # type: str
-                 default=None,  # type: None
+                 default=CBOR_UNDEFINED(),  # type: Optional[CBOR_UNDEFINED]
                  ):
         # type: (...) -> None
-        super(CBORF_UNDEFINED, self).__init__(name, None)
+        super(CBORF_UNDEFINED, self).__init__(name, default)
 
     def matches_next_item(self, pkt, s):
         # type: (CBOR_Packet, bytes) -> bool
@@ -1022,39 +972,24 @@ class CBORF_UNDEFINED(CBORF_field[None]):
         )[0]
 
     def any2i(self, pkt, x):
-        # type: (CBOR_Packet, Any) -> None
-        if x is CBOR_ABSENT:
-            return CBOR_ABSENT  # type: ignore
-        return None
+        # type: (CBOR_Packet, Any) -> CBOR_UNDEFINED
+        if x is None:
+            return None  # type: ignore
+        if not isinstance(x, CBOR_UNDEFINED):
+            raise TypeError("Expected CBOR_UNDEFINED or None")
+        return x
 
     def m2i(self, pkt, s):
-        # type: (CBOR_Packet, bytes) -> Tuple[None, bytes]
+        # type: (CBOR_Packet, bytes) -> Tuple[CBOR_UNDEFINED, bytes]
         obj, remain = CBORcodec_SIMPLE_AND_FLOAT.dec(s)
         if not isinstance(obj, CBOR_UNDEFINED):
             raise CBOR_Type_Mismatch(
                 "Expected undefined, got %r" % obj)
-        return None, remain
+        return obj, remain
 
     def _encode_leaf(self, x):
         # type: (Any) -> bytes
         return CBOR_UNDEFINED().enc()
-
-    def build(self, pkt):
-        # type: (CBOR_Packet) -> bytes
-        if pkt.getfieldval(self.name) is CBOR_ABSENT:
-            return b""
-        return self._encode_leaf(None)
-
-    def _build_counted(self, pkt):
-        # type: (CBOR_Packet) -> _CBORBuildResult
-        data = self.build(pkt)
-        if not data:
-            return _CBORBuildResult(b"", 0)
-        return _CBORBuildResult(data, 1)
-
-    def is_empty(self, pkt):
-        # type: (CBOR_Packet) -> bool
-        return pkt.getfieldval(self.name) is CBOR_ABSENT
 
 
 class CBORF_FLOAT(CBORF_field[float]):
@@ -1082,8 +1017,6 @@ class CBORF_FLOAT(CBORF_field[float]):
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> float
-        if x is CBOR_ABSENT:
-            return CBOR_ABSENT  # type: ignore
         if x is None:
             return None  # type: ignore
         if isinstance(x, CBOR_FLOAT):
@@ -1107,7 +1040,7 @@ class CBORF_FLOAT(CBORF_field[float]):
     def cache_fingerprint(self, x):
         # type: (Any) -> Any
         """Wire-sensitive snapshot: distinguishes +0.0/-0.0 and NaN bits."""
-        if x is None or x is CBOR_ABSENT:
+        if x is None:
             return x
         return struct.pack(">d", float(x))
 
@@ -1795,7 +1728,7 @@ class _CBORF_MAP_UNKNOWN(CBORF_field[List[Tuple[str, Any]]]):
 
     def any2i(self, pkt, x):
         # type: (CBOR_Packet, Any) -> List[Tuple[str, Any]]
-        if x is None or x is CBOR_ABSENT:
+        if x is None:
             return []
         return list(x)
 
@@ -2201,7 +2134,7 @@ class CBORF_optional(CBORF_element):
     Wrapper making a CBOR field or semantic-tag field optional.
 
     Accepts :class:`CBORF_field` or :class:`CBORF_SEMANTIC_TAG` (presence
-    methods required). Absence is recorded as ``CBOR_ABSENT`` on every path
+    methods required). Absence is recorded as ``None`` on every path
     (lookahead mismatch, exhausted parent array, missing map key).  If the
     next item matches but decoding fails, the error propagates.
     """

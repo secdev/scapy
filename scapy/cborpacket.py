@@ -7,7 +7,7 @@ CBOR Packet
 
 Packet holding data encoded in Concise Binary Object Representation (CBOR).
 Modelled after scapy/asn1packet.py, with CBOR-specific raw-cache integration
-for sentinels (``CBOR_ABSENT``) and mutable ANY values.
+for sentinels (``None``) and mutable ANY values.
 """
 
 from scapy.base_classes import Packet_metaclass
@@ -91,13 +91,12 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
                 # type: (Packet) -> Tuple[Any, ...]
                 child_fields = {}  # type: Dict[str, Any]
                 if isinstance(child, CBOR_Packet):
-                    from scapy.cbor.cborfields import CBOR_ABSENT
                     for cf in child.fields_desc:
                         if cf.name not in child.fields:
                             continue
                         cval = child.fields[cf.name]
-                        if cval is CBOR_ABSENT:
-                            child_fields[cf.name] = CBOR_ABSENT
+                        if cval is None:
+                            child_fields[cf.name] = None
                             continue
                         if cval is None and getattr(cf, "isconditional", False):
                             continue
@@ -135,7 +134,6 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
 
     def do_dissect(self, s):
         # type: (bytes) -> bytes
-        from scapy.cbor.cborfields import CBOR_ABSENT
         result = self.CBOR_root._dissect_counted(self, s)
         remain = result.remaining
         self.raw_packet_cache = s[:-len(remain)] if remain else s
@@ -144,9 +142,9 @@ class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
             if f.name not in self.fields:
                 continue
             fval = self.fields[f.name]
-            # Absent scalars are not mutable fingerprints; storing CBOR_ABSENT
+            # Absent scalars are not mutable fingerprints; storing None
             # here would fail validation against the generic None fingerprint.
-            if fval is CBOR_ABSENT:
+            if fval is None:
                 continue
             if getattr(f, "isconditional", False) and fval is None:
                 continue
