@@ -324,6 +324,14 @@ ie.ietype == 134 and ie.flags == 145 and ie.digits == b'111111111111'
 ie = IE_MSInternationalNumber(flags=145, digits='111111111111')
 ie.ietype == 134 and ie.flags == 145 and ie.digits == b'111111111111'
 
+= IE_MSInternationalNumber(), build without length
+assert raw(IE_MSInternationalNumber()) == hex_bytes("860007" "91" "3306070819f0")
+assert raw(IE_MSInternationalNumber(digits='491701234567')) == hex_bytes("860007" "91" "947110325476")
+assert raw(IE_MSInternationalNumber(digits='4917012345678')) == hex_bytes("860008" "91" "947110325476f8")
+assert raw(IE_MSInternationalNumber(length=7, digits='491701234567')) == hex_bytes("860007" "91" "947110325476")
+ie = IE_MSInternationalNumber(raw(IE_MSInternationalNumber(digits='4917012345678')))
+assert ie.length == 8 and ie.digits == b'4917012345678'
+
 = IE_QoS(), dissect
 h = "3333333333332222222222228100838408004588005400000000fd1182850a2a00010a2a0002084b084b00406b4632130030afe9d3a3317e0000018010bd82f3997f9febcaf58500040a2a00018500040a2a000187000f0213921f7396d1fe7482ffff004a00f7a71e0a"
 gtp = Ether(hex_bytes(h))
