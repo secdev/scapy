@@ -573,8 +573,8 @@ class IE_MMContext_EPS(gtp.IE_Base):
                    ThreeBytesField("Nas_ul_count", 0),
                    BitField("Kasme", 0, 256),
                    ConditionalField(StrLenField("fields", "",
-                                    length_from=lambda x: x.length - 41),
-                                    lambda pkt: pkt.length > 40)]
+                                    length_from=lambda x: (x.length - 41) if x.length is not None else 0),
+                                    lambda pkt: pkt.length > 40 if pkt.length is not None else False)]
 
 
 class IE_PDNConnection(gtp.IE_Base):
@@ -779,7 +779,7 @@ class IE_MSISDN(gtp.IE_Base):
 class IE_Indication(gtp.IE_Base):
     name = "IE Indication"
     fields_desc = [ByteEnumField("ietype", 77, IEType),
-                   ShortField("length", None),
+                   ShortField("length", 3),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
                    ConditionalField(
@@ -1151,13 +1151,17 @@ class PCO_S_Nssai(PCO_Protocol):
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", None),
                    ConditionalField(
-                       ByteField("SST", 0), lambda pkt: pkt.length > 0),
+                       ByteField("SST", 0),
+                       lambda pkt: pkt.length > 0 if pkt.length is not None else True),
                    ConditionalField(
-                       ShortField("SD", 0), lambda pkt: pkt.length > 1),
+                       ShortField("SD", 0),
+                       lambda pkt: pkt.length > 1 if pkt.length is not None else False),
                    ConditionalField(
-                       ByteField("Hplmn_Sst", 0), lambda pkt: pkt.length >= 4),
+                       ByteField("Hplmn_Sst", 0),
+                       lambda pkt: pkt.length >= 4 if pkt.length is not None else False),
                    ConditionalField(
-                       ShortField("Hplmn_Sd", 0), lambda pkt: pkt.length > 4)]
+                       ShortField("Hplmn_Sd", 0),
+                       lambda pkt: pkt.length > 4 if pkt.length is not None else False)]
 
 
 class PCO_Qos_Rules(PCO_Protocol):
