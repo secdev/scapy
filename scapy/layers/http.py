@@ -1053,8 +1053,27 @@ class HTTP_Client(object):
                     continue
             # Second case: follow redirection
             if resp.Status_Code in [b"301", b"302"] and follow_redirects:
+                location = resp.Location.decode()
+                # Host and Path must be computed from the new URL
+                headers.pop("Host")
+                headers.pop("Path")
+                # Do not forward credentials to another origin
+                try:
+                    redirect = urlsplit(location)
+                    redirect_port = redirect.port
+                except ValueError:
+                    raise ValueError("Bad URL !") from None
+                if redirect_port is None:
+                    redirect_port = 443 if redirect.scheme == "https" else 80
+                if (redirect.scheme, redirect.hostname, redirect_port) != (
+                    transport,
+                    host,
+                    port,
+                ):
+                    for hdr in ["Authorization", "Proxy_Authorization", "Cookie"]:
+                        headers.pop(hdr, None)
                 return self.request(
-                    resp.Location.decode(),
+                    location,
                     data=data,
                     timeout=timeout,
                     follow_redirects=follow_redirects,
