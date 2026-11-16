@@ -205,6 +205,13 @@ def _flush_fd(fd):
             break
 
 
+def _send_packet(fd, data, iface, protocol=None):
+    # type: (socket.socket, bytes, str, Optional[int]) -> int
+    if protocol is None:
+        return fd.send(data)
+    return fd.sendto(data, (iface, protocol))
+
+
 class L2Socket(SuperSocket):
     desc = "read/write packets at layer 2 using Linux PF_PACKET sockets"
 
@@ -297,6 +304,28 @@ class L2Socket(SuperSocket):
 
     def send(self, x):
         # type: (Packet) -> int
+        protocol = conf.l3types.layer2num.get(type(x))
+        # Some interfaces, such as PPP, cannot infer the protocol from packet
+        # bytes when the socket is bound to ETH_P_ALL.
+        if self.type == ETH_P_ALL and protocol is not None:
+            sx = raw(x)
+            try:
+                x.sent_time = time.time()
+            except AttributeError:
+                pass
+            try:
+                return _send_packet(self.outs, sx, self.iface, protocol)
+            except socket.error as msg:
+                if msg.errno == 22 and len(sx) < conf.min_pkt_size:
+                    padding = b"\x00" * (conf.min_pkt_size - len(sx))
+                    if isinstance(x, Packet):
+                        sx = raw(x / Padding(load=padding))
+                    else:
+                        sx += padding
+                    return _send_packet(
+                        self.outs, sx, self.iface, protocol
+                    )
+                raise
         try:
             return SuperSocket.send(self, x)
         except socket.error as msg:
@@ -373,22 +402,32 @@ class L3PacketSocket(L2Socket):
             sx = bytes(sock.LL() / x)
         else:
             sx = bytes(x)
+        protocol = None
+        if sock.type == ETH_P_ALL:
+            # Some interfaces, such as PPP, cannot infer the protocol from
+            # packet bytes when the socket is bound to ETH_P_ALL.
+            protocol = conf.l3types.layer2num.get(type_x)
         # Now send.
         try:
             x.sent_time = time.time()
         except AttributeError:
             pass
         try:
-            return fd.send(sx)
+            return _send_packet(fd, sx, iff, protocol)
         except socket.error as msg:
             if msg.errno == 22 and len(sx) < conf.min_pkt_size:
-                return fd.send(
-                    sx + b"\x00" * (conf.min_pkt_size - len(sx))
+                return _send_packet(
+                    fd,
+                    sx + b"\x00" * (conf.min_pkt_size - len(sx)),
+                    iff,
+                    protocol,
                 )
             elif conf.auto_fragment and msg.errno == 90:
                 i = 0
                 for p in x.fragment():
-                    i += fd.send(bytes(self.LL() / p))
+                    i += _send_packet(
+                        fd, bytes(self.LL() / p), iff, protocol
+                    )
                 return i
             else:
                 raise
