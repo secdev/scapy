@@ -1183,8 +1183,8 @@ class ARP_am(AnsweringMachine[Packet]):
             (self.from_ip is None or arp.psrc in self.from_ip)
         )
 
-    def make_reply(self, req):
-        # type: (Packet) -> Packet
+    def make_reply(self, req, addr=None):
+        # type: (Packet, Any) -> Packet
         ether = req[Ether]
         arp = req[ARP]
 
