@@ -646,9 +646,19 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_SERVERFINISHED(self):
+        if not self.cur_session.finished_valid:
+            raise self.INVALID_FINISHED()
         self.vprint("TLS handshake completed!")
         self.vprint_sessioninfo()
         self.vprint("You may send data or use 'quit'.")
+
+    @ATMT.state()
+    def INVALID_FINISHED(self):
+        self.vprint("Invalid Finished!")
+        self.add_record()
+        self.add_msg(TLSAlert(level=2, descr=51))
+        self.flush_records()
+        raise self.FINAL(reason=self.INVALID_FINISHED)
 
     #                       end of TLS handshake                              #
 
@@ -1426,6 +1436,8 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def TLS13_HANDLED_FINISHED(self):
+        if not self.cur_session.finished_valid:
+            raise self.INVALID_FINISHED()
         raise self.TLS13_PREPARE_CLIENTFLIGHT2()
 
     @ATMT.state()
