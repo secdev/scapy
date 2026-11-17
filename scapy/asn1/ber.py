@@ -424,7 +424,11 @@ class BERcodec_Object(Generic[_K], metaclass=BERcodec_metaclass):
 
 
 ASN1_Codecs.BER.register_stem(BERcodec_Object)
-ASN1_Codecs.BER.register_tagging(BER_tagging_enc, BER_tagging_dec)
+# BER is the one codec that puts the tag of a field on the wire.
+ASN1_Codecs.BER.register_hooks(
+    tagging_enc=BER_tagging_enc,
+    tagging_dec=BER_tagging_dec,
+)
 
 
 ##########################
