@@ -2150,6 +2150,13 @@ class NTLMSSP(SSP):
                 domain,
                 HashNt=self.IDENTITIES[username],
             )
+            NTProofStr = auth_tok.NtChallengeResponse.computeNTProofStr(
+                ResponseKeyNT,
+                Context.chall_tok.ServerChallenge,
+            )
+            if NTProofStr != auth_tok.NtChallengeResponse.NTProofStr:
+                log_runtime.debug("NTLMSSP: Bad NTProofStr for %s" % username)
+                return None
             return NTLMv2_ComputeSessionBaseKey(
                 ResponseKeyNT,
                 auth_tok.NtChallengeResponse.NTProofStr,
