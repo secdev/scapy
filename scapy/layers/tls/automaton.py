@@ -69,6 +69,12 @@ class _TLSAutomaton(Automaton):
         kwargs["recvsock"] = lambda *args, **kwargs: None
         super(_TLSAutomaton, self).__init__(*args, **kwargs)
 
+    def destroy(self, force=False):
+        # Automaton.destroy() does not know about the TLS socket
+        if getattr(self, "socket", None) is not None:
+            self.socket.close()
+        super(_TLSAutomaton, self).destroy(force=force)
+
     def parse_args(self, mycert=None, mykey=None, **kargs):
 
         self.verbose = kargs.pop("verbose", True)
