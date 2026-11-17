@@ -12,6 +12,7 @@ Answering machines.
 ########################
 
 import abc
+import enum
 import functools
 import threading
 import socket
@@ -68,6 +69,23 @@ class ReferenceAM(type):
 
 
 class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
+    """
+    This class acts as a template of a small server that answers stimuli.
+
+    The following classes should be extended:
+
+        - parse_options -> store / process a parameter
+        - make_reply -> called with a request to make a reply
+        - is_request -> acts as a filter for requests
+
+    By default, it listens on a RAW socket, but it can be configured to run
+    on a normal socket (UDP, TCP, ...) if necessary, through the ansmode param.
+
+    In RAW mode, set a "filter" class attribute to use a BPF filter.
+
+    Provide a "function_name" class attribute to register the answering machine
+    as a command.
+    """
     function_name = ""
     filter = None  # type: Optional[str]
     sniff_options = {"store": 0}  # type: Dict[str, Any]
@@ -77,17 +95,23 @@ class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
     send_options_list = ["iface", "inter", "loop", "verbose", "socket"]
     send_function = staticmethod(sendp)
 
+    class MODE(enum.IntEnum):
+        RAW = socket.SOCK_RAW
+        TCP = socket.SOCK_STREAM
+        UDP = socket.SOCK_DGRAM
+
     def __init__(self, **kargs):
         # type: (Any) -> None
-        self.mode = 0
+        self.mode = kargs.pop("ansmode", self.MODE.RAW)
         self.verbose = kargs.get("verbose", conf.verb >= 0)
+        self.port = kargs.get("port", 0)
+        self.cls = kargs.get("cls", conf.raw_layer)
         if self.filter:
             kargs.setdefault("filter", self.filter)
         kargs.setdefault("prn", self.reply)
-        self.optam1 = {}  # type: Dict[str, Any]
-        self.optam2 = {}  # type: Dict[str, Any]
-        self.optam0 = {}  # type: Dict[str, Any]
-        doptsend, doptsniff = self.parse_all_options(1, kargs)
+        doptsend, doptsniff, defoptuser = self.split_all_options(kargs)
+        self.defoptuser = defoptuser
+        self.parse_options(**defoptuser)
         self.defoptsend = self.send_options.copy()
         self.defoptsend.update(doptsend)
         self.defoptsniff = self.sniff_options.copy()
@@ -95,27 +119,12 @@ class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
         self.optsend = {}   # type: Dict[str, Any]
         self.optsniff = {}   # type: Dict[str, Any]
 
-    def __getattr__(self, attr):
-        # type: (str) -> Any
-        for dct in [self.optam2, self.optam1]:
-            if attr in dct:
-                return dct[attr]
-        raise AttributeError(attr)
-
-    def __setattr__(self, attr, val):
-        # type: (str, Any) -> None
-        mode = self.__dict__.get("mode", 0)
-        if mode == 0:
-            self.__dict__[attr] = val
-        else:
-            [self.optam1, self.optam2][mode - 1][attr] = val
-
     def parse_options(self):
         # type: () -> None
         pass
 
-    def parse_all_options(self, mode, kargs):
-        # type: (int, Any) -> Tuple[Dict[str, Any], Dict[str, Any]]
+    def split_all_options(self, kargs):
+        # type: (Any) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]
         sniffopt = {}  # type: Dict[str, Any]
         sendopt = {}  # type: Dict[str, Any]
         for k in list(kargs):  # use list(): kargs is modified in the loop
@@ -125,27 +134,14 @@ class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
                 sendopt[k] = kargs[k]
             if k in self.sniff_options_list + self.send_options_list:
                 del kargs[k]
-        if mode != 2 or kargs:
-            if mode == 1:
-                self.optam0 = kargs
-            elif mode == 2 and kargs:
-                k = self.optam0.copy()
-                k.update(kargs)
-                self.parse_options(**k)
-                kargs = k
-            omode = self.__dict__.get("mode", 0)
-            self.__dict__["mode"] = mode
-            self.parse_options(**kargs)
-            self.__dict__["mode"] = omode
-        return sendopt, sniffopt
+        return sendopt, sniffopt, kargs
 
     def is_request(self, req):
         # type: (Packet) -> int
         return 1
 
     @abc.abstractmethod
-    def make_reply(self, req):
-        # type: (Packet) -> _T
+    def make_reply(self, req: Packet, address: Optional[Any] = None) -> _T:
         pass
 
     def send_reply(self, reply, send_function=None):
@@ -168,9 +164,10 @@ class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
         if not self.is_request(pkt):
             return
         if address:
-            # Only on AnsweringMachineTCP
-            reply = self.make_reply(pkt, address=address)  # type: ignore
+            reply = self.make_reply(pkt, address)
         else:
+            # For backwards compatibility, we don't pass address if undefined (RAW)
+            # since the 'address' parameter is new
             reply = self.make_reply(pkt)
         if not reply:
             return
@@ -199,11 +196,19 @@ class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
     def __call__(self, *args, **kargs):
         # type: (Any, Any) -> None
         bg = kargs.pop("bg", False)
-        optsend, optsniff = self.parse_all_options(2, kargs)
+
+        # Separate the kargs in the send/sniff/user
+        optsend, optsniff, optuser = self.split_all_options(kargs)
         self.optsend = self.defoptsend.copy()
         self.optsend.update(optsend)
         self.optsniff = self.defoptsniff.copy()
         self.optsniff.update(optsniff)
+
+        # Finally call the AnsweringMachine's parse_options with user
+        # provided arguments.
+        kargs = self.defoptuser.copy()
+        kargs.update(optuser)
+        self.parse_options(**kargs)
 
         if bg:
             self.sniff_bg()
@@ -213,80 +218,62 @@ class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
             except KeyboardInterrupt:
                 print("Interrupted by user")
 
-    def sniff(self):
-        # type: () -> None
-        sniff(**self.optsniff)
+    def sniff(self) -> None:
+        """
+        Start sniffing. This is blocking
+        """
+        if self.mode == self.MODE.RAW:
+            # Sniff using RAW method.
+            sniff(**self.optsniff)
+        elif self.mode in [self.MODE.TCP, self.MODE.UDP]:
+            # Sniff using a normal socket
+            from scapy.supersocket import StreamSocket
+            ssock = socket.socket(socket.AF_INET, self.mode)
+            try:
+                ssock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            except OSError:
+                pass
+            ssock.bind(
+                (
+                    get_if_addr(self.optsniff.get("iface", conf.iface)),
+                    self.port
+                )
+            )
+            if self.mode == self.MODE.TCP:
+                ssock.listen()
+            sniffers = []
+            try:
+                while True:
+                    clientsocket, address = ssock.accept()
+                    print("%s connected" % repr(address))
+                    sock = StreamSocket(clientsocket, self.cls)
+                    optsniff = self.optsniff.copy()
+                    optsniff["prn"] = functools.partial(self.reply,
+                                                        send_function=sock.send,
+                                                        address=address)
+                    optsniff.pop("iface", None)
+                    sniffer = AsyncSniffer(opened_socket=sock, **optsniff)
+                    sniffer.start()
+                    sniffers.append((sniffer, sock))
+            finally:
+                for (sniffer, sock) in sniffers:
+                    try:
+                        sniffer.stop()
+                    except Exception:
+                        pass
+                    sock.close()
+                ssock.close()
+        else:
+            raise ValueError
 
     def sniff_bg(self):
         # type: () -> None
-        self.sniffer = AsyncSniffer(**self.optsniff)
-        self.sniffer.start()
-
-
-class AnsweringMachineTCP(AnsweringMachine[Packet]):
-    """
-    An answering machine that use the classic socket.socket to
-    answer multiple TCP clients
-    """
-    TYPE = socket.SOCK_STREAM
-
-    def parse_options(self, port=80, cls=conf.raw_layer):
-        # type: (int, Type[Packet]) -> None
-        self.port = port
-        self.cls = cls
-
-    def close(self):
-        # type: () -> None
-        pass
-
-    def sniff(self):
-        # type: () -> None
-        from scapy.supersocket import StreamSocket
-        ssock = socket.socket(socket.AF_INET, self.TYPE)
-        try:
-            ssock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        except OSError:
-            pass
-        ssock.bind(
-            (get_if_addr(self.optsniff.get("iface", conf.iface)), self.port))
-        ssock.listen()
-        sniffers = []
-        try:
-            while True:
-                clientsocket, address = ssock.accept()
-                print("%s connected" % repr(address))
-                sock = StreamSocket(clientsocket, self.cls)
-                optsniff = self.optsniff.copy()
-                optsniff["prn"] = functools.partial(self.reply,
-                                                    send_function=sock.send,
-                                                    address=address)
-                del optsniff["iface"]
-                sniffer = AsyncSniffer(opened_socket=sock, **optsniff)
-                sniffer.start()
-                sniffers.append((sniffer, sock))
-        finally:
-            for (sniffer, sock) in sniffers:
-                try:
-                    sniffer.stop()
-                except Exception:
-                    pass
-                sock.close()
-            self.close()
-            ssock.close()
-
-    def sniff_bg(self):
-        # type: () -> None
-        self.sniffer = threading.Thread(target=self.sniff)  # type: ignore
-        self.sniffer.start()
-
-    def make_reply(self, req, address=None):
-        # type: (Packet, Optional[Any]) -> Packet
-        return req
-
-
-class AnsweringMachineUDP(AnsweringMachineTCP):
-    """
-    An answering machine that use the classic socket.socket to
-    answer multiple UDP clients
-    """
-    TYPE = socket.SOCK_DGRAM
+        if self.mode == self.MODE.RAW:
+            self.sniffer = AsyncSniffer(**self.optsniff)
+            self.sniffer.start()
+        elif self.mode in [self.MODE.TCP, self.MODE.UDP]:
+            # Sniff using a normal socket
+            self.sniffer = threading.Thread(target=self.sniff)  # type: ignore
+            self.sniffer.start()
+        else:
+            raise ValueError
