@@ -335,6 +335,72 @@ def test_read_routes(mock_ioctl):
 test_read_routes()
 
 
+= Layer 3 packet sockets send the protocol to the kernel
+~ linux
+
+from unittest.mock import Mock, call, patch
+from scapy.arch.linux import L2Socket, L3PacketSocket
+from scapy.compat import raw
+from scapy.data import ETH_P_ALL
+
+packet = IPv6(dst="ff02::1")/ICMPv6EchoRequest()
+protocol = conf.l3types.layer2num[IPv6]
+
+l2 = object.__new__(L2Socket)
+l2.type = ETH_P_ALL
+l2.iface = "ppp0"
+l2.outs = Mock()
+L2Socket.send(l2, packet)
+assert l2.outs.sendto.call_args == call(raw(packet), ("ppp0", protocol))
+assert not l2.outs.send.called
+
+l3 = object.__new__(L3PacketSocket)
+l3.send_socks = {"ppp0": l3}
+l3.type = ETH_P_ALL
+l3.iface = "ppp0"
+l3.filter = None
+l3.promisc = False
+l3.lvl = 3
+l3.LL = IPv6
+l3.outs = Mock()
+with patch.object(IPv6, "route", return_value=("ppp0", None, None)):
+    L3PacketSocket.send(l3, packet)
+assert l3.outs.sendto.call_args.args[1] == ("ppp0", protocol)
+assert l3.outs.sendto.call_args.args[0][0] >> 4 == 6
+assert not l3.outs.send.called
+
+packet4 = IP(dst="198.51.100.1")/ICMP()
+protocol4 = conf.l3types.layer2num[IP]
+l3_4 = object.__new__(L3PacketSocket)
+l3_4.send_socks = {"ppp0": l3_4}
+l3_4.type = ETH_P_ALL
+l3_4.iface = "ppp0"
+l3_4.filter = None
+l3_4.promisc = False
+l3_4.lvl = 3
+l3_4.LL = IP
+l3_4.outs = Mock()
+l3_4.outs.sendto.side_effect = [OSError(22, 2807), conf.min_pkt_size]
+with patch.object(IP, "route", return_value=("ppp0", None, None)):
+    assert L3PacketSocket.send(l3_4, packet4) == conf.min_pkt_size
+calls = l3_4.outs.sendto.call_args_list
+assert calls[0].args[1] == ("ppp0", protocol4)
+assert calls[1].args[1] == ("ppp0", protocol4)
+assert len(calls[1].args[0]) == conf.min_pkt_size
+assert not l3_4.outs.send.called
+
+l2_4 = object.__new__(L2Socket)
+l2_4.type = ETH_P_ALL
+l2_4.iface = "ppp0"
+l2_4.outs = Mock()
+l2_4.outs.sendto.side_effect = [OSError(22, 2807), conf.min_pkt_size]
+assert L2Socket.send(l2_4, packet4) == conf.min_pkt_size
+calls = l2_4.outs.sendto.call_args_list
+assert calls[0].args[1] == ("ppp0", protocol4)
+assert calls[1].args[1] == ("ppp0", protocol4)
+assert len(calls[1].args[0]) == conf.min_pkt_size
+assert not l2_4.outs.send.called
+
 = L3PacketSocket sendto exception
 ~ linux needs_root
 
