@@ -15,7 +15,6 @@ if [ "$1" != "setup" ] && [ "$1" != "unsetup" ]; then
 fi
 
 IFACE="vethrelay"
-IP="2.2.2.2"
 NFT_TABLE="scapy-tproxy"
 
 # Linux doc about TPROXY and example regarding this:
@@ -38,7 +37,6 @@ if [ "$1" == "setup" ]; then
     ip link add dev $IFACE type dummy
     sysctl net.ipv6.conf.$IFACE.disable_ipv6=1 >/dev/null
     ip link set dev $IFACE up
-    ip addr add dev $IFACE $IP/32
     # All TPROXY rules live in a dedicated nftables table so that
     # iptables-nft (which manages the ip filter/nat/mangle tables)
     # is left untouched.
@@ -56,10 +54,10 @@ if [ "$1" == "setup" ]; then
     ip rule add fwmark 1 lookup 100
     # In routing table 100, all IPs are local to 'vethrelay'
     ip route add local 0.0.0.0/0 dev $IFACE table 100
-    echo -e "\x1b[32mInterface $IFACE is now setup with IPv4: $IP !\x1b[0m\n"
+    echo -e "\x1b[32mInterface $IFACE is now setup !\x1b[0m\n"
     echo -e "Add listening rules as follow:\n"
     echo "# TPROXY incoming TCP packets on port 80 to $IFACE on port 8080"
-    echo "nft add rule ip "$NFT_TABLE" PREROUTING tcp dport 80 meta mark set 0x1 tproxy ip to $IP:8080 accept"
+    echo "nft add rule ip "$NFT_TABLE" PREROUTING tcp dport 80 meta mark set 0x1 tproxy ip to :8080 accept"
     echo
     echo "# Note: you need to allow INPUT on the port that you are adding a listening rule on. For instance, to listen"
     echo "# on wlp4s0 for incoming packets on port 80 (on the interface where it really comes from), one can do"

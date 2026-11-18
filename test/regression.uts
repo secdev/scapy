@@ -4257,7 +4257,7 @@ assert Net("1.2.3.0/24") == Net("1.2.3.0", "1.2.3.255")
 
 assert hash(Net("1.2.3.0/24")) == hash(Net("1.2.3.0", "1.2.3.255"))
 
-assert "%" in Net("1.1.1.1%eth0")
+assert "%" in Net("1.1.1.1", scope=conf.iface)
 
 = Net with a scope identifier
 

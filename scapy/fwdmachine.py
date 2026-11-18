@@ -78,8 +78,9 @@ class ForwardMachine:
     :param remote_port: the port to use in SERVER mode. (else use 'port')
     :param remote_af: (optional) if provided, use a different address family to connect
         to the remote host.
-    :param bind_address: the IP to bind locally. "0.0.0.0" by default in SERVER mode,
-        but "2.2.2.2" by default in TPROXY (if you are using the provided
+    :param bind_address: the IP to bind locally. "0.0.0.0" by default
+    :param iface: the interface to bind (defaults to ANY in SERVER,
+        but "vethrelay" by default in TPROXY (if you are using the provided
         'vethrelay.sh' script).
     :param tls: enable TLS (in both the server and client)
     :param no_check_certificate: with TLS, do not check the certificate of the
@@ -116,6 +117,7 @@ class ForwardMachine:
         remote_port: int = None,
         remote_af: Optional[socket.AddressFamily] = None,
         bind_address: str = None,
+        iface: str = None,
         tls: bool = False,
         no_check_certificate: bool = False,
         crtfile: Optional[str] = None,
@@ -140,18 +142,18 @@ class ForwardMachine:
         self.MTU = MTU
         self.remote_address = remote_address
         self.remote_port = remote_port
-        # Chose 'bind_address' depending on the mode
-        self.bind_address = bind_address
-        if self.bind_address is None:
-            if self.mode == ForwardMachine.MODE.SERVER:
-                self.bind_address = "0.0.0.0"
-            elif self.mode == ForwardMachine.MODE.TPROXY:
-                self.bind_address = "2.2.2.2"
-            else:
-                raise ValueError("Unknown mode :/")
-        red = lambda z: functools.reduce(lambda x, y: x + y, z)
+        if self.tls or self.af == 40:  # TLS or VSOCK
+            self.sockcls = StreamSocketPeekless
+        else:
+            self.sockcls = StreamSocket
+        self.bind_address = bind_address or "0.0.0.0"
+        # Chose 'iface' depending on the mode
+        if iface is None and self.mode == ForwardMachine.MODE.TPROXY:
+            iface = "vethrelay"
+        self.iface = iface
         # Utils
         self.ct = DefaultTheme()
+        red = lambda z: functools.reduce(lambda x, y: x + y, z)
         self.local_ips = red(red(list(x.ips.values())) for x in conf.ifaces.values())
         self.cache = {}
         super(ForwardMachine, self).__init__(**kwargs)
@@ -164,6 +166,12 @@ class ForwardMachine:
         self.ssock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         if self.mode == ForwardMachine.MODE.TPROXY:
             self.ssock.setsockopt(socket.SOL_IP, socket.IP_TRANSPARENT, 1)  # TPROXY !
+        if self.iface is not None:
+            self.ssock.setsockopt(
+                socket.SOL_SOCKET,
+                socket.SO_BINDTODEVICE,
+                self.iface.encode(),
+            )
         self.ssock.bind((self.bind_address, self.port))
         self.ssock.listen(5)
         print(self.ct.green("Relay server waiting on port %s" % self.port))
