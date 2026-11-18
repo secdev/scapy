@@ -18,6 +18,7 @@ import traceback
 
 from scapy.asn1.asn1 import ASN1_OID
 from scapy.config import conf
+from scapy.consts import LINUX
 from scapy.data import MTU
 from scapy.packet import Packet
 from scapy.supersocket import StreamSocket, StreamSocketPeekless
@@ -166,7 +167,7 @@ class ForwardMachine:
         self.ssock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         if self.mode == ForwardMachine.MODE.TPROXY:
             self.ssock.setsockopt(socket.SOL_IP, socket.IP_TRANSPARENT, 1)  # TPROXY !
-        if self.iface is not None:
+        if self.iface is not None and False:
             self.ssock.setsockopt(
                 socket.SOL_SOCKET,
                 socket.SO_BINDTODEVICE,
@@ -311,6 +312,15 @@ class ForwardMachine:
         Get peer socket
         """
         s = socket.socket(ctx.remote_af, ctx.proto)
+        if (
+            LINUX
+            and self.mode == ForwardMachine.MODE.TPROXY
+            and ctx.remote_af in (socket.AF_INET, socket.AF_INET6)
+        ):
+            # Here's a trick: we set SO_PRIORITY to 1 so that we can exclude those
+            # packets from the nftables rules that setup the TPROXY when an OUTPUT
+            # rule is configured.
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_PRIORITY, 1)
         s.settimeout(self.timeout)
         ndest = self.destalias(dest)
         if ndest != dest:
