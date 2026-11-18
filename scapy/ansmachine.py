@@ -19,7 +19,9 @@ import socket
 import warnings
 
 from scapy.arch import get_if_addr
+from scapy.data import MTU
 from scapy.config import conf
+from scapy.error import log_runtime
 from scapy.sendrecv import sendp, sniff, AsyncSniffer
 from scapy.packet import Packet
 from scapy.plist import PacketList
@@ -145,7 +147,7 @@ class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
         pass
 
     def send_reply(self, reply, send_function=None):
-        # type: (_T, Optional[Callable[..., None]]) -> None
+        # type: (_T, Optional[Callable[..., Any]]) -> None
         if send_function:
             send_function(reply)
         else:
@@ -240,29 +242,48 @@ class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
                 )
             )
             if self.mode == self.MODE.TCP:
-                ssock.listen()
-            sniffers = []
-            try:
-                while True:
-                    clientsocket, address = ssock.accept()
-                    print("%s connected" % repr(address))
-                    sock = StreamSocket(clientsocket, self.cls)
-                    optsniff = self.optsniff.copy()
-                    optsniff["prn"] = functools.partial(self.reply,
-                                                        send_function=sock.send,
-                                                        address=address)
-                    optsniff.pop("iface", None)
-                    sniffer = AsyncSniffer(opened_socket=sock, **optsniff)
-                    sniffer.start()
-                    sniffers.append((sniffer, sock))
-            finally:
-                for (sniffer, sock) in sniffers:
-                    try:
-                        sniffer.stop()
-                    except Exception:
-                        pass
-                    sock.close()
-                ssock.close()
+                # TCP
+                ssock.listen(5)
+                sniffers = []
+                try:
+                    while True:
+                        clientsocket, address = ssock.accept()
+                        print("%s connected (TCP)" % repr(address))
+                        sock = StreamSocket(clientsocket, self.cls)
+                        optsniff = self.optsniff.copy()
+                        optsniff["prn"] = functools.partial(self.reply,
+                                                            send_function=sock.send,
+                                                            address=address)
+                        optsniff.pop("iface", None)
+                        sniffer = AsyncSniffer(opened_socket=sock, **optsniff)
+                        sniffer.start()
+                        sniffers.append((sniffer, sock))
+                finally:
+                    for (sniffer, sock) in sniffers:
+                        try:
+                            sniffer.stop()
+                        except Exception:
+                            pass
+                        sock.close()
+                    ssock.close()
+            else:
+                # UDP
+                try:
+                    while True:
+                        rpkt, address = ssock.recvfrom(MTU)
+                        print("%s received (UDP)" % repr(address))
+                        try:
+                            pkt = self.cls(rpkt)
+                        except Exception as ex:
+                            log_runtime.warning(str(ex))
+                            continue
+                        self.reply(
+                            pkt,
+                            send_function=lambda x: ssock.sendto(bytes(x), address),  # type: ignore
+                            address=address,
+                        )
+                finally:
+                    ssock.close()
         else:
             raise ValueError
 
