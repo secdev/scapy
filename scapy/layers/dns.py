@@ -1684,6 +1684,8 @@ class DNS_am(AnsweringMachine):
         self.joker = joker
         self.joker6 = joker6
         self.jokerarpa = jokerarpa
+        self.timeout = 1
+        self.port = 53
 
         def normv(v):
             if isinstance(v, (tuple, list)) and len(v) == 2:
@@ -1729,6 +1731,8 @@ class DNS_am(AnsweringMachine):
         query = req.getlayer(self.cls)
         if query is None or query.qr != 0:
             return False
+        if self.mode != self.mode.RAW:
+            return True
         if self.llmnr:
             # [RFC 4795] sect 2.1: an LLMNR query goes to the link-scope
             # multicast address with a hop limit of 1, so a responder must
@@ -1935,7 +1939,12 @@ class DNS_am(AnsweringMachine):
             if self.relay:
                 # Relay mode ?
                 try:
-                    _rslv = dns_resolve(rq.qname, qtype=rq.qtype, raw=True)
+                    _rslv = dns_resolve(
+                        rq.qname,
+                        qtype=rq.qtype,
+                        raw=True,
+                        timeout=self.timeout,
+                    )
                     if _rslv:
                         ans.extend(_rslv.an)
                         ars.extend(_rslv.ar)
