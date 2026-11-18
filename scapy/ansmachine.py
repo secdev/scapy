@@ -42,19 +42,21 @@ _T = TypeVar("_T", Packet, PacketList)
 
 
 class ReferenceAM(type):
-    def __new__(cls,
-                name,  # type: str
-                bases,  # type: Tuple[type, ...]
-                dct  # type: Dict[str, Any]
-                ):
+    def __new__(
+        cls,
+        name,  # type: str
+        bases,  # type: Tuple[type, ...]
+        dct,  # type: Dict[str, Any]
+    ):
         # type: (...) -> Type['AnsweringMachine[_T]']
-        obj = cast('Type[AnsweringMachine[_T]]',
-                   super(ReferenceAM, cls).__new__(cls, name, bases, dct))
+        obj = cast(
+            "Type[AnsweringMachine[_T]]",
+            super(ReferenceAM, cls).__new__(cls, name, bases, dct),
+        )
         try:
             import inspect
-            obj.__signature__ = inspect.signature(  # type: ignore
-                obj.parse_options
-            )
+
+            obj.__signature__ = inspect.signature(obj.parse_options)  # type: ignore
         except (ImportError, AttributeError):
             pass
         if obj.function_name:
@@ -64,7 +66,7 @@ class ReferenceAM(type):
             func.__doc__ = obj.__doc__ or obj.parse_options.__doc__
             try:
                 func.__signature__ = obj.__signature__  # type: ignore
-            except (AttributeError):
+            except AttributeError:
                 pass
             globals()[obj.function_name] = func
         return obj
@@ -88,11 +90,21 @@ class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
     Provide a "function_name" class attribute to register the answering machine
     as a command.
     """
+
     function_name = ""
     filter = None  # type: Optional[str]
     sniff_options = {"store": 0}  # type: Dict[str, Any]
-    sniff_options_list = ["store", "iface", "count", "promisc", "filter",
-                          "type", "prn", "stop_filter", "opened_socket"]
+    sniff_options_list = [
+        "store",
+        "iface",
+        "count",
+        "promisc",
+        "filter",
+        "type",
+        "prn",
+        "stop_filter",
+        "opened_socket",
+    ]
     send_options = {"verbose": 0}  # type: Dict[str, Any]
     send_options_list = ["iface", "inter", "loop", "verbose", "socket"]
     send_function = staticmethod(sendp)
@@ -118,8 +130,8 @@ class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
         self.defoptsend.update(doptsend)
         self.defoptsniff = self.sniff_options.copy()
         self.defoptsniff.update(doptsniff)
-        self.optsend = {}   # type: Dict[str, Any]
-        self.optsniff = {}   # type: Dict[str, Any]
+        self.optsend = {}  # type: Dict[str, Any]
+        self.optsniff = {}  # type: Dict[str, Any]
 
     def parse_options(self):
         # type: () -> None
@@ -156,8 +168,7 @@ class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
     def print_reply(self, req, reply):
         # type: (Packet, _T) -> None
         if isinstance(reply, PacketList):
-            print("%s ==> %s" % (req.summary(),
-                                 [res.summary() for res in reply]))
+            print("%s ==> %s" % (req.summary(), [res.summary() for res in reply]))
         else:
             print("%s ==> %s" % (req.summary(), reply.summary()))
 
@@ -184,8 +195,7 @@ class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
     def run(self, *args, **kargs):
         # type: (Any, Any) -> None
         warnings.warn(
-            "run() method deprecated. The instance is now callable",
-            DeprecationWarning
+            "run() method deprecated. The instance is now callable", DeprecationWarning
         )
         self(*args, **kargs)
 
@@ -230,17 +240,13 @@ class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
         elif self.mode in [self.MODE.TCP, self.MODE.UDP]:
             # Sniff using a normal socket
             from scapy.supersocket import StreamSocket
+
             ssock = socket.socket(socket.AF_INET, self.mode)
             try:
                 ssock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             except OSError:
                 pass
-            ssock.bind(
-                (
-                    get_if_addr(self.optsniff.get("iface", conf.iface)),
-                    self.port
-                )
-            )
+            ssock.bind((get_if_addr(self.optsniff.get("iface", conf.iface)), self.port))
             if self.mode == self.MODE.TCP:
                 # TCP
                 ssock.listen(5)
@@ -251,15 +257,17 @@ class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
                         print("%s connected (TCP)" % repr(address))
                         sock = StreamSocket(clientsocket, self.cls)
                         optsniff = self.optsniff.copy()
-                        optsniff["prn"] = functools.partial(self.reply,
-                                                            send_function=sock.send,
-                                                            address=address)
+                        optsniff["prn"] = functools.partial(
+                            self.reply,
+                            send_function=sock.send,
+                            address=address,
+                        )
                         optsniff.pop("iface", None)
                         sniffer = AsyncSniffer(opened_socket=sock, **optsniff)
                         sniffer.start()
                         sniffers.append((sniffer, sock))
                 finally:
-                    for (sniffer, sock) in sniffers:
+                    for sniffer, sock in sniffers:
                         try:
                             sniffer.stop()
                         except Exception:
@@ -279,7 +287,7 @@ class AnsweringMachine(Generic[_T], metaclass=ReferenceAM):
                             continue
                         self.reply(
                             pkt,
-                            send_function=lambda x: ssock.sendto(bytes(x), address),  # type: ignore
+                            send_function=lambda x: ssock.sendto(bytes(x), address),  # type: ignore  # noqa: E501
                             address=address,
                         )
                 finally:
