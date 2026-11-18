@@ -17,6 +17,18 @@ fi
 IFACE="vethrelay"
 NFT_TABLE="scapy-tproxy"
 
+if [ "$1" == "setup" ]; then
+    if ! modprobe nft_tproxy; then
+        echo -e "\x1b[31mError: nft_tproxy is required for transparent proxying.\x1b[0m" >&2
+        exit 1
+    fi
+    NFT_SOCKET_AVAILABLE=true
+    if ! modprobe nft_socket; then
+        echo -e "\x1b[33mWarning: nft_socket is unavailable; skipping the socket-match optimisation.\x1b[0m" >&2
+        NFT_SOCKET_AVAILABLE=false
+    fi
+fi
+
 # Linux doc about TPROXY and example regarding this:
 # https://www.kernel.org/doc/Documentation/networking/tproxy.txt
 # https://powerdns.org/tproxydoc/tproxy.md.html
@@ -43,27 +55,41 @@ if [ "$1" == "setup" ]; then
     # The DIVERT chain is an optimisation. The socket match catches
     # packets from already established sockets. Those are marked as 1
     # then accepted directly so that TPROXY does not run again.
-    nft "add table ip "$NFT_TABLE""
-    nft "add chain ip "$NFT_TABLE" DIVERT"
-    nft "add chain ip "$NFT_TABLE" PREROUTING { type filter hook prerouting priority mangle; policy accept; }"
-    nft "add rule ip "$NFT_TABLE" PREROUTING ip protocol tcp socket wildcard 0 jump DIVERT"
-    nft "add rule ip "$NFT_TABLE" DIVERT meta mark set 0x1"
-    nft "add rule ip "$NFT_TABLE" DIVERT accept"
-    # Packets marked with 1 are routed through table 100 instead of the
-    # default routing table
+    nft add table ip "$NFT_TABLE"
+    nft add chain ip "$NFT_TABLE" DIVERT "{ type filter hook prerouting priority -150; }"
+    if [ "$NFT_SOCKET_AVAILABLE" == "true" ]; then
+        nft add rule ip "$NFT_TABLE" DIVERT meta l4proto tcp socket transparent 1 meta mark set 1 accept
+    fi
+    # Also add an OUTPUT rule so that we can test from loopback
+    nft add chain ip "$NFT_TABLE" OUTPUT "{ type route hook output priority mangle; policy accept; }"
+    # Packets marked with 1 -> use table 100
     ip rule add fwmark 1 lookup 100
     # In routing table 100, all IPs are local to 'vethrelay'
     ip route add local 0.0.0.0/0 dev $IFACE table 100
-    echo -e "\x1b[32mInterface $IFACE is now setup !\x1b[0m\n"
-    echo -e "Add listening rules as follow:\n"
-    echo "# TPROXY incoming TCP packets on port 80 to $IFACE on port 8080"
-    echo "nft add rule ip "$NFT_TABLE" PREROUTING tcp dport 80 meta mark set 0x1 tproxy ip to :8080 accept"
+
+    echo -e "\n\x1b[32mInterface $IFACE is now setup !\x1b[0m"
+    echo -e "\n\x1b[1mIncoming (FORWARD) traffic\x1b[0m"
+    echo "  Redirect TCP port 80 to the proxy on port 8080:"
     echo
-    echo "# Note: you need to allow INPUT on the port that you are adding a listening rule on. For instance, to listen"
-    echo "# on wlp4s0 for incoming packets on port 80 (on the interface where it really comes from), one can do"
-    echo "nft add rule ip <mytable> INPUT iifname <wlp4s0 tcp dport 80 accept"
-    echo "# or using iptables"
-    echo "iptables -A INPUT -i wlp4s0 -p tcp --dport 80 -j ACCEPT"
+    printf '\033[36m  nft add rule ip %s DIVERT \\\n      tcp dport 80 tproxy to :8080 meta mark set 0x1 accept\033[0m\n' "$NFT_TABLE"
+    echo
+    echo -e "\x1b[1mOutgoing traffic (optional)\x1b[0m"
+    echo "  Outgoing traffic also requires the Incoming (FORWARD) rule above."
+    echo "  To redirect outgoing TCP port 80, additionally add:"
+    echo "  Priority 1 excludes the proxy's upstream connections."
+    echo
+    printf '\033[36m  nft add rule ip %s OUTPUT \\\n      meta priority != 0:1 tcp dport 80 meta mark set 0x1\033[0m\n' "$NFT_TABLE"
+    echo
+    echo -e "\x1b[1mAllow incoming traffic\x1b[0m"
+    echo "  Allow INPUT on the original destination port and incoming interface."
+    echo "  Example: TCP port 80 arriving on wlp4s0 (replace <mytable>):"
+    echo
+    printf '\033[36m  nft add rule ip <mytable> INPUT \\\n      iifname wlp4s0 tcp dport 80 accept\033[0m\n'
+    echo
+    echo "  Or, using iptables:"
+    echo
+    echo -e "\x1b[36m  iptables -A INPUT -i wlp4s0 -p tcp --dport 80 -j ACCEPT\x1b[0m"
+    echo
 elif [ "$1" == "unsetup" ]; then
     checkSetup
     if [ $? -ne 0 ]; then
