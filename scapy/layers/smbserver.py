@@ -1148,6 +1148,9 @@ class SMB_Server(Automaton):
                 # Note: symbolic links are unsupported because it's hard to check
                 # for path traversal on them.
                 if not x.is_symlink()
+                # The filter is client-provided: only keep the entries of this
+                # folder (it may contain '..' or a subfolder, e.g. '../*')
+                and x.resolve().parent == path
             ]
             + [
                 cls(
