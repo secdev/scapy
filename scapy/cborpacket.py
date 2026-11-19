@@ -9,20 +9,17 @@ Packet holding data encoded in Concise Binary Object Representation (CBOR).
 Modelled after scapy/asn1packet.py.
 """
 
-from scapy.base_classes import Packet_metaclass
-from scapy.packet import Packet
-
 from typing import (
     Any,
     Dict,
+    Optional,
     Tuple,
     Type,
     cast,
-    TYPE_CHECKING,
 )
 
-if TYPE_CHECKING:
-    from scapy.cbor.cborfields import CBORF_field  # noqa: F401
+from scapy.base_classes import Packet_metaclass
+from scapy.packet import Packet
 
 
 class CBORPacket_metaclass(Packet_metaclass):
@@ -41,25 +38,57 @@ class CBORPacket_metaclass(Packet_metaclass):
 
 
 class CBOR_Packet(Packet, metaclass=CBORPacket_metaclass):
-    CBOR_root = cast('CBORF_field[Any, Any]', None)
+    """CBOR packet with root-schema build/dissect and isolated defaults."""
+
+    CBOR_root = None  # type: Optional[Any]
+
+    def do_init_cached_fields(self, for_dissect_only=False):
+        # type: (bool) -> None
+        super(CBOR_Packet, self).do_init_cached_fields(
+            for_dissect_only=for_dissect_only
+        )
+        if for_dissect_only:
+            return
+        # Packet isolates list/Packet defaults into fields; re-parent those.
+        for f in self.packetfields:
+            if f.name in self.fields:
+                self.fields[f.name] = f.any2i(self, self.fields[f.name])
+        # Isolate CBOR ismutable defaults (e.g. CBORF_ANY objects) without
+        # promoting into fields (bind overloads stay Packet-global).
+        need = [
+            f.name for f in self.fields_desc
+            if getattr(f, "ismutable", False)
+            and f.name in self.default_fields
+            and f.name not in self.fields
+        ]
+        if need:
+            self.default_fields = dict(self.default_fields)
+            for name in need:
+                fld = self.fieldtype[name]
+                self.default_fields[name] = fld.do_copy(
+                    self.default_fields[name]
+                )
 
     def self_build(self):
         # type: () -> bytes
-        """Build this CBOR packet to wire bytes using CBOR_root.
-
-        Returns the raw packet cache when already built, otherwise delegates
-        to CBOR_root.build() which encodes all fields according to the CBOR
-        schema defined for this packet.
-        """
         if self.raw_packet_cache is not None:
             return self.raw_packet_cache
         return self.CBOR_root.build(self)
 
-    def do_dissect(self, x):
+    def do_dissect(self, s):
         # type: (bytes) -> bytes
-        """Dissect CBOR-encoded bytes into packet fields.
+        return self.CBOR_root.dissect(self, s)
 
-        Delegates to CBOR_root.dissect() which reads CBOR items from *x*,
-        populates each field on the packet, and returns any unconsumed bytes.
+    def copy(self):
+        # type: () -> Packet
+        """Deep-copy this packet and re-parent embedded CBOR children.
+
+        Generic ``Packet.copy()`` copies packet-valued fields but leaves each
+        child's ``.parent`` pointing at the original owner. CBOR fields rely on
+        ``parent`` for ownership, so reattach after the clone is built.
         """
-        return self.CBOR_root.dissect(self, x)
+        clone = super(CBOR_Packet, self).copy()
+        for f in clone.fields_desc:
+            if f.holds_packets and f.name in clone.fields:
+                clone.fields[f.name] = f.any2i(clone, clone.fields[f.name])
+        return clone
