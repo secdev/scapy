@@ -215,6 +215,7 @@ IEType = {
     158: "Paging Policy Indicator",
     159: "APN/DNN",
     160: "3GPP Interface Type",
+    186: "PFCPSEReq-Flags",
 }
 
 CauseValues = {
@@ -2254,6 +2255,19 @@ class IE_3GPP_InterfaceType(IE_Base):
     ]
 
 
+class IE_PFCPSEReqFlags(IE_Base):
+    name = "IE PFCPSEReq-Flags"
+    ie_type = 186
+    fields_desc = IE_Base.fields_desc + [
+        XBitField("spare", None, 4),
+        BitField("EPRI", 0, 1),
+        BitField("HRSBOM", 0, 1),
+        BitField("SUMPC", 0, 1),
+        BitField("RESTI", 0, 1),
+        ExtraDataField("extra_data"),
+    ]
+
+
 class IE_EnterpriseSpecific(IE_Base):
     name = "Enterpise Specific"
     ie_type = None
@@ -2432,6 +2446,7 @@ ietypecls = {
     158: IE_PagingPolicyIndicator,
     159: IE_APN_DNN,
     160: IE_3GPP_InterfaceType,
+    186: IE_PFCPSEReqFlags,
 }
 
 
