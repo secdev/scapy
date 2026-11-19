@@ -100,6 +100,12 @@ class DAGMCObj(Packet):
         pkt = pkt[:3] + struct.pack("B", tmp_len) + pkt[4:]
         return pkt
 
+    def extract_padding(self, s):
+        # RFC 6551 - 2.1: the body is `len` octets after the 4-octet
+        # header, and the next object of the container starts after it
+        tmp_len = max(self.len - (len(self.self_build()) - 4), 0)
+        return s[:tmp_len], s[tmp_len:]
+
 
 class RPLDAGMCNSA(DAGMCObj):
     """

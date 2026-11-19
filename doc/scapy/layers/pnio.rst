@@ -2,7 +2,7 @@
 PROFINET IO RTC
 ***************
 
-PROFINET IO is an industrial protocol composed of different layers such as the Real-Time Cyclic (RTC) layer, used to exchange data. However, this RTC layer is stateful and depends on a configuration sent through another layer: the DCE/RPC endpoint of PROFINET. This configuration defines where each exchanged piece of data must be located in the RTC ``data`` buffer, as well as the length of this same buffer. Building such packet is then a bit more complicated than other protocols.
+PROFINET IO is an industrial protocol composed of different layers such as the Real-Time Cyclic (RTC) layer, used to exchange data. However, this RTC layer is stateful and depends on a configuration sent through another layer: the DCE/RPC endpoint of PROFINET. This configuration defines where each exchanged piece of data must be located in the RTC ``data`` buffer, as well as the length of this same buffer. Building such a packet is then a bit more complicated than other protocols.
 
 RTC data packet
 ---------------
@@ -68,7 +68,7 @@ able to dissect it::
       transferStatus= 0
 
 
-For Scapy to be able to dissect it correctly, one must also configure the layer for it to know the location of each data in the buffer. This configuration is saved in the dictionary ``conf.contribs["PNIO_RTC"]`` which can be updated with the ``conf.contribs["PNIO_RTC"].update`` method. Each item in the dictionary uses the tuple ``(Ether.src, Ether.dst, ProfinetIO.frameID)`` as key, to be able to separate the configuration of each communication. Each value is then a list of classes which describes a data packet. If we continue the previous example, here is the configuration to set::
+For Scapy to be able to dissect it correctly, one must also configure the layer for it to know the location of each piece of data in the buffer. This configuration is saved in the dictionary ``conf.contribs["PNIO_RTC"]`` which can be updated with the ``conf.contribs["PNIO_RTC"].update`` method. Each item in the dictionary uses the tuple ``(Ether.src, Ether.dst, ProfinetIO.frameID)`` as key, to be able to separate the configuration of each communication. Each value is then a list of classes which describes a data packet. If we continue the previous example, here is the configuration to set::
 
     >>> e=Ether(src='00:01:02:03:04:05', dst='06:07:08:09:0a:0b') / ProfinetIO(frameID="RT_CLASS_1") / p
     >>> e.show2()

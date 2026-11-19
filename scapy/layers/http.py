@@ -34,6 +34,16 @@ You can turn auto-decompression/auto-compression off with::
 
 (Defaults to True)
 
+Automatic decompression is limited to 1 MiB by default. You can change the
+limit with::
+
+    >>> conf.contribs["http"]["max_decompression"] = 1024 * 1024
+
+Brotli and LZW decompression are disabled by default because their APIs do not
+provide an output size limit. You can enable them with::
+
+    >>> conf.contribs["http"]["unsafe_decompression"] = True
+
 You can also turn auto-chunking/dechunking off with::
 
     >>> conf.contribs["http"]["auto_chunk"] = False
@@ -55,6 +65,7 @@ import socket
 import ssl
 import struct
 import subprocess
+import zlib
 
 from enum import Enum
 from urllib.parse import urlsplit
@@ -64,7 +75,13 @@ from scapy.compat import plain_str, bytes_encode
 from scapy.automaton import Automaton, ATMT
 from scapy.config import conf
 from scapy.consts import WINDOWS
-from scapy.error import warning, log_loading, log_interactive, Scapy_Exception
+from scapy.error import (
+    log_interactive,
+    log_loading,
+    log_runtime,
+    warning,
+    Scapy_Exception,
+)
 from scapy.fields import StrField
 from scapy.packet import Packet, bind_layers, bind_bottom_up, Raw
 from scapy.supersocket import StreamSocket, SSLStreamSocket
@@ -105,8 +122,11 @@ except ImportError:
 
 if "http" not in conf.contribs:
     conf.contribs["http"] = {}
-    conf.contribs["http"]["auto_compression"] = True
-    conf.contribs["http"]["auto_chunk"] = True
+
+conf.contribs["http"].setdefault("auto_compression", True)
+conf.contribs["http"].setdefault("auto_chunk", True)
+conf.contribs["http"].setdefault("max_decompression", 1024 * 1024)
+conf.contribs["http"].setdefault("unsafe_decompression", False)
 
 # https://en.wikipedia.org/wiki/List_of_HTTP_header_fields
 
@@ -353,25 +373,54 @@ class _HTTPContent(Packet):
 
         # Decompress
         try:
+            max_decompression = conf.contribs["http"]["max_decompression"]
             if "deflate" in encodings:
-                import zlib
-
-                s = zlib.decompress(s)
+                decompressor = zlib.decompressobj()
+                decompressed = decompressor.decompress(s, max_decompression + 1)
+                if not decompressor.eof or len(decompressed) > max_decompression:
+                    log_runtime.warning(
+                        'conf.contribs["http"]["max_decompression"] reached.'
+                    )
+                else:
+                    s = decompressed
             elif "gzip" in encodings:
-                s = gzip.decompress(s)
+                with gzip.GzipFile(fileobj=io.BytesIO(s)) as reader:
+                    decompressed = reader.read(max_decompression + 1)
+                if len(decompressed) > max_decompression:
+                    log_runtime.warning(
+                        'conf.contribs["http"]["max_decompression"] reached.'
+                    )
+                else:
+                    s = decompressed
             elif "compress" in encodings:
-                if _is_lzw_available:
-                    s = lzw.decompress(s)
+                if conf.contribs["http"]["unsafe_decompression"]:
+                    if _is_lzw_available:
+                        s = lzw.decompress(s)
+                    else:
+                        log_loading.info(
+                            "Can't import lzw. compress decompression "
+                            "will be ignored !"
+                        )
                 else:
                     log_loading.info(
-                        "Can't import lzw. compress decompression " "will be ignored !"
+                        "compress decompression is disabled because it cannot be "
+                        "capped; set conf.contribs['http']['unsafe_decompression'] "
+                        "to True to enable it"
                     )
             elif "br" in encodings:
-                if _is_brotli_available:
-                    s = brotli.decompress(s)
+                if conf.contribs["http"]["unsafe_decompression"]:
+                    if _is_brotli_available:
+                        s = brotli.decompress(s)
+                    else:
+                        log_loading.info(
+                            "Can't import brotli. brotli decompression "
+                            "will be ignored !"
+                        )
                 else:
                     log_loading.info(
-                        "Can't import brotli. brotli decompression " "will be ignored !"
+                        "brotli decompression is disabled because it cannot be "
+                        "capped; set conf.contribs['http']['unsafe_decompression'] "
+                        "to True to enable it"
                     )
             elif "zstd" in encodings:
                 if _is_zstd_available:
@@ -379,8 +428,14 @@ class _HTTPContent(Packet):
                     # only cases where there is content size data embedded in
                     # the frame
                     bio = io.BytesIO(s)
-                    reader = zstandard.ZstdDecompressor().stream_reader(bio)
-                    s = reader.read()
+                    with zstandard.ZstdDecompressor().stream_reader(bio) as reader:
+                        decompressed = reader.read(max_decompression + 1)
+                    if len(decompressed) > max_decompression:
+                        log_runtime.warning(
+                            'conf.contribs["http"]["max_decompression"] reached.'
+                        )
+                    else:
+                        s = decompressed
                 else:
                     log_loading.info(
                         "Can't import zstandard. zstd decompression "
@@ -398,8 +453,6 @@ class _HTTPContent(Packet):
         if conf.contribs["http"]["auto_compression"]:
             # Compress
             if "deflate" in encodings:
-                import zlib
-
                 pay = zlib.compress(pay)
             elif "gzip" in encodings:
                 pay = gzip.compress(pay)
@@ -786,6 +839,7 @@ class HTTP_AUTH_MECHS(Enum):
     BASIC = "Basic"
     NTLM = "NTLM"
     NEGOTIATE = "Negotiate"
+    NEGO2 = "Nego2"
 
 
 class HTTP_Client(object):
@@ -969,6 +1023,7 @@ class HTTP_Client(object):
                 if self.authmethod in [
                     HTTP_AUTH_MECHS.NTLM,
                     HTTP_AUTH_MECHS.NEGOTIATE,
+                    HTTP_AUTH_MECHS.NEGO2,
                 ]:
                     # Parse authenticate
                     if b" " in resp.WWW_Authenticate:
@@ -1123,7 +1178,7 @@ class HTTP_Server(Automaton):
             self.chan_bindings = GSS_C_NO_CHANNEL_BINDINGS
 
         # Auth settings
-        self.basic = False
+        self.mech = mech
         self.BASIC_IDENTITIES = kwargs.pop("BASIC_IDENTITIES", {})
         self.BASIC_REALM = kwargs.pop("BASIC_REALM", "default")
         if mech == HTTP_AUTH_MECHS.BASIC:
@@ -1131,10 +1186,10 @@ class HTTP_Server(Automaton):
                 raise ValueError("Please provide 'BASIC_IDENTITIES' !")
             if ssp is not None:
                 raise ValueError("Can't use 'BASIC_IDENTITIES' with 'ssp' !")
-            self.basic = True
         elif mech == HTTP_AUTH_MECHS.NONE:
             if ssp is not None:
                 raise ValueError("Cannot use ssp with mech=NONE !")
+
         # Initialize
         Automaton.__init__(self, *args, **kwargs)
 
@@ -1182,9 +1237,13 @@ class HTTP_Server(Automaton):
                 authorization = pkt.Authorization
             if not authorization:
                 # Initial ask.
-                data = self.authmethod
-                if self.basic:
-                    data += " realm='%s'" % self.BASIC_REALM
+                if self.mech == HTTP_AUTH_MECHS.BASIC:
+                    data = ("realm='%s'" % self.BASIC_REALM).encode()
+                elif self.mech == HTTP_AUTH_MECHS.NEGO2:
+                    self.sspcontext, tok = self.ssp.NegTokenInit2()
+                    data = base64.b64encode(bytes(tok))
+                else:
+                    data = None
                 self._ask_authorization(proxy, data)
                 return
             # Parse authorization
@@ -1198,12 +1257,16 @@ class HTTP_Server(Automaton):
                 self.debug(3, "Couldn't unpack base64 of auth.")
                 raise self.AUTH_ERROR(proxy)
             # Now process the authorization
-            if not self.basic:
+            if self.mech in [
+                HTTP_AUTH_MECHS.NTLM,
+                HTTP_AUTH_MECHS.NEGOTIATE,
+                HTTP_AUTH_MECHS.NEGO2,
+            ]:
                 try:
                     ssp_blob = GSSAPI_BLOB(data)
                 except Exception:
                     self.sspcontext = None
-                    self._ask_authorization(proxy, self.authmethod)
+                    self._ask_authorization(proxy, None)
                     self.debug(3, "Couldn't unpack GSSAPI_BLOB of auth.")
                     raise self.AUTH_ERROR(proxy)
                 # And call the SSP
@@ -1213,7 +1276,7 @@ class HTTP_Server(Automaton):
                     req_flags=self.ssp_req_flags,
                     chan_bindings=self.chan_bindings,
                 )
-            else:
+            elif self.mech == HTTP_AUTH_MECHS.BASIC:
                 # This is actually Basic authentication
                 try:
                     next(
@@ -1228,11 +1291,13 @@ class HTTP_Server(Automaton):
             # Send answer
             if status not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
                 self.debug(3, "Authentication failed: %s." % status)
+                ssp_blob.show()
                 raise self.AUTH_ERROR(proxy)
             elif status == GSS_S_CONTINUE_NEEDED:
-                data = self.authmethod.encode()
                 if tok:
-                    data += b" " + base64.b64encode(bytes(tok))
+                    data = base64.b64encode(bytes(tok))
+                else:
+                    data = None
                 self._ask_authorization(proxy, data)
                 raise self.AUTH()
             else:
@@ -1244,7 +1309,7 @@ class HTTP_Server(Automaton):
     @ATMT.state()
     def AUTH_ERROR(self, proxy):
         self.sspcontext = None
-        self._ask_authorization(proxy, self.authmethod)
+        self._ask_authorization(proxy, None)
         self.vprint("AUTH ERROR")
 
     @ATMT.condition(AUTH_ERROR)
@@ -1252,6 +1317,11 @@ class HTTP_Server(Automaton):
         raise self.AUTH()
 
     def _ask_authorization(self, proxy, data):
+        # Append authmethod
+        data = (
+            self.authmethod.encode()
+            + ((b" " + data) if data else b"")
+        )
         if proxy:
             self.send(
                 HTTPResponse(
@@ -1309,7 +1379,7 @@ class HTTP_Server(Automaton):
 
     @ATMT.receive_condition(SERVE)
     def new_request(self, pkt):
-        if self.basic:
+        if self.mech == HTTP_AUTH_MECHS.BASIC:
             raise self.AUTH(pkt)
         raise self.SERVE(pkt)
 

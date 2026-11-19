@@ -2361,3 +2361,38 @@ p
 assert p.indent == 0xf
 assert p.pcount == 4
 assert [p.x for p in p.plist] == [0x41, 0x42, 0x43, 0x44]
+
+= MultipleTypeField wrapping a FieldListField keeps its list value when building (GH3670)
+
+import struct
+
+def MTFListValue(fname="value"):
+    return ConditionalField(MultipleTypeField([
+        (XByteField(fname, 0), lambda pkt: pkt.data_type == 1),
+        (XShortField(fname, 0), lambda pkt: pkt.data_type == 2),
+        (XIntField(fname, 0), lambda pkt: pkt.data_type == 3),
+        (XLongField(fname, 0), lambda pkt: pkt.data_type == 4)
+    ], ByteField(fname, 0)), lambda pkt: pkt.data_type != 0)
+
+class MTFListPacket(Packet):
+    fields_desc = [
+        ByteField("data_type", 0),
+        ByteField("is_array", 0),
+        ConditionalField(FieldLenField("array_size", 0, count_of="value"),
+                         lambda pkt: pkt.is_array != 0),
+        MultipleTypeField([
+            (FieldListField("value", [], MTFListValue(""),
+                            count_from=lambda pkt: pkt.array_size),
+             lambda pkt: pkt.is_array != 0)
+        ], MTFListValue())
+    ]
+
+# scalar case (always worked)
+scalar = MTFListPacket(data_type=2, value=0x1248)
+assert raw(scalar) == struct.pack("!BBH", 2, 0, 0x1248)
+
+# list case (used to crash: the list was expanded into separate packets)
+arr = MTFListPacket(data_type=3, is_array=1, array_size=5, value=[1, 2, 3, 4, 5])
+expected = struct.pack("!BBHIIIII", 3, 1, 5, 1, 2, 3, 4, 5)
+assert raw(arr) == expected
+assert MTFListPacket(raw(arr)).value == [1, 2, 3, 4, 5]

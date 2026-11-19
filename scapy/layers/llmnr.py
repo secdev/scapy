@@ -120,7 +120,7 @@ class LLMNR_am(DNS_am):
     """
     function_name = "llmnrd"
     filter = "udp port 5355"
-    cls = LLMNRQuery
+    am = "llmnr"
 
 
 # LLMNRQuery(id=RandShort(), qd=DNSQR(qname="vista.")))

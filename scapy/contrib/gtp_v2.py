@@ -265,22 +265,25 @@ class GTPHeader(gtp.GTPHeader):
 
 class IE_IP_Address(gtp.IE_Base):
     name = "IE IP Address"
+    deprecated_fields = {
+        "address6": ("address", "2.8.1"),
+    }
     fields_desc = [ByteEnumField("ietype", 74, IEType),
                    ShortField("length", None),
                    BitField("CR_flag", 0, 4),
                    BitField("instance", 0, 4),
-                   ConditionalField(
-                       IPField("address", RandIP()),
-                       lambda pkt: pkt.length == 4),
-                   ConditionalField(
-                       IP6Field("address6", None),
-                       lambda pkt: pkt.length == 16)]
-
-    def post_build(self, p, pay):
-        if self.length is None:
-            tmp_len = 16 if self.address6 is not None else 4
-            p = p[:1] + struct.pack("!H", tmp_len) + p[2:]
-        return p + pay
+                   MultipleTypeField(
+                       [
+                           (IP6Field("address", None),
+                            (lambda pkt: pkt.length == 16,
+                             lambda pkt, val: pkt.length == 16 or (
+                                 pkt.length is None and ":" in str(val)))),
+                           (IPField("address", RandIP()),
+                            (lambda pkt: pkt.length == 4,
+                             lambda pkt, val: pkt.length in (4, None))),
+                       ],
+                       StrFixedLenField("address", None,
+                                        length_from=lambda pkt: pkt.length))]
 
 
 class IE_MEI(gtp.IE_Base):

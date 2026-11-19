@@ -3,7 +3,7 @@ Scapy network stack
 *******************
 
 Scapy maintains its own network stack, which is independent from the one of your operating system.
-It possesses its own *interfaces list*, *routing table*, *ARP cache*, *IPv6 neighbour* cache, *nameservers* config... and so on, all of which is configurable.
+It possesses its own *interfaces list*, *routing table*, *ARP cache*, *IPv6 neighbour* cache, *nameservers* config... and so on, all of which are configurable.
 
 Here are a few examples of where this is used::
 
@@ -88,7 +88,7 @@ IPv4 routes
 .. note::
     If you want to change or edit the routes, have a look at `the "Routing" section in Usage <usage.html#routing>`_
 
-The routes are stores in :py:attr:`conf.route <scapy.route.Route>`. You can use it to display the routes, or get specific routing
+The routes are stored in :py:attr:`conf.route <scapy.route.Route>`. You can use it to display the routes, or get specific routing
 
 .. code-block:: pycon
 
@@ -148,7 +148,7 @@ Get MAC address of the next hop to reach an IP
 ----------------------------------------------
 
 This basically performs a cached ARP who-has when the IP is on the same local link,
-returns the MAC of the gateway when it's not, and handle special cases like multicast.
+returns the MAC of the gateway when it's not, and handles special cases like multicast.
 
 .. code-block:: pycon
 

@@ -23,7 +23,7 @@ The following SSPs are currently provided:
     - :class:`~scapy.layers.msrpce.msnrpc.NetlogonSSP`
     - :class:`~scapy.arch.windows.sspi.WinSSP` (Windows only)
 
-Basically those are classes that implement two functions, trying to micmic the RFCs:
+Basically those are classes that implement two functions, trying to mimic the RFCs:
 
 - :func:`~scapy.layers.gssapi.SSP.GSS_Init_sec_context`: called by the client, passing it a ``Context`` and optionally a token
 - :func:`~scapy.layers.gssapi.SSP.GSS_Accept_sec_context`: called by the server, passing it a ``Context`` and optionally a token
@@ -86,7 +86,7 @@ To give an example, this is what is done in the LDAP client:
 
 .. _spnego:
 
-If you want to use :class:`~scapy.layers.spnego.SPEGOSSP`, you could wrap the SSP as so:
+If you want to use :class:`~scapy.layers.spnego.SPNEGOSSP`, you could wrap the SSP as so:
 
 .. code:: python
 
@@ -135,13 +135,13 @@ Let's use :class:`~scapy.layers.ntlm.NTLMSSP` as an example of server-side SSP.
         }
     )
 
-You'll find other examples of how to instantiate a SSP in the docstrings of each SSP. See `the list <#ssplist>`_
+You'll find other examples of how to instantiate an SSP in the docstrings of each SSP. See `the list <#ssplist>`_
 
 WinSSP
 ~~~~~~
 
 WinSSP is a special SSP that is only available on Windows, which calls the actual Windows SSPs local to the machine it's running on.
-It allows to use the implicit authentication of the logged-in user with Scapy and its various clients, and is also sometimes necessary if you get unexpected ACCESS_DENIED on loopback connections.
+It allows users to use the implicit authentication of the logged-in user with Scapy and its various clients, and is also sometimes necessary if you get unexpected ACCESS_DENIED on loopback connections.
 
 For instance using SPNEGO:
 

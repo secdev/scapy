@@ -13,6 +13,8 @@ import zlib
 from scapy.error import warning
 
 
+TLS_MAX_DECOMPRESSION = 1024 * 1024
+
 _tls_compression_algs = {}
 _tls_compression_algs_cls = {}
 
@@ -63,7 +65,7 @@ class Comp_Deflate(_GenericComp):
         return tmp
 
     def decompress(self, s):
-        return self.decompress_state.decompress(s)
+        return self.decompress_state.decompress(s, TLS_MAX_DECOMPRESSION)
 
     def __init__(self):
         self.compress_state = zlib.compressobj()

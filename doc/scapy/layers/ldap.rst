@@ -11,7 +11,7 @@ The general idea when using the :class:`~scapy.layers.ldap.LDAP_Client` class co
 
 - instantiating the class
 - calling :func:`~scapy.layers.ldap.LDAP_Client.connect` with the IP (this is where to specify whether to use SSL or not)
-- calling :func:`~scapy.layers.ldap.LDAP_Client.bind` (this is where to specify a SSP if authentication is desired)
+- calling :func:`~scapy.layers.ldap.LDAP_Client.bind` (this is where to specify an SSP if authentication is desired)
 - calling :func:`~scapy.layers.ldap.LDAP_Client.search` to search data.
 - calling :func:`~scapy.layers.ldap.LDAP_Client.modify` to edit data attributes.
 
@@ -72,7 +72,7 @@ In that case, the default port is 636. This can be changed using the ``port`` at
 
 .. note::
     By default, the server certificate is NOT checked when using this mode, because the server certificate will likely be self-signed.
-    To actually use TLS securely, you should pass a ``sslcontext`` as shown below:
+    To actually use TLS securely, you should pass an ``sslcontext`` as shown below:
 
 .. code:: python
 
@@ -256,7 +256,7 @@ The following issues a ``Modify Request`` that replaces the ``displayName`` attr
 LDAPHero
 --------
 
-LDAPHero (LDAPéro in French) is a graphical wrapper around Scapy's :class:`~scapy.layers.ldap.LDAP_Client`, that works on all plateforms.
+LDAPHero (LDAPéro in French) is a graphical wrapper around Scapy's :class:`~scapy.layers.ldap.LDAP_Client`, that works on all platforms.
 It can be used with:
 
 .. code:: python
@@ -264,7 +264,7 @@ It can be used with:
    >>> load_module("ticketer")
    >>> LDAPHero()
 
-It's possible to pass it a SSP, which will be used when clicking the "Bind" button:
+It's possible to pass it an SSP, which will be used when clicking the "Bind" button:
 
 .. code:: python
 

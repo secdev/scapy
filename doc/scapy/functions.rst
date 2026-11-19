@@ -8,7 +8,7 @@ functions in your own code.
 UDP checksum
 ============
 
-The following example explains how to use the checksum() function to compute and
+The following example explains how to use the checksum() function to compute a
 UDP checksum manually. The following steps must be performed:
 
 1. compute the UDP pseudo header as described in RFC768
@@ -29,6 +29,6 @@ UDP checksum manually. The following steps must be performed:
   packet_raw = raw(packet)
   udp_raw = packet_raw[20:]
   # in4_chksum is used to automatically build a pseudo-header
-  chksum = in4_chksum(socket.IPPROTO_UDP, packet[IP], udp_raw)  # For more infos, call "help(in4_chksum)"
+  chksum = in4_chksum(socket.IPPROTO_UDP, packet[IP], udp_raw)  # For more information, call "help(in4_chksum)"
 
   assert(checksum_scapy == chksum)

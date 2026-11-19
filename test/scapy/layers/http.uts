@@ -152,72 +152,18 @@ assert HTTPResponse in pkts[8]
 assert pkts[8].Http_Version == b'HTTP/1.1'
 assert len(pkts[8].load) == 134
 
-= HTTP decompression (brotli)
-~ brotli
+= HTTP decompression size limit
+~ http
 
-conf.debug_dissector = True
 load_layer("http")
 
-import os
-import brotli
+import gzip
 
-filename = scapy_path("/test/pcaps/http_compressed-brotli.pcap")
-
-# First without auto decompression
-
-conf.contribs["http"]["auto_compression"] = False
-pkts = sniff(offline=filename, session=TCPSession)
-
-data = b'\x1f\x41\x00\xe0\xc5\x6d\xec\x77\x56\xf7\xb5\x8b\x1c\x52\x10\x48\xe0\x90\x03\xf6\x6f\x97\x30\xd0\x40\x24\xb8\x01\x9b\xdb\xa0\xf4\x5c\x92\x4c\xc4\x6f\x89\x58\xf7\x4b\xf7\x4b\x6f\x8c\x2e\x2c\x28\x64\x06\x1d\x03'
-
-pkts[0].show()
-assert HTTPResponse in pkts[0]
-assert pkts[0].Content_Encoding == b'br'
-assert pkts[0].Content_Type == b'text/plain'
-assert pkts[0].load == data
-
-# Now with auto decompression
-
-conf.contribs["http"]["auto_compression"] = True
-pkts = sniff(offline=filename, session=TCPSession)
-
-pkts[0].show()
-assert HTTPResponse in pkts[0]
-assert pkts[0].load == b'This is a test file for testing brotli decompression in Wireshark\n'
-
-= HTTP decompression (zstd)
-~ zstd
-
-conf.debug_dissector = True
-load_layer("http")
-
-import os
-import zstandard
-
-# sample server: $ socat -v TCP-LISTEN:8080,fork,reuseaddr SYSTEM:'(echo -ne "HTTP/1.1 200 OK\r\nContent-Encoding: zstd\r\n\r\n") > tmp && dd bs=1G count=1 status=none | zstd --stdout >> tmp && cat tmp'
-# sample client: $ curl -v localhost:8080/tmp_echo_zstd_request_for_testing -o a.html
-filename = scapy_path("/test/pcaps/http_compressed-zstd.pcap")
-
-# First without auto decompression
-
-conf.contribs["http"]["auto_compression"] = False
-pkts = sniff(offline=filename)
-
-data = b'\x28\xb5\x2f\xfd\x04\x58\x45\x03\x00\xf2\x06\x19\x1c\x70\x89\x1b\xf6\x4f\x21\x1a\xbb\x28\xda\x9a\x1c\x34\xb8\x68\x1f\xd2\x82\xd7\x01\x8d\x36\xe5\x57\x1d\x0f\x38\x10\xa9\xa9\x86\x32\x96\x3d\xd4\xce\x2d\xa9\x2b\x01\x92\x94\xa8\x17\x23\xb7\xec\x9f\x6e\x96\x23\xb6\x13\x52\x97\xb2\x14\xf6\x0e\x9d\x57\x70\xf0\x2d\x7b\x87\x4c\x2a\x92\x10\x35\x68\x8d\xd9\xe6\x41\xbc\xf7\x73\x84\x07\x7e\xef\x48\xd1\x91\x0d\xef\x0b\x86\x8e\x6b\x86\x12\xaf\xb6\x05\x04\x01\x00\x29\x52\xd2\xfa'
-
-pkts[0].show()
-assert HTTPResponse in pkts[0]
-assert pkts[0].Content_Encoding == b'zstd'
-assert pkts[0].load == data
-
-# Now with auto decompression
-
-conf.contribs["http"]["auto_compression"] = True
-pkts = sniff(offline=filename)
-
-pkts[0].show()
-assert HTTPResponse in pkts[0]
-assert b'tmp_echo_zstd_request_for_testing' in pkts[0].load
+max_decompression = conf.contribs["http"]["max_decompression"]
+compressed = gzip.compress(b"A" * (max_decompression + 1))
+pkt = HTTPResponse(Content_Encoding="gzip") / compressed
+decoded = HTTPResponse(bytes(pkt))
+assert decoded.load == compressed
 
 = HTTP PSH bug fix
 

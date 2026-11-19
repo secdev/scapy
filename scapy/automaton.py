@@ -11,6 +11,7 @@ TODO:
     - add documentation for ioevent, as_supersocket...
 """
 
+import copy
 import itertools
 import logging
 import os
@@ -54,7 +55,7 @@ from typing import (
     Union,
     cast,
 )
-from scapy.compat import DecoratorCallable
+from scapy.compat import DecoratorCallable, Self
 
 if WINDOWS or TYPE_CHECKING:
     import ctypes
@@ -95,69 +96,76 @@ def select_objects(inputs, remain):
     events_to_inputs = []
     created = []
     results = set()
-    for i in inputs:
-        fno = i.fileno()
-        if fno < 0:
-            # Special case: On Windows, we consider that an object that returns
-            # a negative fileno (impossible), is always readable. This is used
-            # in very few places but important (e.g. PcapReader), where we have
-            # no valid fileno (and will stop on EOFError).
-            results.add(i)
-            remain = 0
-            continue
-        if getattr(i, "__selectable_force_select__", False):
-            # Native socket.socket object. We would normally use select.select.
-            evt = ctypes.windll.ws2_32.WSACreateEvent()
-            created.append(evt)
-            res = ctypes.windll.ws2_32.WSAEventSelect(
-                ctypes.c_void_p(fno),
-                evt,
-                FD_READ
-            )
-            if res == 0:
-                # Was a socket
-                event = evt
+    try:
+        for i in inputs:
+            fno = i.fileno()
+            if fno < 0:
+                # Special case: On Windows, we consider that an object that returns
+                # a negative fileno (impossible), is always readable. This is used
+                # in very few places but important (e.g. PcapReader), where we have
+                # no valid fileno (and will stop on EOFError).
+                results.add(i)
+                remain = 0
+                continue
+            if getattr(i, "__selectable_force_select__", False):
+                # Native socket.socket object. We would normally use select.select.
+                evt = ctypes.windll.ws2_32.WSACreateEvent()
+                created.append(evt)
+                res = ctypes.windll.ws2_32.WSAEventSelect(
+                    ctypes.c_void_p(fno),
+                    evt,
+                    FD_READ
+                )
+                if res == 0:
+                    # Was a socket
+                    event = evt
+                else:
+                    # Fallback to normal event
+                    event = fno
             else:
-                # Fallback to normal event
                 event = fno
-        else:
-            event = fno
-        events.append(event)
-        events_to_inputs.append(i)
-    if events:
-        # 0xFFFFFFFF = INFINITE
-        remainms = int(remain * 1000 if remain is not None else 0xFFFFFFFF)
-        if len(events) == 1:
-            res = ctypes.windll.kernel32.WaitForSingleObject(
-                ctypes.c_void_p(events[0]),
-                remainms
-            )
-        else:
-            # Sadly, the only way to emulate select() is to first check
-            # if any object is available using WaitForMultipleObjects
-            # then poll the others.
-            res = ctypes.windll.kernel32.WaitForMultipleObjects(
-                len(events),
-                (ctypes.c_void_p * len(events))(
-                    *events
-                ),
-                False,
-                remainms
-            )
-        if res != 0xFFFFFFFF and res != 0x00000102:  # Failed or Timeout
-            results.add(events_to_inputs[res])
-            if len(events) > 1:
-                # Now poll the others, if any
-                for i, evt in enumerate(events):
-                    res = ctypes.windll.kernel32.WaitForSingleObject(
-                        ctypes.c_void_p(evt),
-                        0  # poll: don't wait
-                    )
-                    if res == 0:
-                        results.add(events_to_inputs[i])
-    # Cleanup created events, if any
-    for evt in created:
-        ctypes.windll.ws2_32.WSACloseEvent(evt)
+            events.append(event)
+            events_to_inputs.append(i)
+        if events:
+            # 0xFFFFFFFF = INFINITE
+            remainms = int(remain * 1000 if remain is not None else 0xFFFFFFFF)
+            if len(events) == 1:
+                res = ctypes.windll.kernel32.WaitForSingleObject(
+                    ctypes.c_void_p(events[0]),
+                    remainms
+                )
+            else:
+                # Sadly, the only way to emulate select() is to first check
+                # if any object is available using WaitForMultipleObjects
+                # then poll the others.
+                res = ctypes.windll.kernel32.WaitForMultipleObjects(
+                    len(events),
+                    (ctypes.c_void_p * len(events))(
+                        *events
+                    ),
+                    False,
+                    remainms
+                )
+            # ctypes' default signed c_int restype returns WAIT_FAILED as -1.
+            if res == -1 or res == 0xFFFFFFFF:
+                raise ctypes.WinError()
+            if res != 0x00000102:  # Timeout
+                results.add(events_to_inputs[res])
+                if len(events) > 1:
+                    # Now poll the others, if any
+                    for i, evt in enumerate(events):
+                        res = ctypes.windll.kernel32.WaitForSingleObject(
+                            ctypes.c_void_p(evt),
+                            0  # poll: don't wait
+                        )
+                        if res == -1 or res == 0xFFFFFFFF:
+                            raise ctypes.WinError()
+                        if res == 0:
+                            results.add(events_to_inputs[i])
+    finally:
+        # Cleanup created events, if any
+        for evt in created:
+            ctypes.windll.ws2_32.WSACloseEvent(evt)
     return list(results)
 
 
@@ -373,9 +381,10 @@ class Timer():
 
 
 class _TimerList():
-    def __init__(self):
-        # type: () -> None
+    def __init__(self, other: Optional[Self] = None) -> None:
         self.timers = []  # type: list[Timer]
+        if other is not None:
+            self.timers.extend([copy.copy(t) for t in other.timers])
 
     def add_timer(self, timer):
         # type: (Timer) -> None
@@ -1340,6 +1349,14 @@ class Automaton(metaclass=Automaton_metaclass):
                     # Only start a receiving socket if we have at least one
                     # recv_conditions
                     self.listen_sock = self.sock or self.recv_sock_class(**self.socket_kargs)  # noqa: E501
+                # Timers are class attributes but their expiry state is per run: copy
+                # them so concurrently started instances do not consume each other's
+                # one-shot timeouts. (After parse_args() above, which can reconfigure
+                # them by name.)
+                self.timeout: Dict[str, _TimerList] = {
+                    state: _TimerList(timerlist)
+                    for state, timerlist in type(self).timeout.items()
+                }
             except Exception as e:
                 self._transfer_error(e, sys.exc_info())
                 ready.set()

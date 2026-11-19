@@ -159,6 +159,7 @@ class LDAPHero:
         host: str = None,
         port: int = None,
         ssl: bool = False,
+        no_check_certificate=False,
         # Authentication
         UPN: str = None,
         password: str = None,
@@ -203,6 +204,7 @@ class LDAPHero:
         self.host = host
         self.port = port
         self.ssl = ssl
+        self.no_check_certificate = no_check_certificate
         self.dns_domain_name = ""
         self.rootDSE = {}
         self.sids = dict(WELL_KNOWN_SIDS)
@@ -241,11 +243,17 @@ class LDAPHero:
             tk.Entry(dlg, textvariable=portv).grid(row=1, column=1)
 
             sslv = tk.BooleanVar()
+            sslv.set(self.ssl)
             ttk.Label(dlg, text="SSL").grid(row=2, column=0)
             ttk.Checkbutton(dlg, variable=sslv).grid(row=2, column=1)
 
-            ttk.Button(dlg, text="OK", command=popup.dismiss).grid(row=3, column=0)
-            ttk.Button(dlg, text="Cancel", command=popup.cancel).grid(row=3, column=1)
+            nccv = tk.BooleanVar()
+            nccv.set(self.no_check_certificate)
+            ttk.Label(dlg, text="Do not check certificate").grid(row=3, column=0)
+            ttk.Checkbutton(dlg, variable=nccv).grid(row=3, column=1)
+
+            ttk.Button(dlg, text="OK", command=popup.dismiss).grid(row=4, column=0)
+            ttk.Button(dlg, text="Cancel", command=popup.cancel).grid(row=4, column=1)
 
             serverf.focus()
 
@@ -261,14 +269,20 @@ class LDAPHero:
             except ValueError:
                 return
             self.ssl = sslv.get()
+            self.no_check_certificate = nccv.get()
 
         # Connect now !
         self.tprint(
-            "client.connect(host='%s', port=%s, ssl=%s)"
-            % (self.host, self.port, self.ssl)
+            "client.connect(host='%s', port=%s, ssl=%s, no_check_certificate=%s)"
+            % (self.host, self.port, self.ssl, self.no_check_certificate)
         )
         try:
-            self.client.connect(self.host, port=self.port, use_ssl=self.ssl)
+            self.client.connect(
+                self.host,
+                port=self.port,
+                use_ssl=self.ssl,
+                no_check_certificate=self.no_check_certificate,
+            )
         except Exception as ex:
             self.tprint(str(ex))
             self.host = None

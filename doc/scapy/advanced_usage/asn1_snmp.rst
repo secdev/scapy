@@ -21,14 +21,14 @@ Other objects are created by assembling all those basic brick objects. The compo
 Scapy and ASN.1
 ---------------
 
-Scapy provides a way to easily encode or decode ASN.1 and also program those encoders/decoders. It is quite laxer than what an ASN.1 parser should be, and it kind of ignores constraints. It won't replace neither an ASN.1 parser nor an ASN.1 compiler. Actually, it has been written to be able to encode and decode broken ASN.1. It can handle corrupted encoded strings and can also create those.
+Scapy provides a way to easily encode or decode ASN.1 and also program those encoders/decoders. It is much laxer than what an ASN.1 parser should be, and it kind of ignores constraints. It will replace neither an ASN.1 parser nor an ASN.1 compiler. Actually, it has been written to be able to encode and decode broken ASN.1. It can handle corrupted encoded strings and can also create those.
 
 ASN.1 engine
 ^^^^^^^^^^^^
 
-Note: many of the classes definitions presented here use metaclasses. If you don't look precisely at the source code and you only rely on my captures, you may think they sometimes exhibit a kind of magic behavior.
-``
-Scapy ASN.1 engine provides classes to link objects and their tags. They inherit from the ``ASN1_Class``. The first one is ``ASN1_Class_UNIVERSAL``, which provide tags for most Universal objects. Each new context (``SNMP``, ``X509``) will inherit from it and add its own objects.
+Note: many of the class definitions presented here use metaclasses. If you don't look precisely at the source code and you only rely on my captures, you may think they sometimes exhibit a kind of magic behavior.
+
+Scapy ASN.1 engine provides classes to link objects and their tags. They inherit from the ``ASN1_Class``. The first one is ``ASN1_Class_UNIVERSAL``, which provides tags for most Universal objects. Each new context (``SNMP``, ``X509``) will inherit from it and add its own objects.
 
 ::
 
@@ -52,7 +52,7 @@ Scapy ASN.1 engine provides classes to link objects and their tags. They inherit
         CONT1 = 0xa1
     # [...]
 
-All ASN.1 objects are represented by simple Python instances that act as nutshells for the raw values. The simple logic is handled by ``ASN1_Object`` whose they inherit from. Hence they are quite simple::
+All ASN.1 objects are represented by simple Python instances that act as nutshells for the raw values. The simple logic is handled by ``ASN1_Object`` from which they inherit. Hence they are quite simple::
 
     class ASN1_INTEGER(ASN1_Object):
         tag = ASN1_Class_UNIVERSAL.INTEGER
@@ -80,17 +80,17 @@ Encoding engines
 
 As with the standard, ASN.1 and encoding are independent. We have just seen how to create a compounded ASN.1 object. To encode or decode it, we need to choose an encoding rule. Scapy provides only BER for the moment (actually, it may be DER. DER looks like BER except only minimal encoding is authorised which may well be what I did). I call this an ASN.1 codec.
 
-Encoding and decoding are done using class methods provided by the codec. For example the ``BERcodec_INTEGER`` class provides a ``.enc()`` and a ``.dec()`` class methods that can convert between an encoded string and a value of their type. They all inherit from BERcodec_Object which is able to decode objects from any type::
+Encoding and decoding are done using class methods provided by the codec. For example the ``BERcodec_INTEGER`` class provides ``.enc()`` and ``.dec()`` class methods that can convert between an encoded string and a value of their type. They all inherit from BERcodec_Object which is able to decode objects from any type::
 
     >>> BERcodec_INTEGER.enc(7)
     '\x02\x01\x07'
-    >>> BERcodec_BIT_STRING.enc("egg")
-    '\x03\x03egg'
+    >>> BERcodec_BIT_STRING.enc("011001010110011101100111")
+    b'\x03\x04\x00egg'
     >>> BERcodec_STRING.enc("egg")
     '\x04\x03egg'
-    >>> BERcodec_STRING.dec('\x04\x03egg')
-    (<ASN1_STRING['egg']>, '')
-    >>> BERcodec_STRING.dec('\x03\x03egg')
+    >>> BERcodec_STRING.dec(b'\x04\x03egg')
+    (<ASN1_STRING[b'egg']>, b'')
+    >>> BERcodec_STRING.dec(b'\x03\x04\x00egg')
     Traceback (most recent call last):
       File "<console>", line 1, in ?
       File "/usr/bin/scapy", line 2099, in dec
@@ -107,9 +107,9 @@ Encoding and decoding are done using class methods provided by the codec. For ex
     ### Already decoded ###
     None
     ### Remaining ###
-    '\x03\x03egg'
-    >>> BERcodec_Object.dec('\x03\x03egg')
-    (<ASN1_BIT_STRING['egg']>, '')
+    b'\x03\x04\x00egg'
+    >>> BERcodec_Object.dec(b'\x03\x04\x00egg')
+    (<ASN1_BIT_STRING['011001010110011101100111']>, b'')
 
 ASN.1 objects are encoded using their ``.enc()`` method. This method must be called with the codec we want to use. All codecs are referenced in the ASN1_Codecs object. ``raw()`` can also be used. In this case, the default codec (``conf.ASN1_default_codec``) will be used.
 
@@ -134,7 +134,8 @@ By default, decoding is done using the ``Universal`` class, which means objects 
 
 ::
 
-    >>> cert="""
+    >>> from base64 import b64decode
+    >>> cert=b64decode("""
     ... MIIF5jCCA86gAwIBAgIBATANBgkqhkiG9w0BAQUFADCBgzELMAkGA1UEBhMC
     ... VVMxHTAbBgNVBAoTFEFPTCBUaW1lIFdhcm5lciBJbmMuMRwwGgYDVQQLExNB
     ... bWVyaWNhIE9ubGluZSBJbmMuMTcwNQYDVQQDEy5BT0wgVGltZSBXYXJuZXIg
@@ -169,7 +170,7 @@ By default, decoding is done using the ``Universal`` class, which means objects 
     ... xICHPpQvZuTpqP9BnHAqTyo5GJUefvthATxRCC4oGKQWDzH9OmwjkyB24f0H
     ... hdFbP9IcczLd+rn4jM8Ch3qaluTtT4mNU0OrDhPAARW0eTjb/G49nlG2uBOL
     ... Z8/5fNkiHfZdxRwBL5joeiQYvITX+txyW/fBOmg=
-    ... """.decode("base64")
+    ... """)
     >>> (dcert,remain) = BERcodec_Object.dec(cert)
     Traceback (most recent call last):
       File "<console>", line 1, in ?
@@ -393,7 +394,7 @@ Now, the hard part, the ASN.1 packet::
     bind_layers( UDP, SNMP, sport=161)
     bind_layers( UDP, SNMP, dport=161)
 
-That wasn't that much difficult. If you think that can't be that short to implement SNMP encoding/decoding and that I may have cut too much, just look at the complete source code.
+That wasn't that difficult. If you think that can't be that short to implement SNMP encoding/decoding and that I may have cut too much, just look at the complete source code.
 
 Now, how to use it? As usual::
 

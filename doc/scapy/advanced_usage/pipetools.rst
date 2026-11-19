@@ -3,7 +3,7 @@
 PipeTools
 =========
 
-Scapy's ``pipetool`` is a smart piping system allowing to perform complex stream data management.
+Scapy's ``pipetool`` is a smart piping system allowing users to perform complex stream data management.
 
 The goal is to create a sequence of steps with one or several inputs and one or several outputs, with a bunch of blocks in between.
 PipeTools can handle varied sources of data (and outputs) such as user input, pcap input, sniffing, wireshark...
@@ -43,7 +43,7 @@ Let's run it:
 Class Types
 -----------
 
-There are 3 different class of objects used for data management:
+There are 3 different classes of objects used for data management:
 
 - ``Sources``
 - ``Drains``
@@ -51,7 +51,7 @@ There are 3 different class of objects used for data management:
 
 They are executed and handled by a :class:`~scapy.pipetool.PipeEngine` object.
 
-When running, a pipetool engine waits for any available data from the Source, and send it in the Drains linked to it.
+When running, a pipetool engine waits for any available data from the Source, and sends it to the Drains linked to it.
 The data then goes from Drains to Drains until it arrives in a Sink, the final state of this data.
 
 Let's see with a basic demo how to build a pipetool system.
@@ -136,10 +136,10 @@ also create yours.
 Default Source classes
 ~~~~~~~~~~~~~~~~~~~~~~
 
-For any of those class, have a look at ``help([theclass])`` to get more information or the required parameters.
+For any of those classes, have a look at ``help([theclass])`` to get more information or the required parameters.
 
-- :class:`~scapy.pipetool.CLIFeeder` : a source especially used in interactive software. its ``send(data)`` generates the event data on the lower canal
-- :class:`~scapy.pipetool.CLIHighFeeder` : same than CLIFeeder, but writes on the higher canal
+- :class:`~scapy.pipetool.CLIFeeder` : a source especially used in interactive software. Its ``send(data)`` generates the event data on the lower canal
+- :class:`~scapy.pipetool.CLIHighFeeder` : same as CLIFeeder, but writes on the higher canal
 - :class:`~scapy.pipetool.PeriodicSource` : Generate messages periodically on the low canal.
 - :class:`~scapy.pipetool.AutoSource`: the default source, that must be extended to create custom sources. 
 
@@ -290,9 +290,9 @@ There are two ways of passing sources:
 
 A :class:`~scapy.pipetool.PipeEngine` class must be started with ``.start()`` function. It may be force-stopped with the ``.stop()``, or cleanly stopped with ``.wait_and_stop()``
 
-A clean stop only works if the Sources is exhausted (has no data to send left).
+A clean stop only works if the Sources are exhausted (has no data to send left).
 
-It can be printed into a graph using ``.graph()`` methods. see ``help(do_graph)`` for the list of available keyword arguments.
+It can be printed into a graph using the ``.graph()`` method. See ``help(do_graph)`` for the list of available keyword arguments.
 
 Scapy advanced PipeTool objects
 -------------------------------
@@ -313,7 +313,7 @@ Now that you know the default PipeTool objects, here are some more advanced ones
 Triggering
 ----------
 
-Some special sort of Drains exists: the Trigger Drains.
+Some special sorts of Drains exist: the Trigger Drains.
 
 Trigger Drains are special drains, that on receiving data not only pass it by but also send a "Trigger" input, that is received and handled by the next triggered drain (if it exists).
 

@@ -56,7 +56,7 @@ Bluetooth Low Energy (BLE)
   data rates and smaller :abbr:`MTU (maximum transmission unit)` sizes.  It adds
   broadcast and mesh network topologies, in addition to point-to-point links.
 
-  This is only supported by Bluetooth interface marked as *+LE* or
+  This is only supported by Bluetooth interfaces marked as *+LE* or
   *Low Energy* -- not all Bluetooth 4.0 and later interfaces support it.
 
 Most Bluetooth interfaces on PCs use USB connectivity (even on laptops), and
@@ -84,7 +84,7 @@ Host-controller interface (HCI) ``BTPROTO_HCI``
   Scapy class: ``BluetoothUserSocket``
 
   This socket interacts with a Bluetooth controller with complete and exclusive
-  control of de device. This means that BlueZ will not try to take control of
+  control of the device. This means that BlueZ will not try to take control of
   the interface and will not help you manage connections via this interface.
 
   Scapy class: ``BluetoothHCISocket``
@@ -166,15 +166,15 @@ actually been detected by the operating system:
 
 .. _hci-open:
 
-Opening a HCI socket
---------------------
+Opening an HCI socket
+---------------------
 
-The first step in Scapy is to open a HCI socket to the underlying Bluetooth
+The first step in Scapy is to open an HCI socket to the underlying Bluetooth
 device:
 
 .. code-block:: pycon
 
-   >>> # Open a HCI socket to device hci0
+   >>> # Open an HCI socket to device hci0
    >>> bt = BluetoothHCISocket(0)
 
 Send a control packet
@@ -257,7 +257,7 @@ Working with Bluetooth Low Energy
 
 __ https://www.realtek.com/en/products/communications-network-ics/item/rtl8723bu
 
-These examples presume you have already :ref:`opened a HCI socket <hci-open>`
+These examples presume you have already :ref:`opened an HCI socket <hci-open>`
 (as ``bt``).
 
 Discovering nearby devices
@@ -493,7 +493,7 @@ This example sets up a virtual iBeacon:
       major=1, minor=2)
 
    # build_set_advertising_data() wraps an Apple_BLE_Submessage or
-   # Apple_BLE_Frame into a HCI_Cmd_LE_Set_Advertising_Data payload, that can
+   # Apple_BLE_Frame into an HCI_Cmd_LE_Set_Advertising_Data payload, that can
    # be sent to the BLE controller.
    bt.sr(p.build_set_advertising_data())
 

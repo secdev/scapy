@@ -56,3 +56,42 @@ assert(p[XMLRPCCall].version ==  b"<?xml version='1.0'?>\n")
 assert(p[XMLRPCCall].methodcall_opentag ==  b'<methodCall>\n')
 assert(p[XMLRPCCall].methodname ==  b'shutdown')
 assert(p[XMLRPCCall].params ==  b'<param>\n<value><string>/rosparam-92418</string></value>\n</param>\n<param>\n<value><string>BOOM</string></value>\n</param>\n')
+
++ Test TCPROS field list parsing
+= Test field lengths traversal
+from struct import pack
+from scapy.contrib.tcpros import tcpros_iter_field_lengths
+
+field_list = pack("<I", 3) + b"a=1" + pack("<I", 5) + b"bb=22" + pack("<I", 7) + b"ccc=333"
+assert(list(tcpros_iter_field_lengths(field_list)) == [3, 5, 7])
+
+= Test field lengths traversal from an offset
+assert(list(tcpros_iter_field_lengths(pack("<I", 42) + field_list, 4)) == [3, 5, 7])
+
+= Test header with many fields
+from scapy.config import conf
+
+saved_max_list_count = conf.max_list_count
+conf.max_list_count = 1024
+many_fields = [b"callerid=/test/%d" % i for i in range(300)]
+many_payload = b"".join(pack("<I", len(f)) + f for f in many_fields)
+many_header = TCPROS(pack("<I", len(many_payload)) + many_payload)[TCPROSHeader]
+conf.max_list_count = saved_max_list_count
+assert(many_header.nfields == 300)
+assert(len(many_header.list) == 300)
+assert(many_header.list[-1].field == many_fields[-1])
+
++ Test field list parsing with dissector debug output
+= Test header and body traversal with debug_dissector enabled
+from struct import pack
+from scapy.config import conf
+
+debug_fields = pack("<I", 3) + b"a=1" + pack("<I", 5) + b"bb=22"
+debug_payload = pack("<I", 4 + len(debug_fields)) + debug_fields
+saved_debug_dissector = conf.debug_dissector
+conf.debug_dissector = True
+try:
+    assert(TCPROSHeader(debug_payload).nfields == 2)
+    assert(TCPROSBody(debug_payload).nfields_body == 2)
+finally:
+    conf.debug_dissector = saved_debug_dissector

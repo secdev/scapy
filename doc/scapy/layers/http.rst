@@ -14,8 +14,8 @@ ______________
 
 HTTP 1.X is a *text protocol*. Those are pretty unusual nowadays (HTTP 2.X is binary), therefore its implementation is very different.
 
-For transmission purposes, HTTP 1.X frames are split in various fragments during the connection, which may or not have been encoded.
-This is explain over https://developer.mozilla.org/fr/docs/Web/HTTP/Headers/Transfer-Encoding
+For transmission purposes, HTTP 1.X frames are split in various fragments during the connection, which may or may not have been encoded.
+This is explained at https://developer.mozilla.org/fr/docs/Web/HTTP/Headers/Transfer-Encoding
 
 To summarize, the frames can be split in 3 different ways:
 

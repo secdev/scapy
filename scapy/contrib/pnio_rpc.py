@@ -17,9 +17,9 @@ from scapy.packet import Packet, Raw, bind_layers
 from scapy.config import conf
 from scapy.fields import BitField, ByteField, BitEnumField, ByteEnumField, \
     ConditionalField, FieldLenField, FieldListField, IntField, IntEnumField, \
-    LenField, MACField, PadField, PacketField, PacketListField, \
-    ShortEnumField, ShortField, StrField, StrFixedLenField, StrLenField, \
-    UUIDField, XByteField, XIntField, XShortEnumField, XShortField
+    LenField, MACField, PadField, PacketField, PacketLenField, \
+    PacketListField, ShortEnumField, ShortField, StrField, StrFixedLenField, \
+    StrLenField, UUIDField, XByteField, XIntField, XShortEnumField, XShortField
 from scapy.layers.dcerpc import DceRpc4, DceRpc4Payload
 from scapy.contrib.rtps.common_types import EField
 from scapy.compat import bytes_hex
@@ -1316,7 +1316,8 @@ class AlarmNotificationPDU(Block):
         XIntField("ModuleIdentNumber", 0),
         XIntField("SubmoduleIdentNUmber", 0),
         XShortField("AlarmSpecifier", 0),
-        PacketListField("AlarmPayload", [], _guess_alarm_payload)
+        PacketListField("AlarmPayload", [], _guess_alarm_payload,
+                        length_from=lambda pkt: max(0, pkt.block_length - 22))
     ]
 
 
@@ -1357,7 +1358,7 @@ class PNIORealTimeAcyclicPDUHeader(Packet):
         BitField("AddFlags", 0, 8),
         XShortField("SendSeqNum", 0),
         XShortField("AckSeqNum", 0),
-        XShortField("VarPartLen", 0),
+        FieldLenField("VarPartLen", None, length_of="RTA_SDU"),
     ]
 
     def __new__(cls, name, bases, dct):
@@ -1367,15 +1368,23 @@ class PNIORealTimeAcyclicPDUHeader(Packet):
 class Alarm_Low(Packet):
     fields_desc = [
         PNIORealTimeAcyclicPDUHeader,
-        PacketField("RTA_SDU", None, AlarmNotification_Low),
+        PacketLenField("RTA_SDU", None, AlarmNotification_Low,
+                       length_from=lambda pkt: pkt.VarPartLen),
     ]
+
+    def extract_padding(self, s):
+        return None, s  # No extra payload
 
 
 class Alarm_High(Packet):
     fields_desc = [
         PNIORealTimeAcyclicPDUHeader,
-        PacketField("RTA_SDU", None, AlarmNotification_High),
+        PacketLenField("RTA_SDU", None, AlarmNotification_High,
+                       length_from=lambda pkt: pkt.VarPartLen),
     ]
+
+    def extract_padding(self, s):
+        return None, s  # No extra payload
 
 
 # PROFINET IO DCE/RPC PDU

@@ -409,6 +409,16 @@ with run_smbserver():
    finally:
       cli.close()
 
+= smbserver: SMB 3.1.1 - connect with the Scapy smbclient then cat file
+
+with run_smbserver():
+   cli = smbclient("127.0.0.1", "Administrator", password="Password2", port=12345, cli=False)
+   try:
+      cli.use("test")
+      assert cli.cat("fileScapy") == b"Nice\nData", "invalid data"
+   finally:
+      cli.close()
+
 = smbserver: SMB 3.1.1 - connect then put file
 
 LOCALPATH = pathlib.Path(get_temp_dir())

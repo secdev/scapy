@@ -1,7 +1,7 @@
 Automata
 ========
 
-Scapy enables to create easily network automata. Scapy does not stick to a specific model like Moore or Mealy automata. It provides a flexible way for you to choose your way to go.
+Scapy lets you easily create network automata. Scapy does not stick to a specific model like Moore or Mealy automata. It provides a flexible way for you to choose your way to go.
 
 An automaton in Scapy is deterministic. It has different states. A start state and some end and error states. There are transitions from one state to another. Transitions can be transitions on a specific condition, transitions on the reception of a specific packet or transitions on a timeout. When a transition is taken, one or more actions can be run. An action can be bound to many transitions. Parameters can be passed from states to transitions, and from transitions to states and actions.
 
@@ -96,7 +96,7 @@ The condition should become::
 Real example
 ------------
 
-Here is a real example take from Scapy. It implements a TFTP client that can issue read requests.
+Here is a real example taken from Scapy. It implements a TFTP client that can issue read requests.
 
 .. image:: ../graphics/ATMT_TFTP_read.*
 
@@ -196,9 +196,9 @@ Decorators
 Decorator for states
 ~~~~~~~~~~~~~~~~~~~~
 
-States are methods decorated by the result of the ``ATMT.state`` function. It can take 4 optional parameters, ``initial``, ``final``, ``stop`` and ``error``, that, when set to ``True``, indicating that the state is an initial, final, stop or error state.
+States are methods decorated by the result of the ``ATMT.state`` function. It can take 4 optional parameters, ``initial``, ``final``, ``stop`` and ``error``, that, when set to ``True``, indicate that the state is an initial, final, stop or error state.
 
-.. note:: The ``initial`` state is called while starting the automata. The ``final`` step will tell the automata has reached its end. If you call ``atmt.stop()``, the automata will move to the ``stop`` step whatever its current state is. The ``error`` state will mark the automata as errored. If no ``stop`` state is specified, calling ``stop`` and ``forcestop`` will be equivalent.
+.. note:: The ``initial`` state is called while starting the automaton. The ``final`` step will indicate that the automaton has reached its end. If you call ``atmt.stop()``, the automaton will move to the ``stop`` step whatever its current state is. The ``error`` state will mark the automaton as errored. If no ``stop`` state is specified, calling ``stop`` and ``forcestop`` will be equivalent.
 
 ::
 
@@ -238,9 +238,9 @@ The ``START`` event is ``initial=1``, the ``STOP`` event is ``stop=1`` and the `
 Decorators for transitions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Transitions are methods decorated by the result of one of ``ATMT.condition``, ``ATMT.receive_condition``, ``ATMT.eof``, ``ATMT.timeout``, ``ATMT.timer``. They all take as argument the state method they are related to. ``ATMT.timeout`` and ``ATMT.timer`` also have a mandatory ``timeout`` parameter to provide the timeout value in seconds. The difference between ``ATMT.timeout`` and ``ATMT.timer`` is that ``ATMT.timeout`` gets triggered only once. ``ATMT.timer`` get reloaded automatically, which is useful for sending keep-alive packets. ``ATMT.condition`` and ``ATMT.receive_condition`` have an optional ``prio`` parameter so that the order in which conditions are evaluated can be forced. The default priority is 0. Transitions with the same priority level are called in an undetermined order.
+Transitions are methods decorated by the result of one of ``ATMT.condition``, ``ATMT.receive_condition``, ``ATMT.eof``, ``ATMT.timeout``, ``ATMT.timer``. They all take as argument the state method they are related to. ``ATMT.timeout`` and ``ATMT.timer`` also have a mandatory ``timeout`` parameter to provide the timeout value in seconds. The difference between ``ATMT.timeout`` and ``ATMT.timer`` is that ``ATMT.timeout`` gets triggered only once. ``ATMT.timer`` gets reloaded automatically, which is useful for sending keep-alive packets. ``ATMT.condition`` and ``ATMT.receive_condition`` have an optional ``prio`` parameter so that the order in which conditions are evaluated can be forced. The default priority is 0. Transitions with the same priority level are called in an undetermined order.
 
-When the automaton switches to a given state, the state's method is executed. Then transitions methods are called at specific moments until one triggers a new state (something like ``raise self.MY_NEW_STATE()``). First, right after the state's method returns, the ``ATMT.condition`` decorated methods are run by growing prio. Then each time a packet is received and accepted by the master filter all ``ATMT.receive_condition`` decorated hods are called by growing prio. When a timeout is reached since the time we entered into the current space, the corresponding ``ATMT.timeout`` decorated method is called. If the socket raises an ``EOFError`` (closed) during a state, the ``ATMT.EOF`` transition is called. Otherwise it raises an exception and the automaton exits.
+When the automaton switches to a given state, the state's method is executed. Then transition methods are called at specific moments until one triggers a new state (something like ``raise self.MY_NEW_STATE()``). First, right after the state's method returns, the ``ATMT.condition`` decorated methods are run by growing prio. Then each time a packet is received and accepted by the master filter all ``ATMT.receive_condition`` decorated methods are called by growing prio. When a timeout is reached since the time we entered into the current state, the corresponding ``ATMT.timeout`` decorated method is called. If the socket raises an ``EOFError`` (closed) during a state, the ``ATMT.eof`` transition is called. Otherwise it raises an exception and the automaton exits.
 
 ::
 

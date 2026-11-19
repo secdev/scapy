@@ -903,7 +903,17 @@ client = DCERPC_Client(
     ndr64=False,
 )
 client.connect(get_if_addr(conf.loopback_name), port=12345)
-client.bind(find_dcerpc_interface("wkssvc"))
+
+from datetime import datetime as real_datetime
+from unittest import mock
+
+with mock.patch(
+    "scapy.layers.kerberos.datetime", wraps=real_datetime
+) as kerberos_datetime:
+    kerberos_datetime.now.side_effect = lambda tz=None: real_datetime(
+        2024, 4, 7, 13, 0, tzinfo=tz
+    )
+    client.bind(find_dcerpc_interface("wkssvc"))
 
 req = NetrWkstaGetInfo_Request(
     ServerName="Nice",

@@ -1262,7 +1262,12 @@ class Packet(
                 eltname = todo.pop()
                 elt = self.getfieldval(eltname)
                 if not isinstance(elt, Gen):
-                    if self.get_field(eltname).islist:
+                    fld = self.get_field(eltname)
+                    if isinstance(fld, MultipleTypeField):
+                        # find out which sub-field is active right now
+                        fld = fld._find_fld_pkt(self)
+
+                    if fld.islist:
                         elt = SetGen([elt])
                     else:
                         elt = SetGen(elt)

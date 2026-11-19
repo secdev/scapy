@@ -8,7 +8,7 @@ Project organization
 Scapy development uses the Git version control system. Scapy's
 reference repository is at https://github.com/secdev/scapy/.
 
-Project management is done with `Github
+Project management is done with `GitHub
 <https://github.com/secdev/scapy/>`_.  It provides a freely editable
 `Wiki <https://github.com/secdev/scapy/wiki/>`_ (please contribute!)
 that can reference tickets, changesets, files from the project. It
@@ -37,10 +37,10 @@ The documentation can be improved in several ways by:
 Adding Docstrings
 -----------------
 The Scapy source code has few explanations of what a function is doing. A docstring, by adding explanation and
-expected input and output parameters, helps saving time for both the layer developers and the users looking for
+expected input and output parameters, helps save time for both the layer developers and the users looking for
 advanced features.
 
-An example of docstring from the ``scapy.fields.FlagsField`` class: ::
+An example of a docstring from the ``scapy.fields.FlagsField`` class: ::
 
   class FlagsField(BitField):
     """ Handle Flag type field
@@ -54,7 +54,7 @@ An example of docstring from the ``scapy.fields.FlagsField`` class: ::
          >>> FlagsTest(flags=9).show2()
          ###[ FlagsTest ]###
            flags     = f0+f3
-         >>> FlagsTest(flags=0).show2().strip()
+         >>> FlagsTest(flags=0).show2()
          ###[ FlagsTest ]###
            flags     =
 
@@ -65,10 +65,10 @@ An example of docstring from the ``scapy.fields.FlagsField`` class: ::
      """
 
 It will contain a short one-line description of the class followed by some indications about its usage.
-You can add a usage example if it makes sense using the `doctest <https://docs.python.org/2.7/library/doctest.html>`_ format.
-Finally, the classic python signature can be added following the `sphinx documentation  <http://www.sphinx-doc.org/en/stable/domains.html#python-signatures>`_.
+You can add a usage example if it makes sense using the `doctest <https://docs.python.org/3/library/doctest.html>`_ format.
+Finally, the classic Python signature can be added following the `sphinx documentation  <http://www.sphinx-doc.org/en/stable/domains.html#python-signatures>`_.
 
-This task works in pair with writing non regression unit tests.
+This task goes hand in hand with writing regression unit tests.
 
 Documentation
 -------------
@@ -84,7 +84,7 @@ UTScapy is a small Python program that reads a campaign of tests, runs the campa
 
 Three basic test containers exist with UTScapy, a unit test, a test set and a test campaign. A unit test is a list of Scapy commands that will be run by Scapy or a derived work of Scapy. Evaluation of the last command in the unit test will determine the end result of the individual unit test. A test set is a group of unit tests with some association. A test campaign consists of one or more test sets. Test sets and unit tests can be given keywords to form logical groupings. When running a campaign, tests may be selected by keyword. This allows the user to run tests within the desired grouping.
 
-For each unit test, test set and campaign, a CRC32 of the test is calculated and displayed as a signature of that test. This test signature is sufficient to determine that the actual test run was the one expected and not one that has been modified. In case your dealing with evil people that try to modify or corrupt the file without changing the CRC32, a global SHA1 is computed on the whole file.
+For each unit test, test set and campaign, a CRC32 of the test is calculated and displayed as a signature of that test. This test signature is sufficient to determine that the actual test run was the one expected and not one that has been modified. In case you’re dealing with evil people that try to modify or corrupt the file without changing the CRC32, a global SHA1 is computed on the whole file.
 
 Syntax of a Test Campaign
 -------------------------
@@ -130,7 +130,7 @@ It is important to note that UTScapy uses the truth value from the last Python s
 
 The syntax for UTScapy is shown in Table 3 - UTScapy command line syntax::
 
-    [root@localhost scapy]# ./UTscapy.py –h
+    [root@localhost scapy]# ./UTscapy.py -h
     Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file]
                    [-t testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
                    [-l] [-d|-D] [-F] [-q[q]]
@@ -148,14 +148,14 @@ The syntax for UTScapy is shown in Table 3 - UTScapy command line syntax::
 
 Table 3 - UTScapy command line syntax
 
-All arguments are optional. Arguments that have no associated argument value may be strung together (i.e. ``–lqF``). If no testfile is specified, the test definition comes from <STDIN>. Similarly, if no output file is specified it is directed to <STDOUT>. The default output format is “ansi”. Table 4 lists the arguments, the associated argument value and their meaning to UTScapy.
+All arguments are optional. Arguments that have no associated argument value may be strung together (i.e. ``-lqF``). If no testfile is specified, the test definition comes from <STDIN>. Similarly, if no output file is specified it is directed to <STDOUT>. The default output format is “ansi”. Table 4 lists the arguments, the associated argument value and their meaning to UTScapy.
 
 ==========  ==============  =============================================================================
 Argument    Argument Value  Meaning to UTScapy
 ==========  ==============  =============================================================================
 -t          testfile        Input test file defining test campaign (default = <STDIN>)
 -o          output_file     File for output of test campaign results (default = <STDOUT>)
--f          test            ansi, HTML, LaTeX, Format out output report (default = ansi)
+-f          test            ansi, HTML, LaTeX, Format of output report (default = ansi)
 -l                          Generate report associated files locally. For HTML, generates JavaScript 
                             and the style sheet
 -F                          Failed test cases will be initially expanded by default in HTML output
@@ -165,7 +165,7 @@ Argument    Argument Value  Meaning to UTScapy
 -q                          Do not update test progress to the screen as tests are executed
 -qq                         Silent mode
 -n          testnum         Execute only those tests listed by number. Test numbers may be
-                            retrieved using –d or –D. Tests may be listed as a comma
+                            retrieved using -d or -D. Tests may be listed as a comma
                             separated list and may include ranges (e.g. 1, 3-7, 12)
 -m          module          Load module before executing tests. Useful in testing derived works of Scapy.
                             Note: Derived works that are intended to execute as "__main__" will not be
@@ -176,7 +176,7 @@ Argument    Argument Value  Meaning to UTScapy
 
 Table 4 - UTScapy parameters
 
-Table 5 shows a simple test campaign with multiple tests set definitions. Additionally, keywords are specified that allow a limited number of test cases to be executed. Notice the use of the ``assert()`` statement in test 3 and 5 used to check intermediate results. Tests 2 and 5 will fail by design.
+Table 5 shows a simple test campaign with multiple test set definitions. Additionally, keywords are specified that allow a limited number of test cases to be executed. Notice the use of the ``assert()`` statement in test 3 and 5 used to check intermediate results. Tests 2 and 5 will fail by design.
 
 :: 
 
@@ -257,8 +257,8 @@ all Scapy unit tests automatically without any external dependency::
 .. note:: This will trigger the unit tests on all available Python versions
   unless you specify a `-e` option. See below
 
-For your convenience, and for package maintainers, we provide a util that
-run tox on only a single (default Python) environment, again with no external
+For your convenience, and for package maintainers, we provide a utility that
+runs tox on only a single (default Python) environment, again with no external
 dependencies::
 
  ./test/run_tests
@@ -276,7 +276,7 @@ These commands will do the installation::
  cp -i -v ftdetect/uts.vim $HOME/.vim/ftdetect/uts.vim
  cp -i -v syntax/uts.vim $HOME/.vim/syntax/uts.vim
 
-Alternatively, a install script in ``scapy/doc/syntax/vim_uts_syntax/`` does the installation automatically.
+Alternatively, an install script in ``scapy/doc/syntax/vim_uts_syntax/`` does the installation automatically.
 
 
 Releasing Scapy
@@ -301,11 +301,11 @@ Release Candidates (RC) could also be done. For example, the first RC will be
 tagged v2.4.3rc1 and the message ``2.4.3 Release Candidate #1``.
 
 .. note::
-   To add a signing key, configure to use a SSH one, then register it via::
+   To add a signing key, configure to use an SSH one, then register it via::
         $ git config --global gpg.format ssh
         $ git config --global user.signingkey ~/.ssh/examplekey.pub
 
-Prior to uploading the release to PyPi, the mail address of the maintainer
+Prior to uploading the release to PyPI, the mail address of the maintainer
 performing the release must be added next to his name in ``pyproject.toml``.
 See `this <https://packaging.python.org/en/latest/specifications/declaring-project-metadata/#authors-maintainers>`_ for details.
 

@@ -102,9 +102,10 @@ class FecTLVField(StrField):
             fec += b"\x02\x00\x01"
             # mask length
             fec += struct.pack("!B", o[1])
-            # Prefix
-            fec += inet_aton(o[0])
-            tmp_len += 8
+            # Prefix, padded to a byte boundary (RFC 5036 section 3.4.1)
+            prefix = inet_aton(o[0])[:(o[1] + 7) // 8]
+            fec += prefix
+            tmp_len += 4 + len(prefix)
         s += struct.pack("!H", tmp_len)
         s += fec
         return s

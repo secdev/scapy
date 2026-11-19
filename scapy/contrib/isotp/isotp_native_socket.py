@@ -7,6 +7,7 @@
 # scapy.contrib.status = library
 
 import ctypes
+import errno
 import socket
 import struct
 from ctypes.util import find_library
@@ -55,6 +56,7 @@ CAN_ISOTP_HALF_DUPLEX = 0x040  # /* half duplex error state handling */
 CAN_ISOTP_FORCE_TXSTMIN = 0x080  # /* ignore stmin from received FC */
 CAN_ISOTP_FORCE_RXSTMIN = 0x100  # /* ignore CFs depending on rx stmin */
 CAN_ISOTP_RX_EXT_ADDR = 0x200  # /* different rx extended addressing */
+CAN_ISOTP_WAIT_TX_DONE = 0x400  # /* wait for tx completion */
 
 # /* default values */
 CAN_ISOTP_DEFAULT_FLAGS = 0
@@ -120,6 +122,8 @@ class ISOTPNativeSocket(SuperSocket):
                         received
     :param frame_txtime: Separation time between two CAN frames during send
     :param basecls: base class of the packets emitted by this socket
+    :param wait_tx_done: Wait for ISO-TP TX completion in send(). sr1() sends
+                         synchronously so TX errors reach the calling thread.
     """
     desc = "read/write packets at a given CAN interface using CAN_ISOTP socket "  # noqa: E501
     can_isotp_options_fmt = "@2I4B"
@@ -264,7 +268,8 @@ class ISOTPNativeSocket(SuperSocket):
                            extended_rx_addr=None,  # type: Optional[int]
                            listen_only=False,  # type: bool
                            padding=False,  # type: bool
-                           transmit_time=100  # type: int
+                           transmit_time=100,  # type: int
+                           wait_tx_done=False  # type: bool
                            ):
         # type: (...) -> None
         option_flags = CAN_ISOTP_DEFAULT_FLAGS
@@ -283,6 +288,9 @@ class ISOTPNativeSocket(SuperSocket):
 
         if padding:
             option_flags = option_flags | CAN_ISOTP_TX_PADDING | CAN_ISOTP_RX_PADDING  # noqa: E501
+
+        if wait_tx_done:
+            option_flags |= CAN_ISOTP_WAIT_TX_DONE
 
         sock.setsockopt(SOL_CAN_ISOTP,
                         CAN_ISOTP_OPTS,
@@ -305,7 +313,8 @@ class ISOTPNativeSocket(SuperSocket):
                  frame_txtime=CAN_ISOTP_DEFAULT_FRAME_TXTIME,  # type: int
                  fd=False,  # type: bool
                  brs=False,  # type: bool
-                 basecls=ISOTP  # type: Type[Packet]
+                 basecls=ISOTP,  # type: Type[Packet]
+                 wait_tx_done=False  # type: bool
                  ):
         # type: (...) -> None
 
@@ -336,6 +345,7 @@ class ISOTPNativeSocket(SuperSocket):
         self.frame_txtime = frame_txtime
         self.fd = fd
         self.brs = brs
+        self.wait_tx_done = wait_tx_done
         if basecls is None:
             log_isotp.warning('Provide a basecls ')
         self.basecls = basecls
@@ -351,7 +361,8 @@ class ISOTPNativeSocket(SuperSocket):
             self.rx_ext_address,
             self.listen_only,
             self.padding,
-            self.frame_txtime)
+            self.frame_txtime,
+            self.wait_tx_done)
 
         can_socket.setsockopt(
             SOL_CAN_ISOTP,
@@ -389,6 +400,40 @@ class ISOTPNativeSocket(SuperSocket):
         self.ins = can_socket
         self.outs = can_socket
         self.closed = False
+
+    def set_wait_tx_done(self):
+        # type: () -> None
+        """Enable blocking TX at a request boundary, rebinding if necessary.
+
+        Linux requires setting CAN_ISOTP_OPTS before bind. Prefer the
+        constructor option when the socket has not yet been created.
+        """
+        if not self.wait_tx_done:
+            # Finish and close the old TX before binding the replacement, so
+            # late replies cannot be queued on the new request's socket.
+            self.ins.close()
+            self.wait_tx_done = True
+            self._init_socket()
+
+    def send(self, x):
+        # type: (Packet) -> int
+        try:
+            return SuperSocket.send(self, x)
+        except OSError as error:
+            if self.wait_tx_done and error.errno == errno.ECOMM:
+                # Older kernels can leave this error pending after send fails.
+                self.ins.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+            raise
+
+    def sr1(self, *args, **kwargs):
+        # type: (*Any, **Any) -> Optional[Packet]
+        """Exchange one request, optionally enabling native TX completion."""
+        if kwargs.pop("wait_tx_done", False):
+            self.set_wait_tx_done()
+        if self.wait_tx_done:
+            # A concurrent receiver could consume sk_err before send sees it.
+            kwargs.update(threaded=False, chainEX=True)
+        return SuperSocket.sr1(self, *args, **kwargs)
 
     def recv_raw(self, x=0xffff):
         # type: (int) -> Tuple[Optional[Type[Packet]], Optional[bytes], Optional[float]]  # noqa: E501

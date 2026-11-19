@@ -7,16 +7,18 @@
 Direct Access dictionary.
 """
 
-from scapy.error import Scapy_Exception
+from scapy.error import log_runtime, Scapy_Exception
 from scapy.compat import plain_str
 
 # Typing
 from typing import (
     Any,
+    Callable,
     Dict,
     Generic,
     Iterator,
     List,
+    Optional,
     Tuple,
     Type,
     TypeVar,
@@ -70,14 +72,38 @@ class DADict(Generic[_K, _V]):
     Whereas humans can access::
 
         ETHER_TYPES.IPv4 -> 2048
-    """
-    __slots__ = ["_name", "d"]
 
-    def __init__(self, _name="DADict", **kargs):
-        # type: (str, **Any) -> None
+    :param lazy_load: optional callable returning a DADict or dict, called on
+        first access to the contents. Failed loads are retried on next access.
+    """
+    __slots__ = ["_name", "_d", "_lazy_load"]
+
+    def __init__(self, _name="DADict", lazy_load=None, **kargs):
+        # type: (str, Optional[Callable[[], Union[DADict[_K, _V], Dict[_K, _V]]]], **Any) -> None  # noqa: E501
         self._name = _name
-        self.d = {}  # type: Dict[_K, _V]
+        self._d = {}  # type: Dict[_K, _V]
+        self._lazy_load = lazy_load
         self.update(kargs)  # type: ignore
+
+    @property
+    def d(self):
+        # type: () -> Dict[_K, _V]
+        if self._lazy_load is not None:
+            log_runtime.debug("Lazy loaded DADict [%s]" % self._name)
+            loaded = self._lazy_load()
+            if isinstance(loaded, DADict):
+                self._d = loaded.d
+                self._name = loaded._name
+            else:
+                self._d = loaded
+            self._lazy_load = None
+        return self._d
+
+    @d.setter
+    def d(self, value):
+        # type: (Dict[_K, _V]) -> None
+        self._d = value
+        self._lazy_load = None
 
     def ident(self, v):
         # type: (_V) -> str
@@ -144,6 +170,8 @@ class DADict(Generic[_K, _V]):
 
     def __getattr__(self, attr):
         # type: (str) -> _K
+        if attr in ("d", "_d", "_lazy_load"):
+            raise AttributeError(attr)
         try:
             return object.__getattribute__(self, attr)  # type: ignore
         except AttributeError:
@@ -158,7 +186,8 @@ class DADict(Generic[_K, _V]):
 
     def __reduce__(self):
         # type: () -> Tuple[Type[Self], Tuple[str], Tuple[Dict[_K, _V]]]
-        return (self.__class__, (self._name,), (self.d,))
+        data = self.d
+        return (self.__class__, (self._name,), (data,))
 
     def __setstate__(self, state):
         # type: (Tuple[Dict[_K, _V]]) -> Self

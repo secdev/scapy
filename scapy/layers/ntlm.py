@@ -1475,17 +1475,27 @@ class NTLMSSP(SSP):
         """
         [MS-NLMP] sect 3.4.9
         """
-        Context.RecvSeqNum = signature.SeqNum
+        # [MS-NLMP] sect 3.4.4; [RFC2743] sect 1.2.3
+        if (
+            not Context.passive
+            and Context.flags
+            & (GSS_C_FLAGS.GSS_C_REPLAY_FLAG | GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG)
+            and signature.SeqNum != Context.RecvSeqNum
+        ):
+            raise ValueError("ERROR: Sequence numbers don't match")
+
         # Concatenate the ToSign
         ToSign = b"".join(x.data for x in msgs if x.sign)
         sig = MAC(
             Context.RecvSealHandle,
             Context.RecvSignKey,
-            Context.RecvSeqNum,
+            signature.SeqNum,
             ToSign,
         )
         if sig.Checksum != signature.Checksum:
             raise ValueError("ERROR: Checksums don't match")
+
+        Context.RecvSeqNum = signature.SeqNum + 1
 
     def GSS_WrapEx(self, Context, msgs, qop_req=0):
         """
@@ -1507,6 +1517,15 @@ class NTLMSSP(SSP):
         """
         [MS-NLMP] sect 3.4.7
         """
+        # [MS-NLMP] sect 3.4.4: reject before consuming the RC4 stream.
+        if (
+            not Context.passive
+            and Context.flags
+            & (GSS_C_FLAGS.GSS_C_REPLAY_FLAG | GSS_C_FLAGS.GSS_C_SEQUENCE_FLAG)
+            and signature.SeqNum != Context.RecvSeqNum
+        ):
+            raise ValueError("ERROR: Sequence numbers don't match")
+
         # Decrypt
         for msg in msgs:
             if msg.conf_req_flag:
