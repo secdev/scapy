@@ -228,3 +228,29 @@ assert raw(p.options[0].payload) == bytes.fromhex("0241")
 assert p.options[1].HopCount == 4
 p.clear_cache()
 assert raw(p) == raw_mc
+
+= RPL DAG Metric Container with an object of an unassigned type
+# An unknown object has the same 4-octet header as the others (RFC 6551, 2.1)
+
+# Type 9 with a 2-octet body, then Hop Count
+raw_mc = bytes.fromhex("020c09000002abcd" + "030000020003")
+p = RPLOptDAGMC(raw_mc)
+assert [type(o) for o in p.options] == [DAGMCObjUnknown, RPLDAGMCHopCount]
+assert p.options[0].otype == 9
+assert p.options[0].len == 2
+assert p.options[0].odata == b"\xab\xcd"
+assert p.options[0].olen == 2  # deprecated name of len
+assert p.options[1].HopCount == 3
+p.clear_cache()
+assert raw(p) == raw_mc
+
+# Type 9 with an empty body between Hop Count and Link ETX
+raw_mc = bytes.fromhex("0210030000020003" + "09000000" + "070000020100")
+p = RPLOptDAGMC(raw_mc)
+assert [type(o) for o in p.options] == [RPLDAGMCHopCount, DAGMCObjUnknown, RPLDAGMCLinkETX]
+assert p.options[2].ETX == 256
+
+# Building fills in the Length of the body
+assert raw(DAGMCObjUnknown(otype=9, P=1, odata=b"\xab\xcd")) == bytes.fromhex("09040002abcd")
+mc = RPLOptDAGMC(options=[DAGMCObjUnknown(otype=9, odata=b"\xab\xcd"), RPLDAGMCHopCount(HopCount=3)])
+assert raw(mc) == bytes.fromhex("020c09000002abcd030000020003")
