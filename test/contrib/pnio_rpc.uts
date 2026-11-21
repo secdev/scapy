@@ -872,6 +872,12 @@ p = Ether(b'\x00\x11\x22\x33\x44\x55' \
 assert p[Alarm_Low].RTA_SDU is None
 assert AlarmNotification_Low not in p
 assert len(p[Padding].load) == 32
+assert p[Alarm_Low].PDUTypeType == 3
+assert p[Alarm_Low].PDUTypeVersion == 1
+
+= PNIO Alarm building writes the PDU type in the low nibble
+p = Alarm_Low(PDUTypeType=2, PDUTypeVersion=1)
+assert raw(p)[4:5] == b'\x12'
 
 = PNIO Alarm building computes VarPartLen
 p = Alarm_High(RTA_SDU=AlarmNotification_High(AlarmType=3))
