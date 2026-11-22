@@ -616,7 +616,10 @@ class HTTPRequest(_HTTPContent):
         return body
 
     def mysummary(self):
-        return self.sprintf("%HTTPRequest.Method% '%HTTPRequest.Path%' ")
+        if self.Host:
+            return self.sprintf("%HTTPRequest.Method% '%HTTPRequest.Path%' [%Host%]")
+        else:
+            return self.sprintf("%HTTPRequest.Method% '%HTTPRequest.Path%'")
 
 
 class HTTPResponse(_HTTPContent):
@@ -741,8 +744,8 @@ class HTTP(Packet):
                 # use it. When the total size of the frags is high enough,
                 # we have the packet
 
-                if session.pop("head_request", False):
-                    # Answer to a HEAD request.
+                if session.pop("simple_request", False):
+                    # Answer to a HEAD/CONNECT request.
                     detect_end = lambda dat: dat.find(b"\r\n\r\n")
 
                 # Subtract the length of the "HTTP*" layer
@@ -774,12 +777,12 @@ class HTTP(Packet):
                     metadata["detect_unknown"] = True
                     if (
                         isinstance(http_packet.payload, cls.clsreq)
-                        and http_packet.Method == b"HEAD"
+                        and http_packet.Method in [b"HEAD", b"CONNECT"]
                     ):
-                        session["head_request"] = True
+                        session["simple_request"] = True
                 elif is_response and (
                     http_packet.Status_Code == b"101"
-                    or session.pop("head_request", False)
+                    or session.pop("simple_request", False)
                 ):
                     # If it's an upgrade response, it may also hold a
                     # different protocol data. make sure all headers are present
@@ -839,6 +842,7 @@ class HTTP_AUTH_MECHS(Enum):
     BASIC = "Basic"
     NTLM = "NTLM"
     NEGOTIATE = "Negotiate"
+    NEGO2 = "Nego2"
 
 
 class HTTP_Client(object):
@@ -1022,6 +1026,7 @@ class HTTP_Client(object):
                 if self.authmethod in [
                     HTTP_AUTH_MECHS.NTLM,
                     HTTP_AUTH_MECHS.NEGOTIATE,
+                    HTTP_AUTH_MECHS.NEGO2,
                 ]:
                     # Parse authenticate
                     if b" " in resp.WWW_Authenticate:
@@ -1176,7 +1181,7 @@ class HTTP_Server(Automaton):
             self.chan_bindings = GSS_C_NO_CHANNEL_BINDINGS
 
         # Auth settings
-        self.basic = False
+        self.mech = mech
         self.BASIC_IDENTITIES = kwargs.pop("BASIC_IDENTITIES", {})
         self.BASIC_REALM = kwargs.pop("BASIC_REALM", "default")
         if mech == HTTP_AUTH_MECHS.BASIC:
@@ -1184,10 +1189,10 @@ class HTTP_Server(Automaton):
                 raise ValueError("Please provide 'BASIC_IDENTITIES' !")
             if ssp is not None:
                 raise ValueError("Can't use 'BASIC_IDENTITIES' with 'ssp' !")
-            self.basic = True
         elif mech == HTTP_AUTH_MECHS.NONE:
             if ssp is not None:
                 raise ValueError("Cannot use ssp with mech=NONE !")
+
         # Initialize
         Automaton.__init__(self, *args, **kwargs)
 
@@ -1235,9 +1240,13 @@ class HTTP_Server(Automaton):
                 authorization = pkt.Authorization
             if not authorization:
                 # Initial ask.
-                data = self.authmethod
-                if self.basic:
-                    data += " realm='%s'" % self.BASIC_REALM
+                if self.mech == HTTP_AUTH_MECHS.BASIC:
+                    data = ("realm='%s'" % self.BASIC_REALM).encode()
+                elif self.mech == HTTP_AUTH_MECHS.NEGO2:
+                    self.sspcontext, tok = self.ssp.NegTokenInit2()
+                    data = base64.b64encode(bytes(tok))
+                else:
+                    data = None
                 self._ask_authorization(proxy, data)
                 return
             # Parse authorization
@@ -1251,12 +1260,16 @@ class HTTP_Server(Automaton):
                 self.debug(3, "Couldn't unpack base64 of auth.")
                 raise self.AUTH_ERROR(proxy)
             # Now process the authorization
-            if not self.basic:
+            if self.mech in [
+                HTTP_AUTH_MECHS.NTLM,
+                HTTP_AUTH_MECHS.NEGOTIATE,
+                HTTP_AUTH_MECHS.NEGO2,
+            ]:
                 try:
                     ssp_blob = GSSAPI_BLOB(data)
                 except Exception:
                     self.sspcontext = None
-                    self._ask_authorization(proxy, self.authmethod)
+                    self._ask_authorization(proxy, None)
                     self.debug(3, "Couldn't unpack GSSAPI_BLOB of auth.")
                     raise self.AUTH_ERROR(proxy)
                 # And call the SSP
@@ -1266,7 +1279,7 @@ class HTTP_Server(Automaton):
                     req_flags=self.ssp_req_flags,
                     chan_bindings=self.chan_bindings,
                 )
-            else:
+            elif self.mech == HTTP_AUTH_MECHS.BASIC:
                 # This is actually Basic authentication
                 try:
                     next(
@@ -1281,11 +1294,13 @@ class HTTP_Server(Automaton):
             # Send answer
             if status not in [GSS_S_COMPLETE, GSS_S_CONTINUE_NEEDED]:
                 self.debug(3, "Authentication failed: %s." % status)
+                ssp_blob.show()
                 raise self.AUTH_ERROR(proxy)
             elif status == GSS_S_CONTINUE_NEEDED:
-                data = self.authmethod.encode()
                 if tok:
-                    data += b" " + base64.b64encode(bytes(tok))
+                    data = base64.b64encode(bytes(tok))
+                else:
+                    data = None
                 self._ask_authorization(proxy, data)
                 raise self.AUTH()
             else:
@@ -1297,7 +1312,7 @@ class HTTP_Server(Automaton):
     @ATMT.state()
     def AUTH_ERROR(self, proxy):
         self.sspcontext = None
-        self._ask_authorization(proxy, self.authmethod)
+        self._ask_authorization(proxy, None)
         self.vprint("AUTH ERROR")
 
     @ATMT.condition(AUTH_ERROR)
@@ -1305,6 +1320,11 @@ class HTTP_Server(Automaton):
         raise self.AUTH()
 
     def _ask_authorization(self, proxy, data):
+        # Append authmethod
+        data = (
+            self.authmethod.encode()
+            + ((b" " + data) if data else b"")
+        )
         if proxy:
             self.send(
                 HTTPResponse(
@@ -1362,7 +1382,7 @@ class HTTP_Server(Automaton):
 
     @ATMT.receive_condition(SERVE)
     def new_request(self, pkt):
-        if self.basic:
+        if self.mech == HTTP_AUTH_MECHS.BASIC:
             raise self.AUTH(pkt)
         raise self.SERVE(pkt)
 

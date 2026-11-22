@@ -238,14 +238,21 @@ def DNSgetstr(*args, **kwargs):
 
 
 def dns_compress(pkt):
-    """This function compresses a DNS packet according to compression rules.
+    """
+    This function compresses a DNS packet according to compression rules.
     """
     if DNS not in pkt:
         raise Scapy_Exception("Can only compress DNS layers")
+
     pkt = pkt.copy()
     dns_pkt = pkt.getlayer(DNS)
     dns_pkt.clear_cache()
+
+    # Have a binary representation of that DNS packet,
+    # so that we can calculate the indexes of the replacements.
     build_pkt = raw(dns_pkt)
+    if dns_pkt.istcp():
+        build_pkt = build_pkt[2:]
 
     def field_gen(dns_pkt):
         """Iterates through all DNS strings that can be compressed"""
@@ -268,6 +275,7 @@ def dns_compress(pkt):
         yield dat
         for x in range(1, dat.count(b".")):
             yield dat.split(b".", x)[x]
+
     data = {}
     for current, name, dat in field_gen(dns_pkt):
         for part in possible_shortens(dat):
@@ -294,6 +302,7 @@ def dns_compress(pkt):
                     1
                 )
                 break
+
     # Apply compression rules
     for ck in data:
         # compression_key is a DNS string
@@ -314,6 +323,7 @@ def dns_compress(pkt):
                 del rep[0].rdlen
             except AttributeError:
                 pass
+
     # End of the compression algorithm
     # Destroy the previous DNS layer if needed
     if not isinstance(pkt, DNS) and pkt.getlayer(DNS).underlayer:
@@ -1298,7 +1308,7 @@ class DNS(DNSCompressedPacket):
     FORCE_TCP = False
     fields_desc = [
         ConditionalField(ShortField("length", None),
-                         lambda p: p.FORCE_TCP or isinstance(p.underlayer, TCP)),
+                         lambda p: p.istcp()),
         ShortField("id", 0),
         BitField("qr", 0, 1),
         BitEnumField("opcode", 0, 4, {0: "QUERY", 1: "IQUERY", 2: "STATUS"}),
@@ -1323,9 +1333,12 @@ class DNS(DNSCompressedPacket):
         _DNSPacketListField("ar", [], _DNSRR, count_from=lambda pkt: pkt.arcount),
     ]
 
+    def istcp(self):
+        return isinstance(self.underlayer, TCP) or self.FORCE_TCP
+
     def get_full(self):
         # Required for DNSCompressedPacket
-        if isinstance(self.underlayer, TCP) or self.FORCE_TCP:
+        if self.istcp():
             return self.original[2:]
         else:
             return self.original
@@ -1557,20 +1570,24 @@ RFC2136
 class DNS_am(AnsweringMachine):
     function_name = "dnsd"
     filter = "udp port 53"
-    cls = DNS  # We also use this automaton for llmnrd / mdnsd
+    port = 53
+    am = "dns"  # We also use this automaton for llmnrd / mdnsd
 
-    def parse_options(self, joker=None,
-                      match=None,
-                      srvmatch=None,
-                      joker6=False,
-                      send_error=False,
-                      relay=False,
-                      from_ip=True,
-                      from_ip6=False,
-                      src_ip=None,
-                      src_ip6=None,
-                      ttl=10,
-                      jokerarpa=False):
+    def parse_options(
+        self,
+        joker=None,
+        match=None,
+        srvmatch=None,
+        joker6=False,
+        send_error=False,
+        relay=False,
+        from_ip=True,
+        from_ip6=False,
+        src_ip=None,
+        src_ip6=None,
+        ttl=10,
+        jokerarpa=False,
+    ):
         """
         Simple DNS answering machine.
 
@@ -1634,8 +1651,17 @@ class DNS_am(AnsweringMachine):
         """
         from scapy.layers.inet6 import Net6
 
-        self.mDNS = isinstance(self, mDNS_am)
-        self.llmnr = self.cls != DNS
+        self.mDNS = self.am == "mdns"
+        self.llmnr = self.am == "llmnr"
+        if self.mDNS:
+            self.cls = DNS
+        elif self.llmnr:
+            from scapy.layers.llmnr import LLMNRQuery
+            self.cls = LLMNRQuery
+        elif self.mode == self.MODE.TCP:
+            self.cls = DNSTCP
+        else:
+            self.cls = DNS
 
         # Add some checks (to help)
         if not isinstance(joker, (str, bool)) and joker is not None:
@@ -1658,6 +1684,8 @@ class DNS_am(AnsweringMachine):
         self.joker = joker
         self.joker6 = joker6
         self.jokerarpa = jokerarpa
+        self.timeout = 1
+        self.port = 53
 
         def normv(v):
             if isinstance(v, (tuple, list)) and len(v) == 2:
@@ -1703,6 +1731,8 @@ class DNS_am(AnsweringMachine):
         query = req.getlayer(self.cls)
         if query is None or query.qr != 0:
             return False
+        if self.mode != self.mode.RAW:
+            return True
         if self.llmnr:
             # [RFC 4795] sect 2.1: an LLMNR query goes to the link-scope
             # multicast address with a hop limit of 1, so a responder must
@@ -1729,54 +1759,62 @@ class DNS_am(AnsweringMachine):
             )
         )
 
-    def make_reply(self, req):
+    def make_reply(self, req, addr=None):
         # Build reply from the request
-        resp = req.copy()
-        if Ether in req:
-            if self.mDNS:
-                resp[Ether].src, resp[Ether].dst = None, None
-            elif self.llmnr:
-                resp[Ether].src, resp[Ether].dst = None, req[Ether].src
-            else:
-                resp[Ether].src, resp[Ether].dst = (
-                    None if req[Ether].dst == "ff:ff:ff:ff:ff:ff" else req[Ether].dst,
-                    req[Ether].src,
-                )
-        from scapy.layers.inet6 import IPv6
-        if IPv6 in req:
-            resp[IPv6].underlayer.remove_payload()
-            if self.mDNS:
-                # "All Multicast DNS responses (including responses sent via unicast)
-                # SHOULD be sent with IP TTL set to 255."
-                resp /= IPv6(dst="ff02::fb", src=self.src_ip6,
-                             fl=req[IPv6].fl, hlim=255)
-            elif self.llmnr:
-                resp /= IPv6(dst=req[IPv6].src, src=self.src_ip6,
-                             fl=req[IPv6].fl, hlim=req[IPv6].hlim)
-            else:
-                resp /= IPv6(dst=req[IPv6].src, src=self.src_ip6 or req[IPv6].dst,
-                             fl=req[IPv6].fl, hlim=req[IPv6].hlim)
-        elif IP in req:
-            resp[IP].underlayer.remove_payload()
-            if self.mDNS:
-                # "All Multicast DNS responses (including responses sent via unicast)
-                # SHOULD be sent with IP TTL set to 255."
-                resp /= IP(dst="224.0.0.251", src=self.src_ip,
-                           id=req[IP].id, ttl=255)
-            elif self.llmnr:
-                resp /= IP(dst=req[IP].src, src=self.src_ip,
-                           id=req[IP].id, ttl=req[IP].ttl)
-            else:
-                resp /= IP(dst=req[IP].src, src=self.src_ip or req[IP].dst,
-                           id=req[IP].id, ttl=req[IP].ttl)
+        if self.mode != self.MODE.RAW:
+            resp = None
         else:
-            warning("No IP or IPv6 layer in %s", req.command())
-            return
-        try:
-            resp /= UDP(sport=req[UDP].dport, dport=req[UDP].sport)
-        except IndexError:
-            warning("No UDP layer in %s", req.command(), exc_info=True)
-            return
+            resp = req.copy()
+            if Ether in req:
+                if self.mDNS:
+                    resp[Ether].src, resp[Ether].dst = None, None
+                elif self.llmnr:
+                    resp[Ether].src, resp[Ether].dst = None, req[Ether].src
+                else:
+                    resp[Ether].src, resp[Ether].dst = (
+                        None if req[Ether].dst == "ff:ff:ff:ff:ff:ff"
+                        else req[Ether].dst,
+                        req[Ether].src,
+                    )
+            from scapy.layers.inet6 import IPv6
+            if IPv6 in req:
+                resp[IPv6].underlayer.remove_payload()
+                if self.mDNS:
+                    # "All Multicast DNS responses (including responses sent via
+                    # unicast) SHOULD be sent with IP TTL set to 255."
+                    resp /= IPv6(dst="ff02::fb", src=self.src_ip6,
+                                 fl=req[IPv6].fl, hlim=255)
+                elif self.llmnr:
+                    resp /= IPv6(dst=req[IPv6].src, src=self.src_ip6,
+                                 fl=req[IPv6].fl, hlim=req[IPv6].hlim)
+                else:
+                    resp /= IPv6(dst=req[IPv6].src, src=self.src_ip6 or req[IPv6].dst,
+                                 fl=req[IPv6].fl, hlim=req[IPv6].hlim)
+            elif IP in req:
+                resp[IP].underlayer.remove_payload()
+                if self.mDNS:
+                    # "All Multicast DNS responses (including responses sent via
+                    # unicast) SHOULD be sent with IP TTL set to 255."
+                    resp /= IP(dst="224.0.0.251", src=self.src_ip,
+                               id=req[IP].id, ttl=255)
+                elif self.llmnr:
+                    resp /= IP(dst=req[IP].src, src=self.src_ip,
+                               id=req[IP].id, ttl=req[IP].ttl)
+                else:
+                    resp /= IP(dst=req[IP].src, src=self.src_ip or req[IP].dst,
+                               id=req[IP].id, ttl=req[IP].ttl)
+            else:
+                warning("No IP or IPv6 layer in %s", req.command())
+                return
+
+            if UDP in req:
+                try:
+                    resp /= UDP(sport=req[UDP].dport, dport=req[UDP].sport)
+                except IndexError:
+                    warning("No UDP layer in %s", req.command(), exc_info=True)
+                    return
+
+        # Common to all modes
         try:
             req = req[self.cls]
         except IndexError:
@@ -1901,7 +1939,12 @@ class DNS_am(AnsweringMachine):
             if self.relay:
                 # Relay mode ?
                 try:
-                    _rslv = dns_resolve(rq.qname, qtype=rq.qtype, raw=True)
+                    _rslv = dns_resolve(
+                        rq.qname,
+                        qtype=rq.qtype,
+                        raw=True,
+                        timeout=self.timeout,
+                    )
                     if _rslv:
                         ans.extend(_rslv.an)
                         ars.extend(_rslv.ar)
@@ -1927,8 +1970,11 @@ class DNS_am(AnsweringMachine):
         if not ans:
             # No answer is available.
             if self.send_error:
-                resp /= self.cls(id=req.id, qr=1, qd=req.qd, rcode=3)
-                return resp
+                err = self.cls(id=req.id, qr=1, qd=req.qd, rcode=3)
+                if resp:
+                    return resp / err
+                else:
+                    return err
             log_runtime.info("No answer could be provided to: %s" % req.summary())
             return
         # Handle Additional Records
@@ -1942,18 +1988,24 @@ class DNS_am(AnsweringMachine):
                     ),
                 ],
             ))
+
         # All rq were answered
         if self.mDNS:
             # in mDNS mode, don't repeat the question, set aa=1, rd=0
             dns = self.cls(id=req.id, aa=1, rd=0, qr=1, qd=[], ar=ars, an=ans)
         else:
             dns = self.cls(id=req.id, qr=1, qd=req.qd, ar=ars, an=ans)
+
         # Compress DNS and mDNS
         if not self.llmnr:
-            resp /= dns_compress(dns)
+            result = dns_compress(dns)
         else:
-            resp /= dns
-        return resp
+            result = dns
+
+        if resp:
+            return resp / result
+        else:
+            return result
 
 
 class mDNS_am(DNS_am):
@@ -1985,6 +2037,7 @@ class mDNS_am(DNS_am):
     """
     function_name = "mdnsd"
     filter = "udp port 5353"
+    am = "mdns"
 
 
 # DNS-SD (RFC 6763)

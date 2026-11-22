@@ -38,7 +38,7 @@ initial destinations afterwards. More details on how to set up TPROXY are provid
     # Run it
     NOPFwdMachine(
         mode=ForwardMachine.MODE.TPROXY,
-        port=80,
+        port=8080,
         cls=HTTP,  # we specify the class of the payload we are receiving
     ).run()
 

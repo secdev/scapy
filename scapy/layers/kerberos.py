@@ -5899,6 +5899,7 @@ class KerberosSSP(SSP):
                     password=self.PASSWORD,
                 )
                 self.TGT, self.TGTSessionKey = res.asrep.ticket, res.sessionkey
+                self.KEY = self.TGTSessionKey
 
             # Server receives AP-req, sends AP-rep
             if isinstance(input_token, KRB_AP_REQ):
@@ -5921,7 +5922,6 @@ class KerberosSSP(SSP):
 
             if isinstance(ap_req, KRB_TGT_REQ):
                 # Special U2U case
-                Context.U2U = True
                 return (
                     None,
                     KRB_GSSAPI_Token(
@@ -5946,7 +5946,6 @@ class KerberosSSP(SSP):
             # If using a UPN, require U2U
             if self.UPN and ap_req.apOptions.val[1] != "1":  # use-session-key
                 # Required but not provided. Return an error
-                Context.U2U = True
                 err = KRB_GSSAPI_Token(
                     innerToken=KRB_InnerToken(
                         TOK_ID=b"\x03\x00",

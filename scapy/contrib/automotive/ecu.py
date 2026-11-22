@@ -714,8 +714,8 @@ class EcuAnsweringMachine(AnsweringMachine[PacketList]):
         # type: (Packet) -> bool
         return isinstance(req, self._basecls)
 
-    def make_reply(self, req):
-        # type: (Packet) -> PacketList
+    def make_reply(self, req, addr=None):
+        # type: (Packet, Any) -> PacketList
         """
         Checks if a given request can be answered by the internal list of
         EcuResponses. First, it's evaluated if the internal EcuState of this

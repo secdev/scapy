@@ -348,6 +348,7 @@ def test_tls_client(suite, version, curve=None, cookie=False, client_auth=False,
     print("Server stopped. Destroying server...")
     atmtsrv.destroy(force=True)
     print("Server destroyed.")
+    assert atmtsrv.socket is None or atmtsrv.socket.fileno() == -1
     # re-raise if client failed.
     if final_reason:
         raise ValueError(final_reason.atmt_origfunc)
@@ -614,8 +615,9 @@ def _test_connection():
     pkt = a.sr1(HTTP()/HTTPRequest(Host="www.google.com"),
                 session=TCPSession(app=True), timeout=2, retry=3)
     a.close()
-    assert pkt
-    assert HTTPResponse in pkt
-    assert b"</html>" in pkt[HTTPResponse].load
+    assert pkt, "pkt is None"
+    pkt.show()
+    assert HTTPResponse in pkt, "HTTPResponse not in pkt"
+    assert b"</html>" in pkt[HTTPResponse].load, "end tag missing from HTTP"
 
 retry_test(_test_connection)
