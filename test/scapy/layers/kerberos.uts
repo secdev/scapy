@@ -1628,64 +1628,8 @@ assert _k_truncate_output(EncryptionType.AES256_CTS_HMAC_SHA1_96, INPUT) == RESU
 + GSS-API KerberosSSP tests
 ~ mock
 
-= KerberosClient binds decrypted replies to the request nonce
-
-from datetime import datetime, timezone
-from types import SimpleNamespace
-
-def nonce_client():
-    client = object.__new__(KerberosClient)
-    client.etypes = [EncryptionType.AES256_CTS_HMAC_SHA1_96]
-    client.realm = "DOMAIN.LOCAL"
-    client.renew = False
-    client._base_kdc_req(datetime.now(timezone.utc))
-    client._process_padatas_and_key = lambda *args, **kwargs: None
-    client.pre_auth = True
-    client.fast_rep = None
-    client.fast = False
-    client.x509 = None
-    client.pa_type = None
-    client.subkey = None
-    client.upn = "User1@DOMAIN.LOCAL"
-    return client
-
-class NonceReply:
-    def __init__(self, nonce):
-        self.etype = ASN1_INTEGER(EncryptionType.AES256_CTS_HMAC_SHA1_96)
-        self.value = SimpleNamespace(
-            nonce=ASN1_INTEGER(nonce),
-            key=SimpleNamespace(
-                toKey=lambda: Key(
-                    EncryptionType.AES256_CTS_HMAC_SHA1_96, key=b"0" * 32
-                )
-            ),
-        )
-    def decrypt(self, *args, **kwargs):
-        return self.value
-
-for decrypt_name in ("decrypt_as_rep", "decrypt_tgs_rep"):
-    client = nonce_client()
-    client.replykey = Key(
-        EncryptionType.AES256_CTS_HMAC_SHA1_96, key=b"1" * 32
-    )
-    reply = NonceReply(client.request_nonce + 1)
-    packet = SimpleNamespace(
-        root=SimpleNamespace(
-            padata=[],
-            encPart=reply,
-            getUPN=lambda: "User1@DOMAIN.LOCAL",
-        )
-    )
-    try:
-        getattr(client, decrypt_name)(packet)
-        assert False, "KDC reply with a different nonce was accepted"
-    except ValueError as ex:
-        assert str(ex) == "KDC reply nonce does not match request"
-    reply.value.nonce = ASN1_INTEGER(client.request_nonce)
-    getattr(client, decrypt_name)(packet)
-    assert client.result.kdcrep is reply.value
-
 = Create randomness-mock context manager
+~ kerberosclient
 
 # mock the random to get consistency
 from unittest import mock
@@ -2341,9 +2285,194 @@ with KrbRandomPatcher():
     )
 
 assert negState == 0
+
 = KRB_InnerToken with an unknown TOK_ID does not crash
 
 p = KRB_InnerToken(hex_bytes("ead5") + b"\x00" * 30)
 assert p.TOK_ID == b"\xea\xd5"
 assert isinstance(p.root, conf.raw_layer)
 assert p.root.load == b"\x00" * 30
+
++ Full KerberosClient tests
+~ kerberosclient
+
+= Define mocked KerberosClient and utils
+
+from scapy.automaton import ObjectPipe
+from collections import deque
+
+date_mock.now.side_effect = lambda tz=None: datetime(2026, 11, 23, 14, 10, 2, 279000, tz)
+
+class MockKrbQueue(ObjectPipe):
+    def __init__(self, packets):
+        self.tosend = deque(packets)
+        self.received = deque()
+        super(MockKrbQueue, self).__init__()
+    def send(self, pkt):
+        self.received.append(pkt.__class__(bytes(pkt)))
+        # Trigger fake "response"
+        try:
+            rpkt = KerberosTCPHeader(self.tosend.popleft())
+            super(MockKrbQueue, self).send(rpkt)
+        except IndexError:
+            pass
+
+
+class MockKerberosClient(KerberosClient):
+    def __init__(self, *args, **kwargs):
+        self.pipe = kwargs.pop("pipe")
+        super(MockKerberosClient, self).__init__(*args, **kwargs)
+    def _connect(self):
+        return self.pipe
+
+
+def run_test_kerberosclient(pipe, **kwargs):
+    with KrbRandomPatcher():
+        cli = MockKerberosClient(pipe=pipe, **kwargs)
+        cli.run()
+        cli.stop()
+        return cli.result
+
+
+= KerberosClient - full AS-REQ exchange
+
+krbqueue = MockKrbQueue([
+    # 1. PREAUTH-REQUIRED
+    bytes.fromhex('0000012d7e82012930820125a003020105a10302011ea411180f32303236313132333134313030305aa50502030ca543a603020119a90e1b0c444f4d41494e2e4c4f43414caa21301fa003020102a11830161b066b72627467741b0c646f6d61696e2e6c6f63616cac81c60481c33081c03060a103020113a259045730553025a003020112a11e1b1c57494e2d4e534849444f324f33395641646d696e6973747261746f723025a003020111a11e1b1c57494e2d4e534849444f324f33395641646d696e6973747261746f723005a003020117303ba10302016fa23404323030300b0609608648016503040203300b0609608648016503040202300b0609608648016503040201300706052b0e03021a3009a103020102a20204003009a103020110a20204003009a10302010fa2020400'),
+    # 2. AS-REP
+    bytes.fromhex('000006926b82068e3082068aa003020105a10302010ba23630343032a103020113a22b042930273025a003020112a11e1b1c57494e2d4e534849444f324f33395641646d696e6973747261746f72a30e1b0c444f4d41494e2e4c4f43414ca41a3018a003020101a111300f1b0d41646d696e6973747261746f72a58204d8618204d4308204d0a003020105a10e1b0c444f4d41494e2e4c4f43414ca221301fa003020102a11830161b066b72627467741b0c444f4d41494e2e4c4f43414ca382049430820490a003020112a103020102a28204820482047ed1c33a97da7291f69bf4dd20968bb1aa9b780a5bad50974e9874572fa461b43142b4fda9fb6ca778a8a4db026b04b81c52091d3039edc066d0ea53d2bf5ad645abe53bde552ea08a193635d17920bf5ad9be2ae4b555090cdbfe18ce8602f57bc0cb79187f566f897fc4391bb95765ce212c7968750877e283816ac01b9152aa947467b399262e86532d873503d54fbdfa422c849a41c3f2043d38216833a8c50dc3e4a048caccfeb5c0f2cf40a7a7bb6271802246bb37ab8c42983e55f102f127bcc7eb39fc0322259f04557e4471faa8d3cd69124aa1d0f3cc7a584b8d88c4cdea0b8e9443b0db2393c1e906459a31a6ac665fae4fc88fea57e7399f7926583bf17967b3d33f028b8ce374e9db524cb16f4575eddf91f072090fc935a8549ce7103654f4cfe0b104cfcb859ccb18408a9d6c6b4046ffe440428e399db4b09e12e46568ba6560e2930f070cdeaa2f25cee814f6ce174606f91f9a96c1eafb22b0d4509793a9d392d7f0b637dcfc0ae7ee32b599d128d50fb307c66b14c83b0493671753761afcdcb19d69e073de402e0aad03d091ca413d60df739e21bf403771175564d173a58f7c11eab9baa4c54604d9a3c908b885b174fe1270aeb8f31d7f0c4a3bcd8c041482f07b5f5ab13de3b7b57aac3d1f6ab727ccff527ee0db7977f2a41a0c366488ea71d5753eef1f8c88424570af92fb8735dc10dac867af149a2e0a04fc33e7efec7ee18a18dd001cbbba188a20e8bc5a75b95f2f0ba21032511071140b4e732514389a05c48a9e41a05fe32f5bb2e4d0627224f4c2686cf88ad8f56b5f8e87bf44f9c87b32d94ca893487e4c8a17acf9dd7b4dcf4759f22c81fecdf07c1387675e6feee35c294f79acf816db44a88ff89f1f921ddfc78d99d934e55610dd3c59efa5a744780bbbf8f116b3f28bb21b199bbb79af5e6785c81f52488826bd7d2b43a8ff2c49f69c54fc03e9f589f6f714db537ef2fce28302f8a49fad4b3e34aaa02ea2cd688d29d3479eb8d7047d8680a245de19606b1c4b103da9704b45b56f53810e783b7f7f958afa282300199843037c795c1daface15943e05a2b0ab504abba69793aec13a769e1e41d1678e78ea624165a398f5d0aaafd3926bd6a9345d4f5c51f89998b4ff77a1726860afd431bf81e42344e25dba15de75783726fa297589a2d64c03943b69400bc76eefc2b990b79bd2c9cce8e5b78713f815d96f3563ab814c0199a3e39b52c86d7b0b6500743360d6bc86d24cc08c8016f28a4b13572fb1b686b41be33c329733c630048c0d05c6ba1f21a8b69ce081087827d90ab66ea41f7a1cb2195fb54c287c284f229139a63208a451b8e007a69f6e61d79ea45810727e6fd8015915b4000cc71225f43ceef113600a66de195ecf86523f72cbb0e7a15684241aa3e73c0eef3033e349b47d10b5b0973907799428600601560fc54d520fcf1c5db807435dd68a786ce8457187420e06eeef820730bb94ae43c328fc4d5062a7412aa693644d27652724d69bab209fc13fa191c794c262f409cb03486761622fff22ab987512f76a8b7a9ea7f0d70a3384631f5fead2cd1a3ace43fc064c5465e891737c6840b6b29941f17ce49d6a682013c30820138a003020112a103020101a282012a04820126459a62a3e3a55fa0e78a9dabc978c945ab6f8697838d69850eff21e4ca765dc700e440f3465292797cbae934390454848a15e3f4cac4f598851c045ddf3afd8da340d9c0cb03d89d27635c6e7e7cfcd9f848795d862216f0a9cda8c07139737febcd6a37a9af2442a1239858e15ec52346d0acf84a1b1c7ea486fbc45cce64f07a00313419a40a89755e17efa7a506d860344a9e6d356b5933e709e2a6d2ca1338b58f659bb3ecec483bc96c8aba08bde81df1b079164c089380ea0807bce80105665437ecf29e5470732aa9d73f52affb8177c410d1cdcd8db15491d94ccd5a81b162b3db585481ebca0a9a78e53e83ab45f002236b2cc9e33eb3f0eb4bab50174c4e8bee5f06a27fc9790fa01f97e590b6b799297d8f56b9bce1927895a682a42b10a7ca02'),
+])
+
+result = run_test_kerberosclient(
+    # KerberosClient() parameters
+    mode=KerberosClient.MODE.AS_REQ,
+    upn="Administrator@domain.local",
+    password="Password123!",
+    ip="127.0.0.1",
+    # (TESTING ONLY)
+    pipe=krbqueue,
+)
+
+# Packets sent by the client
+as_req_1 = krbqueue.received[0]
+as_req_2 = krbqueue.received[1]
+
+as_req_1.show()
+as_req_2.show()
+
+assert as_req_1.root.pvno == 5
+assert as_req_1.root.msgType == 0xa  # AS-REQ
+assert as_req_1.root.reqBody.kdcOptions.val == "01000000100000010000000000010000"
+assert as_req_1.root.reqBody.cname.nameType == 0x1  # NT-PRINCIPAL
+assert as_req_1.root.reqBody.cname.toString() == "Administrator"
+assert as_req_1.root.reqBody.realm == b"DOMAIN.LOCAL"
+assert as_req_1.root.reqBody.sname.nameType == 0x2  # NT-SRV-INST
+assert as_req_1.root.reqBody.sname.toString() == "krbtgt/domain.local"
+assert as_req_1.root.reqBody.etype == [18, 17, 23, 3]
+assert len(as_req_1.root.padata) == 1
+assert as_req_1.root.padata[0].padataType == 0x80  # PA-PAC-REQUEST
+assert as_req_1.root.padata[0].padataValue.includePac
+
+assert as_req_2.root.pvno == 5
+assert as_req_2.root.msgType == 0xa  # AS-REQ
+assert as_req_2.root.reqBody.kdcOptions.val == "01000000100000010000000000010000"
+assert as_req_2.root.reqBody.cname.nameType == 0x1  # NT-PRINCIPAL
+assert as_req_2.root.reqBody.cname.toString() == "Administrator"
+assert as_req_2.root.reqBody.realm == b"DOMAIN.LOCAL"
+assert as_req_2.root.reqBody.sname.nameType == 0x2  # NT-SRV-INST
+assert as_req_2.root.reqBody.sname.toString() == "krbtgt/domain.local"
+assert [x.val for x in as_req_2.root.reqBody.etype] == [18, 17, 23, 3]
+assert len(as_req_2.root.padata) == 2
+assert as_req_2.root.padata[0].padataType == 2  # PA-ENC-TIMESTAMP
+assert isinstance(as_req_2.root.padata[0].padataValue, EncryptedData)
+assert as_req_2.root.padata[0].padataValue.etype == EncryptionType.AES256_CTS_HMAC_SHA1_96
+assert as_req_2.root.padata[0].padataValue.kvno is None
+assert as_req_2.root.padata[1].padataType == 0x80  # PA-PAC-REQUEST
+assert as_req_2.root.padata[1].padataValue.includePac
+
+# Client result: successfully decrypted AS-REP
+assert result.pa_type == 2  # PA-ENC-TIMESTAMP
+assert result.upn == "Administrator@DOMAIN.LOCAL"
+assert result.sessionkey.etype == EncryptionType.AES256_CTS_HMAC_SHA1_96
+assert len(result.sessionkey.key) == 32
+assert result.kdcrep.key.keytype == EncryptionType.AES256_CTS_HMAC_SHA1_96
+assert result.kdcrep.nonce == 0x40000000
+assert result.kdcrep.flags.val == "01000000111000010000000000000000"  # forwardable, renewable, initial, pre-authent, canonicalize
+assert result.kdcrep.authtime.val == "20261123141000Z"
+assert result.kdcrep.endtime.val == "20261124001000Z"
+assert result.kdcrep.srealm == b"DOMAIN.LOCAL"
+assert result.kdcrep.sname.toString() == "krbtgt/DOMAIN.LOCAL"
+assert result.kdcrep.encryptedPaData[0].padataType == 165  # PA-SUPPORTED-ENCTYPES
+assert result.kdcrep.encryptedPaData[0].padataValue.flags == ["FAST-supported", "Claims-supported"]
+
+= KerberosClient - full AS-REQ exchange with armor
+
+date_mock.now.side_effect = lambda tz=None: datetime(2026, 11, 23, 14, 10, 3, 279000, tz)
+
+krbqueue = MockKrbQueue([
+    # 1. PREAUTH-REQUIRED (FAST)
+    bytes.fromhex('000002117e82020d30820209a003020105a10302011ea411180f32303236313132333134313030315aa50502030d3e2ba603020119a90e1b0c444f4d41494e2e4c4f43414caa21301fa003020102a11830161b066b72627467741b0c646f6d61696e2e6c6f63616cac8201a9048201a5308201a13082019da10402020088a28201930482018fa082018b30820187a08201833082017fa003020112a282017604820172bde8f4a66b36dc5a66645f3982c93abcd57318de446d9a786cd50974f8a591827ab2bc5581cb497e506415832533a7cebcbddb907b34cfe43f7346d3d2777f5423dac7eabf0320105b8820054410fbc47b1ffc16bdcc21e128dbba0a0c451e086b13d31a2120e079abe09739be675c87e1135709a768d0924960865e13d22cbca87cf101218cb68dcbd785f8366894f185c335abd8e71073fd004b8fe8c8e80fa3197ad526746dc419734e9fcaba145d10cedd84567de120b377c90777d0729aca0fcfc206f3f86bb41f7a369892e715069d456f6472c23229d58245f08dca299f04d761ff666250d1ce8e2f526c8f3f37d1d951ac3b89202cfc816a732386e570f941eeb09cf1674acd3a09a421ece88116e3078d5b125f50ce59c2eeef7126e062896e791b47d9b8c3d01fdea5446799f2c098cd67e8631e8a0750ab062aa0e17c5fb2aea3b490e8365eb5d8c93c144017a9b8d6a03ccea88bfb102a176f808ee8a136750bdc3253bfdf663aafc5c031b1'),
+    # 2. AS-REP (FAST)
+    bytes.fromhex('000008216b82081d30820819a003020105a10302010ba2820174308201703082016ca10402020088a28201620482015ea082015a30820156a08201523082014ea003020112a282014504820141ed05dbbabe5f33dd2acd34d0ae8d2c222aedeffca5568e71dc7b66cf3a9dd04d4f2f57b0ea6fece767d9e50208f18607023e6c2b09459dbb5de8b1681af08360e1403be8d3bdf64159b5237cb6bb8b82ac34a451206764e96e0da02d2bf9010afeacdc26e38d3416988c64a94d3340ac98099586f65ca3ad58ca2d294e1cdfe3c6812d03d952b2313e9c2e55a90bc247d82801a390ad574ca818e4e7888ca23aa9c10a48008fbba72e1cef65260fda8a82a4b9437ec72c249d9deacc1ea505df85d78954bf821cd653ac75dc0b19752e3fa47fd6250ec7541b1e1b3111bf8ff1f69aee250f9d39c8ad23bec1308d987a8abd040249b4ba020fa296660083c2445f7636eaeef3c106d93f4e4bab41f3a7c4b90cd09ebdf1142d2a4e9d30ef1e88d60186d4471970f1cd249a82e217e276e4e7d12613428f0680e661ee42a422245ba30e1b0c444f4d41494e2e4c4f43414ca41a3018a003020101a111300f1b0d41646d696e6973747261746f72a58205106182050c30820508a003020105a10e1b0c444f4d41494e2e4c4f43414ca221301fa003020102a11830161b066b72627467741b0c444f4d41494e2e4c4f43414ca38204cc308204c8a003020112a103020102a28204ba048204b60b947d374750dd7bdcc0df6add3a580138892b64693cca2df8ec81696e61bea6952c1a88c0c02635995dd811ac7fc9979e5e8ed84878dc1443f8ffb9f16feb9d128a21c478d60824b6f0748b274ad9fcf402b50f72ca79b6e47cef403be7fc39a979a115ea5407e6e16761640b496a0dc613036c2e89f045636ac8d2dee8c6b7279781b4262ca9bca895857e8f24ff894b0eb7aa2dd57131bc01cd3265a02debd0cca176d43c593ea716ed90776f7a7244e03c5bdad4726ef3ea2571a461bf2198bca07badadf42a82e10fc70ac52906df77ab757fe701733c99ed6f8bbb26b71fc365abb99a762f4171a9b236fde824c0442d92aa00887677ea7a1e2b530d84956d409a5b6176dd08c6c2bf974fdd203543a32f7c2d345331a1c341633479137199dbae9188ba24b33114758c43878772b58b56915c2f9f587999941a324ae00c229f1c3f353454747d2eae9170a0a6cc0888b813bf4a99a29a4e77c9e58e0d3fdc80d1f6ea1cd3dddb7eb84346148ecd92f16b7aff564079b9f3e57fbba68a5c425e8988c2d3222d7b49334046241153e69019d9aa71371bb135227e856e28920db9b527cc7470644a039b849e3f98c32b5826e20172c478a8652290591efab546d9a013fcfe0ebbfc7f87eb15f8f3045468fcb155a4346ba390aa1bad4d0ea5cafdc1c4a7325ded567e8689eaeba7e8e0c7eb3bb17bb1d5ba5dd4043190a7b77bff01ef109fa0d974e3ea15e0375b8f9aa5b9037807319ace50dfae34fba1548e51d9e0cf9ab99b354a0477d859494ef720029c5fafc5ce6090ff454fb4a5af8767805f8ee4b036f1c1a1cdee6019d6ba72e63fbc46a7fce7f15154844582eafc546f4bd575becb5241465aeddbf24dc09a995b17fa9fd063023b469ba4374be039b7a38075f194a19fd734847a1e1b9ca9bcc42bcaa9e4f4ab9c3e3bca0830dbf5a216038235c4605b7230afa576a630f5d5b618e074b9ec8029247e9011355c27c3e2894c97ecb775294b4d4a463e1614282365d3338da2b325aa10a56f3c8d7d8cc5df15f385a44f8db83a8efdb46b91f27fda887eac29ee083d1f9aa11867f1755c72c1ad92f609eccc07e594d5f0ff6b7f9eca3b7c85a33efc01374daf463e3dfc8e97a92b2cf874962298fe8381dcb9554f284467249babf69639b3456c5ddcc8ae0e1506fc765868fb3d910d80c1ec84d960ef6873963b00982179c3e4392e7cc07c5df54594834e771657f24a91897ee336f4159138542484e6bf4abc773e44f1c79c30bcb0bc352251be69a947e1fea364f4122218e993978d596fcbec2472e2f81fe7f49b6a989ae4a18be9d513b9d908d5b8f67e12f96921b0cf5f7e7d3145bc2bc5b350280b90a34f7f6654b9e8ae6ce5f128bc4e85f07660e8e99992e337f5d03c9bfd908b605d475cf4b9c55e49489430e35442be44413a17a36c23d6eaa89646fdcc8de40bd09674e00626e08eb72ac81dcf2a9d7828e211c88a873a89ab33f198221a8210741619850cc5077b4681af7809695bc48583b41e675b81309d698e9f027dbe7a28f6be0b0d07af8b9dbdb2954a5cd0e7a11910e1143331c17ea5fe5c8bd09fe0db5c84fe5d40f67ccc81aeb8b7f8011b09c18a70ce7cd43be1d63e46977b893210c42a0ba80cc9bc5cc458c0878cc9567dd3a1c5008810a9ff5352ceec1bda6aebd9755b2382489aa68201533082014fa003020112a103020101a28201410482013d8e31e1d65c384997056eb11cd1746e3b36716bedede4ede2c5a89c656ed6e406791b770664a97d2202d4518b60f86000955b1f9eb372b51258a07da92632bb1a9c2bf16983df03ee7f5a09e697328f3b32efb00e1a3e84217407b499c89b6a57aecbbcfc23b23f5ef7b4115995294ddb52c924a5d4322c45737d5785653e7e52057cf3d466ec9cf53c614d2286ad4035b29d9574c10d60ec41a33d6ecf0ac804258618f3ef1e6c11241dd727386525e8fc05e7ec597bd7610e96754a5864d9bd57b65c9aa9abf9f9387837313426029baf4d6e0c6ea012d4425e343381114b06dfd8009aa604473b31e17393cf623b040280ff0ebcefb0fd83c526e465b6426aa39682861bfc4812efca416ab0e16d28d3260551ca781576dd9a0722b07a0349a58b1acbd47033fc20af5bc0979b27f67eb3ca694bce85b18352b65bcc'),
+])
+
+result = run_test_kerberosclient(
+    # KerberosClient() parameters
+    mode=KerberosClient.MODE.AS_REQ,
+    upn="Administrator@domain.local",
+    password="Password123!",
+    fast=True,
+    armor_ticket=result.asrep.ticket,
+    armor_ticket_upn=result.upn,
+    armor_ticket_skey=result.sessionkey,
+    ip="127.0.0.1",
+    # (TESTING ONLY)
+    pipe=krbqueue,
+)
+
+# Packets sent by the client
+as_req_1 = krbqueue.received[0]
+as_req_2 = krbqueue.received[1]
+
+as_req_1.show()
+as_req_2.show()
+
+# Both requests are FAST armored: single PA-FX-FAST padata wrapping an AP-REQ
+assert len(as_req_1.root.padata) == 1
+assert as_req_1.root.padata[0].padataType == 136  # PA-FX-FAST
+assert isinstance(as_req_1.root.padata[0].padataValue, PA_FX_FAST_REQUEST)
+assert as_req_1.root.padata[0].padataValue.armoredData.armor.armorType == 1  # FX_FAST_ARMOR_AP_REQUEST
+assert isinstance(as_req_1.root.padata[0].padataValue.armoredData.armor.armorValue, KRB_AP_REQ)
+assert as_req_1.root.padata[0].padataValue.armoredData.armor.armorValue.ticket.sname.toString() == "krbtgt/DOMAIN.LOCAL"
+assert as_req_1.root.padata[0].padataValue.armoredData.reqChecksum.cksumtype == 16  # HMAC-SHA1-96-AES256
+assert as_req_1.root.padata[0].padataValue.armoredData.encFastReq.etype == EncryptionType.AES256_CTS_HMAC_SHA1_96
+
+assert len(as_req_2.root.padata) == 1
+assert as_req_2.root.padata[0].padataType == 136  # PA-FX-FAST
+assert isinstance(as_req_2.root.padata[0].padataValue, PA_FX_FAST_REQUEST)
+assert as_req_2.root.padata[0].padataValue.armoredData.armor.armorType == 1  # FX_FAST_ARMOR_AP_REQUEST
+assert isinstance(as_req_2.root.padata[0].padataValue.armoredData.armor.armorValue, KRB_AP_REQ)
+assert as_req_2.root.padata[0].padataValue.armoredData.armor.armorValue.ticket.sname.toString() == "krbtgt/DOMAIN.LOCAL"
+assert as_req_2.root.padata[0].padataValue.armoredData.reqChecksum.cksumtype == 16  # HMAC-SHA1-96-AES256
+assert as_req_2.root.padata[0].padataValue.armoredData.encFastReq.etype == EncryptionType.AES256_CTS_HMAC_SHA1_96
+
+# Client result: AS-REP was FAST armored
+assert result.pa_type == 138  # PA-ENCRYPTED-CHALLENGE
+assert result.upn == "Administrator@DOMAIN.LOCAL"
+assert result.sessionkey.etype == EncryptionType.AES256_CTS_HMAC_SHA1_96
+assert len(result.sessionkey.key) == 32
+assert result.kdcrep.key.keytype == EncryptionType.AES256_CTS_HMAC_SHA1_96
+assert result.kdcrep.nonce == 0x40000000
+assert result.kdcrep.flags.val == "01000000111000010000000000000000"  # forwardable, renewable, initial, pre-authent, canonicalize
+assert result.kdcrep.authtime.val == "20261123141001Z"
+assert result.kdcrep.endtime.val == "20261124001001Z"
+assert result.kdcrep.srealm == b"DOMAIN.LOCAL"
+assert result.kdcrep.sname.toString() == "krbtgt/DOMAIN.LOCAL"
+assert len(result.asrep.padata) == 1
+assert result.asrep.padata[0].padataType == 136  # PA-FX-FAST
+assert isinstance(result.asrep.padata[0].padataValue, PA_FX_FAST_REPLY)
+assert len(result.kdcrep.encryptedPaData) == 2
+assert result.kdcrep.encryptedPaData[0].padataType == 167  # PA-PAC-OPTIONS
+assert result.kdcrep.encryptedPaData[0].padataValue.options == "10000000000000000000000000000000"  # Claims
+assert result.kdcrep.encryptedPaData[1].padataType == 165  # PA-SUPPORTED-ENCTYPES
+assert result.kdcrep.encryptedPaData[1].padataValue.flags == ["FAST-supported", "Claims-supported"]
