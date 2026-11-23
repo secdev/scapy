@@ -5884,8 +5884,7 @@ class KerberosSSP(SSP):
             repPart = ap_rep.encPart.decrypt(Context.STSessionKey)
             # [RFC4120] sect 3.2.5: "the client [...] verifies that the timestamp
             # and microsecond fields match those in the Authenticator it sent to
-            # the server". Otherwise, an AP-REP for an earlier AP-REQ that used
-            # the same ticket would be accepted.
+            # the server".
             if not Context.passive and repPart.getClientTime() != Context.ClientTime:
                 log_runtime.warning("KerberosSSP: AP-REP doesn't match the AP-REQ !")
                 return Context, None, GSS_S_DEFECTIVE_TOKEN

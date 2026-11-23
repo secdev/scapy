@@ -1924,17 +1924,17 @@ st.encPart.encrypt(srvkey, EncTicketPart(
 krbcli = KerberosSSP(UPN="User1@DOMAIN.LOCAL", SPN="cifs/dc1", ST=KRB_Ticket(bytes(st)), KEY=tktkey)
 krbsrv = KerberosSSP(SPN="cifs/dc1", KEY=srvkey)
 
-with mock.patch('scapy.layers.kerberos.datetime', mock.MagicMock(now=lambda tz=None: now)):
+with KrbRandomPatcher():
     clicontext, tok, _ = krbcli.GSS_Init_sec_context(None, req_flags=GSS_C_FLAGS.GSS_C_MUTUAL_FLAG)
     _, first_ap_rep, status = krbsrv.GSS_Accept_sec_context(None, tok)
     assert status == GSS_S_COMPLETE
     _, _, status = krbcli.GSS_Init_sec_context(clicontext, first_ap_rep)
     assert status == GSS_S_COMPLETE
 
-# A second AP-REQ with the same ticket, answered with the first AP-REP
-with mock.patch('scapy.layers.kerberos.datetime', mock.MagicMock(now=lambda tz=None: now + timedelta(seconds=1))):
-    clicontext, tok, _ = krbcli.GSS_Init_sec_context(None, req_flags=GSS_C_FLAGS.GSS_C_MUTUAL_FLAG)
-    _, _, status = krbcli.GSS_Init_sec_context(clicontext, first_ap_rep)
+# A second AP-REQ with the same ticket, answered with the first AP-REP.
+# Done outside KrbRandomPatcher so that its authenticator time differs.
+clicontext, tok, _ = krbcli.GSS_Init_sec_context(None, req_flags=GSS_C_FLAGS.GSS_C_MUTUAL_FLAG)
+_, _, status = krbcli.GSS_Init_sec_context(clicontext, first_ap_rep)
 
 assert status == GSS_S_DEFECTIVE_TOKEN
 
