@@ -8,7 +8,7 @@
 HMAC classes.
 """
 
-from scapy.config import conf
+from scapy.config import conf, crypto_validator
 from scapy.layers.tls.crypto.hash import _tls_hash_algs
 
 if conf.crypto_valid:
@@ -61,6 +61,7 @@ class _GenericHMAC(metaclass=_GenericHMACMetaclass):
     def __init__(self, key=None):
         self.key = key or b""
 
+    @crypto_validator
     def digest(self, tbd):
         if self.key is None:
             raise HMACError

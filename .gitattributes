@@ -1,3 +1,4 @@
 scapy/__init__.py	export-subst
 * text=auto
+*.sh text eol=lf
 *.bat text eol=crlf 
