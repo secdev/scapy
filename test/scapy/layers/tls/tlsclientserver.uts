@@ -618,6 +618,6 @@ def _test_connection():
     assert pkt, "pkt is None"
     pkt.show()
     assert HTTPResponse in pkt, "HTTPResponse not in pkt"
-    assert b"</html>" in pkt[HTTPResponse].load, "end tag missing from HTTP"
+    assert b"</html>" in pkt[HTTPResponse].load.lower(), "end tag missing from HTTP"
 
 retry_test(_test_connection)
