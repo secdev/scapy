@@ -2476,3 +2476,77 @@ assert result.kdcrep.encryptedPaData[0].padataType == 167  # PA-PAC-OPTIONS
 assert result.kdcrep.encryptedPaData[0].padataValue.options == "10000000000000000000000000000000"  # Claims
 assert result.kdcrep.encryptedPaData[1].padataType == 165  # PA-SUPPORTED-ENCTYPES
 assert result.kdcrep.encryptedPaData[1].padataValue.flags == ["FAST-supported", "Claims-supported"]
+
+= KerberosClient - full TGS-REQ exchange with armor
+
+date_mock.now.side_effect = lambda tz=None: datetime(2026, 11, 23, 15, 52, 3, 279000, tz)
+
+krbqueue = MockKrbQueue([
+    # 1. TGS-REP (FAST)
+    bytes.fromhex('000007836d82077f3082077ba003020105a10302010da281e43081e13081dea10402020088a281d50481d2a081cf3081cca081c93081c6a003020112a281be0481bb7f70760c36655304a827fecce2958fd07e200a02dafc631dcc3fe80410baf6558fcbfe36faab9df1b938f04bd2f23ae32dbd2bf3789176a551af98a2d8c409b46a829d489c17f094a6ed4229f012bebdee4d896cc94915f7edb264e12ec5a3e604dfeb3ee2fe793ec10e9cdbb1dd1a7000916acc100ed61972ce71fccc9e637a90f14e937ff056af67a8eda22e7f2c4f2abc444ecd5f7c4df26b6f978240f9bbd8cc1dd55acf15e7867eb70af624ebbc73822d8e81b894c746688ca30e1b0c444f4d41494e2e4c4f43414ca41a3018a003020101a111300f1b0d41646d696e6973747261746f72a58205326182052e3082052aa003020105a10e1b0c444f4d41494e2e4c4f43414ca2233021a003020103a11a30181b04636966731b106463312e646f6d61696e2e6c6f63616ca38204ec308204e8a003020112a103020106a28204da048204d68a2f93bfc0e5d7e5dc3bc0296cc039b866240a2bfb6da8fe3729b44a039916ae72c766a9ff1288e53545b717dec878edc69b575888c0e7ede010afb7f4f03df3db6bdae672b88c1cb1f7e8ad3affd544a82bee522ce9059a7db273d3b574fa494d89088fdcf7d0120e8cff5cf906d4facdd157a6eab8444a284a9ed71d4be3ebdb36e12736862fe0c0981d06677f75cdaae32f9b51e96609986de4fde1dcf211e517d9b6e2f25aed99ec6a7005c6fa89c4d877c42889844a931d6201905706bc8831b5cba0ead942a91100d65705dc0a9c3622d8b16e929dece893624e83b8c19120398db5e9548ce66105dd4692e599166d9b21ff040d82d050cad669e81af11b72555b1bb3e7b134761d1c17fb6ef6574498d2305d78b4abb5069b9e789dde48e81029ee029d40f9784370ed8e66ae7acd27f19dc9952041afecefd3964cb4edab4d73c0ce412a950fce6eb611fbab0bb9e6a54f6727ba4183404e6f782e79867738421cc2fdd6ade939e630e45161417976d75b75c8ad27300583fde6c545c924edbd848b3130ac6749c63627970b15a6867d5c8dcf60b10c1aa43601f84bc1344540490719a7482ce14987458deedfb5985369b795d23507eca7ef5d15079b25b96e31b8bb12c49fd89dd2aadf915dbafa19ddc96e086ab959792f0ec144772b6c443d21b5c97cad6407f0d5cfb236c4986fc5d92e1a56c819ab10ff0d26ab718868f3fbfd4011d014555983fb6a72d8de8d22deb3bf36962dc0e3d89e2bc9e12ce8b196f8846383bafbf91a088ac761082dae6d64c4d17f5a7cf7620b07a7387607ba97bf1d8d99b46712ac2be281445b553726d1f75edcbdd7d8d3016e8b6f9ac0a5d2ec3477c8cede95a32b010c043b7bcd06809b117f03b55cee51705f298af4a6e7b47414245be143b1698edacb47b284db642ff4b5d9bd2ebe368c5e5ee3566b08584dc4772117969418d1acfe1c62683f3164195ed449c01e04bf73e8743b1ff32cc2f6c6dd1d44ac732d2618c131b544947431a0da2f5e6f02953c4e24d213e1110b607186bf155fe01772a3418e4d5cf121822c262ae47a0cc06af3ad5a565698279fa062dfe4ea1b88b54a26702644068ec294822df9d5b07b3bff4181a20f038b0ff16f7e308b1cd6d06cc8eee2bbf1c5ff2985254c60acc103bfbcab4d0b5bf80c1bb77031080468d6baa2da621032fa9899d9ddb7e53fc2a59fca613dba0f538503afaa10a8c1cac1e713f665bfbc356c4492bc3e348698a6e53ed3544eb2734ff00f467395d529b71b2263b827e3cca95bb6d97b6fc739fbd499302394ab1e3c444a5444baa97f83af8d0e75d30283023646149eea49df421d7585c6b7c3ee03f08c8d343f6950412529e898ae8e2beb20339db0251030e18604e14e52fca96242939f76e6f93310e35ef6c8e1bc4858f23508cb58415c5cc726bfdfdb09ae974befa07f49c9793e1cca3a6282c5d068c9eb34152c7a5c019f277b9f1e11c049b4312c4e33473707894703eaaa79de3fab577b5615b67830c6e2ba577a2b115f949bf37a54a5cedeaeede69f691d395b306e7c6f8a44ff857e6c5521e0819e20f8866a9a708475427ba06ec649c6d9c81210db4c34871d7fa962fd8b44bcb4b09397769d97541d290f2ea6609c796401f89644c90449c8a5dad9ab19af9e586ecabbe6fc88fec1de48ea3ee9b564166d42e36aa19dbfc70dd74869552d59ae0c2b459c8dbf9c1b4751e2d953e5a682012430820120a003020112a28201170482011317b169f39402e5e83fe6139ee341ef7e158cf031634afe626f790e724eccc7d6031b04a883720986264802dc105edb0c641a305b1a0a43021decfc9f32895d063d4b05577d2b9db6fc5db02c1f00437fdedb1b13a56c56f167d261e0ab987def2cda1e7752e3cd532cf4bb8fefeb5b781d88f66f1ad0da725c6564ebd6e44650b6791728cf4f4191f912aa377a193d59e85b123862867d18312865964b370ef912f8e1a612520ed3cc251fde0c5166301c816d128399915c8a420515d9ba549a6bdb16928a865dd7151b335db99a9ea511a0e343b679bef356c53d3bbdc72e12d8435964d54e64c1953ca4e6b70c65690a070eb222a38f2301acae5d182a03c82513be1d7e62f0ce94b0d543f9dbca55b7eac8'),
+])
+
+result = run_test_kerberosclient(
+    # KerberosClient() parameters
+    mode=KerberosClient.MODE.TGS_REQ,
+    upn="Administrator@domain.local",
+    spn="cifs/dc1.domain.local",
+    password="Password123!",
+    ticket=result.asrep.ticket,
+    key=result.sessionkey,
+    fast=True,
+    armor_ticket=result.asrep.ticket,
+    armor_ticket_upn=result.upn,
+    armor_ticket_skey=result.sessionkey,
+    ip="127.0.0.1",
+    # (TESTING ONLY)
+    pipe=krbqueue,
+)
+
+# Packets sent by the client
+tgs_req = krbqueue.received[0]
+tgs_req.show()
+
+assert tgs_req.root.pvno == 5
+assert tgs_req.root.msgType == 0xc  # TGS-REQ
+assert len(tgs_req.root.padata) == 2
+
+# First padata: FAST armor wrapping an AP-REQ
+assert tgs_req.root.padata[0].padataType == 136  # PA-FX-FAST
+assert isinstance(tgs_req.root.padata[0].padataValue, PA_FX_FAST_REQUEST)
+assert tgs_req.root.padata[0].padataValue.armoredData.armor.armorType == 1  # FX_FAST_ARMOR_AP_REQUEST
+assert isinstance(tgs_req.root.padata[0].padataValue.armoredData.armor.armorValue, KRB_AP_REQ)
+assert tgs_req.root.padata[0].padataValue.armoredData.armor.armorValue.ticket.sname.toString() == "krbtgt/DOMAIN.LOCAL"
+assert tgs_req.root.padata[0].padataValue.armoredData.reqChecksum.cksumtype == 16  # HMAC-SHA1-96-AES256
+assert tgs_req.root.padata[0].padataValue.armoredData.encFastReq.etype == EncryptionType.AES256_CTS_HMAC_SHA1_96
+
+# Second padata: PA-TGS-REQ carrying the TGT AP-REQ
+assert tgs_req.root.padata[1].padataType == 1  # PA-TGS-REQ
+assert isinstance(tgs_req.root.padata[1].padataValue, KRB_AP_REQ)
+assert tgs_req.root.padata[1].padataValue.ticket.sname.toString() == "krbtgt/DOMAIN.LOCAL"
+
+assert tgs_req.root.reqBody.kdcOptions.val == "01000000100000010000000000010000"
+assert tgs_req.root.reqBody.cname is None
+assert tgs_req.root.reqBody.realm == b"DOMAIN.LOCAL"
+assert tgs_req.root.reqBody.sname.nameType == 0x3  # NT-SRV-HST
+assert tgs_req.root.reqBody.sname.toString() == "cifs/dc1.domain.local"
+assert tgs_req.root.reqBody.nonce == 0x40000000
+assert [x.val for x in tgs_req.root.reqBody.etype] == [18, 17, 23, 3]
+
+# Client result: successfully decrypted TGS-REP
+assert result.upn == "Administrator@domain.local"
+assert result.sessionkey.etype == EncryptionType.AES256_CTS_HMAC_SHA1_96
+assert len(result.sessionkey.key) == 32
+assert result.kdcrep.key.keytype == EncryptionType.AES256_CTS_HMAC_SHA1_96
+assert result.kdcrep.nonce == 0x40000000
+assert result.kdcrep.flags.val == "01000000101001010000000000000000"  # forwardable, renewable, pre-authent, ok-as-delegate, canonicalize
+assert result.kdcrep.authtime.val == "20261123141001Z"
+assert result.kdcrep.endtime.val == "20261124001001Z"
+assert result.kdcrep.srealm == b"DOMAIN.LOCAL"
+assert result.kdcrep.sname.toString() == "cifs/dc1.domain.local"
+assert len(result.tgsrep.padata) == 1
+assert result.tgsrep.padata[0].padataType == 136  # PA-FX-FAST
+assert isinstance(result.tgsrep.padata[0].padataValue, PA_FX_FAST_REPLY)
+assert len(result.kdcrep.encryptedPaData) == 1
+assert result.kdcrep.encryptedPaData[0].padataType == 165  # PA-SUPPORTED-ENCTYPES
+assert result.kdcrep.encryptedPaData[0].padataValue.flags == ["RC4-HMAC", "AES128-CTS-HMAC-SHA1-96", "AES256-CTS-HMAC-SHA1-96"]
