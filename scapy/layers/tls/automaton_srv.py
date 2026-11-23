@@ -1179,24 +1179,18 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.condition(ADDED_SERVERDATA)
     def should_send_ServerData(self):
+        tickets = []
         if self.session_ticket_file:
-            save_ticket = False
             for p in self.buffer_out:
-                if isinstance(p, TLS13):
-                    # Check if there's a NewSessionTicket to send
-                    save_ticket = all(map(lambda x: isinstance(x, TLS13NewSessionTicket),  # noqa: E501
-                                          p.inner.msg))
-                    if save_ticket:
-                        break
+                if isinstance(p, TLS13) and p.inner.msg and all(
+                        isinstance(x, TLS13NewSessionTicket)
+                        for x in p.inner.msg):
+                    # Keep a reference on the messages: their fields are only
+                    # set when the record is built by flush_records().
+                    tickets.extend(p.inner.msg)
         self.flush_records()
-        if self.session_ticket_file and save_ticket:
-            # Loop backward in message send to retrieve the parsed
-            # NewSessionTicket. This message is not completely build before the
-            # flush_records() call. Other way to build this message before ?
-            for p in reversed(self.cur_session.handshake_messages_parsed):
-                if isinstance(p, TLS13NewSessionTicket):
-                    self.save_ticket(p)
-                    break
+        for ticket in tickets:
+            self.save_ticket(ticket)
         raise self.SENT_SERVERDATA()
 
     @ATMT.state()
