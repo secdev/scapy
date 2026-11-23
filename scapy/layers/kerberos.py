@@ -396,7 +396,10 @@ class EncryptedData(ASN1_Packet):
                     return 1, PA_ENC_TS_ENC
                 elif patype == 138:
                     # RFC6113 PA-ENC-TS-ENC
-                    return 54, PA_ENC_TS_ENC
+                    if isinstance(self.underlayer.underlayer, KrbFastResponse):
+                        return 55, PA_ENC_TS_ENC
+                    else:
+                        return 54, PA_ENC_TS_ENC
             elif isinstance(self.underlayer, KRB_Ticket):
                 # AS-REP Ticket and TGS-REP Ticket
                 return 2, EncTicketPart
@@ -830,6 +833,15 @@ class PA_ENC_TS_ENC(ASN1_Packet):
         KerberosTime("patimestamp", GeneralizedTime(), explicit_tag=0xA0),
         ASN1F_optional(Microseconds("pausec", 0, explicit_tag=0xA1)),
     )
+
+    def getTime(self):
+        """
+        Return time from patimestamp + pausec
+        """
+        ts = self.patimestamp.datetime
+        if self.pausec:
+            ts += timedelta(microseconds=self.pausec.val)
+        return ts
 
 
 _PADATA_CLASSES[2] = EncryptedData  # PA-ENC-TIMESTAMP
@@ -3568,6 +3580,7 @@ class KerberosClient(Automaton):
         self.pa_type = None  # preauth-type that's used
         self.fast_rep = None
         self.fast_error = None
+        self.fast_encchall_rep = None
         self.fast_skey = None  # The random subkey used for fast
         self.fast_armorkey = None  # The armor key
         self.fxcookie = None
@@ -3953,7 +3966,7 @@ class KerberosClient(Automaton):
                     # Special FAST factor
                     # RFC6113 sect 5.4.6
 
-                    # Calculate the 'challenge key'
+                    # Calculate the client 'challenge key'
                     ts_key = KRB_FX_CF2(
                         self.fast_armorkey,
                         self.key,
@@ -4315,6 +4328,10 @@ class KerberosClient(Automaton):
                     # Get error and store it
                     self.fast_error = padata.padataValue
 
+                elif padata.padataType == 138:  # PA-ENCRYPTED-CHALLENGE
+                    if isinstance(padata.padataValue, EncryptedData):
+                        self.fast_encchall_rep = padata.padataValue
+
                 elif padata.padataType == 130:  # PA-FOR-X509-USER
                     # Verify S4U checksum
                     key_usage_number = None
@@ -4444,12 +4461,36 @@ class KerberosClient(Automaton):
                 self.fast_armorkey,
                 bytes(pkt.root.ticket),
             )
+
             # Process pa of FAST response
+            frep, self.fast_rep = self.fast_rep, None
             self._process_padatas_and_key(
-                self.fast_rep.padata,
+                frep.padata,
                 etype=pkt.root.encPart.etype.val,
             )
-            self.fast_rep = None
+
+            if not self.x509:
+                # RFC6113 sect 5.4
+                if self.fast_encchall_rep is None:
+                    raise ValueError("FAST PA-ENCRYPTED-CHALLENGE got no answer.")
+
+                # Calculate the server 'challenge key'
+                challenge_key = KRB_FX_CF2(
+                    self.fast_armorkey,
+                    self.key,
+                    b"kdcchallengearmor",
+                    b"challengelongterm",
+                )
+
+                # "The client MUST check that the timestamp decrypts properly"
+                encchall_rep = self.fast_encchall_rep.decrypt(
+                    challenge_key,
+                )
+                # "The client MAY check that the timestamp is within the window
+                # of acceptable clock skew for the client"
+                now_time = datetime.now(timezone.utc)
+                if abs(encchall_rep.getTime() - now_time) > KRB_MaxClockSkew:
+                    raise ValueError("KDC time SKEW. This is impossible.")
         elif self.fast:
             raise ValueError("Answer was not FAST ! Is it supported?")
 
