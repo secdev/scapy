@@ -13,10 +13,11 @@ import os
 import select
 import socket
 import ssl
+import sys
 import threading
 import traceback
 
-from scapy.asn1.asn1 import ASN1_OID
+from scapy.asn1.asn1 import ASN1_OID, ASN1_INTEGER
 from scapy.config import conf
 from scapy.consts import LINUX
 from scapy.data import MTU
@@ -24,15 +25,15 @@ from scapy.packet import Packet
 from scapy.supersocket import StreamSocket, StreamSocketPeekless
 from scapy.themes import DefaultTheme
 from scapy.utils import get_temp_file
-from scapy.volatile import RandInt
 
 from scapy.layers.tls.all import (
     Cert,
-    CertTree,
+    PrivKey,
     PrivKeyECDSA,
 )
 from scapy.layers.x509 import (
-    X509_AlgorithmIdentifier,
+    X509_ExtBasicConstraints,
+    X509_Extension,
 )
 
 # Crypto imports
@@ -41,8 +42,8 @@ if conf.crypto_valid:
 
 # Typing imports
 from typing import (
-    Type,
     Optional,
+    Type,
 )
 
 
@@ -90,6 +91,9 @@ class ForwardMachine:
         ones.
     :param keyfile: (optional) path to the key file
     :param keyfilepwd: (optional) password of the keyfile
+    :param rootcrtfile: optional CA certificate used to sign lookalike chains.
+        Clients must trust this CA. Otherwise the highest clone is self-signed.
+    :param rootkeyfile: unencrypted signing private key for rootcrtfile
     :param timeout: the timeout before connecting to the real server (default 2)
 
     Methods to override:
@@ -126,6 +130,8 @@ class ForwardMachine:
         keyfilepwd: Optional[str] = None,
         timeout: int = 2,
         MTU: int = MTU,
+        rootcrtfile: Optional[str] = None,
+        rootkeyfile: Optional[str] = None,
         **kwargs,
     ):
         self.mode = mode
@@ -135,10 +141,23 @@ class ForwardMachine:
         self.remote_af = remote_af if remote_af is not None else af
         self.proto = proto
         self.tls = tls
+        if tls and sys.version_info <= (3, 10):
+            raise OSError("Sorry ! ForwardMachine's tls option requires Python 3.10+")
         self.no_check_certificate = no_check_certificate
         self.crtfile = crtfile
         self.keyfile = keyfile
         self.keyfilepwd = keyfilepwd
+        if bool(rootcrtfile) != bool(rootkeyfile):
+            raise ValueError("rootcrtfile and rootkeyfile must be provided together")
+        if rootcrtfile and crtfile:
+            raise ValueError("crtfile and rootcrtfile are mutually exclusive")
+        self.rootcert = Cert(rootcrtfile) if rootcrtfile else None
+        self.rootkey = PrivKey(rootkeyfile) if rootkeyfile else None
+        if self.rootkey is not None:
+            if self.rootkey.pubkey.der != self.rootcert.pubkey.der:
+                raise ValueError("The root certificate and private key do not match")
+            if not self.rootcert.cA:
+                raise ValueError("The root certificate must be a CA")
         self.timeout = timeout
         self.MTU = MTU
         self.remote_address = remote_address
@@ -329,72 +348,96 @@ class ForwardMachine:
         s.connect(dest)
         return s
 
-    def gen_alike_chain(self, certs, privkey):
-        """
-        Modify a real certificate chain to be served by our own privatekey
-        """
-        c, certs = certs[0], certs[1:]
-
-        # Set SubjectPublicKeyInfo to the one from our private key
-        c.setSubjectPublicKeyFromPrivateKey(privkey)
-        c.updateSubjectKeyIdentifier()
-
-        if certs:
-            # Recursive: if there are certificates above this one in the chain, do them
-            # first.
-            certs = self.gen_alike_chain(certs, privkey)
-            c.updateAuthorityKeyIdentifier(certs[0])
-        else:
-            # Last certificate of the chain. Make it self-signed
-            c.tbsCertificate.issuer = c.tbsCertificate.subject
-            c.updateAuthorityKeyIdentifier(c)
-
-        # Filter out extensions that would cause trouble
-        c.tbsCertificate.serialNumber.val = int(
-            RandInt()
-        )  # otherwise SEC_ERROR_REUSED_ISSUER_AND_SERIAL
-        c.tbsCertificate.extensions = [
-            x
-            for x in c.tbsCertificate.extensions
-            if x.extnID
-            not in [
-                "2.5.29.32",  # CPS
-                "2.5.29.31",  # cRLDistributionPoints
-                "1.3.6.1.5.5.7.1.1",  # authorityInfoAccess
-                "1.3.6.1.4.1.11129.2.4.2",  # SCT
-            ]
-        ]
-        # For now, we only provide a RSA private key, so we can only sign with that :/
-        c.tbsCertificate.signature = X509_AlgorithmIdentifier(
-            algorithm=ASN1_OID("ecdsa-with-SHA384"),
-        )
-        # Resign.
-        c = Cert(privkey.resignCert(c))
-        # Return
-        return [c] + certs
-
     def get_key_and_alike_chain(self, cas, dest, server_name):
         """
         Generate a PrivateKey and a clone of the 'cas' certificate chain signed with it,
         if not already cached.
 
-        The cache uses server_name or dest as key.
+        The cache includes the destination, SNI and upstream chain.
         """
-        ident = server_name or dest
+        # The peer supplies the leaf first; the root is usually omitted.
+        certs = [Cert(c.public_bytes()) for c in cas]
+        if not certs:
+            raise ValueError("The upstream server did not provide a certificate")
+
+        # Reuse clones only for the same destination, SNI and upstream chain.
+        ident = (dest, server_name, tuple(c.der for c in certs))
         if ident in self.cache:
             return self.cache[ident]
-        # Parse CAs
-        certs = [Cert(c.public_bytes()) for c in cas]
-        # XXX - Only get last cert. We shouldn't require this
-        # but we need to add support for multiple private keys...
-        chain = CertTree(certs, certs)
-        certs = [chain.getleaves()[0]]
-        # Generate Private Key
+
+        # Generate the private key for the cloned leaf certificate.
         privkey = PrivKeyECDSA()
-        # Iterate
-        certs = self.gen_alike_chain(certs, privkey)
-        self.cache[ident] = privkey, certs
-        return privkey, certs
+
+        # If the peer supplied only a leaf, create a separate CA template.
+        if self.rootcert is None and not certs[-1].cA:
+            root = Cert(certs[-1].der)
+            root.tbsCertificate.extensions = [
+                X509_Extension(
+                    extnID=ASN1_OID("basicConstraints"),
+                    critical=True,
+                    extnValue=X509_ExtBasicConstraints(cA=True),
+                ),
+            ]
+            certs = certs + [root]
+        elif self.rootcert is not None and certs[-1].isSelfSigned() and len(certs) > 1:
+            # Replace the original trust anchor with the supplied one.
+            certs = certs[:-1]
+
+        # Prepare the trust anchor and its key as the first issuer.
+        result = []
+        parent = self.rootcert
+        if parent is not None and not parent.skid:
+            parent = Cert(parent.der)
+            parent.updateSubjectKeyIdentifier()
+        signer = self.rootkey
+
+        # Clone from the root towards the leaf so each issuer is ready first.
+        for index in range(len(certs) - 1, -1, -1):
+            # Give each clone its own key, using the returned key for the leaf.
+            c = Cert(certs[index].der)
+            key = privkey if index == 0 else PrivKeyECDSA()
+            c.setSubjectPublicKeyFromPrivateKey(key)
+
+            # Use X.509 v3 and regenerate the key identifier and serial number.
+            c.tbsCertificate.version = ASN1_INTEGER(2)
+            c.updateSubjectKeyIdentifier()
+            c.tbsCertificate.serialNumber = ASN1_INTEGER(
+                int.from_bytes(os.urandom(20), "big") >> 1 or 1
+            )
+
+            # Self-sign the root, or link the clone to its cloned issuer.
+            if parent is None:
+                parent, signer = c, key
+            c.tbsCertificate.issuer = parent.tbsCertificate.subject.copy()
+            c.updateAuthorityKeyIdentifier(parent)
+            for extension in c.tbsCertificate.extensions:
+                if extension.extnID == "2.5.29.35":
+                    # These optional fields refer to the original issuer.
+                    extension.extnValue.authorityCertIssuer = None
+                    extension.extnValue.authorityCertSerialNumber = None
+
+            # Remove policies, revocation URLs and CT data from the original chain.
+            c.tbsCertificate.extensions = [
+                x for x in c.tbsCertificate.extensions
+                if x.extnID not in [
+                    "2.5.29.32",  # certificatePolicies
+                    "2.5.29.31",  # cRLDistributionPoints
+                    "1.3.6.1.5.5.7.1.1",  # authorityInfoAccess
+                    "1.3.6.1.4.1.11129.2.4.2",  # SCT
+                    "1.3.6.1.4.1.11129.2.4.3",  # CT poison
+                ]
+            ]
+
+            # Sign the clone, keep leaf-first order and advance to the next child.
+            c.resignWith(signer)
+            result.insert(0, c)
+            parent, signer = c, key
+
+        # Include the supplied trust anchor and cache the completed chain.
+        if self.rootcert is not None:
+            result.append(self.rootcert)
+        self.cache[ident] = privkey, result
+        return privkey, result
 
     def handler(self, sock, addr, dest):
         """

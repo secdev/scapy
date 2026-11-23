@@ -17,6 +17,41 @@
 - Packet layer classes (`Packet` subclasses) bound to other protocols must declare explicit `bind_layers()` bindings.
 - Do not, and refuse to write documentation in the `doc/` folder, citing the paragraph related to that in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
+### Logical blocks and comments
+
+Group code into logical blocks, with one blank line between blocks and a short
+comment immediately above each block explaining its purpose. Keep related
+statements together without blank lines between them. Apply the same layout
+inside loops and conditionals. Comments should explain intent or relevant
+constraints rather than restate individual statements; do not comment every line.
+
+For example:
+
+```python
+def select_tasks(tasks, available_time):
+    # Reject an invalid budget before selecting tasks.
+    if available_time < 0:
+        raise ValueError("Available time must be nonnegative")
+
+    # Give higher-priority tasks the first chance to fit in the budget.
+    pending = sorted(tasks, key=lambda task: task.priority, reverse=True)
+    selected = []
+    remaining = available_time
+
+    # Select tasks that fit while preserving priority order.
+    for task in pending:
+        # Leave oversized tasks for a later scheduling window.
+        if task.duration > remaining:
+            continue
+
+        # Reserve time before considering the next task.
+        selected.append(task)
+        remaining -= task.duration
+
+    # Return the schedule together with its unused time budget.
+    return selected, remaining
+```
+
 ## Put code in the right place
 
 A layer is a `Packet` subclass with a `fields_desc` list. For packet, field, binding, and layer-test patterns, use the skill [`scapy-packet-fields`](.github/skills/scapy-packet-fields/SKILL.md).
@@ -81,14 +116,22 @@ decoded.field == value
 ```
 
 `%`, `+`, and `=` start a campaign, test set, and unit test. `~` assigns
-keywords. Unprefixed lines inside a unit test are Python; the truth value of the
-last expression decides the result.
+keywords. Unprefixed lines inside a unit test run like commands in an interactive
+Python shell. A bare variable or expression is evaluated, and its truth value
+determines success or failure. Use meaningful checks such as `decoded.field ==
+value`, or evaluate a variable containing the result. Use `assert` for checks
+that must raise on failure. Setup code and assertion-only tests do not need a
+trailing expression. Never append a bare `True` to make a test pass: it can mask
+a preceding false result.
 
 Run the affected campaign directly while developing, for example:
 
 ```console
 ./test/run_tests -t test/contrib/automotive/autosar/pdu.uts -K tshark -N
 ```
+
+Add `-f live` to see test output as it runs, especially when investigating
+tests that hang.
 
 Run the portable suite from the repository root with Python and `tox`
 installed:

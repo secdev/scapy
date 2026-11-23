@@ -382,6 +382,20 @@ c_resigned = pkey_sign.resignCert(c_tosign)
 assert pkey_sign.verifyCert(c_resigned)
 assert raw(c_resigned.signatureValue) == correct_sha1_sig
 
+= Cert class : Resign with a different signing algorithm
+
+# The original certificate uses RSA/SHA-1; each new key must verify the result.
+for signing_key, signature_oid in [
+    (pkey_sign, "1.2.840.113549.1.1.11"),
+    (PrivKeyECDSA(), "1.2.840.10045.4.3.2"),
+]:
+    assert signing_key.getSignatureAlgorithm().algorithm.val == signature_oid
+    resigned = Cert(c_tosign.der)
+    resigned.resignWith(signing_key)
+    assert resigned.tbsCertificate.signature.algorithm.val == signature_oid
+    assert resigned.x509Cert.signatureAlgorithm.algorithm.val == signature_oid
+    assert signing_key.verifyCert(resigned)
+
 
 ########### Keys crypto tests #######################################
 

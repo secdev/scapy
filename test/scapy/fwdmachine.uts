@@ -1,0 +1,348 @@
+% ForwardMachine regression tests
+
+~ crypto python_310 linux
+
++ Common fixtures and utilities
+
+= ForwardingMachine - Loading fixtures and test helpers
+~ fwdmachine
+import socket
+import ssl
+import time
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from threading import Event, Thread, current_thread
+from scapy.fwdmachine import ForwardMachine
+from scapy.layers.http import HTTP
+load_layer("tls")
+# Fixed certificates, valid from 2020 to 2120. Private keys are for tests only.
+fwd_root = Cert("""
+    -----BEGIN CERTIFICATE-----
+    MIIBPzCB56ADAgECAgEDMAoGCCqGSM49BAMCMA8xDTALBgNVBAMMBFJvb3QwIBcN
+    MjAwMTAxMDAwMDAwWhgPMjEyMDAxMDEwMDAwMDBaMA8xDTALBgNVBAMMBFJvb3Qw
+    WTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASWm4/zTsigpigdf5zcboOyTIndRdmA
+    zXcUJVUB/TEf8N5idwgrvf1syBilgom0O5Z0whf3Y25IEm0NmLCOpzzKozIwMDAP
+    BgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBRR88TZmzIssi8LrgKYpkRBjS+LpzAK
+    BggqhkjOPQQDAgNHADBEAiAa/zOXf5aYmCziUth9kTVBVO9foWnbvMfrPEvm39kZ
+    AwIgL2K1anwK3Wjew0IUV7F+iAExhREDjfzm6BzNv9WGgjs=
+    -----END CERTIFICATE-----
+""")
+fwd_ec_rootkey = PrivKey("""
+    -----BEGIN PRIVATE KEY-----
+    MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg9ZxsRucAcY/wYbTY
+    A4Pxsf8SGhR67PCzkds7bU2cBfahRANCAASWm4/zTsigpigdf5zcboOyTIndRdmA
+    zXcUJVUB/TEf8N5idwgrvf1syBilgom0O5Z0whf3Y25IEm0NmLCOpzzK
+    -----END PRIVATE KEY-----
+""")
+fwd_rsa_root = Cert("""
+    -----BEGIN CERTIFICATE-----
+    MIICzTCCAbWgAwIBAgIBBDANBgkqhkiG9w0BAQsFADAPMQ0wCwYDVQQDDARSb290
+    MCAXDTIwMDEwMTAwMDAwMFoYDzIxMjAwMTAxMDAwMDAwWjAPMQ0wCwYDVQQDDARS
+    b290MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsWPqSBcbOZENmMjm
+    AEx01Fye52OiUf9wmcOrg8Tu1DIkRDBNz1ztKl61axN0pE7nxw1I2fw7wu6Z3FbM
+    G/dNdwLJNbxgSBihr4iy1ZZDsdqA7J9eAhd8CWipHNHh6V1ak0aUXy38pT4VRZZi
+    ZC1QeQeFHcVQzwhHBukYkPK96CNvAb0AvurgS3josM3h2pjsUBplqFXpcvM4op24
+    mVw14Bcs6zsDXObAyl+daqaddKLTr/esUX+J4y2VWX93NjXipDY7l+R/qsMKQIDn
+    LtdF1o4aFmaU5GDteRAO24rbRovKivOzOhBqxNlYfPbe5WZAOfuwIjKp6+ZlEXO7
+    1xoQqQIDAQABozIwMDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSIZAAHIyla
+    dIiqD+ADuJEAIk5bAzANBgkqhkiG9w0BAQsFAAOCAQEAEzMaoX5tqnWCg0B+THdK
+    WyHc3RgDDpWsJR6i3D9X0ddKeZMdhMsLwNnF+FKSHqyiOA1DN8JLztCLSai0Lo7l
+    FLrY/0L8SweEV8N67DuOHCkWBOzJSyFqhDgRQSYTYe4zxUg/1yC1ke1UQ46wMgJ4
+    pAZpgtHn3wGF4q5csWQxpOoLP/5h6tkyj2TfiqYVb7zHFAal1NWD8qplkSfto1YU
+    cdmmxJZnkaCPerLQTOw7u+clWy/bd+xsd1JO6IamGM7cey5V0p3eYgqeeHnZLchn
+    FcSEYRWMdOAlFM087HyJxvXCRiFbL/DZ3s8ojGqF/3FJuseIVzY9DcASfLj2ESxH
+    2w==
+    -----END CERTIFICATE-----
+""")
+fwd_rsa_rootkey = PrivKey("""
+    -----BEGIN PRIVATE KEY-----
+    MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCxY+pIFxs5kQ2Y
+    yOYATHTUXJ7nY6JR/3CZw6uDxO7UMiREME3PXO0qXrVrE3SkTufHDUjZ/DvC7pnc
+    Vswb9013Ask1vGBIGKGviLLVlkOx2oDsn14CF3wJaKkc0eHpXVqTRpRfLfylPhVF
+    lmJkLVB5B4UdxVDPCEcG6RiQ8r3oI28BvQC+6uBLeOiwzeHamOxQGmWoVely8zii
+    nbiZXDXgFyzrOwNc5sDKX51qpp10otOv96xRf4njLZVZf3c2NeKkNjuX5H+qwwpA
+    gOcu10XWjhoWZpTkYO15EA7bittGi8qK87M6EGrE2Vh89t7lZkA5+7AiMqnr5mUR
+    c7vXGhCpAgMBAAECggEAEvqVaY6dUVCpY4AVCZGki0b4klmY14yMm8rxSgkTI11U
+    /32qiYXP8xFMeC8N8vllN2j+syHXNAEqsYYQ0uon3dSMugTUSUpnXBw0RAFOb1Qp
+    KIfZe0BPe0M5GrYC5WChTPIHdFJ7fiNxC6+uCblGa5iIH7oJbgkc7kqYoAN0mYYp
+    OZkrsRAE3BAm/nyo96OgYTI/MYhv4K7TzL6fCBHosk/+bhiE2L8Ejwed3k08sOl/
+    VnfRrQzp3yNLPKNqeYZQe73WFcyv1o2BapFvcb/UVq4vPdRZP8yxC1xbRvx0IVn7
+    7HOQV9/th9nhTT4drq9R9dOoQRXLwZy9ZN2glKbOoQKBgQDoDwbgdCCMnhtmTrrP
+    52WgXU8N3pCcA6YA+TmfLqNY6HsvKkPRSf7dT5pFquOQgLXrti6JFTs+Eb0djtnA
+    jOswzsxEIqjD4gyg3pFN0VhWzLqgmQotep0BazvjBW8cTb0d3m67Pmhnjshj4PJz
+    gHU7ny0MU0EP4E3t5UflbAlFmQKBgQDDsQY8sEM5UrEf5FPzR5lqNBs41eopqNo2
+    CyGtYFr8YEk9wwxtqGkh61fvSZMhnLR2I2t3MfxkbJCcTeCgrNv1h9F2AZrbDitv
+    2e6Ti1MG7xTgT5VEAISS1Jf4WDQvbiWRVtuiDK2qezqUo1cuflfjnx7G1LzntwBv
+    4onjwKPtkQKBgD+2CHRNTbZtniYrjVyRMjSiCZdMOLWsxsHTqv9KJay+PzvGxdHL
+    F/8Y4MkpzsqYm9m4LfSS8K3s3tgjpSMZTWUcEbbPMTh+cmskUA5mYHOMR9zZx5KO
+    7FY8Y7fDgSrrKPXvYMVlr/JmoBvT4ZzWctlIrWyJ2v4J3jtnTKLvU2hZAoGAZW+2
+    jvDC98zAWYquZXWgtWdrEOv5ZDzNV6QvgcJnh1iVvnkDUTgxvs5SF4wowwyKko5L
+    n05+yMNptku7+y1/GuebELNGRPQ0Wdc6jqpykC6PwLIf6k7maYHfgHCgJFHREWRX
+    lslBoBQeSnvcrhH5ltidSG1vuiCnDlf8J91sW7ECgYEAsCdPm85kkjVMK82+J5L7
+    +e9JxSM5pHjUBvLZKB17jHMy7nRnCSIratC3ulX5Z0JHUct1dF7Qkf6KCCvUrNLM
+    BZot7NZ8QI2CpK3Mpp96cE3RWBZbhHdLvbHzMg4TTC1LVuueadY/iAeQ7gi17Mou
+    o2jGpAgOxtpSdHjcM2xjqOM=
+    -----END PRIVATE KEY-----
+""")
+fwd_ed25519_root = Cert("""
+    -----BEGIN CERTIFICATE-----
+    MIIBEDCBw6ADAgECAgEKMAUGAytlcDAXMRUwEwYDVQQDDAxlZDI1NTE5IFJvb3Qw
+    IBcNMjAwMTAxMDAwMDAwWhgPMjEyMDAxMDEwMDAwMDBaMBcxFTATBgNVBAMMDGVk
+    MjU1MTkgUm9vdDAqMAUGAytlcAMhAOmTNFUGGZwIFEyqyGO5AKlLjkJ1zX9Z07+C
+    R58TZ3/RozIwMDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSV01ILNfzLNhC1
+    gzO5N6PgdEtyYTAFBgMrZXADQQBe+YbMI/EbQlXD2fIQsMRUn/MatAOx9aKEiYG7
+    tY3wem+jZYji6SRWpraUD6H/RtsQSg1/pakMTOwtXBqk6pcE
+    -----END CERTIFICATE-----
+""")
+fwd_ed25519_rootkey = PrivKey("""
+    -----BEGIN PRIVATE KEY-----
+    MC4CAQAwBQYDK2VwBCIEIIAFmDPfVgsesn7W04wqZpC9Bcn5PjG+BPsHssBOPlrz
+    -----END PRIVATE KEY-----
+""")
+fwd_ed448_root = Cert("""
+    -----BEGIN CERTIFICATE-----
+    MIIBVzCB2KADAgECAgELMAUGAytlcTAVMRMwEQYDVQQDDAplZDQ0OCBSb290MCAX
+    DTIwMDEwMTAwMDAwMFoYDzIxMjAwMTAxMDAwMDAwWjAVMRMwEQYDVQQDDAplZDQ0
+    OCBSb290MEMwBQYDK2VxAzoAwqSf9ypOlHyYTgdfUtECCrOjv/CEfrw33oUvVcBn
+    /ASlquZOk7rMiWwHKWfIwGlnx8ur1ap0AvCAozIwMDAPBgNVHRMBAf8EBTADAQH/
+    MB0GA1UdDgQWBBSMwsbIj+deGsTgByUIhN+TLtRVozAFBgMrZXEDcwCu+/pqAbW2
+    2h1k0T7lAOkXYgq44aclivzhI8E6RzeaVssteJrCNlJbmNxViCHia4AhFrtfcfIX
+    vACuGEe0grNBURw1PSpE/Hvsv6tYIFSdeR/VkGBbbyBDyQTVsxKi84mBpPOp5qLI
+    TBbp4+JxtPWnKQA=
+    -----END CERTIFICATE-----
+""")
+fwd_ed448_rootkey = PrivKey("""
+    -----BEGIN PRIVATE KEY-----
+    MEcCAQAwBQYDK2VxBDsEOZ3mbt09wGVxvls26dFEUWNsmMvg2yFmVoMGIbCo4TZG
+    5TB7Nifee2VsNSMn969IByLVwOAb5k8aXg==
+    -----END PRIVATE KEY-----
+""")
+fwd_servercrt = Cert("""
+    -----BEGIN CERTIFICATE-----
+    MIIBPDCB4qADAgECAgEUMAoGCCqGSM49BAMCMA8xDTALBgNVBAMMBFJvb3QwIBcN
+    MjAwMTAxMDAwMDAwWhgPMjEyMDAxMDEwMDAwMDBaMBUxEzARBgNVBAMMCnByb3h5
+    LnRlc3QwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARdZ1KtaRNRmi+kFOeCDVij
+    Aj7I5f3YBKobK9CYunxL7gSQOxz3fkrUn6BDqN9mZXbKntJXZ7bRjJMNJ8/Df52A
+    oycwJTAMBgNVHRMBAf8EAjAAMBUGA1UdEQQOMAyCCnByb3h5LnRlc3QwCgYIKoZI
+    zj0EAwIDSQAwRgIhAJQ/UmWMXBhVd5mN522nLOG1dR+E45QBuuPTYs9QvPW5AiEA
+    ywiDtcpTdTRWM3MGUI9W2JvakKgCGW/3fWxNSfAN9GI=
+    -----END CERTIFICATE-----
+""")
+fwd_serverkey = PrivKey("""
+    -----BEGIN PRIVATE KEY-----
+    MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgiz0KmdIzmD/7fhm4
+    wiIayg0UPGA1zQtErRXWr0eGZcOhRANCAARdZ1KtaRNRmi+kFOeCDVijAj7I5f3Y
+    BKobK9CYunxL7gSQOxz3fkrUn6BDqN9mZXbKntJXZ7bRjJMNJ8/Df52A
+    -----END PRIVATE KEY-----
+""")
+
+class NOPFwdMachine(ForwardMachine):
+    # The documentation's pass-through example, recording forwarded bytes and SNI.
+    def newconn(self, ctx):
+        """
+        Remember the connection thread so teardown can wait for it.
+        """
+        self.worker = current_thread()
+    def xfrmcs(self, pkt, ctx):
+        """
+        Record the request and SNI, then forward without modification.
+        """
+        self.requests.append(bytes(pkt))
+        self.sni = ctx.tls_sni_name
+        print(repr(pkt))
+        raise self.FORWARD()
+    def xfrmsc(self, pkt, ctx):
+        """
+        Record the upstream response before forwarding it to the client.
+        """
+        self.responses.append(bytes(pkt))
+        print(repr(pkt))
+        raise self.FORWARD()
+    def run(self):
+        """
+        Run the relay until the test shuts down its listening socket.
+        """
+        try:
+            super().run()
+        except OSError:
+            # Shutting down the listener interrupts accept() at test teardown.
+            if not self.stopping.is_set():
+                raise
+
+class FwdHTTPHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        """
+        Record the requested path and return a fixed response.
+        """
+        self.server.paths.append(self.path)
+        self.send_response(200)
+        self.send_header("Content-Length", "9")
+        # Closing after the response gives the client a definite end of stream.
+        self.send_header("Connection", "close")
+        self.end_headers()
+        self.wfile.write(b"monitored")
+    def log_message(self, format, *args):
+        """
+        Suppress the HTTP server's access log during tests.
+        """
+        pass
+
+
+def run_fwd_test_client(address, root=None, client_context=None,
+                        server_name="proxy.test"):
+    """
+    Send HTTPS through the relay and check its certificate and response.
+    """
+    fwd_request = b"GET /monitor HTTP/1.1\r\nHost: proxy.test\r\nConnection: close\r\n\r\n"
+    if client_context is None:
+        client_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    if root is None:
+        # Model accepting the generated root's certificate warning.
+        client_context.check_hostname = False
+        client_context.verify_mode = ssl.CERT_NONE
+    else:
+        client_context.load_verify_locations(cadata=root.pem)
+    # Use the successful connection for TLS instead of opening a separate probe.
+    deadline = time.monotonic() + 3
+    while True:
+        try:
+            connection = socket.create_connection(address, timeout=1)
+            break
+        except OSError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.1)
+    with connection:
+        connection.settimeout(3)
+        with client_context.wrap_socket(connection, server_hostname=server_name) as client:
+            # The relay must preserve the server identity while replacing its key.
+            peer = Cert(client.getpeercert(binary_form=True))
+            assert peer.subject == fwd_servercrt.subject
+            assert bytes(peer.tbsCertificate.validity) == bytes(fwd_servercrt.tbsCertificate.validity)
+            assert peer.pubkey.der != fwd_servercrt.pubkey.der
+            assert [bytes(x) for x in peer.extensions if x.extnID == "2.5.29.17"] == [bytes(x) for x in fwd_servercrt.extensions if x.extnID == "2.5.29.17"]
+            # Read until the upstream closes, so truncated responses fail the check.
+            client.sendall(fwd_request)
+            response = b""
+            while True:
+                chunk = client.recv(4096)
+                if not chunk:
+                    break
+                response += chunk
+    assert b"200 OK" in response
+    assert response.endswith(b"\r\n\r\nmonitored")
+    return fwd_request, response
+
+@contextmanager
+def fwd_https_server(upstream_chain=True):
+    """
+    Yield a local HTTPS server and stop its thread when the test exits.
+    """
+    # OpenSSL needs the fixed certificate chain and key in files.
+    fwd_serverfile = get_temp_file(autoext=".pem")
+    fwd_serverkeyfile = get_temp_file(autoext=".pem")
+    with open(fwd_serverfile, "w") as fd:
+        fd.write(fwd_servercrt.pem)
+        # Exercise both a leaf-only TLS Certificate message and a full chain.
+        if upstream_chain:
+            fd.write(fwd_root.pem)
+    fwd_serverkey.export(fwd_serverkeyfile)
+    # Let the OS choose a free port so concurrent campaigns can run independently.
+    with HTTPServer(("127.0.0.1", 0), FwdHTTPHandler) as upstream:
+        upstream.paths = []
+        upstream_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        upstream_context.load_cert_chain(fwd_serverfile, fwd_serverkeyfile)
+        # Keep this server focused on forwarding rather than TLS session resumption.
+        upstream_context.num_tickets = 0
+        upstream.socket = upstream_context.wrap_socket(upstream.socket, server_side=True)
+        upstream_thread = Thread(target=upstream.serve_forever, kwargs=dict(poll_interval=0.01), daemon=True)
+        # Serve in parallel while the relay and client complete the request.
+        upstream_thread.start()
+        try:
+            yield upstream
+        finally:
+            upstream.shutdown()
+            upstream_thread.join(3)
+            assert not upstream_thread.is_alive()
+
+def run_fwd_test(machine_cls=NOPFwdMachine, root=None, rootkey=None,
+                 client_context=None, server_name="proxy.test",
+                 upstream_chain=True, **machine_options):
+    """
+    Run a client through a SERVER-mode relay to the local HTTPS server.
+    """
+    # A supplied CA signs the relay chain; otherwise the relay generates its root.
+    fwd_rootfile = get_temp_file(autoext=".pem")
+    fwd_rootkeyfile = get_temp_file(autoext=".pem")
+    options = {}
+    if root is not None:
+        root.export(fwd_rootfile)
+        rootkey.export(fwd_rootkeyfile)
+        options = dict(rootcrtfile=fwd_rootfile, rootkeyfile=fwd_rootkeyfile)
+    # Only the relay reaches upstream; the client connects to the relay listener.
+    with fwd_https_server(upstream_chain=upstream_chain) as upstream:
+        # Choose an available relay port before the client starts retrying it.
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            address = reservation.getsockname()
+        machine = machine_cls(
+            mode=ForwardMachine.MODE.SERVER, port=address[1], cls=HTTP,
+            bind_address="127.0.0.1", remote_address="127.0.0.1",
+            remote_port=upstream.server_port, tls=True,
+            no_check_certificate=True, **dict(options, **machine_options),
+        )
+        machine.stopping = Event()
+        machine.requests, machine.responses = [], []
+        relay_thread = Thread(target=machine.run, daemon=True)
+        relay_thread.start()
+        try:
+            fwd_request, response = run_fwd_test_client(
+                address, root, client_context,
+                server_name,
+            )
+            # Check both endpoints and the callbacks observed the same exchange.
+            assert upstream.paths == ["/monitor"]
+            assert b"".join(machine.requests) == fwd_request
+            assert b"".join(machine.responses) == response
+            assert machine.sni == server_name
+        finally:
+            # Unblock accept() and wait for both relay threads before the next case.
+            machine.stopping.set()
+            machine.ssock.shutdown(socket.SHUT_RDWR)
+            machine.ssock.close()
+            relay_thread.join(3)
+            if hasattr(machine, "worker"):
+                machine.worker.join(3)
+                assert not machine.worker.is_alive()
+            assert not relay_thread.is_alive()
+
+
++ HTTPS requests through a running ForwardMachine
+
+= ForwardingMachine - Self-signed proxy CA - Upstream sends a single certificate
+~ fwdmachine
+run_fwd_test(upstream_chain=False)
+
+= ForwardingMachine - Self-signed proxy CA - Upstream sends a certificate chain
+~ fwdmachine
+run_fwd_test(upstream_chain=True)
+
+= ForwardingMachine - Trusted proxy CA - ECDSA - Upstream sends a single certificate
+~ fwdmachine
+run_fwd_test(root=fwd_root, rootkey=fwd_ec_rootkey, upstream_chain=False)
+
+= ForwardingMachine - Trusted proxy CA - ECDSA - Upstream sends a certificate chain
+~ fwdmachine
+run_fwd_test(root=fwd_root, rootkey=fwd_ec_rootkey, upstream_chain=True)
+
+= ForwardingMachine - Trusted proxy CA - RSA certificate with client verification
+~ fwdmachine
+run_fwd_test(root=fwd_rsa_root, rootkey=fwd_rsa_rootkey)
+
+= ForwardingMachine - Trusted proxy CA - Ed25519 certificate with client verification
+~ fwdmachine
+run_fwd_test(root=fwd_ed25519_root, rootkey=fwd_ed25519_rootkey)
+
+= ForwardingMachine - Trusted proxy CA - Ed448 certificate with client verification
+~ fwdmachine
+run_fwd_test(root=fwd_ed448_root, rootkey=fwd_ed448_rootkey)

@@ -1,6 +1,7 @@
 {
   "testfiles": [
     "test\\*.uts",
+    "test\\scapy\\*.uts",
     "test\\scapy\\layers\\*.uts",
     "test\\scapy\\layers\\tls\\*.uts",
     "test\\scapy\\layers\\msrpce\\*.uts",

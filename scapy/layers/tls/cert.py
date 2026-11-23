@@ -655,6 +655,8 @@ class _PrivKeyFactory(_PKIObjMaker):
                 obj.__class__ = PrivKeyEdDSA
             elif isinstance(privkey.privateKey, MLDSAPrivateKey):
                 obj.__class__ = PrivKeyMLDSA
+            elif isinstance(privkey.privateKey, ECDSAPrivateKey):
+                obj.__class__ = PrivKeyECDSA
             else:
                 raise
             obj.marker = "PRIVATE KEY"
@@ -705,6 +707,20 @@ class PrivKey(metaclass=_PrivKeyFactory):
     Provides common signTBSCert(), resignCert(), verifyCert()
     and export() methods.
     """
+
+    def getSignatureAlgorithm(self):
+        """
+        Return an X.509 signature identifier for this key, using SHA-256 for
+        RSA and ECDSA and the key's OID for EdDSA and ML-DSA.
+        """
+        # Convert key identifiers into signature identifiers where they differ.
+        spki = X509_SubjectPublicKeyInfo(self.pubkey.der)
+        algorithm = spki.signatureAlgorithm.algorithm.val
+        algorithm = {
+            "1.2.840.113549.1.1.1": "1.2.840.113549.1.1.11",  # RSA / SHA-256
+            "1.2.840.10045.2.1": "1.2.840.10045.4.3.2",  # ECDSA / SHA-256
+        }.get(algorithm, algorithm)
+        return X509_AlgorithmIdentifier(algorithm=ASN1_OID(algorithm))
 
     def signTBSCert(self, tbsCert, h="sha256"):
         """
@@ -1174,6 +1190,8 @@ class Cert(metaclass=_CertMaker):
         """
         Update the subjetKeyIdentifier
         """
+        if self.tbsCertificate.extensions is None:
+            self.tbsCertificate.extensions = []
         try:
             # Find existing
             ski = next(
@@ -1184,22 +1202,27 @@ class Cert(metaclass=_CertMaker):
         except StopIteration:
             # Need to add one
             ski = X509_ExtSubjectKeyIdentifier()
-            self.tbsCertificate.extensions.append(X509_Extension(
-                extnID=ASN1_OID("subjectKeyIdentifier"),
-                extnValue=ski
-            ))
+            self.tbsCertificate.extensions.append(
+                X509_Extension(
+                    extnID=ASN1_OID("subjectKeyIdentifier"),
+                    critical=None,
+                    extnValue=ski,
+                )
+            )
 
         ski.keyIdentifier = ASN1_STRING(
-            Hash_SHA().digest(bytes(
-                self.tbsCertificate.subjectPublicKeyInfo.subjectPublicKey
-            ))
+            Hash_SHA().digest(
+                bytes(self.tbsCertificate.subjectPublicKeyInfo.subjectPublicKey)
+            )
         )
         self.skid = ski.keyIdentifier.val
 
-    def updateAuthorityKeyIdentifier(self, parent: 'Cert'):
+    def updateAuthorityKeyIdentifier(self, parent: "Cert"):
         """
         Update the authorityKeyIdentifier
         """
+        if self.tbsCertificate.extensions is None:
+            self.tbsCertificate.extensions = []
         try:
             # Find existing
             aki = next(
@@ -1210,18 +1233,25 @@ class Cert(metaclass=_CertMaker):
         except StopIteration:
             # Need to add one
             aki = X509_ExtAuthorityKeyIdentifier()
-            self.tbsCertificate.extensions.append(X509_Extension(
-                extnID=ASN1_OID("authorityKeyIdentifier"),
-                extnValue=aki
-            ))
+            self.tbsCertificate.extensions.append(
+                X509_Extension(
+                    extnID=ASN1_OID("authorityKeyIdentifier"),
+                    critical=None,
+                    extnValue=aki,
+                )
+            )
 
         aki.keyIdentifier = ASN1_STRING(parent.skid)
         self.authorityKeyID = aki.keyIdentifier.val
 
     def resignWith(self, key):
         """
-        Resign a certificate with a specific key
+        Resign a certificate using a signature algorithm matching the supplied key.
         """
+        # Match the signature identifier to the signing key.
+        self.tbsCertificate.signature = key.getSignatureAlgorithm()
+
+        # Rebuild both signature fields and refresh the certificate's cached data.
         self.import_from_asn1pkt(key.resignCert(self))
 
     def remainingDays(self, now=None):
@@ -1973,19 +2003,6 @@ class CertTree(CertList):
                         "Certificate %s does not contain the required EKU %s !"
                         % (cert.subject_str, eku.oidname)
                     )
-
-    def getleaves(self):
-        """
-        Return leaves certificates
-        """
-        def _rec_getchain(curtree):
-            for c, subtree in curtree:
-                if subtree:
-                    yield from _rec_getchain(subtree)
-                else:
-                    yield c
-
-        return list(_rec_getchain(self.tree))
 
     def show(self, ret: bool = False):
         """
