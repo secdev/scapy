@@ -3358,7 +3358,7 @@ class KerberosClient(Automaton):
         p12: Optional[str] = None,
         spn: Optional[str] = None,
         ticket: Optional[KRB_Ticket] = None,
-        host: Optional[str] = None,
+        host: Optional[str] = "WIN10",
         renew: bool = False,
         additional_tickets: List[KRB_Ticket] = [],
         u2u: bool = False,
@@ -3803,7 +3803,7 @@ class KerberosClient(Automaton):
         now_time = datetime.now(timezone.utc)
 
         # 1. Build and populate KDC-REQ
-        kdc_req = self._base_kdc_req(now_time=now_time)
+        kdc_req = self._base_kdc_req(now_time=now_time.replace(microsecond=0))
         kdc_req.addresses = [
             HostAddress(
                 addrType=ASN1_INTEGER(20),  # Netbios
@@ -4035,7 +4035,7 @@ class KerberosClient(Automaton):
             self.calc_fast_armorkey()
 
         # 1. Build and populate KDC-REQ
-        kdc_req = self._base_kdc_req(now_time=now_time)
+        kdc_req = self._base_kdc_req(now_time=now_time.replace(microsecond=0))
         kdc_req.sname = PrincipalName.fromSPN(self.spn)
 
         # Additional tickets
