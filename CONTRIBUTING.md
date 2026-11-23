@@ -95,6 +95,7 @@ We require adding tests for almost all new features or bug fixes, or a justifica
 - If you are introducing dissectors, provide at least a very simple "dissect" / "build" of real packets with simple assertions.
 - Tests can be very simple. It's much better to have dumb tests that break when one does changes than no tests.
 - Do not use the variable `_` in your tests, as it could break them.
+- UTScapy executes tests like an interactive Python shell: a bare variable or expression is evaluated, and its truth value determines success or failure. Use meaningful checks or `assert`.
 - The only case where it is acceptable to skip adding tests is when you have a single-line fix (or similar) that requires a very big and complicated test to fix. Maintainers may still ask you to add some, to their discretion.
 
 If you find yourself in a situation where your tests locally succeed  but 

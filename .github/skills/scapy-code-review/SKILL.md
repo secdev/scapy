@@ -25,10 +25,30 @@ Review the change in the following order. Open [references/review-checklist.md](
 3. **Compatibility and packet crafting:** Preserve established behavior, public APIs, defaults, explicit field overrides, and the ability to build malformed packets intentionally. Avoid compatibility aliases for symbols introduced only within the same PR.
 4. **Robustness and lifecycle:** Inspect truncated/malformed input, bounded reads/allocations, partial initialization, cleanup, explicit and recoverable errors, and dissection fallback. Look for state invalidation errors after mutation, reassembly, retries, duplicate/out-of-order segments, or session changes.
 5. **Performance:** Examine per-packet allocations, repeated lookups or traversals, copies, and algorithmic complexity. Request benchmarks for plausible hot-path regressions, not for every minor change.
-6. **Tests and integration:** Verify bug reproducer, expected-byte assertions, relevant boundary inputs, state transitions, packet binding, independent interoperability checks, and UTScapy behavior. Reuse the existing campaign. Distinguish missing essential tests from optional extra coverage.
+6. **Tests and integration:** Verify bug reproducer, expected-byte assertions, relevant boundary inputs, state transitions, packet binding, independent interoperability checks, and UTScapy behavior. Reuse the existing campaign. Verify campaign registration and test selection using the steps below; a passing direct `-t` run does not establish that CI runs the tests. Distinguish missing essential tests from optional extra coverage.
 7. **Repository requirements:** Enforce existing module placement, naming, logging, generated-file rules, imports, and contribution requirements only when applicable to the changed code.
 
 For protocol-level details consult `.github/skills/scapy-packet-fields/SKILL.md`. If a review uncovers a possible security vulnerability, follow `SECURITY.md` and its private reporting process. Do not put suspected vulnerabilities in a public review comment. The security-audit skill is a separate, deeper workflow; use it only when the user requests a security audit or that investigation is necessary.
+
+### Verify UTScapy campaign registration
+
+For every added, renamed, or modified `.uts` campaign, inspect the applicable
+`.utsc` files under [`test/configs/`](../../../test/configs/). The main platform
+configs are [`linux.utsc`](../../../test/configs/linux.utsc),
+[`bsd.utsc`](../../../test/configs/bsd.utsc), and
+[`windows.utsc`](../../../test/configs/windows.utsc); cryptography tests also use
+[`cryptography.utsc`](../../../test/configs/cryptography.utsc).
+
+- Verify that the campaign's path matches a literal path or glob in `testfiles`
+  and is not excluded by `remove_testfiles` in the applicable configs.
+- Paths are relative to the repository root. Globs do not recurse into
+  subdirectories: `test/contrib/*.uts` does not include
+  `test/contrib/example/protocol.uts`. A new nested directory needs a matching
+  entry. An existing matching glob is sufficient; do not request a redundant
+  literal entry. Account for backslash paths in Windows configs.
+- Check config `kw_ok`, `kw_ko`, and `num` for filters excluding the affected
+  tests. Distinguish intentional platform or dependency exclusions from missing
+  registration. A passing direct `-t` run does not prove config registration.
 
 ## 3. Verify and filter candidate findings
 

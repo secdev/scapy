@@ -80,6 +80,12 @@ if [ "$1" == "setup" ]; then
     echo
     printf '\033[36m  nft add rule ip %s OUTPUT \\\n      meta priority != 0:1 tcp dport 80 meta mark set 0x1\033[0m\n' "$NFT_TABLE"
     echo
+    echo -e "\x1b[1mDelete a rule\x1b[0m"
+    echo "  List rules with their handles, then replace <X> with the rule's handle:"
+    echo
+    echo -e "\x1b[36m  sudo nft -a list ruleset\x1b[0m"
+    printf '\033[36m  sudo nft delete rule ip %s OUTPUT handle <X>\033[0m\n' "$NFT_TABLE"
+    echo
     echo -e "\x1b[1mAllow incoming traffic\x1b[0m"
     echo "  Allow INPUT on the original destination port and incoming interface."
     echo "  Example: TCP port 80 arriving on wlp4s0 (replace <mytable>):"

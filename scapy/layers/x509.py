@@ -489,22 +489,12 @@ class X509_GeneralName(ASN1_Packet):
         ASN1F_PACKET("otherName", None, X509_OtherName, implicit_tag=0xA0),
         ASN1F_PACKET("rfc822Name", None, X509_RFC822Name, implicit_tag=0x81),
         ASN1F_PACKET("dNSName", None, X509_DNSName, implicit_tag=0x82),
-        ASN1F_PACKET(
-            "x400Address", None, X509_X400Address, explicit_tag=0xA3
-        ),
-        ASN1F_PACKET(
-            "directoryName", None, X509_DirectoryName, explicit_tag=0xA4
-        ),
-        ASN1F_PACKET(
-            "ediPartyName", None, X509_EDIPartyName, explicit_tag=0xA5
-        ),
-        ASN1F_PACKET(
-            "uniformResourceIdentifier", None, X509_URI, implicit_tag=0x86
-        ),
+        ASN1F_PACKET("x400Address", None, X509_X400Address, explicit_tag=0xA3),
+        ASN1F_PACKET("directoryName", None, X509_DirectoryName, explicit_tag=0xA4),
+        ASN1F_PACKET("ediPartyName", None, X509_EDIPartyName, explicit_tag=0xA5),
+        ASN1F_PACKET("uniformResourceIdentifier", None, X509_URI, implicit_tag=0x86),
         ASN1F_PACKET("ipAddress", None, X509_IPAddress, implicit_tag=0x87),
-        ASN1F_PACKET(
-            "registeredID", None, X509_RegisteredID, implicit_tag=0x88
-        ),
+        ASN1F_PACKET("registeredID", None, X509_RegisteredID, implicit_tag=0x88),
     )
 
 
@@ -1185,6 +1175,15 @@ class X509_OneAsymmetricKey(ASN1_Packet):
                     ),
                     lambda pkt: "ml-dsa" in pkt.privateKeyAlgorithm.algorithm.oidname,
                 ),
+                (
+                    ASN1F_STRING_ENCAPS(
+                        "privateKey",
+                        ECDSAPrivateKey(),
+                        ECDSAPrivateKey,
+                    ),
+                    lambda pkt: "ecPublicKey"
+                    == pkt.privateKeyAlgorithm.algorithm.oidname,
+                ),
             ],
             ASN1F_STRING("privateKey", b""),
         ),
@@ -1294,9 +1293,7 @@ class _IssuerUtils:
         attrsDict = {}
         for attr in attrs:
             # we assume there is only one name in each rdn ASN1_SET
-            attrsDict[attr.rdn[0].type.oidname] = plain_str(
-                attr.rdn[0].value.val
-            )
+            attrsDict[attr.rdn[0].type.oidname] = plain_str(attr.rdn[0].value.val)
         return attrsDict
 
     def get_issuer_str(self):
@@ -1376,9 +1373,7 @@ class X509_TBSCertificate(ASN1_Packet, _IssuerUtils):
         attrsDict = {}
         for attr in attrs:
             # we assume there is only one name in each rdn ASN1_SET
-            attrsDict[attr.rdn[0].type.oidname] = plain_str(
-                attr.rdn[0].value.val
-            )
+            attrsDict[attr.rdn[0].type.oidname] = plain_str(attr.rdn[0].value.val)
         return attrsDict
 
     def get_subject_str(self):

@@ -340,7 +340,7 @@ class Timer():
 
     def _running(self):
         # type: () -> bool
-        return self._time > 0
+        return not self._expired
 
     def _remaining(self):
         # type: () -> float
