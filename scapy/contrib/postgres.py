@@ -229,7 +229,7 @@ class Query(_ZeroPadding):
     fields_desc = [
         ByteTagField(b"Q"),
         FieldLenField(
-            "len", None, length_of="query", fmt="I", adjust=lambda pkt, x: x + 5
+            "len", None, length_of="query", fmt="I", adjust=lambda pkt, x: x + 4
         ),
         StrNullField("query", None),
     ]
@@ -425,7 +425,7 @@ class Close(_ZeroPadding):
     fields_desc = [
         ByteTagField(b"C"),
         FieldLenField(
-            "len", None, fmt="I", length_of="statement", adjust=lambda pkt, x: x + 6
+            "len", None, fmt="I", length_of="statement", adjust=lambda pkt, x: x + 5
         ),
         CharEnumField("close_type", b"S", enum=CLOSE_DESCRIBE_TYPE),
         StrNullField(
@@ -448,7 +448,7 @@ class Describe(_ZeroPadding):
     fields_desc = [
         ByteTagField(b"D"),
         FieldLenField(
-            "len", None, fmt="I", length_of="statement", adjust=lambda pkt, x: x + 6
+            "len", None, fmt="I", length_of="statement", adjust=lambda pkt, x: x + 5
         ),
         CharEnumField("close_type", b"S", enum=CLOSE_DESCRIBE_TYPE),
         StrNullField("statement", ""),
@@ -525,7 +525,7 @@ class Execute(_ZeroPadding):
     fields_desc = [
         ByteTagField(b"E"),
         FieldLenField(
-            "len", None, fmt="I", length_of="portal", adjust=lambda pkt, x: x + 9
+            "len", None, fmt="I", length_of="portal", adjust=lambda pkt, x: x + 8
         ),
         StrNullField(
             "portal",

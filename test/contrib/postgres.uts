@@ -102,6 +102,8 @@ command_response_packet = (
     b"\x43\x54\x20\x31\x00\x5a\x00\x00\x00\x05\x49"
 )
 
+assert bytes(Query(query=b"SELECT VERSION()")) == simple_query_packet
+
 = row data response
 
 command_response = PostgresBackend(command_response_packet)
@@ -293,6 +295,11 @@ describe_msg = request.contents[2]
 assert describe_msg.len == 6
 assert describe_msg.close_type == b"P"
 assert describe_msg.statement == b""
+assert bytes(Describe(close_type=b"P", statement=b"")) == bytes(describe_msg)
+
+= Check close building
+
+assert bytes(Close(close_type=b"S", statement=b"stmt1")) == b"C\x00\x00\x00\x0bSstmt1\x00"
 
 = Check execute decoding
 
@@ -300,6 +307,7 @@ exec_msg = request.contents[3]
 assert exec_msg.len == 9
 assert exec_msg.portal == b""
 assert exec_msg.rows == 0
+assert bytes(Execute(portal=b"", rows=0)) == bytes(exec_msg)
 
 = Check sync decoding
 
