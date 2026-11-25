@@ -112,7 +112,6 @@ pkt = Ether(import_hexcap('''\
 
 assert GRH in pkt.layers()
 assert BTH in pkt.layers()
-assert AETH in pkt.layers()
 assert pkt[GRH].ipver == 6
 assert pkt[GRH].tclass == 2
 assert pkt[GRH].flowlabel == 0
@@ -121,6 +120,7 @@ assert pkt[BTH].opcode == 0x11
 assert pkt[BTH].padcount == 0
 assert pkt[BTH].dqpn == 0x109
 assert not pkt[BTH].ackreq
+assert AETH in pkt
 assert pkt[AETH].syndrome == 0
 assert pkt[AETH].msn == 5
 assert pkt.icrc == 0x25f0c038
@@ -145,3 +145,39 @@ assert pkt[UDP].chksum == 0xe7c5
 assert BTH in pkt.layers()
 print(hex(pkt[BTH].icrc))
 assert pkt[BTH].icrc == 0x3e5b743b
+
+= UD with / w.o immediate
+
+payload = b'test payload'
+
+pkt = (Ether()/
+       IP()/
+       UDP(sport=5555)/
+       BTH(opcode='UD_SEND_ONLY', deth=DETH(sqp=1234))/
+       Raw(payload)
+      )
+
+dissected = Ether(pkt.build() + b'\x00' * 4)
+dissected.show2()
+
+assert BTH in dissected.layers()
+assert pkt.opcode == UD_SEND_ONLY
+assert BTH.opcode.i2repr(dissected[BTH], dissected.opcode) == 'UD_SEND_ONLY'
+assert DETH in dissected
+assert dissected.deth.sqp == 1234
+
+imm_value = 123456789
+
+pkt = (Ether()/
+       IP()/
+       UDP(sport=5555)/
+       BTH(opcode='UD_SEND_ONLY_WITH_IMMEDIATE', deth=DETH(), immdt=ImmDt(imm=imm_value))/
+       Raw(payload)
+      )
+
+dissected = Ether(pkt.build() + b'\x00' * 4)
+assert BTH in dissected.layers()
+assert BTH.opcode.i2repr(dissected[BTH], dissected.opcode) == 'UD_SEND_ONLY_WITH_IMMEDIATE'
+assert DETH in dissected
+assert ImmDt in dissected
+assert pkt.immdt.imm == imm_value
