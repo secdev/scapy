@@ -1,0 +1,149 @@
+% Regression tests for Linux AF_PACKET sending
+
+= AF_PACKET sends preserve protocol and handle retry paths
+~ linux
+
+import errno
+from unittest.mock import Mock, call, patch
+
+from scapy.arch import linux
+from scapy.arch.linux import L2Socket, L3PacketSocket, _send_packet
+from scapy.compat import raw
+from scapy.config import conf
+from scapy.data import ETH_P_ALL
+from scapy.layers.inet import IP, ICMP
+from scapy.layers.l2 import Ether
+from scapy.packet import Raw
+from scapy.supersocket import SuperSocket
+
+# The helper uses send() for an unspecified protocol and sendto() otherwise.
+fd = Mock()
+assert _send_packet(fd, b"packet", "ppp0") == fd.send.return_value
+fd.send.assert_called_once_with(b"packet")
+fd.sendto.assert_not_called()
+
+fd.reset_mock()
+assert _send_packet(fd, b"packet", "ppp0", 0x0800) == fd.sendto.return_value
+fd.sendto.assert_called_once_with(b"packet", ("ppp0", 0x0800))
+fd.send.assert_not_called()
+
+packet = IP(dst="198.51.100.1")/ICMP()
+protocol = conf.l3types.layer2num[IP]
+
+# Non-ETH_P_ALL sockets and unknown L3 mappings use the legacy SuperSocket path.
+l2 = object.__new__(L2Socket)
+l2.type = 0x0800
+with patch.object(SuperSocket, "send", return_value=17) as base_send:
+    assert L2Socket.send(l2, packet) == 17
+    base_send.assert_called_once_with(l2, packet)
+
+l2.type = ETH_P_ALL
+with patch.dict(conf.l3types.layer2num, {IP: None}):
+    with patch.object(SuperSocket, "send", return_value=18) as base_send:
+        assert L2Socket.send(l2, packet) == 18
+        base_send.assert_called_once_with(l2, packet)
+
+# A type other than ETH_P_ALL uses send(), even if the L3 mapping exists.
+l3 = object.__new__(L3PacketSocket)
+l3.send_socks = {"ppp0": l3}
+l3.type = 0x0800
+l3.iface = "ppp0"
+l3.filter = None
+l3.promisc = False
+l3.lvl = 3
+l3.LL = IP
+l3.outs = Mock()
+with patch.object(IP, "route", return_value=("ppp0", None, None)):
+    assert L3PacketSocket.send(l3, packet) == l3.outs.send.return_value
+l3.outs.send.assert_called_once_with(raw(packet))
+l3.outs.sendto.assert_not_called()
+
+# An unavailable mapping with ETH_P_ALL also falls back to send().
+l3.outs.reset_mock()
+l3.type = ETH_P_ALL
+with patch.dict(conf.l3types.layer2num, {IP: None}):
+    with patch.object(IP, "route", return_value=("ppp0", None, None)):
+        L3PacketSocket.send(l3, packet)
+l3.outs.send.assert_called_once_with(raw(packet))
+l3.outs.sendto.assert_not_called()
+
+# EINVAL retries pad both L2 and L3 packet sends, retaining the sendto address
+# and protocol. Verify bytes as well as the retry result.
+for socket_class in (L2Socket,):
+    sock = object.__new__(socket_class)
+    sock.type = ETH_P_ALL
+    sock.iface = "ppp0"
+    sock.outs = Mock()
+    sock.outs.sendto.side_effect = [OSError(errno.EINVAL, "short frame"), 23]
+    assert socket_class.send(sock, packet) == 23
+    attempts = sock.outs.sendto.call_args_list
+    assert attempts[0] == call(raw(packet), ("ppp0", protocol))
+    assert attempts[1].args[1] == ("ppp0", protocol)
+    assert attempts[1].args[0] == raw(packet) + b"\x00" * (conf.min_pkt_size - len(raw(packet)))
+    assert len(attempts[1].args[0]) == conf.min_pkt_size
+    sock.outs.sendto.assert_has_calls(attempts)
+    sock.outs.send.assert_not_called()
+
+l3.type = ETH_P_ALL
+l3.outs = Mock()
+l3.outs.sendto.side_effect = [OSError(errno.EINVAL, "short frame"), 29]
+with patch.object(IP, "route", return_value=("ppp0", None, None)):
+    assert L3PacketSocket.send(l3, packet) == 29
+attempts = l3.outs.sendto.call_args_list
+assert attempts[0] == call(raw(packet), ("ppp0", protocol))
+assert attempts[1].args[1] == ("ppp0", protocol)
+assert attempts[1].args[0] == raw(packet) + b"\x00" * (conf.min_pkt_size - len(raw(packet)))
+assert len(attempts[1].args[0]) == conf.min_pkt_size
+l3.outs.send.assert_not_called()
+
+# Other socket errors propagate without a retry for both send implementations.
+for socket_class in (L2Socket,):
+    sock = object.__new__(socket_class)
+    sock.type = ETH_P_ALL
+    sock.iface = "ppp0"
+    sock.outs = Mock()
+    sock.outs.sendto.side_effect = OSError(errno.EPERM, "denied")
+    try:
+        socket_class.send(sock, packet)
+        assert False, "expected the socket error to propagate"
+    except OSError as exc:
+        assert exc.errno == errno.EPERM
+    sock.outs.sendto.assert_called_once()
+
+l3.outs = Mock()
+l3.outs.sendto.side_effect = OSError(errno.EPERM, "denied")
+with patch.object(IP, "route", return_value=("ppp0", None, None)):
+    try:
+        L3PacketSocket.send(l3, packet)
+        assert False, "expected the socket error to propagate"
+    except OSError as exc:
+        assert exc.errno == errno.EPERM
+l3.outs.sendto.assert_called_once()
+
+# EMSGSIZE takes the auto-fragmentation branch; every fragment retains the
+# interface/protocol and the method returns the sum of send results.
+large_packet = IP(dst="198.51.100.1")/ICMP()/Raw(load=b"x" * 3000)
+fragment_sock = object.__new__(L3PacketSocket)
+fragment_sock.send_socks = {"ppp0": fragment_sock}
+fragment_sock.type = ETH_P_ALL
+fragment_sock.iface = "ppp0"
+fragment_sock.filter = None
+fragment_sock.promisc = False
+fragment_sock.lvl = 2
+fragment_sock.LL = Ether
+fragment_sock.outs = Mock()
+fragment_attempts = []
+def send_fragment(data, address):
+    fragment_attempts.append((data, address))
+    if len(fragment_attempts) == 1:
+        raise OSError(errno.EMSGSIZE, "frame too large")
+    return len(data)
+fragment_sock.outs.sendto.side_effect = send_fragment
+with patch.object(IP, "route", return_value=("ppp0", None, None)):
+    with patch.object(conf, "auto_fragment", True):
+        sent = L3PacketSocket.send(fragment_sock, large_packet)
+assert len(fragment_attempts) > 2
+assert all(address == ("ppp0", protocol) for _, address in fragment_attempts)
+assert sent == sum(len(data) for data, _ in fragment_attempts[1:])
+assert all(data.startswith(bytes(Ether())) for data, _ in fragment_attempts[1:])
+assert not fragment_sock.outs.send.called
