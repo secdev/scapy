@@ -1,0 +1,345 @@
+% Regression tests for the PACKET_MMAP ring buffer sockets
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
+
++ Ring geometry
+
+= A geometry the kernel would refuse is refused here
+~ linux
+
+from scapy.arch.linux.ringbuf import RingSpec
+
+# A frame holds its header, and starts on a 16 bytes boundary
+try:
+    RingSpec(frame_size=48)
+    assert False
+except ValueError:
+    pass
+
+try:
+    RingSpec(frame_size=1000)
+    assert False
+except ValueError:
+    pass
+
+# A block is made of whole pages, and of whole frames
+try:
+    RingSpec(block_size=3000)
+    assert False
+except ValueError:
+    pass
+
+try:
+    RingSpec(frame_size=3072, block_size=4096)
+    assert False
+except ValueError:
+    pass
+
+try:
+    RingSpec(block_nr=0)
+    assert False
+except ValueError:
+    pass
+
+= A geometry counts its frames and travels as it is
+~ linux
+
+spec = RingSpec(frame_size=1024, block_size=4096, block_nr=8)
+
+assert spec.frames_per_block == 4
+
+assert spec.frame_nr == 32
+
+assert spec.size == 32768
+
+assert RingSpec.from_dict(spec.to_dict()).to_req() == spec.to_req()
+
+
++ Ring sockets over a veth pair
+
+= A veth pair to talk over
+~ linux needs_root veth
+
+import socket
+import time
+
+from threading import Thread
+
+from scapy.arch.linux import L2Socket, VEthPair
+from scapy.arch.linux.ringbuf import (
+    L2ListenRingSocket,
+    L2RingSocket,
+    RingSpec,
+)
+
+veth = VEthPair("veth_ring_0", "veth_ring_1")
+veth.setup()
+veth.up()
+conf.ifaces.reload()
+
+TAG = b"ringbuffer"
+
+def probe(seq):
+    """A frame of ours, long enough that nothing pads it on the way."""
+    return Ether(
+        src="02:00:00:00:00:01", dst="02:00:00:00:00:02", type=0xbeef
+    ) / Raw(TAG + b"-%03d" % seq + b"." * 40)
+
+def recv_probe(sock, timeout=5):
+    """The next packet of ours, past whatever the link chatters."""
+    sock.ins.settimeout(timeout)
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        pkt = sock.recv()
+        if pkt is not None and TAG in raw(pkt):
+            return pkt
+    return None
+
+assert len(raw(probe(0))) > conf.min_pkt_size
+
+= A packet comes in through the receive ring
+~ linux needs_root veth
+
+with L2RingSocket(iface="veth_ring_0") as ring:
+    with L2Socket(iface="veth_ring_1") as peer:
+        peer.send(probe(1))
+        got = recv_probe(ring)
+        assert got is not None
+        assert raw(got) == raw(probe(1))
+        # The kernel counts what it put in the ring, and what it had to drop
+        packets, drops = ring.stats()
+        assert packets > 0
+        assert drops == 0
+
+= A packet goes out through the transmit ring
+~ linux needs_root veth
+
+with L2RingSocket(iface="veth_ring_0") as ring:
+    with L2Socket(iface="veth_ring_1") as peer:
+        sent = ring.send(probe(2))
+        assert sent == len(raw(probe(2)))
+        got = recv_probe(peer)
+        assert got is not None
+        assert raw(got) == raw(probe(2))
+
+= A frame too short for the wire is padded
+~ linux needs_root veth
+
+with L2RingSocket(iface="veth_ring_0") as ring:
+    with L2Socket(iface="veth_ring_1") as peer:
+        short = Ether(
+            src="02:00:00:00:00:01", dst="02:00:00:00:00:02", type=0xbeef
+        ) / Raw(TAG)
+        assert ring.send(short) == conf.min_pkt_size
+        peer.ins.settimeout(5)
+        got = recv_probe(peer)
+        assert got is not None
+        assert len(raw(got)) == conf.min_pkt_size
+
+= A burst comes in whole and in order
+~ linux needs_root veth
+
+count = 300
+seen = []
+with L2RingSocket(iface="veth_ring_0") as ring:
+    with L2Socket(iface="veth_ring_1") as peer:
+        for i in range(count):
+            peer.send(probe(i))
+        ring.ins.settimeout(1)
+        end = time.monotonic() + 20
+        while len(seen) < count and time.monotonic() < end:
+            pkt = ring.recv()
+            if pkt is not None and TAG in raw(pkt):
+                seen.append(raw(pkt))
+
+assert seen == [raw(probe(i)) for i in range(count)]
+
+= The ring wraps around
+~ linux needs_root veth
+
+# Four frames, so the fifth packet lands where the first one was
+small = RingSpec(frame_size=1024, block_size=4096, block_nr=1)
+assert small.frame_nr == 4
+
+seen = 0
+with L2RingSocket(iface="veth_ring_0", ring=small) as ring:
+    with L2Socket(iface="veth_ring_1") as peer:
+        for i in range(20):
+            peer.send(probe(i))
+            if recv_probe(ring, timeout=2) is not None:
+                seen += 1
+
+assert seen == 20
+
+= sniff() runs over a ring socket
+~ linux needs_root veth
+
+def _send_probes(sock, number):
+    time.sleep(0.5)
+    for i in range(number):
+        sock.send(probe(i))
+        time.sleep(0.05)
+
+with L2RingSocket(iface="veth_ring_0") as ring:
+    with L2Socket(iface="veth_ring_1") as peer:
+        sending = Thread(target=_send_probes, args=(peer, 5),
+                         name="ringbuf send")
+        sending.start()
+        sniffed = sniff(opened_socket=ring, count=5, timeout=10,
+                        lfilter=lambda p: TAG in raw(p))
+        sending.join(5)
+
+assert len(sniffed) == 5
+
+= sr1() runs over a ring socket
+~ linux needs_root veth
+
+request = Ether(
+    src="02:00:00:00:00:01", dst="02:00:00:00:00:02"
+) / IP(src="10.0.0.1", dst="10.0.0.2") / ICMP() / Raw(TAG)
+
+def _answer_probe(sock):
+    asked = recv_probe(sock, timeout=5)
+    if asked is not None:
+        sock.send(
+            Ether(src=asked[Ether].dst, dst=asked[Ether].src) /
+            IP(src=asked[IP].dst, dst=asked[IP].src) /
+            ICMP(type="echo-reply", id=asked[ICMP].id, seq=asked[ICMP].seq) /
+            Raw(TAG)
+        )
+
+with L2RingSocket(iface="veth_ring_0") as ring:
+    with L2Socket(iface="veth_ring_1") as peer:
+        answering = Thread(target=_answer_probe, args=(peer,),
+                           name="ringbuf answer")
+        answering.start()
+        answer = ring.sr1(request, timeout=5, verbose=False)
+        answering.join(5)
+
+assert answer is not None
+
+assert answer[ICMP].type == 0
+
+= A packet larger than a frame is refused
+~ linux needs_root veth
+
+small = RingSpec(frame_size=512, block_size=4096, block_nr=1)
+with L2RingSocket(iface="veth_ring_0", ring=small) as ring:
+    try:
+        ring.send(Ether(type=0xbeef) / Raw(b"x" * 600))
+        assert False
+    except Scapy_Exception:
+        pass
+
+= Without a transmit ring, sending falls back on the socket
+~ linux needs_root veth
+
+with L2RingSocket(iface="veth_ring_0", tx=False) as ring:
+    with L2Socket(iface="veth_ring_1") as peer:
+        assert ring.tx is None
+        ring.send(probe(6))
+        assert recv_probe(peer) is not None
+
+= The listen socket keeps what goes out and sends nothing
+~ linux needs_root veth
+
+with L2ListenRingSocket(iface="veth_ring_0") as ring:
+    with L2Socket(iface="veth_ring_0") as out:
+        out.send(probe(7))
+        got = recv_probe(ring)
+        assert got is not None
+        assert raw(got) == raw(probe(7))
+    try:
+        ring.send(probe(8))
+        assert False
+    except Scapy_Exception:
+        pass
+
+
++ Passing a ring socket to another process
+
+= A socket handed over a UNIX socket sniffs and sends
+~ linux needs_root veth
+
+# What a privileged program passes to an unprivileged Scapy: the kernel only
+# asks for CAP_NET_RAW when the packet socket is created, so its descriptor
+# and the geometry of its rings are all the other side needs.
+owner_end, taker_end = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+owner = L2RingSocket(iface="veth_ring_0", ring=RingSpec(frame_size=4096))
+owner.share(owner_end)
+taken = L2RingSocket.from_unix(taker_end)
+
+assert taken.rx.frame_size == 4096
+
+assert taken.tx is not None
+
+assert taken.iface == "veth_ring_0"
+
+# The interface stays in promiscuous mode for as long as its owner holds it
+assert taken.promisc is False
+
+with L2Socket(iface="veth_ring_1") as peer:
+    peer.send(probe(9))
+    got = recv_probe(taken)
+    assert got is not None
+    # The link type comes from what the socket it took over is bound to
+    assert isinstance(got, Ether)
+    assert raw(got) == raw(probe(9))
+    taken.send(probe(10))
+    got = recv_probe(peer)
+    assert got is not None
+    assert raw(got) == raw(probe(10))
+
+taken.close()
+owner.close()
+owner_end.close()
+taker_end.close()
+
+= A ring taken over while it is already running finds its place
+~ linux needs_root veth
+
+owner_end, taker_end = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+owner = L2RingSocket(iface="veth_ring_0")
+with L2Socket(iface="veth_ring_1") as peer:
+    for i in range(10):
+        peer.send(probe(i))
+    time.sleep(0.5)
+    # The kernel now writes further along than a fresh reader would look
+    for _ in range(6):
+        recv_probe(owner, timeout=2)
+    owner.share(owner_end)
+    taken = L2RingSocket.from_unix(taker_end)
+    peer.send(probe(11))
+    assert recv_probe(taken, timeout=5) is not None
+
+taken.close()
+owner.close()
+owner_end.close()
+taker_end.close()
+
+= A message that carries no socket is reported
+~ linux needs_root veth
+
+owner_end, taker_end = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+owner_end.send(b'{"version": 1, "rx": {}, "tx": null}')
+try:
+    L2RingSocket.from_unix(taker_end)
+    assert False
+except Scapy_Exception:
+    pass
+
+owner_end.close()
+taker_end.close()
+
+= Take the veth pair back down
+~ linux needs_root veth
+
+veth.down()
+veth.destroy()
+conf.ifaces.reload()
+
+assert "veth_ring_0" not in get_if_list()
