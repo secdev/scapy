@@ -1,0 +1,698 @@
+% INT unit test
+
+#
+# execute test:
+# > test/run_tests -P "load_contrib('int')" -P "load_contrib('geneve')" -t test/contrib/int.uts
+# TBD: IPv6 with ext header
+#
+
++ INT testsuit
+
+
+= Build & Dissect, INT MD Over IPv4 UDP, Identifier=DSCP/TC
+
+def check_int_shim(pkt:Packet):
+    if pkt.haslayer(INTShimTcpUdp):
+        assert (((pkt[INTShimTcpUdp].type == 1) and (pkt[INTShimTcpUdp].length == 23)) or
+                ((pkt[INTShimTcpUdp].type == 3) and (pkt[INTShimTcpUdp].length == 3)))
+        assert (((pkt[INTShimTcpUdp].npt == 0) and (pkt[INTShimTcpUdp].dscp == 0)) or
+                ((pkt[INTShimTcpUdp].npt == 1) and (pkt[INTShimTcpUdp].l4_dport == 9028)))
+    elif pkt.haslayer(INTShimGre):
+        assert (((pkt[INTShimGre].type == 1) and (pkt[INTShimGre].length == 23)) or
+                ((pkt[INTShimGre].type == 3) and (pkt[INTShimGre].length == 3)))
+        assert pkt[INTShimGre].gre == 0
+        assert pkt[INTShimGre].gre_proto == 0x6558
+    elif pkt.haslayer(INTShimVxlan):
+        assert (((pkt[INTShimVxlan].type == 1) and (pkt[INTShimVxlan].length == 23)) or
+                ((pkt[INTShimVxlan].type == 3) and (pkt[INTShimVxlan].length == 3)))
+        assert pkt[INTShimVxlan].gpe == 0
+        assert pkt[INTShimVxlan].vxlan_proto == 3
+    elif pkt.haslayer(GeneveOptINT):
+        assert (((pkt[GeneveOptINT].type == 1) and (pkt[GeneveOptINT].length == 23)) or
+                ((pkt[GeneveOptINT].type == 3) and (pkt[GeneveOptINT].length == 3)))
+        assert pkt[GeneveOptINT].classid == 0x0103
+    else:
+        assert False
+
+def check_int_meta(pkt:Packet):
+    if pkt.haslayer(INTMetaMx):
+        assert pkt[INTMetaMx].version == 2
+        assert pkt[INTMetaMx].discard == 0
+        assert pkt[INTMetaMx].instr_bitmap == 0xfe00
+        assert pkt[INTMetaMx].ds_id == 0x7777
+        assert pkt[INTMetaMx].ds_instr == 0x8888
+        assert pkt[INTMetaMx].ds_flags == 0x9999
+    elif pkt.haslayer(INTMetaMd):
+        assert pkt[INTMetaMd].version == 2
+        assert pkt[INTMetaMd].discard == 0
+        assert pkt[INTMetaMd].hop_len == 10
+        assert pkt[INTMetaMd].hop_left == 7
+        assert pkt[INTMetaMd].instr_bitmap == 0xfe00
+        assert pkt[INTMetaMd].ds_id == 0x7777
+        assert pkt[INTMetaMd].ds_instr == 0x8888
+        assert pkt[INTMetaMd].ds_flags == 0x9999
+        assert len(pkt[INTMetaMd].meta_hops) == 2
+        assert pkt[INTMetaMd].meta_hops[0].node_id == 0xb22
+        assert pkt[INTMetaMd].meta_hops[0].igr_l1_intf == 20
+        assert pkt[INTMetaMd].meta_hops[0].egr_l1_intf == 21
+        assert pkt[INTMetaMd].meta_hops[0].latency == 0
+        assert pkt[INTMetaMd].meta_hops[0].que_id == 0
+        assert pkt[INTMetaMd].meta_hops[0].que_occupy == 0
+        assert pkt[INTMetaMd].meta_hops[0].igr_ts == 0
+        assert pkt[INTMetaMd].meta_hops[0].egr_ts == 0
+        assert pkt[INTMetaMd].meta_hops[0].igr_l2_intf == 5
+        assert pkt[INTMetaMd].meta_hops[0].egr_l2_intf == 6
+        assert pkt[INTMetaMd].meta_hops[1].node_id == 0xa11
+        assert pkt[INTMetaMd].meta_hops[1].igr_l1_intf == 10
+        assert pkt[INTMetaMd].meta_hops[1].egr_l1_intf == 11
+        assert pkt[INTMetaMd].meta_hops[1].latency == 0
+        assert pkt[INTMetaMd].meta_hops[1].que_id == 0
+        assert pkt[INTMetaMd].meta_hops[1].que_occupy == 0
+        assert pkt[INTMetaMd].meta_hops[1].igr_ts == 0
+        assert pkt[INTMetaMd].meta_hops[1].egr_ts == 0
+        assert pkt[INTMetaMd].meta_hops[1].igr_l2_intf == 1
+        assert pkt[INTMetaMd].meta_hops[1].egr_l2_intf == 2
+    else:
+        assert False
+
+meta_hop0 = INTMetaHop(node_id=0xb22, igr_l1_intf=20, egr_l1_intf=21, igr_l2_intf=5, egr_l2_intf=6)
+meta_hop1 = INTMetaHop(node_id=0xa11, igr_l1_intf=10, egr_l1_intf=11, igr_l2_intf=1, egr_l2_intf=2)
+int_md = INTMetaMd(version=2, discard=0, hop_left=7, instr_bitmap=0xfe00, ds_id=0x7777, ds_instr=0x8888, ds_flags=0x9999, meta_hops=[meta_hop0, meta_hop1])
+int_mx = INTMetaMx(version=2, discard=0, instr_bitmap=0xfe00, ds_id=0x7777, ds_instr=0x8888, ds_flags=0x9999)
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IP(src="198.1.1.17", dst="198.1.2.18", ttl=63, tos=INT_PRI_MASK)/ \
+    UDP(sport=4196, dport=9028)/ \
+    INTShimTcpUdp(type=1, npt=0, dscp=0, metadata=int_md)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert (pkt[IP].tos & INT_PRI_MASK) == INT_PRI_MASK
+assert pkt[IP].proto == socket.IPPROTO_UDP
+assert pkt[IP].chksum == 0xeb8a
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 9028
+assert pkt[UDP].chksum == 0x286c
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+= Build & Dissect, INT MD Over IPv4 TCP, Identifier=DSCP/TC
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IP(src="198.1.1.17", dst="198.1.2.18", ttl=63, tos=INT_PRI_MASK)/ \
+    TCP(sport=4196, dport=9028)/ \
+    INTShimTcpUdp(type=1, npt=0, dscp=0, metadata=int_md)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert (pkt[IP].tos & INT_PRI_MASK) == INT_PRI_MASK
+assert pkt[IP].proto == socket.IPPROTO_TCP
+assert pkt[IP].chksum == 0xeb89
+assert pkt[TCP].sport == 4196
+assert pkt[TCP].dport == 9028
+assert pkt[TCP].chksum == 0xb910
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MD Over IPv6 UDP, Identifier=DSCP/TC
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IPv6(src="2000::1", dst="5000::1", hlim=63, tc=INT_PRI_MASK)/ \
+    UDP(sport=4196, dport=9028)/ \
+    INTShimTcpUdp(type=1, npt=0, dscp=0, metadata=int_md)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert (pkt[IPv6].tc & INT_PRI_MASK) == INT_PRI_MASK
+assert pkt[IPv6].nh == socket.IPPROTO_UDP
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 9028
+assert pkt[UDP].chksum == 0x4790
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MD Over IPv6 TCP, Identifier=DSCP/TC
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IPv6(src="2000::1", dst="5000::1", hlim=63, tc=INT_PRI_MASK)/ \
+    TCP(sport=4196, dport=9028)/ \
+    INTShimTcpUdp(type=1, npt=0, dscp=0, metadata=int_md)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert (pkt[IPv6].tc & INT_PRI_MASK) == INT_PRI_MASK
+assert pkt[IPv6].nh == socket.IPPROTO_TCP
+assert pkt[TCP].sport == 4196
+assert pkt[TCP].dport == 9028
+assert pkt[TCP].chksum == 0xd834
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MX Over IPv4 UDP, Identifier=DSCP/TC
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IP(src="198.1.1.17", dst="198.1.2.18", ttl=63, tos=INT_PRI_MASK)/ \
+    UDP(sport=4196, dport=9028)/ \
+    INTShimTcpUdp(type=3, npt=0, dscp=0, metadata=int_mx)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert (pkt[IP].tos & INT_PRI_MASK) == INT_PRI_MASK
+assert pkt[IP].proto == socket.IPPROTO_UDP
+assert pkt[IP].chksum == 0xebda
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 9028
+assert pkt[UDP].chksum == 0x28a6
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MX Over IPv4 TCP, Identifier=DSCP/TC
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IP(src="198.1.1.17", dst="198.1.2.18", ttl=63, tos=INT_PRI_MASK)/ \
+    TCP(sport=4196, dport=9028)/ \
+    INTShimTcpUdp(type=3, npt=0, dscp=0, metadata=int_mx)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert (pkt[IP].tos & INT_PRI_MASK) == INT_PRI_MASK
+assert pkt[IP].proto == socket.IPPROTO_TCP
+assert pkt[IP].chksum == 0xebd9
+assert pkt[TCP].sport == 4196
+assert pkt[TCP].dport == 9028
+assert pkt[TCP].chksum == 0xb8fa
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MX Over IPv6 UDP, Identifier=DSCP/TC
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IPv6(src="2000::1", dst="5000::1", hlim=63, tc=INT_PRI_MASK)/ \
+    UDP(sport=4196, dport=9028)/ \
+    INTShimTcpUdp(type=3, npt=0, dscp=0, metadata=int_mx)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert (pkt[IPv6].tc & INT_PRI_MASK) == INT_PRI_MASK
+assert pkt[IPv6].nh == socket.IPPROTO_UDP
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 9028
+assert pkt[UDP].chksum == 0x47ca
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MX Over IPv6 TCP, Identifier=DSCP/TC
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IPv6(src="2000::1", dst="5000::1", hlim=63, tc=INT_PRI_MASK)/ \
+    TCP(sport=4196, dport=9028)/ \
+    INTShimTcpUdp(type=3, npt=0, dscp=0, metadata=int_mx)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert (pkt[IPv6].tc & INT_PRI_MASK) == INT_PRI_MASK
+assert pkt[IPv6].nh == socket.IPPROTO_TCP
+assert pkt[TCP].sport == 4196
+assert pkt[TCP].dport == 9028
+assert pkt[TCP].chksum == 0xd81e
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MD Over IPv4 UDP, Identifier=L4_DPORT
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IP(src="198.1.1.17", dst="198.1.2.18", ttl=63)/ \
+    UDP(sport=4196, dport=INT_L4_DPORT)/ \
+    INTShimTcpUdp(type=1, npt=1, l4_dport=9028, metadata=int_md)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IP].tos == 0
+assert pkt[IP].proto == socket.IPPROTO_UDP
+assert pkt[IP].chksum == 0xec0a
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == INT_L4_DPORT
+assert pkt[UDP].chksum == 0xdf03
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MD Over IPv4 TCP, Identifier=L4_DPORT
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IP(src="198.1.1.17", dst="198.1.2.18", ttl=63)/ \
+    TCP(sport=4196, dport=INT_L4_DPORT)/ \
+    INTShimTcpUdp(type=1, npt=1, l4_dport=9028, metadata=int_md)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IP].tos == 0
+assert pkt[IP].proto == socket.IPPROTO_TCP
+assert pkt[IP].chksum == 0xec09
+assert pkt[TCP].sport == 4196
+assert pkt[TCP].dport == INT_L4_DPORT
+assert pkt[TCP].chksum == 0x6fa8
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MD Over IPv6 UDP, Identifier=L4_DPORT
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IPv6(src="2000::1", dst="5000::1", hlim=63)/ \
+    UDP(sport=4196, dport=INT_L4_DPORT)/ \
+    INTShimTcpUdp(type=1, npt=1, l4_dport=9028, metadata=int_md)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IPv6].tc == 0
+assert pkt[IPv6].nh == socket.IPPROTO_UDP
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == INT_L4_DPORT
+assert pkt[UDP].chksum == 0xfe27
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MD Over IPv6 TCP, Identifier=L4_DPORT
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IPv6(src="2000::1", dst="5000::1", hlim=63)/ \
+    TCP(sport=4196, dport=INT_L4_DPORT)/ \
+    INTShimTcpUdp(type=1, npt=1, l4_dport=9028, metadata=int_md)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IPv6].tc == 0
+assert pkt[IPv6].nh == socket.IPPROTO_TCP
+assert pkt[TCP].sport == 4196
+assert pkt[TCP].dport == INT_L4_DPORT
+assert pkt[TCP].chksum == 0x8ecc
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MX Over IPv4 UDP, Identifier=L4_DPORT
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IP(src="198.1.1.17", dst="198.1.2.18", ttl=63)/ \
+    UDP(sport=4196, dport=INT_L4_DPORT)/ \
+    INTShimTcpUdp(type=3, npt=1, l4_dport=9028, metadata=int_mx)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IP].tos == 0
+assert pkt[IP].proto == socket.IPPROTO_UDP
+assert pkt[IP].chksum == 0xec5a
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == INT_L4_DPORT
+assert pkt[UDP].chksum == 0xdf3d
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MX Over IPv4 TCP, Identifier=L4_DPORT
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IP(src="198.1.1.17", dst="198.1.2.18", ttl=63)/ \
+    TCP(sport=4196, dport=INT_L4_DPORT)/ \
+    INTShimTcpUdp(type=3, npt=1, l4_dport=9028, metadata=int_mx)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IP].tos == 0
+assert pkt[IP].proto == socket.IPPROTO_TCP
+assert pkt[IP].chksum == 0xec59
+assert pkt[TCP].sport == 4196
+assert pkt[TCP].dport == INT_L4_DPORT
+assert pkt[TCP].chksum == 0x6f92
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MX Over IPv6 UDP, Identifier=L4_DPORT
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IPv6(src="2000::1", dst="5000::1", hlim=63)/ \
+    UDP(sport=4196, dport=INT_L4_DPORT)/ \
+    INTShimTcpUdp(type=3, npt=1, l4_dport=9028, metadata=int_mx)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IPv6].tc == 0
+assert pkt[IPv6].nh == socket.IPPROTO_UDP
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == INT_L4_DPORT
+assert pkt[UDP].chksum == 0xfe61
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MX Over IPv6 TCP, Identifier=L4_DPORT
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IPv6(src="2000::1", dst="5000::1", hlim=63)/ \
+    TCP(sport=4196, dport=INT_L4_DPORT)/ \
+    INTShimTcpUdp(type=3, npt=1, l4_dport=9028, metadata=int_mx)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IPv6].tc == 0
+assert pkt[IPv6].nh == socket.IPPROTO_TCP
+assert pkt[TCP].sport == 4196
+assert pkt[TCP].dport == INT_L4_DPORT
+assert pkt[TCP].chksum == 0x8eb6
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MD Over IPv4 GRE
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IP(src="198.1.1.17", dst="198.1.2.18", ttl=63)/ \
+    GRE(proto=INT_GRE_PROTOCOL)/ \
+    INTShimGre(type=1, gre=0, gre_proto=0x6558, metadata=int_md)/ \
+    Ether(dst='b6:18:00:88:88:00', src='b6:18:00:99:99:00')/ \
+    IP(src='192.168.1.5', dst='192.168.6.9', ttl=128)/ \
+    TCP(sport=6677, dport=8899)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IP].tos == 0
+assert pkt[IP].proto == socket.IPPROTO_GRE
+assert pkt[IP].chksum == 0xebba
+assert pkt[GRE].proto == INT_GRE_PROTOCOL
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MD Over IPv6 GRE
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IPv6(src="2000::1", dst="5000::1", hlim=63)/ \
+    GRE(proto=INT_GRE_PROTOCOL)/ \
+    INTShimGre(type=1, gre=0, gre_proto=0x6558, metadata=int_md)/ \
+    Ether(dst='b6:18:00:88:88:00', src='b6:18:00:99:99:00')/ \
+    IP(src='192.168.1.5', dst='192.168.6.9', ttl=128)/ \
+    TCP(sport=6677, dport=8899)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IPv6].tc == 0
+assert pkt[IPv6].nh == socket.IPPROTO_GRE
+assert pkt[GRE].proto == INT_GRE_PROTOCOL
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MX Over IPv4 GRE
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IP(src="198.1.1.17", dst="198.1.2.18", ttl=63)/ \
+    GRE(proto=INT_GRE_PROTOCOL)/ \
+    INTShimGre(type=3, gre=0, gre_proto=0x6558, metadata=int_mx)/ \
+    Ether(dst='b6:18:00:88:88:00', src='b6:18:00:99:99:00')/ \
+    IP(src='192.168.1.5', dst='192.168.6.9', ttl=128)/ \
+    TCP(sport=6677, dport=8899)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IP].tos == 0
+assert pkt[IP].proto == socket.IPPROTO_GRE
+assert pkt[IP].chksum == 0xec0a
+assert pkt[GRE].proto == INT_GRE_PROTOCOL
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MX Over IPv6 GRE
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IPv6(src="2000::1", dst="5000::1", hlim=63)/ \
+    GRE(proto=INT_GRE_PROTOCOL)/ \
+    INTShimGre(type=3, gre=0, gre_proto=0x6558, metadata=int_mx)/ \
+    Ether(dst='b6:18:00:88:88:00', src='b6:18:00:99:99:00')/ \
+    IP(src='192.168.1.5', dst='192.168.6.9', ttl=128)/ \
+    TCP(sport=6677, dport=8899)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IPv6].tc == 0
+assert pkt[IPv6].nh == socket.IPPROTO_GRE
+assert pkt[GRE].proto == INT_GRE_PROTOCOL
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MD Over IPv4 VXLAN
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IP(src="198.1.1.17", dst="198.1.2.18", ttl=63)/ \
+    UDP(sport=4196, dport=4790)/ \
+    VXLAN(flags='NextProtocol', NextProtocol=INT_VXLAN_PROTOCOL, vni=5000)/ \
+    INTShimVxlan(type=1, gpe=0, vxlan_proto=3, metadata=int_md)/ \
+    Ether(dst='b6:18:00:88:88:00', src='b6:18:00:99:99:00')/ \
+    IP(src='192.168.1.5', dst='192.168.6.9', ttl=128)/ \
+    TCP(sport=6677, dport=8899)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IP].tos == 0
+assert pkt[IP].proto == socket.IPPROTO_UDP
+assert pkt[IP].chksum == 0xebcc
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 4790
+assert pkt[UDP].chksum == 0xca77
+assert pkt[VXLAN].NextProtocol == INT_VXLAN_PROTOCOL
+assert pkt[VXLAN].vni == 5000
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MD Over IPv6 VXLAN
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IPv6(src="2000::1", dst="5000::1", hlim=63)/ \
+    UDP(sport=4196, dport=4790)/ \
+    VXLAN(flags='NextProtocol', NextProtocol=INT_VXLAN_PROTOCOL, vni=5000)/ \
+    INTShimVxlan(type=1, gpe=0, vxlan_proto=3, metadata=int_md)/ \
+    Ether(dst='b6:18:00:88:88:00', src='b6:18:00:99:99:00')/ \
+    IP(src='192.168.1.5', dst='192.168.6.9', ttl=128)/ \
+    TCP(sport=6677, dport=8899)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IPv6].tc == 0
+assert pkt[IPv6].nh == socket.IPPROTO_UDP
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 4790
+assert pkt[UDP].chksum == 0xe99b
+assert pkt[VXLAN].NextProtocol == INT_VXLAN_PROTOCOL
+assert pkt[VXLAN].vni == 5000
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MX Over IPv4 VXLAN
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IP(src="198.1.1.17", dst="198.1.2.18", ttl=63)/ \
+    UDP(sport=4196, dport=4790)/ \
+    VXLAN(flags='NextProtocol', NextProtocol=INT_VXLAN_PROTOCOL, vni=5000)/ \
+    INTShimVxlan(type=3, gpe=0, vxlan_proto=3, metadata=int_mx)/ \
+    Ether(dst='b6:18:00:88:88:00', src='b6:18:00:99:99:00')/ \
+    IP(src='192.168.1.5', dst='192.168.6.9', ttl=128)/ \
+    TCP(sport=6677, dport=8899)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IP].tos == 0
+assert pkt[IP].proto == socket.IPPROTO_UDP
+assert pkt[IP].chksum == 0xec1c
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 4790
+assert pkt[UDP].chksum == 0xcab1
+assert pkt[VXLAN].NextProtocol == INT_VXLAN_PROTOCOL
+assert pkt[VXLAN].vni == 5000
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MX Over IPv6 VXLAN
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IPv6(src="2000::1", dst="5000::1", hlim=63)/ \
+    UDP(sport=4196, dport=4790)/ \
+    VXLAN(flags='NextProtocol', NextProtocol=INT_VXLAN_PROTOCOL, vni=5000)/ \
+    INTShimVxlan(type=3, gpe=0, vxlan_proto=3, metadata=int_mx)/ \
+    Ether(dst='b6:18:00:88:88:00', src='b6:18:00:99:99:00')/ \
+    IP(src='192.168.1.5', dst='192.168.6.9', ttl=128)/ \
+    TCP(sport=6677, dport=8899)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IPv6].tc == 0
+assert pkt[IPv6].nh == socket.IPPROTO_UDP
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 4790
+assert pkt[UDP].chksum == 0xe9d5
+assert pkt[VXLAN].NextProtocol == INT_VXLAN_PROTOCOL
+assert pkt[VXLAN].vni == 5000
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MD Over IPv4 GENEVE
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IP(src="198.1.1.17", dst="198.1.2.18", ttl=63)/ \
+    UDP(sport=4196, dport=6081)/ \
+    GENEVE(proto=0x6558, vni=5000, options=GeneveOptINT(classid=INT_GENEVE_CLASSID, type=1, metadata=int_md))/ \
+    Ether(dst='b6:18:00:88:88:00', src='b6:18:00:99:99:00')/ \
+    IP(src='192.168.1.5', dst='192.168.6.9', ttl=128)/ \
+    TCP(sport=6677, dport=8899)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IP].tos == 0
+assert pkt[IP].proto == socket.IPPROTO_UDP
+assert pkt[IP].chksum == 0xebcc
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 6081
+assert pkt[UDP].chksum == 0x5a96
+assert pkt[GENEVE].proto == 0x6558
+assert pkt[GENEVE].vni == 5000
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MD Over IPv6 GENEVE
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IPv6(src="2000::1", dst="5000::1", hlim=63)/ \
+    UDP(sport=4196, dport=6081)/ \
+    GENEVE(proto=0x6558, vni=5000, options=GeneveOptINT(classid=INT_GENEVE_CLASSID, type=1, metadata=int_md))/ \
+    Ether(dst='b6:18:00:88:88:00', src='b6:18:00:99:99:00')/ \
+    IP(src='192.168.1.5', dst='192.168.6.9', ttl=128)/ \
+    TCP(sport=6677, dport=8899)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IPv6].tc == 0
+assert pkt[IPv6].nh == socket.IPPROTO_UDP
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 6081
+assert pkt[UDP].chksum == 0x79ba
+assert pkt[GENEVE].proto == 0x6558
+assert pkt[GENEVE].vni == 5000
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+= Build & Dissect, INT MX Over IPv4 GENEVE
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IP(src="198.1.1.17", dst="198.1.2.18", ttl=63)/ \
+    UDP(sport=4196, dport=6081)/ \
+    GENEVE(proto=0x6558, vni=5000, options=GeneveOptINT(classid=INT_GENEVE_CLASSID, type=3, metadata=int_mx))/ \
+    Ether(dst='b6:18:00:88:88:00', src='b6:18:00:99:99:00')/ \
+    IP(src='192.168.1.5', dst='192.168.6.9', ttl=128)/ \
+    TCP(sport=6677, dport=8899)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IP].tos == 0
+assert pkt[IP].proto == socket.IPPROTO_UDP
+assert pkt[IP].chksum == 0xec1c
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 6081
+assert pkt[UDP].chksum == 0x8cd0
+assert pkt[GENEVE].proto == 0x6558
+assert pkt[GENEVE].vni == 5000
+check_int_shim(pkt)
+check_int_meta(pkt)
+
+
+= Build & Dissect, INT MX Over IPv6 GENEVE
+
+pkt=Ether(src="b6:18:00:11:11:00", dst="b6:18:00:22:22:00")/ \
+    IPv6(src="2000::1", dst="5000::1", hlim=63)/ \
+    UDP(sport=4196, dport=6081)/ \
+    GENEVE(proto=0x6558, vni=5000, options=GeneveOptINT(classid=INT_GENEVE_CLASSID, type=3, metadata=int_mx))/ \
+    Ether(dst='b6:18:00:88:88:00', src='b6:18:00:99:99:00')/ \
+    IP(src='192.168.1.5', dst='192.168.6.9', ttl=128)/ \
+    TCP(sport=6677, dport=8899)/ \
+    Raw('a'*64)
+
+pkt=Ether(raw(pkt))
+# pkt.show2()
+
+assert pkt[IPv6].tc == 0
+assert pkt[IPv6].nh == socket.IPPROTO_UDP
+assert pkt[UDP].sport == 4196
+assert pkt[UDP].dport == 6081
+assert pkt[UDP].chksum == 0xabf4
+assert pkt[GENEVE].proto == 0x6558
+assert pkt[GENEVE].vni == 5000
+check_int_shim(pkt)
+check_int_meta(pkt)
