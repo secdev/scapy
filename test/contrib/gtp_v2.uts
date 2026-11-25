@@ -170,6 +170,12 @@ ie.ietype == 77 and ie.PS == 1 and ie.CPRAI == 1
 ie = IE_Indication(ietype='Indication', length=8, DTF=1, PPSI=1)
 ie.ietype == 77 and ie.DTF == 1 and ie.PPSI == 1
 
+= IE_Indication, build without length
+ie = IE_Indication(PS=1)
+assert bytes(ie) == b'M\x00\x03\x00\x00\x08\x00'
+d = IE_Indication(bytes(ie))
+assert d.PS == 1 and d.length == 3
+
 = IE_PCO, dissection
 h = "333333333333222222222222810083840800458800a500000000fd1183bb0a2a00010a2a0002084b76a00091cf0b48210085bd574af24c68e300020002001000570009008b000010927f0000025700090187000010927f0000024f000500017f0000037f000100004e00220080000d040a2a0003000d040a2a00038021100300001081060a2a000483060a2a00045d00250049000100660200020010005700090081000010927f0000025700090285000010927f000002dd9f22c6"
 gtp = Ether(hex_bytes(h))
@@ -210,6 +216,12 @@ ie.Sec_Mode == 4 and ie.Nhi == 0 and ie.Drxi == 1 and ie.Ksi == 0 and ie.Num_qui
 = IE_MMContext_EPS, basic instantiation
 ie = IE_MMContext_EPS(ietype=107, length=70, CR_flag=0, instance=0, Sec_Mode=4, Nhi=0, Drxi=1, Ksi=0, Num_quint=0, Num_Quad=0, Uambri=0, Osci=0, Sambri=1, Nas_algo=1, Nas_cipher=1, Nas_dl_count=2, Nas_ul_count=2, Kasme=11111111111111111111111111111111111111111111111111111111111111111111111111111)
 ie.Sec_Mode == 4 and ie.Nhi == 0 and ie.Drxi == 1 and ie.Ksi == 0 and ie.Num_quint == 0 and ie.Num_Quad == 0 and ie.Uambri == 0 and ie.Osci == 0 and ie.Sambri == 1 and ie.Nas_algo == 1 and ie.Nas_cipher == 1 and ie.Nas_dl_count == 2 and ie.Nas_ul_count == 2 and ie.Kasme == 11111111111111111111111111111111111111111111111111111111111111111111111111111
+
+= IE_MMContext_EPS, build without length
+ie = IE_MMContext_EPS()
+assert len(bytes(ie)) == 45
+d = IE_MMContext_EPS(bytes(ie))
+assert d.length == 41
 
 = IE_PDNConnection, IE_FQDN, dissection
 h = "d89ef3da40e2fa163e956dce08004500008a0001000040114bbd0a0a0f3d0a0f0b5b084b084b00765a234883006a0000180f76d163006b0046008800910000020000021890aa80be385102083701a2907066f8bd9f2a28b717671c71c71c71c71c71c70100003d090002625a00028040000812345678900000000000000000006d0014008800100004706777310474657374056c6f63616c"
