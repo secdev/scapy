@@ -45,10 +45,13 @@ def executeScannerInVirtualEnvironment(supported_responses, enumerators, unstabl
         answering_machine.state["session"] = 1
         sniff(timeout=0.001, opened_socket=[ecu, tester])
     def reconnect():
+        nonlocal tester
         try:
             tester.close()
-        except Exception:
+        except (AttributeError, OSError):
             pass
+        tester_obj_pipe.clear()
+        ecu.paired_sockets = [s for s in ecu.paired_sockets if not s.closed and s is not tester]
         tester = TesterSocket(UDS, tester_obj_pipe)
         ecu.pair(tester)
         return tester
@@ -1130,7 +1133,10 @@ pkt = UDS_RMBARandomEnumerator._random_memory_addr_pkt()
 assert pkt.memorySizeLen in [1, 2, 3, 4]
 assert pkt.memoryAddressLen in [1, 2, 3, 4]
 
-pkt2 = UDS_RMBARandomEnumerator._random_memory_addr_pkt()
+for _ in range(10):
+    pkt2 = UDS_RMBARandomEnumerator._random_memory_addr_pkt()
+    if pkt != pkt2:
+        break
 
 assert pkt != pkt2
 

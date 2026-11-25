@@ -14,6 +14,7 @@ Wireshark dissectors. See https://wiki.wireshark.org/CANopen
 
 import os
 import gzip
+import socket
 import struct
 
 from scapy.config import conf
@@ -43,19 +44,44 @@ from typing import (
     cast,
 )
 
-__all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
-           "LEUnsignedSignalField", "LEFloatSignalField", "BEFloatSignalField",
-           "BESignedSignalField", "BEUnsignedSignalField", "rdcandump",
-           "CandumpReader", "SignalHeader", "CAN_MTU", "CAN_MAX_IDENTIFIER",
-           "CAN_MAX_DLEN", "CAN_INV_FILTER", "CANFD", "CAN_FD_MTU",
-           "CAN_FD_MAX_DLEN", "CANXL", "CANXL_MTU", "CANXL_MAX_DLEN",
-           "CANXL_MIN_DLEN", "CANXL_HDR_SIZE", "CANXL_XLF", "CANXL_FDF",
-           "CANXL_IDE", "CANXL_SEC", "CANXL_RRS"]
+__all__ = [
+    "BEFloatSignalField",
+    "BESignedSignalField",
+    "BEUnsignedSignalField",
+    "CAN",
+    "CANFD",
+    "CANXL",
+    "CANXL_FDF",
+    "CANXL_HDR_SIZE",
+    "CANXL_IDE",
+    "CANXL_MAX_DLEN",
+    "CANXL_MIN_DLEN",
+    "CANXL_MTU",
+    "CANXL_RRS",
+    "CANXL_SEC",
+    "CANXL_XLF",
+    "CAN_EFF_FLAG",
+    "CAN_FD_MAX_DLEN",
+    "CAN_FD_MTU",
+    "CAN_INV_FILTER",
+    "CAN_MAX_DLEN",
+    "CAN_MAX_IDENTIFIER",
+    "CAN_MTU",
+    "CandumpReader",
+    "LEFloatSignalField",
+    "LESignedSignalField",
+    "LEUnsignedSignalField",
+    "SignalField",
+    "SignalHeader",
+    "SignalPacket",
+    "rdcandump",
+]
 
 # CONSTANTS
 CAN_MAX_IDENTIFIER = (1 << 29) - 1  # Maximum 29-bit identifier
 CAN_MTU = 16
 CAN_MAX_DLEN = 8
+CAN_EFF_FLAG = getattr(socket, "CAN_EFF_FLAG", 0x80000000)
 CAN_INV_FILTER = 0x20000000
 CAN_FD_MTU = 72
 CAN_FD_MAX_DLEN = 64
