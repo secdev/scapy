@@ -46,7 +46,10 @@ class WebSocketPayloadLenField(BitField):
     def i2m(self, pkt, val):
         # Count the cached wire body, excluding any subsequent frames.
         if val is None:
-            return len(pkt.payload.self_build())
+            length = len(pkt.payload.do_build())
+            if WebSocket in pkt.payload:
+                length -= len(pkt.payload[WebSocket].do_build())
+            return length
         return val
 
     def getfield(self, pkt, s):
@@ -209,7 +212,7 @@ class WebSocket(Packet):
             return payload
 
         # Mask only this frame's body, leaving any following frames untouched.
-        length = len(self.payload.self_build())
+        length = self.get_field("payloadLen").i2m(self, None)
         data = payload[:length]
 
         # RFC6455 sect 5.3 - "same steps [...] to mask [...] as to unmask"

@@ -99,6 +99,10 @@ assert pkts[15][WebSocket].load == b'Hello, world!'
 frame = b"\x81\x85\x37\xfa\x21\x3d\x7f\x9f\x4d\x51\x58"
 assert WebSocket(frame).load == b"Hello"
 assert bytes(WebSocket(fin=1, opcode="text", mask=1, maskingKey=b"\x37\xfa\x21\x3d") / b"Hello") == frame
+packet = WebSocket(fin=1, opcode="text", mask=1, maskingKey=b"\x37\xfa\x21\x3d") / Raw(b"He") / Raw(b"llo")
+assert bytes(packet) == frame
+packet /= WebSocket(fin=1, opcode="text") / b"Hello"
+assert bytes(packet) == frame + b"\x81\x05Hello"
 
 = Opening handshake from RFC 6455 section 1.3 followed by a text frame
 from scapy.layers.http import HTTPRequest, HTTPResponse
