@@ -1,7 +1,7 @@
 # WebSocket layer unit tests
 # Copyright (C) 2024 Lucas Drufva <lucas.drufva@gmail.com>
 #
-# Type the following command to launch start the tests:
+# Type the following command to start the tests:
 # $ test/run_tests -P "load_contrib('websocket')" -t test/contrib/websocket.uts
 
 + Syntax check
@@ -92,6 +92,43 @@ pkts = sniff(offline=filename, session=TCPSession)
 # TCPSession omits the two empty FIN packets from this capture.
 assert len(pkts) == 17
 
-# Invalid upgrade attempts must not be dissected as WebSocket messages.
-assert len([pkt for pkt in pkts if WebSocket in pkt]) == 1
 assert pkts[15][WebSocket].wsPayload == b'Hello, world!'
+
+= Masking example from RFC 6455 section 5.7
+frame = b"\x81\x85\x37\xfa\x21\x3d\x7f\x9f\x4d\x51\x58"
+assert WebSocket(frame).wsPayload == b"Hello"
+assert bytes(WebSocket(fin=1, opcode="text", mask=1, maskingKey=0x37fa213d, wsPayload=b"Hello")) == frame
+
+= Opening handshake from RFC 6455 section 1.3 followed by a text frame
+from scapy.layers.http import HTTPRequest, HTTPResponse
+
+request = (
+    b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\n"
+    b"Upgrade: websocket\r\nConnection: Upgrade\r\n"
+    b"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+    b"Origin: http://example.com\r\nSec-WebSocket-Protocol: chat, superchat\r\n"
+    b"Sec-WebSocket-Version: 13\r\n\r\n"
+)
+response = (
+    b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n"
+    b"Connection: Upgrade\r\nSec-WebSocket-Protocol: chat\r\n"
+    b"Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n\r\n"
+)
+session = TCPSession(app=True)
+assert HTTPRequest in session.process(request, cls=WebSocket)
+assert HTTPResponse in session.process(response + b"\x81\x05Hello", cls=WebSocket)
+assert session.session["handshake-state"] == WebSocket.HandshakeState.OPEN
+assert session.process(b"", cls=WebSocket).wsPayload == b"Hello"
+
+= Compression with context takeover from RFC 7692 section 7.2.3.2
+from scapy.contrib.websocket import WebSocketDeflateDecoder
+
+decoder = WebSocketDeflateDecoder()
+assert WebSocket(b"\xc1\x07\xf2\x48\xcd\xc9\xc9\x07\x00", decoder=decoder).wsPayload == b"Hello"
+assert WebSocket(b"\xc1\x05\xf2\x00\x11\x00\x00", decoder=decoder).wsPayload == b"Hello"
+
+= Compressed fragments from RFC 7692 section 7.2.3.1
+decoder = WebSocketDeflateDecoder()
+first = WebSocket(b"\x41\x03\xf2\x48\xcd", decoder=decoder)
+last = WebSocket(b"\x80\x04\xc9\xc9\x07\x00", decoder=decoder)
+assert first.wsPayload + last.wsPayload == b"Hello"

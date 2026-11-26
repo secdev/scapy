@@ -6,124 +6,173 @@
 # scapy.contrib.description = WebSocket
 # scapy.contrib.status = loads
 
-# Based on rfc6455
+"""WebSocket framing (RFC 6455) and permessage-deflate (RFC 7692).
 
-import struct
+Bind TCP to WebSocket on the application's port to follow an HTTP upgrade
+with TCPSession. No port is bound by default, since HTTP ports carry other
+application protocols too.
+"""
+
 import base64
+import struct
 import zlib
+from enum import Enum
 from hashlib import sha1
-from scapy.fields import (BitFieldLenField, Field, BitField, BitEnumField, ConditionalField, XNBytesField)
-from scapy.layers.http import HTTPRequest, HTTPResponse, HTTP
+
+from scapy.config import conf
+from scapy.error import log_runtime
+from scapy.fields import (
+    BitEnumField,
+    BitField,
+    BitFieldLenField,
+    ConditionalField,
+    StrLenField,
+    XIntField,
+)
+from scapy.layers.http import HTTP, HTTPRequest, HTTPResponse
 from scapy.layers.inet import TCP
 from scapy.packet import Packet
-from scapy.error import Scapy_Exception
-import logging
+
+# Limit the decoded size of a message, including all its continuation frames.
+conf.contribs.setdefault("websocket", {}).setdefault("max_decompression", 1024 * 1024)
 
 
-class PayloadLenField(BitFieldLenField):
+class WebSocketPayloadLenField(BitFieldLenField):
+    """Encode and decode the variable-width payload length from RFC 6455, section 5.2.
 
-    def __init__(self, name, default, length_of, size=0, tot_size=0, end_tot_size=0):
-        # Initialize with length_of (like in BitFieldLenField) and lengthFrom (like in BitLenField)
-        super().__init__(name, default, size, length_of=length_of, tot_size=tot_size, end_tot_size=end_tot_size)
+    Values up to 125 fit in seven bits; markers 126 and 127 introduce a
+    16-bit or 64-bit length in network byte order. An unspecified length is
+    calculated from the payload when building a frame.
+    """
 
     def getfield(self, pkt, s):
-        s, _ = s
-        # Get the 7-bit field (first byte)
-        length_byte = s[0] & 0x7F
-        s = s[1:]
-
-        if length_byte <= 125:
-            # 7-bit length
-            return s, length_byte
-        elif length_byte == 126:
-            # 16-bit length
-            length = struct.unpack("!H", s[:2])[0]  # Read 2 bytes
-            s = s[2:]
-            return s, length
-        elif length_byte == 127:
-            # 64-bit length
-            length = struct.unpack("!Q", s[:8])[0]  # Read 8 bytes
-            s = s[8:]
-            return s, length
+        # RFC6455 sect 5.2 - "[...] expressed in network byte order."
+        data, bits = s
+        length = data[0] & 0x7F
+        if length == 126:
+            return data[3:], struct.unpack("!H", data[1:3])[0]
+        if length == 127:
+            return data[9:], struct.unpack("!Q", data[1:9])[0]
+        return data[1:], length
 
     def addfield(self, pkt, s, val):
-        p_field, p_val = pkt.getfield_and_val(self.length_of)
-        val = p_field.i2len(pkt, p_val)
-
+        # Compute only unspecified lengths and keep shared field objects immutable.
+        val = self.i2m(pkt, val)
+        data, bits, mask = s
+        mask <<= 7
         if val <= 125:
-            self.size = 7
-            return super().addfield(pkt, s, val)
-        elif val <= 0xFFFF:
-            self.size = 7+16
-            s, _, masked = s
-            return s + struct.pack("!BH", 126 | masked, val)
-        elif val <= 0xFFFFFFFFFFFFFFFF:
-            self.size = 7+64
-            s, _, masked = s
-            return s + struct.pack("!BQ", 127 | masked, val)
-        else:
-            raise Scapy_Exception("%s: Payload length too large" %
-                                    self.__class__.__name__)
+            return data + struct.pack("!B", mask | val)
+        if val <= 0xFFFF:
+            return data + struct.pack("!BH", mask | 126, val)
+        return data + struct.pack("!BQ", mask | 127, val)
 
 
+class WebSocketDeflateDecoder:
+    """Maintain one sender's compression context across frames and messages."""
 
-class PayloadField(Field):
+    def __init__(self, window_bits=15, no_context_takeover=False):
+        # Each direction owns a separate DEFLATE stream.
+        self.window_bits = window_bits
+        self.no_context_takeover = no_context_takeover
+        self.decoder = zlib.decompressobj(wbits=-window_bits)
+        self.compressed = False
+        self.decoded_length = 0
+
+    def decompress(self, pkt, data):
+        # Control frames can interrupt a fragmented message without changing it.
+        if pkt.opcode >= 8:
+            return data
+
+        # RFC7692 sect 7.2.3.1 - "RSV1 [...] only on the first frame."
+        if pkt.opcode in (1, 2):
+            self.compressed = bool(pkt.rsv & 4)
+            self.decoded_length = 0
+        if not self.compressed:
+            return data
+
+        # RFC7692 sect 7.2.2 - "Append 4 octets of 0x00 0x00 0xff 0xff [...]"
+        # The omitted trailer belongs at the message's end, not every frame.
+        encoded = data + b"\x00\x00\xff\xff" if pkt.fin else data
+        limit = conf.contribs["websocket"]["max_decompression"]
+        try:
+            decoded = self.decoder.decompress(
+                encoded, max(1, limit - self.decoded_length + 1)
+            )
+            self.decoded_length += len(decoded)
+            if self.decoded_length > limit:
+                raise ValueError("WebSocket decompression limit reached")
+        except (ValueError, zlib.error) as exc:
+            # Retain the wire payload if the compression context is unusable.
+            log_runtime.debug("WebSocket decompression failed: %s", exc)
+            self.decoder = zlib.decompressobj(wbits=-self.window_bits)
+            self.compressed = False
+            return data
+
+        # RFC7692 sect 7.2.2 - "[...] an empty LZ77 sliding window."
+        # Reset only when the sender negotiated no context takeover.
+        if pkt.fin:
+            self.compressed = False
+            if self.no_context_takeover:
+                self.decoder = zlib.decompressobj(wbits=-self.window_bits)
+        return decoded
+
+
+class WebSocketPayloadField(StrLenField):
+    """Read and write frame payload bytes, applying the optional XOR mask.
+
+    Dissection reads the declared payload length, removes masking, and uses
+    the connection's decoder when supplied to decompress permessage-deflate
+    messages. Building applies masking to the supplied bytes without compression.
     """
-    Field for handling raw byte payloads with dynamic size.
-    The length of the payload is described by a preceding PayloadLenField.
-    """
-    __slots__ = ["lengthFrom"]
-    
-    def __init__(self, name, lengthFrom):
-        """
-        :param name: Field name
-        :param lengthFrom: Field name that provides the length of the payload
-        """
-        super(PayloadField, self).__init__(name, None)
-        self.lengthFrom = lengthFrom
+
+    def m2i(self, pkt, data):
+        # The masking key is always in network byte order on every host.
+        if pkt.mask:
+            key = struct.pack("!I", pkt.maskingKey)
+            mask = key * (len(data) // 4) + key[: len(data) % 4]
+            data = (int.from_bytes(data, "big") ^ int.from_bytes(mask, "big")).to_bytes(
+                len(data), "big"
+            )
+
+        # Compression is negotiated per connection and signaled per message.
+        if pkt.decoder is not None:
+            data = pkt.decoder.decompress(pkt, data)
+        return data
 
     def getfield(self, pkt, s):
-        # Fetch the length from the field that specifies the length
-        length = getattr(pkt, self.lengthFrom)
-        payloadData = s[:length]
+        # Empty final continuations still need to finish the compression stream.
+        if pkt.payloadLen == 0:
+            return s, self.m2i(pkt, b"")
+        return super().getfield(pkt, s)
 
+    def i2m(self, pkt, val):
+        # Use the normal string field conversion before applying the wire mask.
+        data = super().i2m(pkt, val)
         if pkt.mask:
-            key = struct.pack("I", pkt.maskingKey)[::-1]
-            data_int = int.from_bytes(payloadData, 'big')
-            mask_repeated = key * (len(payloadData) // 4) + key[: len(payloadData) % 4]
-            mask_int = int.from_bytes(mask_repeated, 'big')
-            payloadData = (data_int ^ mask_int).to_bytes(len(payloadData), 'big')
+            key = struct.pack("!I", pkt.maskingKey)
+            mask = key * (len(data) // 4) + key[: len(data) % 4]
+            data = (int.from_bytes(data, "big") ^ int.from_bytes(mask, "big")).to_bytes(
+                len(data), "big"
+            )
+        return data
 
-        if("permessage-deflate" in pkt.extensions):
-            try:
-                payloadData = pkt.decoder[0](payloadData + b"\x00\x00\xff\xff")
-            except Exception: 
-                logging.debug("Failed to decompress payload", payloadData)
-
-        return s[length:], payloadData
-
-    def addfield(self, pkt, s, val):
-        if pkt.mask:
-            key = struct.pack("I", pkt.maskingKey)[::-1]
-            data_int = int.from_bytes(val, 'big')
-            mask_repeated = key * (len(val) // 4) + key[: len(val) % 4]
-            mask_int = int.from_bytes(mask_repeated, 'big')
-            val = (data_int ^ mask_int).to_bytes(len(val), 'big')
-
-        return s + bytes(val)
-
-    def i2len(self, pkt, val):
-        # Length of the payload in bytes
-        return len(val)
 
 class WebSocket(Packet):
-    __slots__ = ["extensions", "decoder"]
+    __slots__ = ["decoder", "extensions"]
+
+    class HandshakeState(Enum):
+        WAITING_FOR_REQUEST = 0
+        WAITING_FOR_RESPONSE = 1
+        OPEN = 2
 
     name = "WebSocket"
     fields_desc = [
         BitField("fin", 0, 1),
         BitField("rsv", 0, 3),
-        BitEnumField("opcode", 0, 4, 
+        BitEnumField(
+            "opcode",
+            0,
+            4,
             {
                 0x0: "none",
                 0x1: "text",
@@ -131,134 +180,181 @@ class WebSocket(Packet):
                 0x8: "close",
                 0x9: "ping",
                 0xA: "pong",
-            }),
+            },
+        ),
         BitField("mask", 0, 1),
-        PayloadLenField("payloadLen", 0, length_of="wsPayload", size=1),
-        ConditionalField(XNBytesField("maskingKey", 0, sz=4), lambda pkt: pkt.mask == 1),
-        PayloadField("wsPayload", lengthFrom="payloadLen")
+        WebSocketPayloadLenField("payloadLen", None, 7, length_of="wsPayload"),
+        ConditionalField(XIntField("maskingKey", 0), lambda pkt: pkt.mask),
+        WebSocketPayloadField("wsPayload", b"", length_from=lambda pkt: pkt.payloadLen),
     ]
 
-    def __init__(self, pkt=None, extensions=[], decoder=None, *args, **fields):
-        self.extensions = extensions
+    def __init__(self, _pkt=b"", extensions=None, decoder=None, *args, **fields):
+        # Avoid sharing mutable extension defaults between packet instances.
+        self.extensions = extensions if extensions is not None else {}
         self.decoder = decoder
-        super().__init__(_pkt=pkt, *args, **fields)
+        super().__init__(_pkt, *args, **fields)
 
     def extract_padding(self, s):
-        return '', s
+        # Leave subsequent frames for TCPSession to reassemble separately.
+        return b"", s
+
+    @staticmethod
+    def _deflate_decoder(extensions, sender):
+        # Validate the window size negotiated for this sender's compressed stream.
+        # RFC7692 sect 7.1.2.1 - "[...] 8 to 15, inclusive [...]"
+        window_bits = int(extensions.get(sender + "_max_window_bits", 15))
+        if not 8 <= window_bits <= 15:
+            raise ValueError("Invalid WebSocket window size")
+
+        # Preserve compression history unless this sender must reset each message.
+        return WebSocketDeflateDecoder(
+            window_bits,
+            sender + "_no_context_takeover" in extensions,
+        )
 
     @classmethod
     def tcp_reassemble(cls, data, metadata, session):
-        # data = the reassembled data from the same request/flow
-        # metadata = empty dictionary, that can be used to store data
-        #            during TCP reassembly
-        # session = a dictionary proper to the bidirectional TCP session,
-        #           that can be used to store anything
-        # [...]
-        # If the packet is available, return it. Otherwise don't.
-        # Whenever you return a packet, the buffer will be discarded.
+        # Start by waiting for the client's HTTP upgrade request.
+        handshake_state = session.setdefault(
+            "handshake-state", cls.HandshakeState.WAITING_FOR_REQUEST
+        )
+        session.setdefault("extensions", {})
 
+        # TCPSession clears metadata before revisiting this segment's padding.
+        if "original" in metadata and "server-port" in session:
+            session["last-direction-is-server"] = (
+                metadata["original"][TCP].sport == session["server-port"]
+            )
 
-        HANDSHAKE_STATE_CLIENT_OPEN = 0
-        HANDSHAKE_STATE_SERVER_OPEN = 1
-        HANDSHAKE_STATE_OPEN = 2
+        # Keep HTTP headers buffered until the upgrade can be inspected.
+        if handshake_state != cls.HandshakeState.OPEN:
+            # Do not consume a partial HTTP header or the next protocol's bytes.
+            end = data.find(b"\r\n\r\n")
+            if end < 0:
+                return None
+            end += 4
+            http = HTTP(data[:end])
+            upgrading = False
+            if HTTPRequest in http:
+                # A repeated request can replace an unsuccessful upgrade attempt.
+                request = http[HTTPRequest]
+                if (
+                    request.Method == b"GET"
+                    and (request.Upgrade or b"").lower() == b"websocket"
+                    and request.Sec_WebSocket_Key is not None
+                ):
+                    # Save the client key for checking the server's accept value.
+                    session["handshake-key"] = request.Sec_WebSocket_Key
 
-        if "handshake-state" not in session:
-            session["handshake-state"] = HANDSHAKE_STATE_CLIENT_OPEN
+                    # Retain the server port to identify each TCP stream's sender.
+                    if "original" in metadata:
+                        session["server-port"] = metadata["original"][TCP].dport
 
-        if "extensions" not in session:
-            session["extensions"] = {}
+                    # Wait for the server to complete the HTTP upgrade.
+                    session["handshake-state"] = cls.HandshakeState.WAITING_FOR_RESPONSE
+                    upgrading = True
+            elif (
+                handshake_state == cls.HandshakeState.WAITING_FOR_RESPONSE
+                and HTTPResponse in http
+            ):
+                # Ordinary HTTP errors have no Upgrade header and remain HTTP.
+                response = http[HTTPResponse]
+                if (
+                    response.Status_Code == b"101"
+                    and (response.Upgrade or b"").lower() == b"websocket"
+                ):
+                    # Keep dissecting malformed handshakes, as Scapy permits.
+                    # RFC6455 sect 4.2.2 - "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+                    accept = base64.b64encode(
+                        sha1(
+                            session["handshake-key"]
+                            + b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+                        ).digest()
+                    )
+                    if response.Sec_WebSocket_Accept != accept:
+                        log_runtime.debug("WebSocket accept key mismatch")
 
+                    # Collect the compression parameters accepted by the server.
+                    extensions = session["extensions"] = {}
+                    extension_header = response.Sec_WebSocket_Extensions or b""
 
-        if session["handshake-state"] == HANDSHAKE_STATE_CLIENT_OPEN:
-            http_data = HTTP(data)
-            if HTTPRequest in http_data:
-                http_data = http_data[HTTPRequest]
-            else:
-                return http_data
+                    # Each extension has a name followed by semicolon-separated options.
+                    for extension in extension_header.split(b","):
+                        # Ignore extensions this decoder does not implement.
+                        parameters = extension.split(b";")
+                        if parameters[0].strip() != b"permessage-deflate":
+                            continue
 
-            if http_data.Method != b"GET":
-                return HTTP()/http_data
+                        # Record the extension and its key/value or flag parameters.
+                        extensions["permessage-deflate"] = None
+                        for parameter in parameters[1:]:
+                            key, separator, value = parameter.strip().partition(b"=")
+                            extensions[key.decode("ascii", errors="replace")] = (
+                                value.strip(b'"').decode("ascii", errors="replace")
+                                if separator
+                                else None
+                            )
 
-            if not http_data.Upgrade or http_data.Upgrade.lower() != b"websocket":
-                return HTTP()/http_data
-            
-            if not http_data.Unknown_Headers or b"Sec-WebSocket-Key" not in http_data.Unknown_Headers:
-                return HTTP()/http_data
-            
-            session["handshake-key"] = http_data.Unknown_Headers[b"Sec-WebSocket-Key"]
+                    # Create separate compression contexts for the two senders.
+                    if "permessage-deflate" in extensions:
+                        try:
+                            # Configure the client's outgoing stream.
+                            session["client-decoder"] = cls._deflate_decoder(
+                                extensions, "client"
+                            )
 
-            if "original" in metadata:
-                session["server-port"] = metadata["original"][TCP].dport
+                            # Configure the server's outgoing stream.
+                            session["server-decoder"] = cls._deflate_decoder(
+                                extensions, "server"
+                            )
+                        except (TypeError, ValueError, zlib.error) as exc:
+                            # Preserve frames if malformed parameters prevent decoding.
+                            log_runtime.debug("Invalid WebSocket extension: %s", exc)
+                            session.pop("client-decoder", None)
+                            session.pop("server-decoder", None)
 
-            session["handshake-state"] = HANDSHAKE_STATE_SERVER_OPEN
-            
-            return http_data
+                    # The upgrade is complete; subsequent data contains frames.
+                    session["handshake-state"] = cls.HandshakeState.OPEN
+                    upgrading = True
 
-        elif session["handshake-state"] == HANDSHAKE_STATE_SERVER_OPEN:
-            http_data = HTTP(data)
-            if HTTPResponse in http_data:
-                http_data = http_data[HTTPResponse]
-            else:
-                return http_data
+            # Keep ordinary HTTP bodies; only upgrades delimit WebSocket frames.
+            if not upgrading:
+                return HTTP(data)
 
-            if not http_data.Upgrade.lower() == b"websocket":
-                return HTTP()/http_data
-            
-            # Verify key-accept handshake:
-            correct_accept = base64.b64encode(sha1(session["handshake-key"] + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11".encode()).digest())
-            if not http_data.Unknown_Headers or b"Sec-WebSocket-Accept" not in http_data.Unknown_Headers or http_data.Unknown_Headers[b"Sec-WebSocket-Accept"] != correct_accept:
-                # TODO: handle or Logg wrong accept key
-                pass
+            # Preserve the HTTP wrapper on both sides of the upgrade.
+            if len(data) > end:
+                http /= conf.padding_layer(data[end:])
+            return http
 
-            if b"Sec-WebSocket-Extensions" in http_data.Unknown_Headers:
-                session["extensions"] = {}
-                for extension in http_data.Unknown_Headers[b"Sec-WebSocket-Extensions"].decode().strip().split(";"):
-                    key_value_pair = extension.split("=", 1) + [None]
-                    session["extensions"][key_value_pair[0].strip()] = key_value_pair[1]          
+        # Every frame starts with two bytes: FIN/RSV/opcode, then MASK/length.
+        if len(data) < 2:
+            return None
+        masked = bool(data[1] & 0x80)
 
-                if "permessage-deflate" in session["extensions"]:
-                    def create_decompressor(window_bits):
-                        decoder = zlib.decompressobj(wbits=-window_bits)
-                        def decomp(data):
-                            nonlocal decoder
-                            return decoder.decompress(data, 0)
-                        
-                        def reset():
-                            nonlocal decoder
-                            nonlocal window_bits
-                            decoder = zlib.decompressobj(wbits=-window_bits)
-                        
-                        return (decomp, reset)
-                    
-                    # Default values
-                    client_wb = 12
-                    server_wb = 15
+        # Reuse the packet field after the mask bit, without copying the payload.
+        try:
+            remaining, payload_length = cls.payloadLen.getfield(
+                None, (memoryview(data)[1:], 1)
+            )
+        except struct.error:
+            # The extended length is split across TCP segments.
+            return None
+        header_length = len(data) - len(remaining)
 
-                    # Check for new values in extensions header
-                    if "client_max_window_bits" in session["extensions"]:
-                        client_wb = int(session["extensions"]["client_max_window_bits"])
-                    
-                    if "server_max_window_bits" in session["extensions"]:
-                        server_wb = int(session["extensions"]["server_max_window_bits"])
-                        
+        # A masked frame also carries a four-byte key before its payload.
+        if masked:
+            header_length += 4
+        end = header_length + payload_length
+        if len(data) < end:
+            metadata["tcp_min_len"] = end
+            return None
 
-                    session["server-decoder"] = create_decompressor(client_wb)
-                    session["client-decoder"] = create_decompressor(server_wb)
+        # Prefer the TCP direction even for frames with an atypical mask bit.
+        is_server = session.get("last-direction-is-server", not masked)
+        decoder = session.get("server-decoder" if is_server else "client-decoder")
+        packet = cls(data[:end], extensions=session["extensions"], decoder=decoder)
 
-
-            session["handshake-state"] = HANDSHAKE_STATE_OPEN
-
-            return HTTP()/http_data
-        
-
-        # Handshake is done:
-        if "original" not in metadata:
-            return
-        
-        if "permessage-deflate" in session["extensions"]:
-            is_server = True if metadata["original"][TCP].sport == session["server-port"] else False
-            ws = WebSocket(bytes(data), extensions=session["extensions"], decoder = session["server-decoder"] if is_server else session["client-decoder"])
-            return ws
-        else:
-            ws = WebSocket(bytes(data), extensions=session["extensions"])
-            return ws
+        # Return remaining frames as padding for TCPSession's next invocation.
+        if len(data) > end:
+            packet /= conf.padding_layer(data[end:])
+        return packet

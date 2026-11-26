@@ -178,6 +178,47 @@ assert pkts[5].User_Agent == b'example_user_agent'
 # Verify all of the response data exists in the packet
 assert int(pkts[7][HTTP].Content_Length.decode()) == len(pkts[7][Raw].load)
 
+= HTTP response with an omitted reason phrase
+from scapy.layers.http import HTTPRequest, HTTPResponse
+
+wire = b"HTTP/1.1 101\r\nUpgrade: websocket\r\n\r\n"
+response = HTTPResponse(wire)
+assert response.Status_Code == b"101"
+assert response.Reason_Phrase == b""
+assert bytes(HTTP() / response) == wire
+response.Date = b"test"
+rebuilt = bytes(HTTP() / response)
+assert rebuilt.split(b"\r\n", 1)[0] == b"HTTP/1.1 101 "
+assert b"\r\nDate: test\r\n" in rebuilt
+assert HTTP(rebuilt).Status_Code == b"101"
+
+= HTTP WebSocket headers are standard fields
+websocket_headers = (
+    (HTTPRequest, b"GET / HTTP/1.1", [
+        (b"Sec-WebSocket-Extensions", b"permessage-deflate"),
+        (b"Sec-WebSocket-Key", b"dGhlIHNhbXBsZSBub25jZQ=="),
+        (b"Sec-WebSocket-Protocol", b"chat"),
+        (b"Sec-WebSocket-Version", b"13"),
+    ]),
+    (HTTPResponse, b"HTTP/1.1 101 Switching Protocols", [
+        (b"Sec-WebSocket-Accept", b"s3pPLMBiTxaQ9kYGzzhZRbK+xOo="),
+        (b"Sec-WebSocket-Extensions", b"permessage-deflate"),
+        (b"Sec-WebSocket-Protocol", b"chat"),
+        (b"Sec-WebSocket-Version", b"13"),
+    ]),
+)
+for layer, start_line, headers in websocket_headers:
+    # Decode independently written headers with mixed capitalization.
+    wire = start_line + b"\r\n" + b"".join(name.swapcase() + b": " + value + b"\r\n" for name, value in headers)
+    decoded = layer(wire + b"\r\n")
+    for name, value in headers:
+        assert decoded.getfieldval(name.decode().replace("-", "_")) == value
+    # Build the same headers using their explicit HTTP fields.
+    fields = {name.decode().replace("-", "_"): value for name, value in headers}
+    built = bytes(HTTP() / layer(**fields))
+    for name, value in headers:
+        assert b"\r\n" + name + b": " + value + b"\r\n" in built
+
 = HTTP build
 
 pkt = TCP()/HTTP()/HTTPRequest(Method=b'GET', Path=b'/download', Http_Version=b'HTTP/1.1', Accept=b'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', Accept_Encoding=b'gzip, deflate', Accept_Language=b'en-US,en;q=0.5', Cache_Control=b'max-age=0', Connection=b'keep-alive', Host=b'scapy.net', User_Agent=b'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:67.0) Gecko/20100101 Firefox/67.0')

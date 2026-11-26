@@ -173,6 +173,10 @@ REQUEST_HEADERS = [
     "Proxy-Authorization",
     "Range",
     "Referer",
+    "Sec-WebSocket-Extensions",
+    "Sec-WebSocket-Key",
+    "Sec-WebSocket-Protocol",
+    "Sec-WebSocket-Version",
     "TE",
     "User-Agent",
 ]
@@ -222,6 +226,10 @@ RESPONSE_HEADERS = [
     "Proxy-Authenticate",
     "Public-Key-Pins",
     "Retry-After",
+    "Sec-WebSocket-Accept",
+    "Sec-WebSocket-Extensions",
+    "Sec-WebSocket-Protocol",
+    "Sec-WebSocket-Version",
     "Server",
     "Set-Cookie",
     "Strict-Transport-Security",
@@ -500,7 +508,10 @@ class _HTTPContent(Packet):
             # Get the field value
             val = self.getfieldval(f.name)
             if not val:
-                if f.name == "Content_Length" and "chunked" not in encodings:
+                if f.name == "Reason_Phrase":
+                    # End the status line even when its reason phrase is empty.
+                    val = b""
+                elif f.name == "Content_Length" and "chunked" not in encodings:
                     # Add Content-Length anyways
                     val = str(len(self.payload or b""))
                 elif f.name == "Date" and isinstance(self, HTTPResponse):
@@ -603,10 +614,12 @@ class HTTPRequest(_HTTPContent):
         """From the HTTP packet string, populate the scapy object"""
         first_line, body = _dissect_headers(self, s)
         try:
-            method_path_version = re.split(rb"\s+", first_line, maxsplit=2) + [None]
-            self.setfieldval("Method", method_path_version[0])
-            self.setfieldval("Path", method_path_version[1])
-            self.setfieldval("Http_Version", method_path_version[2])
+            Method, Path, HTTPVersion = (
+                re.split(rb"\s+", first_line, maxsplit=2) + [None]
+            )[:3]
+            self.setfieldval("Method", Method)
+            self.setfieldval("Path", Path)
+            self.setfieldval("Http_Version", HTTPVersion)
         except ValueError:
             pass
         if body:
@@ -652,10 +665,12 @@ class HTTPResponse(_HTTPContent):
         """From the HTTP packet string, populate the scapy object"""
         first_line, body = _dissect_headers(self, s)
         try:
-            version_status_reason = re.split(rb"\s+", first_line, maxsplit=2) + [None]
-            self.setfieldval("Http_Version", version_status_reason[0])
-            self.setfieldval("Status_Code", version_status_reason[1])
-            self.setfieldval("Reason_Phrase", version_status_reason[2])
+            HTTPVersion, Status, Reason = (
+                re.split(rb"\s+", first_line, maxsplit=2) + [b""]
+            )[:3]
+            self.setfieldval("Http_Version", HTTPVersion)
+            self.setfieldval("Status_Code", Status)
+            self.setfieldval("Reason_Phrase", Reason)
         except ValueError:
             pass
         if body:
