@@ -21,7 +21,7 @@ RFC 6551 - Routing Metrics Used for Path Calculation in LLNs
 import struct
 from scapy.packet import Packet
 from scapy.fields import ByteEnumField, ByteField, ShortField, BitField, \
-    BitEnumField, FieldLenField, StrLenField, IntField, PacketListField
+    BitEnumField, StrLenField, IntField, PacketListField
 from scapy.layers.inet6 import _PhantomAutoPadField
 from scapy.contrib.rpl import RPLOPTSSTR, RPLOPTS, _RPLGuessOption
 
@@ -46,28 +46,6 @@ DAGMC_OBJTYPE = {1: "Node State and Attributes",
                  6: "Link Quality Level",
                  7: "Link ETX",
                  8: "Link Color"}
-
-
-class DAGMCObjUnknown(Packet):
-    """
-    Dummy unknown metric/constraint
-    """
-    name = 'Unknown DAGMC Object Option'
-    fields_desc = [ByteEnumField("otype", 3, DAGMC_OBJTYPE),
-                   FieldLenField("olen", None, length_of="odata", fmt="B"),
-                   StrLenField("odata", "",
-                               length_from=lambda pkt: pkt.olen)]
-
-    @classmethod
-    def dispatch_hook(cls, _pkt=None, *_, **kargs):
-        """
-        Dispatch hook for DAGMC sub-fields
-        """
-        if _pkt:
-            opt_type = _pkt[0]  # Option type
-            if opt_type in DAGMC_CLS:
-                return DAGMC_CLS[opt_type]
-        return cls
 
 
 AGG_RTMETRIC = {0: "additive",
@@ -105,6 +83,31 @@ class DAGMCObj(Packet):
         # header, and the next object of the container starts after it
         tmp_len = max(self.len - (len(self.self_build()) - 4), 0)
         return s[:tmp_len], s[tmp_len:]
+
+
+class DAGMCObjUnknown(DAGMCObj):
+    """
+    Metric/constraint object of a type without its own class: the
+    common header of RFC 6551 - 2.1, then Length octets of body
+    """
+    name = 'Unknown DAGMC Object Option'
+    deprecated_fields = {
+        "olen": ("len", "2.8.1"),
+    }
+    fields_desc = DAGMCObj.fields_desc + [
+        StrLenField("odata", "", length_from=lambda pkt: pkt.len)
+    ]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *_, **kargs):
+        """
+        Dispatch hook for DAGMC sub-fields
+        """
+        if _pkt:
+            opt_type = _pkt[0]  # Option type
+            if opt_type in DAGMC_CLS:
+                return DAGMC_CLS[opt_type]
+        return cls
 
 
 class RPLDAGMCNSA(DAGMCObj):
