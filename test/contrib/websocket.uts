@@ -89,8 +89,9 @@ from scapy.sessions import TCPSession
 
 filename = scapy_path("/test/pcaps/websocket_invalid_handshakes.pcap")
 pkts = sniff(offline=filename, session=TCPSession)
+# TCPSession omits the two empty FIN packets from this capture.
+assert len(pkts) == 17
 
-
-assert len(pkts) == 19
-
+# Invalid upgrade attempts must not be dissected as WebSocket messages.
+assert len([pkt for pkt in pkts if WebSocket in pkt]) == 1
 assert pkts[15][WebSocket].wsPayload == b'Hello, world!'
