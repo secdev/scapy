@@ -24,10 +24,8 @@ from scapy.error import log_runtime
 from scapy.fields import (
     BitEnumField,
     BitField,
-    BitFieldLenField,
     ConditionalField,
-    StrLenField,
-    XIntField,
+    XStrFixedLenField,
 )
 from scapy.layers.http import HTTP, HTTPRequest, HTTPResponse
 from scapy.layers.inet import TCP
@@ -37,13 +35,19 @@ from scapy.packet import Packet
 conf.contribs.setdefault("websocket", {}).setdefault("max_decompression", 1024 * 1024)
 
 
-class WebSocketPayloadLenField(BitFieldLenField):
+class WebSocketPayloadLenField(BitField):
     """Encode and decode the variable-width payload length from RFC 6455, section 5.2.
 
     Values up to 125 fit in seven bits; markers 126 and 127 introduce a
     16-bit or 64-bit length in network byte order. An unspecified length is
     calculated from the payload when building a frame.
     """
+
+    def i2m(self, pkt, val):
+        # Count the cached wire body, excluding any subsequent frames.
+        if val is None:
+            return len(pkt.payload.self_build())
+        return val
 
     def getfield(self, pkt, s):
         # RFC6455 sect 5.2 - "[...] expressed in network byte order."
@@ -75,6 +79,7 @@ class WebSocketDeflateDecoder:
         self.window_bits = window_bits
         self.no_context_takeover = no_context_takeover
         self.decoder = zlib.decompressobj(wbits=-window_bits)
+        self.history = b""
         self.compressed = False
         self.decoded_length = 0
 
@@ -94,17 +99,34 @@ class WebSocketDeflateDecoder:
         # The omitted trailer belongs at the message's end, not every frame.
         encoded = data + b"\x00\x00\xff\xff" if pkt.fin else data
         limit = conf.contribs["websocket"]["max_decompression"]
+        decoded = []
         try:
-            decoded = self.decoder.decompress(
-                encoded, max(1, limit - self.decoded_length + 1)
-            )
-            self.decoded_length += len(decoded)
-            if self.decoded_length > limit:
-                raise ValueError("WebSocket decompression limit reached")
+            # Bound the output across all DEFLATE streams in this message.
+            while encoded:
+                chunk = self.decoder.decompress(
+                    encoded, max(1, limit - self.decoded_length + 1)
+                )
+                self.decoded_length += len(chunk)
+                if self.decoded_length > limit:
+                    raise ValueError("WebSocket decompression limit reached")
+                decoded.append(chunk)
+
+                # Keep only the negotiated sliding window for the next stream.
+                self.history = (self.history + chunk)[-(1 << self.window_bits) :]
+                if not self.decoder.eof:
+                    break
+
+                # RFC7692 sect 7.2.1 - "[...] BFINAL [...] set to 1."
+                # A final DEFLATE block can precede more blocks or messages.
+                encoded = self.decoder.unused_data
+                self.decoder = zlib.decompressobj(
+                    wbits=-self.window_bits, zdict=self.history
+                )
         except (ValueError, zlib.error) as exc:
             # Retain the wire payload if the compression context is unusable.
             log_runtime.debug("WebSocket decompression failed: %s", exc)
             self.decoder = zlib.decompressobj(wbits=-self.window_bits)
+            self.history = b""
             self.compressed = False
             return data
 
@@ -114,47 +136,8 @@ class WebSocketDeflateDecoder:
             self.compressed = False
             if self.no_context_takeover:
                 self.decoder = zlib.decompressobj(wbits=-self.window_bits)
-        return decoded
-
-
-class WebSocketPayloadField(StrLenField):
-    """Read and write frame payload bytes, applying the optional XOR mask.
-
-    Dissection reads the declared payload length, removes masking, and uses
-    the connection's decoder when supplied to decompress permessage-deflate
-    messages. Building applies masking to the supplied bytes without compression.
-    """
-
-    def m2i(self, pkt, data):
-        # The masking key is always in network byte order on every host.
-        if pkt.mask:
-            key = struct.pack("!I", pkt.maskingKey)
-            mask = key * (len(data) // 4) + key[: len(data) % 4]
-            data = (int.from_bytes(data, "big") ^ int.from_bytes(mask, "big")).to_bytes(
-                len(data), "big"
-            )
-
-        # Compression is negotiated per connection and signaled per message.
-        if pkt.decoder is not None:
-            data = pkt.decoder.decompress(pkt, data)
-        return data
-
-    def getfield(self, pkt, s):
-        # Empty final continuations still need to finish the compression stream.
-        if pkt.payloadLen == 0:
-            return s, self.m2i(pkt, b"")
-        return super().getfield(pkt, s)
-
-    def i2m(self, pkt, val):
-        # Use the normal string field conversion before applying the wire mask.
-        data = super().i2m(pkt, val)
-        if pkt.mask:
-            key = struct.pack("!I", pkt.maskingKey)
-            mask = key * (len(data) // 4) + key[: len(data) % 4]
-            data = (int.from_bytes(data, "big") ^ int.from_bytes(mask, "big")).to_bytes(
-                len(data), "big"
-            )
-        return data
+                self.history = b""
+        return b"".join(decoded)
 
 
 class WebSocket(Packet):
@@ -183,9 +166,11 @@ class WebSocket(Packet):
             },
         ),
         BitField("mask", 0, 1),
-        WebSocketPayloadLenField("payloadLen", None, 7, length_of="wsPayload"),
-        ConditionalField(XIntField("maskingKey", 0), lambda pkt: pkt.mask),
-        WebSocketPayloadField("wsPayload", b"", length_from=lambda pkt: pkt.payloadLen),
+        WebSocketPayloadLenField("payloadLen", None, 7),
+        # RFC6455 sect 5.2 - "Masking-key: 0 or 4 bytes"
+        ConditionalField(
+            XStrFixedLenField("maskingKey", b"\x00" * 4, 4), lambda pkt: pkt.mask
+        ),
     ]
 
     def __init__(self, _pkt=b"", extensions=None, decoder=None, *args, **fields):
@@ -196,7 +181,44 @@ class WebSocket(Packet):
 
     def extract_padding(self, s):
         # Leave subsequent frames for TCPSession to reassemble separately.
-        return b"", s
+        return s[: self.payloadLen], s[self.payloadLen :]
+
+    def do_dissect_payload(self, s):
+        # Remove masking before decoding the message's compressed bytes.
+        if self.mask:
+            # RFC6455 sect 5.3 - "j = i MOD 4"
+            # Repeat the key so each payload byte is XORed with key[i % 4].
+            key = self.maskingKey
+            mask = key * (len(s) // 4) + key[: len(s) % 4]
+            s = (int.from_bytes(s, "big") ^ int.from_bytes(mask, "big")).to_bytes(
+                len(s), "big"
+            )
+
+        # Expose decoded content while caching the encoded body, as HTTP does.
+        encoded = s
+        if self.decoder is not None:
+            s = self.decoder.decompress(self, s)
+        self.add_payload(conf.raw_layer(load=s))
+        self.payload.raw_packet_cache = encoded
+        self.payload.raw_packet_cache_fields = {}
+
+    def do_build_payload(self):
+        # The Raw payload cache preserves compressed bytes after header edits.
+        payload = super().do_build_payload()
+        if not self.mask:
+            return payload
+
+        # Mask only this frame's body, leaving any following frames untouched.
+        length = len(self.payload.self_build())
+        data = payload[:length]
+
+        # RFC6455 sect 5.3 - "same steps [...] to mask [...] as to unmask"
+        key = self.maskingKey
+        mask = key * (len(data) // 4) + key[: len(data) % 4]
+        data = (int.from_bytes(data, "big") ^ int.from_bytes(mask, "big")).to_bytes(
+            len(data), "big"
+        )
+        return data + payload[length:]
 
     @staticmethod
     def _deflate_decoder(extensions, sender):
