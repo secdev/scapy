@@ -1353,8 +1353,9 @@ class PNIORealTimeAcyclicPDUHeader(Packet):
         # IEC-61158-6-10:2021, Table 241
         ShortField("AlarmDstEndpoint", 0),
         ShortField("AlarmSrcEndpoint", 0),
-        BitEnumField("PDUTypeType", 0, 4, PDU_TYPE_TYPE),
+        # PDUType: Version in bits 4-7, Type in bits 0-3
         BitEnumField("PDUTypeVersion", 0, 4, PDU_TYPE_VERSION),
+        BitEnumField("PDUTypeType", 0, 4, PDU_TYPE_TYPE),
         BitField("AddFlags", 0, 8),
         XShortField("SendSeqNum", 0),
         XShortField("AckSeqNum", 0),
