@@ -26,6 +26,7 @@ inside loops and conditionals. Comments should explain intent or relevant
 constraints rather than restate individual statements; do not comment every line.
 
 When applicable, cite the RFC section in comments as `# RFC7692 sect 3.1 - "short quote [...]"`, using `[...]` to omit text and keep the quote concise.
+
 For example:
 
 ```python
