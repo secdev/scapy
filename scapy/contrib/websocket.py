@@ -44,11 +44,13 @@ class WebSocketPayloadLenField(BitField):
     """
 
     def i2m(self, pkt, val):
-        # Count the cached wire body, excluding any subsequent frames.
+        # Count body layers without rebuilding subsequent WebSocket frames.
         if val is None:
-            length = len(pkt.payload.do_build())
-            if WebSocket in pkt.payload:
-                length -= len(pkt.payload[WebSocket].do_build())
+            length = 0
+            payload = pkt.payload
+            while payload and not isinstance(payload, WebSocket):
+                length += len(payload.self_build())
+                payload = payload.payload
             return length
         return val
 
