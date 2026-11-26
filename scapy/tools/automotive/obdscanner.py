@@ -172,7 +172,7 @@ def main():
               file=sys.stderr)
         sys.exit(1)
 
-    if 0 > source >= 0x800 or 0 > destination >= 0x800\
+    if not (0 <= source < 0x800) or not (0 <= destination < 0x800) \
             or source == destination:
         print("The ids must be >= 0 and < 0x800 and not equal.",
               file=sys.stderr)

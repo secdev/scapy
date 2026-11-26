@@ -30,6 +30,34 @@ std_out, std_err = result.communicate()
 expected_output = plain_str(b'Scan for all possible obd service classes and their subfunctions.')
 assert expected_output in plain_str(std_out)
 
+
+= Test out of range source id
+result = subprocess.Popen([sys.executable, "scapy/tools/automotive/obdscanner.py",
+                           "--interface", "socketcan", "--channel", "vcan0",
+                           "--source", "0x800",
+                           "--destination", "0x7df", "--timeout", "0.01", "-1"],
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+returncode = result.wait()
+std_out, std_err = result.communicate()
+assert returncode != 0
+
+expected_output = plain_str(b'The ids must be >= 0 and < 0x800 and not equal.')
+assert expected_output in plain_str(std_err)
+
+
+= Test out of range destination id
+result = subprocess.Popen([sys.executable, "scapy/tools/automotive/obdscanner.py",
+                           "--interface", "socketcan", "--channel", "vcan0",
+                           "--source", "0x7e0",
+                           "--destination", "0x800", "--timeout", "0.01", "-1"],
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+returncode = result.wait()
+std_out, std_err = result.communicate()
+assert returncode != 0
+
+expected_output = plain_str(b'The ids must be >= 0 and < 0x800 and not equal.')
+assert expected_output in plain_str(std_err)
+
 + Scan tests
 
 = Load contribution layer
