@@ -683,7 +683,9 @@ class IE_MSInternationalNumber(IE_TLV):
     fields_desc = [ByteEnumField("ietype", 134, IEType),
                    ShortField("length", None),
                    FlagsField("flags", 0x91, 8, ["Extension", "", "", "International Number", "", "", "", "ISDN numbering"]),  # noqa: E501
-                   TBCDByteField("digits", "33607080910", length_from=lambda x: x.length - 1)]  # noqa: E501
+                   # Length counts the flags octet; without one, build every digit
+                   TBCDByteField("digits", "33607080910",
+                                 length_from=lambda x: None if x.length is None else x.length - 1)]  # noqa: E501
 
 
 class QoS_Profile(IE_Base):
