@@ -419,6 +419,19 @@ with run_smbserver():
    finally:
       cli.close()
 
+= smbserver: SMB 3.1.1 - query directory with a pattern outside of the share
+
+with run_smbserver():
+   cli = smbclient("127.0.0.1", "Administrator", password="Password2", port=12345, cli=False)
+   try:
+      cli.use("test")
+      cli.smbsock.set_TID(cli.current_tree)
+      fileId = cli.smbsock.create_request(cli.normalize_path(cli.pwd), type="folder")
+      files = cli.smbsock.query_directory(fileId, FileName="../*")
+      assert [x[0] for x in files] == ["."]
+   finally:
+      cli.close()
+
 = smbserver: SMB 3.1.1 - connect then put file
 
 LOCALPATH = pathlib.Path(get_temp_dir())
