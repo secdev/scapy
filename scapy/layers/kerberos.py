@@ -5059,6 +5059,8 @@ class KerberosSSP(SSP):
             "SendSignKeyUsage",
             "RecvSealKeyUsage",
             "RecvSignKeyUsage",
+            # client-only
+            "ClientTime",  # authenticator ctime/cusec, checked in the AP-REP
             # server-only
             "UPN",
             "PAC",
@@ -5078,6 +5080,7 @@ class KerberosSSP(SSP):
             self.ST = None
             self.STSessionKey = None
             self.IsAcceptor = IsAcceptor
+            self.ClientTime = None
             self.UPN = None
             self.PAC = None
             self.IAKerbSocket = None
@@ -5740,6 +5743,7 @@ class KerberosSSP(SSP):
 
             # Get the current time
             now_time = datetime.now(timezone.utc)
+            Context.ClientTime = now_time
             # Pick a random session key
             Context.KrbSessionKey = Key.new_random_key(
                 self.SKEY_TYPE,
@@ -5878,6 +5882,12 @@ class KerberosSSP(SSP):
 
             # Retrieve SessionKey
             repPart = ap_rep.encPart.decrypt(Context.STSessionKey)
+            # [RFC4120] sect 3.2.5: "the client [...] verifies that the timestamp
+            # and microsecond fields match those in the Authenticator it sent to
+            # the server".
+            if not Context.passive and repPart.getClientTime() != Context.ClientTime:
+                log_runtime.warning("KerberosSSP: AP-REP doesn't match the AP-REQ !")
+                return Context, None, GSS_S_DEFECTIVE_TOKEN
             # [RFC4120] sect 3.2.5: initial sequence number for server messages.
             Context.RecvSeqNum = repPart.seqNumber.val if repPart.seqNumber else 0
             if repPart.subkey is not None:

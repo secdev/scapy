@@ -1907,6 +1907,37 @@ with KrbRandomPatcher():
     assert status == GSS_S_DEFECTIVE_CREDENTIAL
     assert tok.innerToken.root.errorCode == "KRB_AP_ERR_SKEW"
 
+= GSS_Init_sec_context rejects an AP-REP that doesn't match the AP-REQ
+
+from scapy.layers.gssapi import GSS_S_DEFECTIVE_TOKEN
+
+st = KRB_Ticket(realm="DOMAIN.LOCAL", sname=PrincipalName.fromSPN("cifs/dc1"), encPart=EncryptedData())
+st.encPart.encrypt(srvkey, EncTicketPart(
+    transited=TransitedEncoding(trType=ASN1_INTEGER(0), contents=ASN1_STRING(b"")),
+    key=EncryptionKey.fromKey(tktkey),
+    crealm="DOMAIN.LOCAL",
+    cname=PrincipalName.fromUPN("User1@DOMAIN.LOCAL"),
+    authtime=ASN1_GENERALIZED_TIME(now - timedelta(hours=1)),
+    starttime=ASN1_GENERALIZED_TIME(now - timedelta(hours=1)),
+    endtime=ASN1_GENERALIZED_TIME(now + timedelta(hours=9)),
+))
+krbcli = KerberosSSP(UPN="User1@DOMAIN.LOCAL", SPN="cifs/dc1", ST=KRB_Ticket(bytes(st)), KEY=tktkey)
+krbsrv = KerberosSSP(SPN="cifs/dc1", KEY=srvkey)
+
+with KrbRandomPatcher():
+    clicontext, tok, _ = krbcli.GSS_Init_sec_context(None, req_flags=GSS_C_FLAGS.GSS_C_MUTUAL_FLAG)
+    _, first_ap_rep, status = krbsrv.GSS_Accept_sec_context(None, tok)
+    assert status == GSS_S_COMPLETE
+    _, _, status = krbcli.GSS_Init_sec_context(clicontext, first_ap_rep)
+    assert status == GSS_S_COMPLETE
+
+# A second AP-REQ with the same ticket, answered with the first AP-REP.
+# Done outside KrbRandomPatcher so that its authenticator time differs.
+clicontext, tok, _ = krbcli.GSS_Init_sec_context(None, req_flags=GSS_C_FLAGS.GSS_C_MUTUAL_FLAG)
+_, _, status = krbcli.GSS_Init_sec_context(clicontext, first_ap_rep)
+
+assert status == GSS_S_DEFECTIVE_TOKEN
+
 = Create client and server KerberosSSP (raw)
 
 client = KerberosSSP(
@@ -2248,7 +2279,11 @@ assert isinstance(tgsreq, KRB_TGS_REQ)
 data = bytes.fromhex("a18205ea308205e6a0030a0101a28205dd048205d9608205d506062b06010502050501300ea1030c012ea307030500010000006d8205b7308205b3a003020105a10302010da30c1b0a57494e32354832494e53a41a3018a003020101a111300f1b0d41646d696e6973747261746f72a58204706182046c30820468a003020105a10c1b0a57494e32354832494e53a21d301ba003020103a11430121b04636966731b0a77696e32356832696e73a38204323082042ea003020112a2820425048204217c553993fe145ddf6b46bab37779771270c71f5327e35b0499a4eede886f9e15ee25edde28ab1d513099b4a357346e12b6247f910d3f963966071a4114d0f6c5966083532745724314827cfef1437ebf6ea744f8969a32df955f631f4f5794acb2a0fd5bc34a5455611c501759698be8f3151b6554eba9898624ea52de87f47aa9b269289a09007d1ac1ad15419a2fa84d551af845ee5c043203a4e6b5ca671b3feefd1fdfb4450c116ba1e651c14637129770d8d6471003cdff4eb5c70af8a04572a172b22c15dd317f8cc66586ac232419510cf57f202af97537590d3919fa7bc7f44499bccf838e0d3591063fb12159825133dac991640eb8e10b3f1ea0955975f27cf057dbdaa4bac6ffe9fba0264a71079afb80e0e5edcef9ab46f573f0a1ce430432274b9e7205cb618f371892c945c1ac57ba0c323b15c72982ab6a1dadd351146bfb9542b98121657f4c3061e3d3cc16ae39041bdf2f8d5cf5efe5695619da93ed284b52dac2ea746ef3a425a9ce56ab0665efc6f2c3f57d770d99e0733629df217314f1457bcc426faa20e3dd524072beab16269671508e249b194c7098f373134723c3c0d5a688398176d24c8da82bec678ff1fca24d2110530a0a7c859f6c595c210e540dad710b2bc43645734a820124ab953dc44785ed3412bba65a2d675873f9f6b2f2a16a678a572ac0b0212442707f2b2406b55d1ce8d016911038092262c18aaae9abf3d25a3820d654e7b79d814d4ca7eafb0a612d3e28d4494ef23aea427a5e445d749ebdab04fce3022d22fa6b9d6593b45d198816ba4622307c96f2c1a444cb969bd044e0ec5305dd14c516a3823599a22791ba1015852af4711d0391e2b683fa13dd8cad0086d380ad08647e1c3fbcd70dd65ba09da9712109b050ef25ac556c7c2c9607aca2db39cf0b1417f27103ee013dac21da00dee2b74168eb8cf87e16801d983e5a591dabb943acec678817fc2e598bb3ccdbe13a45992c556559b85a920f58552580d713f2e733cf438338a78a16da127be550cb9d1fbc823c195cb60775cbb47b8dac40e1f52f7982baf7d4a79726069809fb07002420ea2c102a3deba47b8a0e8e77ac683313b310c7aeb64476d66103913bdce1191063118ba9ea45ea1bf627b3ac0862dcb359fe4d43f77a9d5d055b5b6ace31d4893166b4cde4ede3e427ef595d7ae1ee35b8c8d9f204de44b9c343d6e0a85c4da9383ee8e9fe46962d794a3907f670cf440376e333206d52916b0c0040096e73fcf5217194cb2ab4c3511a1beaffb38e2a18e331e29e41a9abb6f92b00b19db15bc63648a5770b78de0e94e0d2ce1814b62a1cf2946f04e7c8460aef490be54ceb6c80719857cbd3dfc495451798a2685b51a8617f5858e42f2eda563292e88fd9ca9ab013910f2a9cc4f582aa4af52b30657fb24377ad7096be81c4f20055f65ff38ca919cb9224b1738b7bf4b93d949d26053bfd7e1413ea053996a682010730820103a003020112a281fb0481f84ec53b32ac770ad67ef14947e8557c4b9d6dac2a7b3c1857e29168a35bc84e69bf750bfccd4e2bbd3033becd5708af36d1378521426f9a7c605051a73905648ab85b9ff311576147934725ffdae8e51bed010350957ca8d501de6f65114f80a84f4b8be5acb4e31352a7e33644b17e141463925622afbc7a661b677aa4731904e2088aa0f5366780e8b380595002d143c92f1f71d255fb4ba77dc55f281fd69dff6aafbe97898a47551382912e9e8354b647949d046df835226b00f34db4f63f64b1b967bbd44a1e92baf7debddc88b93912a149c9276d91704377c946e92a5206ee9afe50de3eebc876b2eec8c46f1f031412b3e74f6523")
 data = GSSAPI_BLOB(data)
 
-with KrbRandomPatcher():
+# Match the authenticator time of the captured AP-REP below.
+with KrbRandomPatcher(), mock.patch(
+    "scapy.layers.kerberos.datetime",
+    mock.MagicMock(now=lambda tz=None: datetime(2026, 7, 24, 13, 40, 35, 0, tz)),
+):
     clicontext, tok, negState = client.GSS_Init_sec_context(
         clicontext,
         data,
