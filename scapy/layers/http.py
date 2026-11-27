@@ -84,6 +84,7 @@ from scapy.error import (
 )
 from scapy.fields import StrField
 from scapy.packet import Packet, bind_layers, bind_bottom_up, Raw
+from scapy.sessions import streamcls
 from scapy.supersocket import StreamSocket, SSLStreamSocket
 from scapy.utils import get_temp_file, ContextManagerSubprocess
 
@@ -512,6 +513,9 @@ class _HTTPContent(Packet):
                     # End the status line even when its reason phrase is empty.
                     val = b""
                 elif f.name == "Content_Length" and "chunked" not in encodings:
+                    # A protocol switch has no HTTP body to delimit.
+                    if isinstance(self, HTTPResponse) and self.Status_Code == b"101":
+                        continue
                     # Add Content-Length anyways
                     val = str(len(self.payload or b""))
                 elif f.name == "Date" and isinstance(self, HTTPResponse):
@@ -1179,6 +1183,7 @@ class HTTP_Server(Automaton):
             raise ValueError(
                 "HTTP_Server cannot be started directly ! Use HTTP_Server.spawn"
             )
+        self.upgraded = False
         self.ssp = ssp
         self.authmethod = mech.value
         self.sspcontext = None
@@ -1212,7 +1217,36 @@ class HTTP_Server(Automaton):
         Automaton.__init__(self, *args, **kwargs)
 
     def send(self, resp):
-        self.sock.send(HTTP() / resp)
+        # The upgrade response still needs HTTP framing after the parser switches.
+        if not self.upgraded or isinstance(resp, HTTPResponse):
+            resp = HTTP() / resp
+        self.sock.send(resp)
+
+    def upgrade(self, pkt, protocol):
+        """Upgrade this connection from inside :meth:`answer`.
+
+        For WebSocket, call ``self.upgrade(pkt, WebSocket)``. The protocol's
+        ``http_upgrade`` method returns the response and initial stream state.
+        Return this method's result from ``answer``. Subsequent packets reach
+        ``answer`` as instances of the new protocol.
+        """
+        # Prepare the response before changing the connection's parser.
+        if self.upgraded:
+            raise ValueError("The HTTP connection has already been upgraded")
+        response, session = protocol.http_upgrade(pkt)
+        if response.Status_Code != b"101":
+            return response
+
+        # Retain queued bytes while replacing the HTTP reassembly state.
+        self.sock.basecls = protocol
+        self.sock.rcvcls = streamcls(protocol)
+        self.sock.metadata.clear()
+        self.sock.streamsession.clear()
+        self.sock.streamsession.update(session)
+        if isinstance(self.sock, SSLStreamSocket):
+            self.sock.sess.metadata.clear()
+        self.upgraded = True
+        return response
 
     def vprint(self, s=""):
         """
@@ -1397,7 +1431,7 @@ class HTTP_Server(Automaton):
 
     @ATMT.receive_condition(SERVE)
     def new_request(self, pkt):
-        if self.mech == HTTP_AUTH_MECHS.BASIC:
+        if not self.upgraded and self.mech == HTTP_AUTH_MECHS.BASIC:
             raise self.AUTH(pkt)
         raise self.SERVE(pkt)
 

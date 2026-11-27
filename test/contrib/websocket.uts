@@ -161,3 +161,46 @@ copied = packet.copy()
 copied.payloadLen = None
 assert copied.load == b"Hello"
 assert bytes(copied) == frame
+
+= HTTP server upgrades the /toto route and echoes WebSocket frames
+import socket
+from scapy.layers.http import HTTP, HTTP_Server, HTTP_AUTH_MECHS
+from scapy.supersocket import StreamSocket
+
+class WebSocketEchoServer(HTTP_Server):
+    def answer(self, pkt):
+        if WebSocket in pkt:
+            return WebSocket(fin=1, opcode=pkt.opcode) / pkt.load
+        if pkt.Path == b"/toto":
+            return self.upgrade(pkt, WebSocket)
+        return super().answer(pkt)
+
+client_socket, server_socket = socket.socketpair()
+client_socket.settimeout(2)
+client = StreamSocket(client_socket, HTTP)
+server = WebSocketEchoServer(
+    sock=StreamSocket(server_socket, HTTP), verb=False,
+    mech=HTTP_AUTH_MECHS.BASIC, BASIC_IDENTITIES={"user": "password"},
+)
+server.runbg()
+try:
+    opening = HTTP(request.replace(b"/chat", b"/toto"))
+    opening.Authorization = b"Basic dXNlcjpwYXNzd29yZA=="
+    client.send(opening)
+    response = client.recv()
+    assert response.Status_Code == b"101"
+    assert response.Sec_WebSocket_Accept == b"s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
+    assert response.Content_Length is None
+    client.rcvcls = WebSocket.tcp_reassemble
+    client.streamsession = {"handshake-state": WebSocket.HandshakeState.OPEN}
+    frame = b"\x81\x85\x37\xfa\x21\x3d\x7f\x9f\x4d\x51\x58"
+    client.send(frame[:3])
+    client.send(frame[3:])
+    assert client.recv().load == b"Hello"
+    client.send(frame)
+    assert client.recv().load == b"Hello"
+finally:
+    client.close()
+    server.stop()
+    server.sock.close()
+    server.destroy()

@@ -14,6 +14,7 @@ application protocols too.
 """
 
 import base64
+import binascii
 import struct
 import zlib
 from enum import Enum
@@ -238,6 +239,60 @@ class WebSocket(Packet):
             window_bits,
             sender + "_no_context_takeover" in extensions,
         )
+
+    @classmethod
+    def http_upgrade(cls, pkt):
+        """Prepare an HTTP server upgrade response and WebSocket stream state.
+
+        Used by ``HTTP_Server.upgrade(pkt, WebSocket)`` from ``answer()``.
+        No extensions or subprotocols are negotiated.
+        """
+        # Require the client's HTTP/1.1 WebSocket opening handshake.
+        request = pkt[HTTPRequest]
+        if (
+            request.Method != b"GET"
+            or request.Http_Version != b"HTTP/1.1"
+            or not request.Host
+            or (request.Upgrade or b"").lower() != b"websocket"
+            or b"upgrade"
+            not in [
+                token.strip().lower()
+                for token in (request.Connection or b"").split(b",")
+            ]
+        ):
+            return HTTPResponse(Status_Code=b"400", Reason_Phrase=b"Bad Request"), {}
+
+        # Advertise the supported version when the client requests another one.
+        if request.Sec_WebSocket_Version != b"13":
+            return (
+                HTTPResponse(
+                    Status_Code=b"426",
+                    Reason_Phrase=b"Upgrade Required",
+                    Sec_WebSocket_Version=b"13",
+                ),
+                {},
+            )
+
+        # RFC6455 sect 4.2.1 - "[...] a 16-byte value."
+        key = request.Sec_WebSocket_Key or b""
+        try:
+            if len(base64.b64decode(key, validate=True)) != 16:
+                raise ValueError("Invalid WebSocket key length")
+        except (binascii.Error, ValueError):
+            # Invalid opening handshakes remain HTTP connections.
+            return HTTPResponse(Status_Code=b"400", Reason_Phrase=b"Bad Request"), {}
+
+        # RFC6455 sect 4.2.2 - "[...] SHA-1 [...] base64 [...]"
+        accept = base64.b64encode(
+            sha1(key + b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest()
+        )
+        return HTTPResponse(
+            Status_Code=b"101",
+            Reason_Phrase=b"Switching Protocols",
+            Upgrade=b"websocket",
+            Connection=b"Upgrade",
+            Sec_WebSocket_Accept=accept,
+        ), {"handshake-state": cls.HandshakeState.OPEN, "extensions": {}}
 
     @classmethod
     def tcp_reassemble(cls, data, metadata, session):
