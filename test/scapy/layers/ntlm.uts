@@ -364,6 +364,39 @@ try:
 except ValueError:
     pass
 
+= GSS_Accept_sec_context: reject a bad NTProofStr in NTLMSSP and NTLMSSP_DOMAIN
+
+from scapy.layers.ntlm import NTLMSSP_DOMAIN
+
+def ntlm_login(server, password):
+    # Login as User1 with an empty DomainName, which skips Netlogon in NTLMSSP_DOMAIN
+    client = NTLMSSP(UPN="User1", PASSWORD=password, USE_MIC=False)
+    clicontext, tok, _ = client.GSS_Init_sec_context(None)
+    srvcontext, chall, _ = server.GSS_Accept_sec_context(None, tok)
+    clicontext, tok, _ = client.GSS_Init_sec_context(clicontext, chall)
+    tok.DomainName = ""
+    tok.NtChallengeResponse.NTProofStr = tok.NtChallengeResponse.computeNTProofStr(
+        NTOWFv2(None, "User1", "", HashNt=MD4le(password)),
+        chall.ServerChallenge,
+    )
+    srvcontext, _, status = server.GSS_Accept_sec_context(
+        srvcontext, NTLM_AUTHENTICATE_V2(bytes(tok))
+    )
+    return status
+
+IDENTITIES = {"User1": MD4le("Password1")}
+with mock.patch("scapy.layers.ldap.dclocator") as dclocator:
+    dclocator.return_value.samlogon.DnsHostName = b"dc1.domain.local."
+    domain_server = NTLMSSP_DOMAIN(
+        UPN="SRV1$@domain.local",
+        HASHNT=b"\x11" * 16,
+        IDENTITIES=IDENTITIES,
+    )
+
+for ntlm_server in [NTLMSSP(IDENTITIES=IDENTITIES), domain_server]:
+    assert ntlm_login(ntlm_server, "Password1") == GSS_S_COMPLETE
+    assert ntlm_login(ntlm_server, "WrongPassword") == GSS_S_DEFECTIVE_CREDENTIAL
+
 
 + GSSAPI - Verify real exchange
 
