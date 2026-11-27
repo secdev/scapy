@@ -948,3 +948,82 @@ assert ZCLIASZoneZoneEnrollResponse in pkt.layers()
 assert pkt[ZCLIASZoneZoneEnrollResponse].rsp_code == 0x00
 assert pkt[ZCLIASZoneZoneEnrollResponse].zone_id == 0x3a
 assert raw(pkt[ZCLIASZoneZoneEnrollResponse].payload) == b''
+
+############
+############
++ IEEE 802.15.4-2015+ (frame version 0b10) frames
+
+= Frame version 2 Data frame - Seq. Number Suppression, no PAN IDs, IEs (GH issue #4947)
+~ dot15d4
+conf.dot15d4_protocol = "sixlowpan"
+data = bytes.fromhex(
+    "41ef6c170b120048deac6ef2500010722e48051501095ceaba061502a02efc00"
+    "0006150b58021104000415 0c000a0803150e7d01081 50f10270050 6e010503"
+    "15 12170000 3f26a00c90f40100001700 7d0a0a1001020504e803000043090557"
+    "6953554e2050414e04a001120101 00f8".replace(" ", "")
+)
+pkt = Dot15d4(data)
+assert pkt.fcf_framever == 2
+assert pkt.fcf_panidcompress == 1
+assert pkt.fcf_seqnumsuppress == 1
+assert pkt.fcf_ie_present == 1
+assert "seqnum" not in pkt.fields
+assert pkt[Dot15d4Data].dest_addr == 0xacde4800120b176c
+assert pkt[Dot15d4Data].src_addr == 0x482e72100050f26e
+assert [x.element_id for x in pkt[Dot15d4Data].header_ies][-1] == 0x7e
+assert pkt[Dot15d4Data].payload_ies[-1].group_id == 0xf
+assert raw(pkt) == data
+
+= Table 7-2 - PAN ID presence for frame version 0b10
+~ dot15d4
+# (dst mode, src mode, dst PAN present, src PAN present, PAN ID Compression)
+rows = [
+    (0, 0, 0, 0, 0), (0, 0, 1, 0, 1), (2, 0, 1, 0, 0), (2, 0, 0, 0, 1),
+    (0, 2, 0, 1, 0), (0, 2, 0, 0, 1), (3, 0, 1, 0, 0), (3, 0, 0, 0, 1),
+    (0, 3, 0, 1, 0), (0, 3, 0, 0, 1), (3, 3, 1, 0, 0), (3, 3, 0, 0, 1),
+    (2, 2, 1, 1, 0), (2, 3, 1, 1, 0), (3, 2, 1, 1, 0), (2, 3, 1, 0, 1),
+    (3, 2, 1, 0, 1), (2, 2, 1, 0, 1),
+]
+for dam, sam, dpan, span, comp in rows:
+    fcf = Dot15d4(fcf_framever=2, fcf_destaddrmode=dam, fcf_srcaddrmode=sam, fcf_panidcompress=comp)
+    assert util_panid_presence(fcf) == (bool(dpan), bool(span)), (dam, sam, comp)
+
+= Frame version 0/1 - PAN ID compression is unchanged
+~ dot15d4
+for ver in (0, 1):
+    fcf = Dot15d4(fcf_framever=ver, fcf_destaddrmode=2, fcf_srcaddrmode=2, fcf_panidcompress=0)
+    assert util_panid_presence(fcf) == (True, True)
+    fcf = Dot15d4(fcf_framever=ver, fcf_destaddrmode=2, fcf_srcaddrmode=2, fcf_panidcompress=1)
+    assert util_panid_presence(fcf) == (True, False)
+
+= Sequence Number Suppression - build & dissect
+~ dot15d4
+p = Dot15d4(fcf_frametype=1, fcf_framever=2, fcf_seqnumsuppress=1, fcf_destaddrmode=2, fcf_srcaddrmode=2) / Dot15d4Data(dest_panid=0x1234, dest_addr=0x1, src_panid=0x1234, src_addr=0x2) / Raw(b"hi")
+assert len(raw(p)) == 2 + 2 + 2 + 2 + 2 + 2
+q = Dot15d4(raw(p))
+assert q.fcf_seqnumsuppress == 1 and q[Dot15d4Data].src_addr == 2 and q[Raw].load == b"hi"
+
+= Enh-Ack with destination address
+~ dot15d4
+p = Dot15d4(fcf_frametype=2, fcf_framever=2, fcf_destaddrmode=3, fcf_srcaddrmode=0, fcf_panidcompress=1, seqnum=9) / Dot15d4Ack(dest_addr=0x1122334455667788)
+q = Dot15d4(raw(p))
+assert q[Dot15d4Ack].dest_addr == 0x1122334455667788 and q.seqnum == 9
+
+= Imm-Ack is still empty and forces dest addr mode to None
+~ dot15d4
+p = Dot15d4(fcf_frametype=2, seqnum=3)
+assert raw(p) == b"\x02\x00\x03"
+
+= Enhanced Beacon - no superframe/GTS/pending address fields
+~ dot15d4
+p = Dot15d4(fcf_frametype=0, fcf_framever=2, fcf_srcaddrmode=3, fcf_destaddrmode=0, fcf_ie_present=1, fcf_seqnumsuppress=1) / Dot15d4Beacon(src_panid=0xabcd, src_addr=3, header_ies=[Dot15d4HeaderIE(element_id=0x7f)])
+assert len(raw(p)) == 2 + 2 + 8 + 2
+q = Dot15d4(raw(p))
+assert q[Dot15d4Beacon].src_addr == 3 and q[Dot15d4Beacon].header_ies[0].element_id == 0x7f
+
+= Auxiliary Security Header - Frame Counter Suppression
+~ dot15d4
+ash = Dot15d4AuxSecurityHeader(sec_sc_seclevel=5, sec_sc_fcsuppress=1)
+assert raw(ash) == b"\x25"
+ash = Dot15d4AuxSecurityHeader(b"\x05\x44\x33\x22\x11")
+assert ash.sec_framecounter == 0x11223344
