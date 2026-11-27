@@ -1,0 +1,205 @@
+# WebSocket layer unit tests
+# Copyright (C) 2024 Lucas Drufva <lucas.drufva@gmail.com>
+#
+# Type the following command to start the tests:
+# $ test/run_tests -P "load_contrib('websocket')" -t test/contrib/websocket.uts
+
++ Syntax check
+= Import the WebSocket layer
+from scapy.contrib.websocket import *
+
++ WebSocket protocol test
+= Packet instantiation
+pkt = WebSocket(opcode="text", mask=True, maskingKey=b"\x11\x22\x33\x44") / b"Hello, world!"
+
+assert pkt.load == b"Hello, world!"
+assert pkt.mask == True
+assert pkt.maskingKey == b"\x11\x22\x33\x44"
+assert bytes(pkt) == b'\x01\x8d\x11\x22\x33\x44\x59\x47\x5f\x28\x7e\x0e\x13\x33\x7e\x50\x5f\x20\x30'
+
+= Packet dissection
+raw = b'\x01\x0dHello, world!'
+pkt = WebSocket(raw)
+
+assert pkt.fin == 0
+assert pkt.rsv == 0
+assert pkt.opcode == 0x1
+assert pkt.mask == False
+assert pkt.payloadLen == 13
+assert pkt.load == b'Hello, world!'
+
+= Dissect masked packet
+raw = b'\x01\x8d\x11\x22\x33\x44\x59\x47\x5f\x28\x7e\x0e\x13\x33\x7e\x50\x5f\x20\x30'
+pkt = WebSocket(raw)
+
+assert pkt.fin == 0
+assert pkt.rsv == 0
+assert pkt.opcode == 0x1
+assert pkt.mask == True
+assert pkt.payloadLen == 13
+assert pkt.maskingKey == b"\x11\x22\x33\x44"
+assert pkt.load == b'Hello, world!'
+
+= Session with compression
+
+bind_layers(TCP, WebSocket, dport=5000)
+bind_layers(TCP, WebSocket, sport=5000)
+
+from scapy.sessions import TCPSession
+
+filename = scapy_path("/test/pcaps/websocket_compressed_session.pcap.gz")
+pkts = sniff(offline=filename, session=TCPSession)
+
+assert len(pkts) == 13
+
+assert pkts[7][WebSocket].load == b'Hello'
+assert pkts[8][WebSocket].load == b'"Hello"'
+assert pkts[10][WebSocket].load == b'Hello2'
+assert pkts[11][WebSocket].load == b'"Hello2"'
+
+= Create packet with long payload
+pkt = WebSocket(opcode="text") / (b"a" * 126)
+
+assert bytes(pkt) == b'\x01\x7e\x00\x7e\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61'
+
+= Dissect packet with long payload
+raw = b'\x01\x7e\x00\x7e\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61\x61'
+pkt = WebSocket(raw)
+
+assert pkt.payloadLen == 126
+assert pkt.load == b'a'*126
+
+= Create packet with very long payload
+pkt = WebSocket(opcode="text") / (b"a" * 65536)
+
+assert bytes(pkt) == b'\x01\x7f\x00\x00\x00\x00\x00\x01\x00\x00' + b'a'*65536
+
+= Dissect packet with very long payload
+raw = b'\x01\x7f\x00\x00\x00\x00\x00\x01\x00\x00' + b'a'*65536
+pkt = WebSocket(raw)
+
+assert pkt.payloadLen == 65536
+assert pkt.load == b'a'*65536
+
+= Session with invalid parts in upgrade sequence
+
+bind_layers(TCP, WebSocket, dport=5000)
+bind_layers(TCP, WebSocket, sport=5000)
+
+from scapy.sessions import TCPSession
+
+filename = scapy_path("/test/pcaps/websocket_invalid_handshakes.pcap.gz")
+pkts = sniff(offline=filename, session=TCPSession)
+# TCPSession omits the two empty FIN packets from this capture.
+assert len(pkts) == 17
+
+assert pkts[15][WebSocket].load == b'Hello, world!'
+
+= Masking example from RFC 6455 section 5.7
+frame = b"\x81\x85\x37\xfa\x21\x3d\x7f\x9f\x4d\x51\x58"
+assert WebSocket(frame).load == b"Hello"
+assert bytes(WebSocket(fin=1, opcode="text", mask=1, maskingKey=b"\x37\xfa\x21\x3d") / b"Hello") == frame
+packet = WebSocket(fin=1, opcode="text", mask=1, maskingKey=b"\x37\xfa\x21\x3d") / Raw(b"He") / Raw(b"llo")
+assert bytes(packet) == frame
+packet /= WebSocket(fin=1, opcode="text") / b"Hello"
+assert bytes(packet) == frame + b"\x81\x05Hello"
+
+= Opening handshake from RFC 6455 section 1.3 followed by a text frame
+from scapy.layers.http import HTTPRequest, HTTPResponse
+
+request = (
+    b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\n"
+    b"Upgrade: websocket\r\nConnection: Upgrade\r\n"
+    b"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+    b"Origin: http://example.com\r\nSec-WebSocket-Protocol: chat, superchat\r\n"
+    b"Sec-WebSocket-Version: 13\r\n\r\n"
+)
+response = (
+    b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n"
+    b"Connection: Upgrade\r\nSec-WebSocket-Protocol: chat\r\n"
+    b"Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n\r\n"
+)
+session = TCPSession(app=True)
+assert HTTPRequest in session.process(request, cls=WebSocket)
+assert HTTPResponse in session.process(response + b"\x81\x05Hello", cls=WebSocket)
+assert session.session["handshake-state"] == WebSocket.HandshakeState.OPEN
+assert session.process(b"", cls=WebSocket).load == b"Hello"
+
+= Compression with context takeover from RFC 7692 section 7.2.3.2
+from scapy.contrib.websocket import WebSocketDeflateDecoder
+
+decoder = WebSocketDeflateDecoder()
+assert WebSocket(b"\xc1\x07\xf2\x48\xcd\xc9\xc9\x07\x00", decoder=decoder).load == b"Hello"
+assert WebSocket(b"\xc1\x05\xf2\x00\x11\x00\x00", decoder=decoder).load == b"Hello"
+
+= Compressed fragments from RFC 7692 section 7.2.3.1
+decoder = WebSocketDeflateDecoder()
+first = WebSocket(b"\x41\x03\xf2\x48\xcd", decoder=decoder)
+last = WebSocket(b"\x80\x04\xc9\xc9\x07\x00", decoder=decoder)
+assert first.load + last.load == b"Hello"
+
+= DEFLATE block examples from RFC 7692 sections 7.2.3.3 to 7.2.3.5
+payloads = [
+    b"\x00\x05\x00\xfa\xffHello\x00",
+    b"\xf3\x48\xcd\xc9\xc9\x07\x00\x00",
+    b"\xf2\x48\x05\x00\x00\x00\xff\xff\xca\xc9\xc9\x07\x00",
+]
+for payload in payloads:
+    decoder = WebSocketDeflateDecoder()
+    frame = bytes([0xc1, len(payload)]) + payload
+    assert WebSocket(frame, decoder=decoder).load == b"Hello"
+    assert WebSocket(frame, decoder=decoder).load == b"Hello"
+    assert WebSocket(b"\xc1\x05\xf2\x00\x11\x00\x00", decoder=decoder).load == b"Hello"
+
+= Rebuild the RFC 7692 section 7.2.3.1 example after editing its header
+frame = b"\xc1\x07\xf2\x48\xcd\xc9\xc9\x07\x00"
+packet = WebSocket(frame, decoder=WebSocketDeflateDecoder())
+assert packet.load == b"Hello"
+packet.fin = 1
+assert bytes(packet) == frame
+copied = packet.copy()
+copied.payloadLen = None
+assert copied.load == b"Hello"
+assert bytes(copied) == frame
+
+= HTTP server upgrades the /toto route and echoes WebSocket frames
+import socket
+from scapy.layers.http import HTTP, HTTP_Server, HTTP_AUTH_MECHS
+from scapy.supersocket import StreamSocket
+
+class WebSocketEchoServer(HTTP_Server):
+    def answer(self, pkt):
+        if WebSocket in pkt:
+            return WebSocket(fin=1, opcode=pkt.opcode) / pkt.load
+        if pkt.Path == b"/toto":
+            return self.upgrade(pkt, WebSocket)
+        return super().answer(pkt)
+
+client_socket, server_socket = socket.socketpair()
+client_socket.settimeout(2)
+client = StreamSocket(client_socket, HTTP)
+server = WebSocketEchoServer(
+    sock=StreamSocket(server_socket, HTTP), verb=False,
+    mech=HTTP_AUTH_MECHS.BASIC, BASIC_IDENTITIES={"user": "password"},
+)
+server.runbg()
+try:
+    opening = HTTP(request.replace(b"/chat", b"/toto"))
+    opening.Authorization = b"Basic dXNlcjpwYXNzd29yZA=="
+    client.send(opening)
+    response = client.recv()
+    assert response.Status_Code == b"101"
+    assert response.Sec_WebSocket_Accept == b"s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
+    assert response.Content_Length is None
+    client.set_proto(WebSocket, {"handshake-state": WebSocket.HandshakeState.OPEN})
+    frame = b"\x81\x85\x37\xfa\x21\x3d\x7f\x9f\x4d\x51\x58"
+    client.send(frame[:3])
+    client.send(frame[3:])
+    assert client.recv().load == b"Hello"
+    client.send(frame)
+    assert client.recv().load == b"Hello"
+finally:
+    client.close()
+    server.stop()
+    server.sock.close()
+    server.destroy()

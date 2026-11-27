@@ -36,6 +36,7 @@ from scapy.plist import (
     SndRcvList,
     _PacketIterable,
 )
+from scapy.sessions import TCPSession, streamcls
 from scapy.utils import PcapReader, tcpdump
 
 # Typing imports
@@ -487,12 +488,29 @@ class StreamSocket(SimpleSocket):
                  basecls=None,  # type: Optional[Type[Packet]]
                  ):
         # type: (...) -> None
-        from scapy.sessions import streamcls
         self.rcvcls = streamcls(basecls or conf.raw_layer)
         self.metadata: Dict[str, Any] = {}
         self.streamsession: Dict[str, Any] = {}
         self._buf = b""
         super(StreamSocket, self).__init__(sock, basecls=basecls)
+
+    def set_proto(self, basecls, session=None):
+        # type: (Type[Packet], Optional[Dict[str, Any]]) -> None
+        """Change the receive protocol without discarding buffered bytes.
+
+        :param basecls: the new packet class
+        :param session: optional replacement stream state, updated in place
+                       so sockets sharing it retain the same dictionary
+        """
+        # Discard metadata belonging to the previous protocol's parser.
+        self.basecls = basecls
+        self.rcvcls = streamcls(basecls)
+        self.metadata.clear()
+
+        # Preserve shared state unless the caller supplies a replacement.
+        if session is not None and session is not self.streamsession:
+            self.streamsession.clear()
+            self.streamsession.update(session)
 
     def recv(self, x=None, **kwargs):
         # type: (Optional[int], Any) -> Optional[Packet]
@@ -501,7 +519,10 @@ class StreamSocket(SimpleSocket):
 
         while True:
             # Block but in PEEK mode
-            data = self.ins.recv(x, socket.MSG_PEEK)
+            try:
+                data = self.ins.recv(x, socket.MSG_PEEK)
+            except ConnectionResetError:
+                raise EOFError
             if data == b"":
                 raise EOFError
             x = len(data)
@@ -530,30 +551,38 @@ class StreamSocketPeekless(StreamSocket):
 
     def __init__(self, sock, basecls=None):
         # type: (socket.socket, Optional[Type[Packet]]) -> None
-        from scapy.sessions import TCPSession
         self.sess = TCPSession(app=True)
         super(StreamSocketPeekless, self).__init__(sock, basecls)
+
+    def set_proto(self, basecls, session=None):
+        # type: (Type[Packet], Optional[Dict[str, Any]]) -> None
+        # TCPSession also caches its parser independently of the stream state.
+        super(StreamSocketPeekless, self).set_proto(basecls, session)
+        self.sess.metadata.clear()
 
     # 65535, the default value of x is the maximum length of a TLS record
     def recv(self, x=None, **kwargs):
         # type: (Optional[int], **Any) -> Optional[Packet]
         if x is None:
             x = MTU
+        data = b""
         while True:
-            # Block
-            try:
-                data = self.ins.recv(x)
-            except OSError as ex:
-                raise EOFError(str(ex))
+            # Process queued bytes before waiting for additional network data.
             try:
                 pkt = self.sess.process(data, cls=self.basecls)  # type: ignore
             except struct.error:
                 # Buffer underflow
                 pkt = None
-            if data == b"" and not pkt:
-                raise EOFError
             if pkt:
                 return pkt
+
+            # Read only when the current protocol needs more bytes.
+            try:
+                data = self.ins.recv(x)
+            except OSError as ex:
+                raise EOFError(str(ex))
+            if data == b"":
+                raise EOFError
 
     @property
     def streamsession(self) -> Dict[Any, Any]:

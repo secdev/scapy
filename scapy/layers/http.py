@@ -173,6 +173,10 @@ REQUEST_HEADERS = [
     "Proxy-Authorization",
     "Range",
     "Referer",
+    "Sec-WebSocket-Extensions",
+    "Sec-WebSocket-Key",
+    "Sec-WebSocket-Protocol",
+    "Sec-WebSocket-Version",
     "TE",
     "User-Agent",
 ]
@@ -222,6 +226,10 @@ RESPONSE_HEADERS = [
     "Proxy-Authenticate",
     "Public-Key-Pins",
     "Retry-After",
+    "Sec-WebSocket-Accept",
+    "Sec-WebSocket-Extensions",
+    "Sec-WebSocket-Protocol",
+    "Sec-WebSocket-Version",
     "Server",
     "Set-Cookie",
     "Strict-Transport-Security",
@@ -500,7 +508,13 @@ class _HTTPContent(Packet):
             # Get the field value
             val = self.getfieldval(f.name)
             if not val:
-                if f.name == "Content_Length" and "chunked" not in encodings:
+                if f.name == "Reason_Phrase":
+                    # End the status line even when its reason phrase is empty.
+                    val = b""
+                elif f.name == "Content_Length" and "chunked" not in encodings:
+                    # A protocol switch has no HTTP body to delimit.
+                    if isinstance(self, HTTPResponse) and self.Status_Code == b"101":
+                        continue
                     # Add Content-Length anyways
                     val = str(len(self.payload or b""))
                 elif f.name == "Date" and isinstance(self, HTTPResponse):
@@ -603,7 +617,9 @@ class HTTPRequest(_HTTPContent):
         """From the HTTP packet string, populate the scapy object"""
         first_line, body = _dissect_headers(self, s)
         try:
-            Method, Path, HTTPVersion = re.split(rb"\s+", first_line, maxsplit=2)
+            Method, Path, HTTPVersion = (
+                re.split(rb"\s+", first_line, maxsplit=2) + [None]
+            )[:3]
             self.setfieldval("Method", Method)
             self.setfieldval("Path", Path)
             self.setfieldval("Http_Version", HTTPVersion)
@@ -652,7 +668,9 @@ class HTTPResponse(_HTTPContent):
         """From the HTTP packet string, populate the scapy object"""
         first_line, body = _dissect_headers(self, s)
         try:
-            HTTPVersion, Status, Reason = re.split(rb"\s+", first_line, maxsplit=2)
+            HTTPVersion, Status, Reason = (
+                re.split(rb"\s+", first_line, maxsplit=2) + [b""]
+            )[:3]
             self.setfieldval("Http_Version", HTTPVersion)
             self.setfieldval("Status_Code", Status)
             self.setfieldval("Reason_Phrase", Reason)
@@ -1164,6 +1182,7 @@ class HTTP_Server(Automaton):
             raise ValueError(
                 "HTTP_Server cannot be started directly ! Use HTTP_Server.spawn"
             )
+        self.upgraded = False
         self.ssp = ssp
         self.authmethod = mech.value
         self.sspcontext = None
@@ -1197,7 +1216,32 @@ class HTTP_Server(Automaton):
         Automaton.__init__(self, *args, **kwargs)
 
     def send(self, resp):
-        self.sock.send(HTTP() / resp)
+        # The upgrade response still needs HTTP framing after the parser switches.
+        if not self.upgraded or isinstance(resp, HTTPResponse):
+            resp = HTTP() / resp
+        self.sock.send(resp)
+
+    def upgrade(self, pkt, protocol):
+        """Upgrade the connection from an ``answer()`` handler.
+
+        .. code-block:: python
+
+            if pkt.Path == b"/toto":
+                return self.upgrade(pkt, WebSocket)
+
+        For h2c, use ``self.upgrade(pkt, H2Frame)``.
+        """
+        # Prepare the response before changing the connection's parser.
+        if self.upgraded:
+            raise ValueError("The HTTP connection has already been upgraded")
+        response, session = protocol.http_upgrade(pkt)
+        if response.Status_Code != b"101":
+            return response
+
+        # Retain queued bytes while replacing the HTTP reassembly state.
+        self.sock.set_proto(protocol, session)
+        self.upgraded = True
+        return response
 
     def vprint(self, s=""):
         """
@@ -1382,7 +1426,7 @@ class HTTP_Server(Automaton):
 
     @ATMT.receive_condition(SERVE)
     def new_request(self, pkt):
-        if self.mech == HTTP_AUTH_MECHS.BASIC:
+        if not self.upgraded and self.mech == HTTP_AUTH_MECHS.BASIC:
             raise self.AUTH(pkt)
         raise self.SERVE(pkt)
 

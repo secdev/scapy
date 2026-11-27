@@ -2283,6 +2283,32 @@ def _test_select(select):
 
 assert _test_select()
 
+= Change a stream socket protocol while preserving queued data and shared state
+~ streamsocket
+
+import socket
+from scapy.layers.http import HTTP
+from scapy.supersocket import StreamSocket, StreamSocketPeekless
+
+receiver_socket, sender_socket = socket.socketpair()
+receiver_socket.settimeout(1)
+receiver = StreamSocketPeekless(receiver_socket, HTTP)
+sender = StreamSocket(sender_socket, Raw)
+shared_session = sender.streamsession = receiver.streamsession
+try:
+    wire = bytes(IP(dst="192.0.2.1") / TCP(sport=12345, dport=12345, flags="PA") / b"Hello")
+    sender.send(b"GET / HTTP/1.1\r\nHost: example.test\r\nContent-Length: 0\r\n\r\n" + wire)
+    assert receiver.recv().Path == b"/"
+    receiver.set_proto(IP, {"upgraded": True})
+    assert receiver.streamsession is shared_session
+    assert shared_session == {"upgraded": True}
+    packet = receiver.recv()
+    assert bytes(packet) == wire
+    assert packet[TCP].dport == 12345
+finally:
+    receiver.close()
+    sender.close()
+
 = Test L2ListenTcpdump socket
 ~ netaccess
 
