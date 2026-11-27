@@ -519,7 +519,10 @@ class StreamSocket(SimpleSocket):
 
         while True:
             # Block but in PEEK mode
-            data = self.ins.recv(x, socket.MSG_PEEK)
+            try:
+                data = self.ins.recv(x, socket.MSG_PEEK)
+            except ConnectionResetError:
+                raise EOFError
             if data == b"":
                 raise EOFError
             x = len(data)
