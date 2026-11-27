@@ -50,13 +50,14 @@ class VariableFieldLenField(FieldLenField):
     def getfield(self, pkt, s):
         value = 0
         for offset, curbyte in enumerate(s):
-            curbyte = curbyte
             value += (curbyte & 127) * (128 ** offset)
             if curbyte & 128 == 0:
                 return s[offset + 1:], value
             if offset > 2:
                 raise Scapy_Exception("%s: malformed length field" %
                                       self.__class__.__name__)
+        raise Scapy_Exception("%s: incomplete length field" %
+                              self.__class__.__name__)
 
     def randval(self):
         return RandVariableFieldLen()
@@ -110,6 +111,27 @@ class MQTT(Packet):
         VariableFieldLenField("len", None, length_of="len",
                               adjust=lambda pkt, x: len(pkt.payload),),
     ]
+
+    @classmethod
+    def tcp_reassemble(cls, data, metadata, *args, **kwargs):
+        if len(data) < 2:
+            return None
+        rem_len = 0
+        for offset, curbyte in enumerate(data[1:5]):
+            rem_len += (curbyte & 0x7F) * (128 ** offset)
+            if curbyte & 0x80 == 0:
+                total_len = offset + 2 + rem_len
+                break
+        else:
+            if len(data) < 5:
+                return None
+            return conf.raw_layer(data)
+        if len(data) < total_len:
+            metadata["tcp_min_len"] = total_len
+            return None
+        if len(data) > total_len:
+            return cls(data[:total_len]) / conf.padding_layer(data[total_len:])
+        return cls(data)
 
 
 PROTOCOL_LEVEL = {

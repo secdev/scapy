@@ -194,3 +194,83 @@ p.show()
 assert p.topic == b""
 assert p.value == b""
 assert p.msgid is None
+
+= MQTT incomplete variable length field raises Scapy_Exception
+try:
+    MQTT(b"\x10\x80")
+    assert False
+except Scapy_Exception:
+    pass
+
+= MQTT TCPSession reassembly across multiple TCP segments
+will_payload = b"W" * 1514
+conn_pkt = MQTT() / MQTTConnect(
+    protoname="MQTT",
+    protolevel=4,
+    usernameflag=1,
+    passwordflag=1,
+    willretainflag=1,
+    willQOSflag=2,
+    willflag=1,
+    cleansess=1,
+    klive=100,
+    clientId="client1",
+    willtopic="building/status",
+    willmsg=will_payload,
+    username="alice",
+    password="secret",
+)
+conn_bytes = raw(conn_pkt)
+eth = Ether(src="00:09:b7:6f:ad:70", dst="00:21:70:6d:99:d1")
+ip = IP(src="192.168.70.109", dst="192.168.80.49")
+ack_padded = Ether(raw(eth / ip / TCP(sport=35211, dport=1883, flags="A", seq=100)) + b"\x00" * 6)
+frag1 = eth / ip / TCP(sport=35211, dport=1883, flags="A", seq=100) / Raw(conn_bytes[:600])
+frag2 = eth / ip / TCP(sport=35211, dport=1883, flags="PA", seq=700) / Raw(conn_bytes[600:1200])
+frag3 = eth / ip / TCP(sport=35211, dport=1883, flags="PA", seq=1300) / Raw(conn_bytes[1200:])
+tmp_mqtt = get_temp_file()
+wrpcap(tmp_mqtt, [ack_padded, frag1, frag2, frag3])
+pkts = sniff(offline=tmp_mqtt, session=TCPSession)
+assert len(pkts) == 2
+assert MQTT not in pkts[0] and Padding in pkts[0]
+assert MQTTConnect in pkts[1]
+assert pkts[1][MQTTConnect].willmsg == will_payload
+assert pkts[1][MQTTConnect].username == b"alice"
+assert pkts[1][MQTTConnect].password == b"secret"
+
+= MQTT TCPSession coalesced, split-header, and malformed streams
+sub_pkt = MQTT() / MQTTSubscribe(msgid=10, topics=[MQTTTopicQOS(topic="home/temp", QOS=1)])
+pub_pkt = MQTT(QOS=1) / MQTTPublish(topic="home/temp", msgid=11, value=b"X" * 300)
+sub_raw = raw(sub_pkt)
+pub_raw = raw(pub_pkt)
+
+# Coalesced packet followed by partial multi-segment packet, plus split varint header
+pkts = sniff(
+    offline=[
+        IP(src="1.1.1.1", dst="2.2.2.2") / TCP(sport=40000, dport=1883, flags="PA", seq=1) / Raw(sub_raw + pub_raw[:1]),
+        IP(src="1.1.1.1", dst="2.2.2.2") / TCP(sport=40000, dport=1883, flags="PA", seq=1 + len(sub_raw) + 1) / Raw(pub_raw[1:2]),
+        IP(src="1.1.1.1", dst="2.2.2.2") / TCP(sport=40000, dport=1883, flags="PA", seq=1 + len(sub_raw) + 2) / Raw(pub_raw[2:]),
+    ],
+    session=TCPSession,
+)
+assert len(pkts) == 2
+assert MQTTSubscribe in pkts[0] and MQTTPublish not in pkts[0]
+assert MQTTPublish in pkts[1] and pkts[1][MQTTPublish].value == b"X" * 300
+
+# Two complete coalesced MQTT packets in one TCP segment
+pkts_coal = sniff(
+    offline=[
+        IP(src="1.1.1.1", dst="2.2.2.2") / TCP(sport=40001, dport=1883, flags="PA", seq=1) / Raw(sub_raw + pub_raw),
+    ],
+    session=TCPSession,
+)
+assert len(pkts_coal) == 1
+assert MQTTSubscribe in pkts_coal[0] and MQTTPublish in pkts_coal[0]
+
+# Malformed 5-byte variable length falls back to Raw
+pkts_bad = sniff(
+    offline=[
+        IP(src="1.1.1.1", dst="2.2.2.2") / TCP(sport=40002, dport=1883, flags="PA", seq=1) / Raw(b"\x10\xff\xff\xff\xff\x00"),
+    ],
+    session=TCPSession,
+)
+assert len(pkts_bad) == 1 and Raw in pkts_bad[0] and MQTT not in pkts_bad[0]

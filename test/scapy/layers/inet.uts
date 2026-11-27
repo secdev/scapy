@@ -668,6 +668,35 @@ with no_debug_dissector(reverse=True):
         IP(dst="1.1.1.1", src="2.2.2.2")/TCP(sport=12345, dport=12, seq=1)/b"\x06a",
     ], session=TCPSession)
     assert pkts[0][CustomPacket].a == b"abcde", "retransmitted failure"
+    # Ethernet-padded empty ACK before payload stream
+    padded_ack = Ether(
+        raw(
+            Ether(src="00:11:22:33:44:55", dst="66:77:88:99:aa:bb")
+            / IP(dst="1.1.1.1", src="2.2.2.2")
+            / TCP(sport=12345, dport=12, flags="A", seq=1)
+        ) + b"\x00" * 6
+    )
+    seg1 = Ether(
+        raw(
+            Ether(src="00:11:22:33:44:55", dst="66:77:88:99:aa:bb")
+            / IP(dst="1.1.1.1", src="2.2.2.2")
+            / TCP(sport=12345, dport=12, flags="PA", seq=1)
+            / b"\x05ab"
+        )
+    )
+    seg2 = Ether(
+        raw(
+            Ether(src="00:11:22:33:44:55", dst="66:77:88:99:aa:bb")
+            / IP(dst="1.1.1.1", src="2.2.2.2")
+            / TCP(sport=12345, dport=12, flags="PA", seq=4)
+            / b"cd"
+        )
+    )
+    tmp_padded = get_temp_file()
+    wrpcap(tmp_padded, [padded_ack, seg1, seg2])
+    pkts = sniff(offline=tmp_padded, session=TCPSession)
+    assert len(pkts) == 2 and CustomPacket not in pkts[0]
+    assert pkts[1][CustomPacket].a == b"abcd", "padded ack failure"
 
 split_layers(TCP, CustomPacket, sport=12345)
 

@@ -13,7 +13,7 @@ import struct
 from scapy.config import conf
 from scapy.data import MTU
 from scapy.error import log_runtime
-from scapy.packet import Packet
+from scapy.packet import NoPayload, Packet
 from scapy.pton_ntop import inet_pton
 
 # Typing imports
@@ -344,7 +344,10 @@ class TCPSession(IPSession):
         if TCP not in pkt:
             return pkt
         pay = pkt[TCP].payload
-        new_data = pay.original
+        if isinstance(pay, (NoPayload, conf.padding_layer)):
+            new_data = b""
+        else:
+            new_data = pay.original
         # Match packets by a unique TCP identifier
         ident = self._get_ident(pkt)
         data, metadata = self.tcp_frags[ident]
@@ -366,9 +369,9 @@ class TCPSession(IPSession):
         else:
             tcp_reassemble = metadata["tcp_reassemble"]
 
-        if pay:
+        relative_seq = metadata.get("relative_seq", None)
+        if new_data:
             # Get a relative sequence number for a storage purpose
-            relative_seq = metadata.get("relative_seq", None)
             if relative_seq is None:
                 relative_seq = metadata["relative_seq"] = seq - 1
             seq = seq - relative_seq
@@ -383,7 +386,7 @@ class TCPSession(IPSession):
         # Check TCP FIN or TCP RESET
         if pkt[TCP].flags.F or pkt[TCP].flags.R:
             metadata["tcp_end"] = True
-        elif not pay:
+        elif not new_data:
             # If there's no payload and the stream isn't ending, ignore.
             return pkt
 
@@ -416,7 +419,8 @@ class TCPSession(IPSession):
             while padding:
                 # There is remaining data for the next payload.
                 full_length = data.content_len - len(padding)
-                metadata["relative_seq"] = relative_seq + full_length
+                if relative_seq is not None:
+                    metadata["relative_seq"] = relative_seq + full_length
                 data.shiftleft(full_length)
                 # There might be a sub-payload hidden in the padding
                 sub_packet = tcp_reassemble(
