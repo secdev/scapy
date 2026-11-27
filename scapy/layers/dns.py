@@ -57,7 +57,7 @@ from scapy.fields import (
 )
 from scapy.interfaces import resolve_iface
 from scapy.sendrecv import sr1, sr
-from scapy.supersocket import StreamSocket
+from scapy.supersocket import SimpleSocket, StreamSocket
 from scapy.plist import SndRcvList, _PacketList, QueryAnswer
 from scapy.pton_ntop import inet_ntop, inet_pton
 from scapy.utils import pretty_list
@@ -1403,6 +1403,24 @@ class DNS(DNSCompressedPacket):
 
         return s
 
+    @classmethod
+    def tcp_reassemble(cls, data, *args, **kwargs):
+        # RFC1035 sect 4.2.2 - "The message is prefixed with a two byte length
+        # field which gives the message length [...]"
+        if len(data) < 2:
+            return None
+        length = struct.unpack("!H", data[:2])[0] + 2
+
+        # Too short to hold a DNS header
+        if length < 14:
+            return conf.raw_layer(data)
+
+        # Wait for the whole message, and keep the rest for the next one
+        if len(data) == length:
+            return DNSTCP(data)
+        if len(data) > length:
+            return DNSTCP(data[:length]) / conf.padding_layer(data[length:])
+
 
 class DNSTCP(DNS):
     """
@@ -1463,14 +1481,16 @@ def dns_resolve(qname, qtype="A", raw=False, tcp=False, verbose=1, timeout=3, **
             # Spawn a socket, connect to the nameserver on port 53
             if tcp:
                 cls = DNSTCP
+                sockcls = StreamSocket
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             else:
                 cls = DNS
+                sockcls = SimpleSocket
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(kwargs["timeout"])
             sock.connect((nameserver, 53))
             # Connected. Wrap it with DNS
-            sock = StreamSocket(sock, cls)
+            sock = sockcls(sock, cls)
             # I/O
             res = sock.sr1(
                 cls(qd=[DNSQR(qname=qname, qtype=qtype)], id=RandShort()),
