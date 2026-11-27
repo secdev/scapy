@@ -1404,6 +1404,91 @@ p = h2.H2Frame(flags={'EH'}, stream_id=1)/h2.H2ContinuationFrame(
 )
 assert raw(p) == b'\x00\x00\x11\t\x04\x00\x00\x00\x01\x10\x8c\xfc[i{ZT$\xb2-\xc8\xc9\x9f\x02Me'
 
++ HTTP/2 stream reassembly and h2c upgrade
+
+= Reassemble a split client preface, SETTINGS, and PING
+~ http2 frame settings ping
+
+from scapy.sessions import TCPSession
+
+session = TCPSession(app=True)
+session.session['h2-client-preface'] = True
+preface = h2.H2_CLIENT_CONNECTION_PREFACE
+settings = b'\x00\x00\x06\x04\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x64'
+ping = b'\x00\x00\x08\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xe2@'
+assert session.process(preface[:10], cls=h2.H2Frame) is None
+assert session.process(preface[10:] + settings[:4], cls=h2.H2Frame) is None
+frame = session.process(settings[4:] + ping[:4], cls=h2.H2Frame)
+assert bytes(frame) == settings
+assert frame.settings[0].id == 3
+assert frame.settings[0].value == 100
+frame = session.process(ping[4:], cls=h2.H2Frame)
+assert bytes(frame) == ping
+assert frame.opaque == 123456
+
+= HTTP server upgrades to h2c and responds on stream 1
+~ http2 frame settings headers data ping
+
+import socket
+from scapy.layers.http import HTTP, HTTPRequest, HTTP_Server
+from scapy.supersocket import StreamSocket
+
+class H2UpgradeServer(HTTP_Server):
+    def answer(self, pkt):
+        if HTTPRequest in pkt:
+            return self.upgrade(pkt, h2.H2Frame)
+        if pkt.type == h2.H2SettingsFrame.type_id and 'A' not in pkt.flags:
+            assert self.sock.streamsession['h2-upgrade-request'].Path == b'/toto'
+            return h2.H2Seq(frames=[
+                h2.H2Frame(type=4, flags={'A'}),
+                h2.H2Frame(stream_id=1, flags={'EH'}) / h2.H2HeadersFrame(
+                    hdrs=[h2.HPackIndexedHdr(index=8)],
+                ),
+                h2.H2Frame(stream_id=1, flags={'ES'}) / h2.H2DataFrame(data=b'Hello'),
+            ])
+        if pkt.type == h2.H2PingFrame.type_id and 'A' not in pkt.flags:
+            return h2.H2Frame(flags={'A'}) / h2.H2PingFrame(opaque=pkt.opaque)
+
+client_socket, server_socket = socket.socketpair()
+client_socket.settimeout(2)
+client = StreamSocket(client_socket, HTTP)
+server = H2UpgradeServer(sock=StreamSocket(server_socket, HTTP), verb=False)
+server.runbg()
+try:
+    # RFC7540 section 3.2: the HTTP request upgrades to cleartext HTTP/2.
+    opening = (
+        b'GET /toto HTTP/1.1\r\nHost: server.example.com\r\n'
+        b'Connection: Upgrade, HTTP2-Settings\r\nUpgrade: h2c\r\n'
+        b'HTTP2-Settings: AAMAAABkAAQAAP__\r\n\r\n'
+    )
+    client.send(opening)
+    response = client.recv()
+    assert response.Status_Code == b'101'
+    assert response.Upgrade == b'h2c'
+    assert response.Content_Length is None
+    assert bytes(response[h2.H2Frame]) == b'\x00\x00\x00\x04\x00\x00\x00\x00\x00'
+    peer_settings = server.sock.streamsession['h2-client-settings'].settings
+    assert [(setting.id, setting.value) for setting in peer_settings] == [(3, 100), (4, 65535)]
+    client.rcvcls = h2.H2Frame.tcp_reassemble
+    client.basecls = h2.H2Frame
+    preface = h2.H2_CLIENT_CONNECTION_PREFACE
+    client_settings = b'\x00\x00\x06\x04\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x64'
+    acknowledgement = b'\x00\x00\x00\x04\x01\x00\x00\x00\x00'
+    client.send(preface[:10])
+    client.send(preface[10:] + client_settings + acknowledgement)
+    assert bytes(client.recv()) == acknowledgement
+    # RFC7541 Appendix A: static table index 8 is ':status: 200'.
+    assert bytes(client.recv()) == b'\x00\x00\x01\x01\x04\x00\x00\x00\x01\x88'
+    assert bytes(client.recv()) == b'\x00\x00\x05\x00\x01\x00\x00\x00\x01Hello'
+    ping = b'\x00\x00\x08\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xe2@'
+    client.send(ping)
+    assert bytes(client.recv()) == ping[:4] + b'\x01' + ping[5:]
+finally:
+    client.close()
+    server.stop()
+    server.sock.close()
+    server.destroy()
+
 + HTTP/2 HPackHdrTable Test Suite
 
 = HTTP/2 HPackHdrEntry Tests

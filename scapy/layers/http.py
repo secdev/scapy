@@ -1227,6 +1227,8 @@ class HTTP_Server(Automaton):
 
             if pkt.Path == b"/toto":
                 return self.upgrade(pkt, WebSocket)
+
+        For h2c, use ``self.upgrade(pkt, H2Frame)``.
         """
         # Prepare the response before changing the connection's parser.
         if self.upgraded:

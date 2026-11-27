@@ -19,31 +19,34 @@ and HPack encoded headers
 # base_classes triggers an unwanted import warning
 
 import abc
+import base64
+import binascii
 import re
-from io import BytesIO
 import struct
-from scapy.compat import plain_str, chb, bytes_encode
+from io import BytesIO
 
 # Only required if using mypy-lang for static typing
 # Most symbols are used in mypy-interpreted "comments".
 # Sized must be one of the superclasses of a class implementing __len__
 from typing import (
-    Optional,
-    List,
-    Union,
-    Callable,
     Any,
-    Tuple,
-    Sized,
+    Callable,
+    List,
+    Optional,
     Pattern,
+    Sized,
+    Tuple,
+    Union,
 )
-from scapy.base_classes import Packet_metaclass  # noqa: F401
 
+import scapy.config as config
+import scapy.error as error
 import scapy.fields as fields
 import scapy.packet as packet
-import scapy.config as config
 import scapy.volatile as volatile
-import scapy.error as error
+from scapy.base_classes import Packet_metaclass  # noqa: F401
+from scapy.compat import bytes_encode, chb, plain_str
+from scapy.layers.http import HTTPRequest, HTTPResponse
 
 ###############################################################################
 #                                                HPACK Integer Fields         #
@@ -2035,6 +2038,116 @@ class H2Frame(packet.Packet):
         fields.BitField('reserved', 0, 1),
         fields.BitField('stream_id', 0, 31)
     ]
+
+    @classmethod
+    def http_upgrade(cls, pkt):
+        """Prepare an h2c response for ``HTTP_Server.upgrade(pkt, H2Frame)``.
+
+        The returned state retains the request for stream 1 and the client's
+        settings. The application handles subsequent frames in ``answer()``.
+        """
+        # Require the HTTP/1.1 connection options for an h2c upgrade.
+        request = pkt[HTTPRequest]
+        connection = {
+            token.strip().lower()
+            for token in (request.Connection or b'').split(b',')
+        }
+        upgrades = {
+            token.strip().lower()
+            for token in (request.Upgrade or b'').split(b',')
+        }
+        if (
+            request.Http_Version != b'HTTP/1.1'
+            or not request.Host
+            or b'h2c' not in upgrades
+            or not {b'upgrade', b'http2-settings'} <= connection
+            or request.HTTP2_Settings is None
+        ):
+            return HTTPResponse(Status_Code=b'400', Reason_Phrase=b'Bad Request'), {}
+
+        # RFC7540 sect 3.2.1 - "exactly one [...] header field"
+        # HTTP's parsed fields retain only the last occurrence of each header.
+        if request.original:
+            headers = request.original.split(b'\r\n\r\n', 1)[0].split(b'\r\n')[1:]
+            if sum(
+                line.partition(b':')[0].strip().lower() == b'http2-settings'
+                for line in headers
+            ) != 1:
+                return HTTPResponse(
+                    Status_Code=b'400', Reason_Phrase=b'Bad Request'
+                ), {}
+
+        # RFC7540 sect 3.2.1 - "encoded as a base64url string"
+        # The header omits Base64 padding and carries H2Setting records.
+        encoded = request.HTTP2_Settings
+        if re.fullmatch(rb'[A-Za-z0-9_-]*', encoded) is None:
+            return HTTPResponse(Status_Code=b'400', Reason_Phrase=b'Bad Request'), {}
+        try:
+            decoded = base64.b64decode(
+                encoded + b'=' * (-len(encoded) % 4), altchars=b'-_', validate=True
+            )
+        except binascii.Error:
+            # Reject an invalid handshake without switching the HTTP parser.
+            return HTTPResponse(Status_Code=b'400', Reason_Phrase=b'Bad Request'), {}
+        if len(decoded) % len(H2Setting()):
+            return HTTPResponse(Status_Code=b'400', Reason_Phrase=b'Bad Request'), {}
+        settings = H2SettingsFrame(decoded)
+
+        # RFC7540 sect 3.2 - "stream identifier of 1"
+        # Preserve the initial request for the application's HTTP/2 response.
+        session = {
+            'h2-client-preface': True,
+            'h2-client-settings': settings,
+            'h2-upgrade-request': request.copy(),
+        }
+
+        # Send the server's SETTINGS immediately after the HTTP headers.
+        response = HTTPResponse(
+            Status_Code=b'101', Reason_Phrase=b'Switching Protocols',
+            Connection=b'Upgrade', Upgrade=b'h2c',
+        ) / cls() / H2SettingsFrame()
+        return response, session
+
+    @classmethod
+    def tcp_reassemble(cls, data, metadata, session):
+        """Reassemble one frame, consuming the client preface after an upgrade."""
+        # Wait for the complete client preface and the first frame header.
+        offset = 0
+        if session.get('h2-client-preface', False):
+            offset = len(H2_CLIENT_CONNECTION_PREFACE)
+            if len(data) < offset:
+                return None
+            if data[:offset] != H2_CLIENT_CONNECTION_PREFACE:
+                raise ValueError('Invalid HTTP/2 client connection preface')
+
+        # RFC7540 sect 4.1 - "fixed 9-octet header"
+        header_length = 9
+        if len(data) < offset + header_length:
+            return None
+        payload_length = cls.len.getfield(
+            None, data[offset:offset + header_length]
+        )[1]
+        end = offset + header_length + payload_length
+        if len(data) < end:
+            metadata['tcp_min_len'] = end
+            return None
+
+        # RFC7540 sect 3.5 - "followed by a SETTINGS frame"
+        # Consume the preface only when its first SETTINGS frame is available.
+        frame = cls(data[offset:end])
+        if offset:
+            if (
+                frame.type != H2SettingsFrame.type_id
+                or frame.stream_id
+                or 'A' in frame.flags
+            ):
+                raise ValueError('The HTTP/2 client preface must contain SETTINGS')
+            session['h2-client-preface'] = False
+
+        # Leave later frames for the next stream reassembly call.
+        if len(data) > end:
+            frame /= config.conf.padding_layer(data[end:])
+        return frame
 
     def guess_payload_class(self, payload):
         # type: (str) -> Packet_metaclass
