@@ -789,3 +789,21 @@ for case in cases:
 # actual = pfcpSRReq2.show2(dump=True).split("\n")
 # for line in unified_diff(expected, actual, fromfile="expected", tofile="actual"):
 #     print(line)
+
+= Verify PFCPSEReq-Flags
+
+import scapy.contrib.pfcp as pfcp_mod
+
+assert pfcp_mod.ietypecls[186] is IE_PFCPSEReqFlags
+
+pfcpSEReqFlags = IE_Dispatcher(hex_bytes("00ba00010f"))
+assert isinstance(pfcpSEReqFlags, IE_PFCPSEReqFlags)
+assert pfcpSEReqFlags.RESTI == 1
+assert pfcpSEReqFlags.SUMPC == 1
+assert pfcpSEReqFlags.HRSBOM == 1
+assert pfcpSEReqFlags.EPRI == 1
+assert pfcpSEReqFlags.spare == 0
+
+pfcpSEReqFlagBytes = hex_bytes("00ba000101")
+assert bytes(IE_PFCPSEReqFlags(RESTI=1)) == pfcpSEReqFlagBytes
+assert bytes(IE_PFCPSEReqFlags(pfcpSEReqFlagBytes)) == pfcpSEReqFlagBytes
