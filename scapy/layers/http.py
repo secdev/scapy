@@ -1223,12 +1223,10 @@ class HTTP_Server(Automaton):
         self.sock.send(resp)
 
     def upgrade(self, pkt, protocol):
-        """Upgrade this connection from inside :meth:`answer`.
+        """Upgrade the connection from an ``answer()`` handler::
 
-        For WebSocket, call ``self.upgrade(pkt, WebSocket)``. The protocol's
-        ``http_upgrade`` method returns the response and initial stream state.
-        Return this method's result from ``answer``. Subsequent packets reach
-        ``answer`` as instances of the new protocol.
+            if pkt.Path == b"/toto":
+                return self.upgrade(pkt, WebSocket)
         """
         # Prepare the response before changing the connection's parser.
         if self.upgraded:
