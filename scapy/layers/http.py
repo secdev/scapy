@@ -1223,7 +1223,9 @@ class HTTP_Server(Automaton):
         self.sock.send(resp)
 
     def upgrade(self, pkt, protocol):
-        """Upgrade the connection from an ``answer()`` handler::
+        """Upgrade the connection from an ``answer()`` handler.
+
+        .. code-block:: python
 
             if pkt.Path == b"/toto":
                 return self.upgrade(pkt, WebSocket)
