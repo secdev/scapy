@@ -191,8 +191,7 @@ try:
     assert response.Status_Code == b"101"
     assert response.Sec_WebSocket_Accept == b"s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
     assert response.Content_Length is None
-    client.rcvcls = WebSocket.tcp_reassemble
-    client.streamsession = {"handshake-state": WebSocket.HandshakeState.OPEN}
+    client.set_proto(WebSocket, {"handshake-state": WebSocket.HandshakeState.OPEN})
     frame = b"\x81\x85\x37\xfa\x21\x3d\x7f\x9f\x4d\x51\x58"
     client.send(frame[:3])
     client.send(frame[3:])

@@ -1469,8 +1469,7 @@ try:
     assert bytes(response[h2.H2Frame]) == b'\x00\x00\x00\x04\x00\x00\x00\x00\x00'
     peer_settings = server.sock.streamsession['h2-client-settings'].settings
     assert [(setting.id, setting.value) for setting in peer_settings] == [(3, 100), (4, 65535)]
-    client.rcvcls = h2.H2Frame.tcp_reassemble
-    client.basecls = h2.H2Frame
+    client.set_proto(h2.H2Frame)
     preface = h2.H2_CLIENT_CONNECTION_PREFACE
     client_settings = b'\x00\x00\x06\x04\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x64'
     acknowledgement = b'\x00\x00\x00\x04\x01\x00\x00\x00\x00'

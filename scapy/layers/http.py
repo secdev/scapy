@@ -84,7 +84,6 @@ from scapy.error import (
 )
 from scapy.fields import StrField
 from scapy.packet import Packet, bind_layers, bind_bottom_up, Raw
-from scapy.sessions import streamcls
 from scapy.supersocket import StreamSocket, SSLStreamSocket
 from scapy.utils import get_temp_file, ContextManagerSubprocess
 
@@ -1240,13 +1239,7 @@ class HTTP_Server(Automaton):
             return response
 
         # Retain queued bytes while replacing the HTTP reassembly state.
-        self.sock.basecls = protocol
-        self.sock.rcvcls = streamcls(protocol)
-        self.sock.metadata.clear()
-        self.sock.streamsession.clear()
-        self.sock.streamsession.update(session)
-        if isinstance(self.sock, SSLStreamSocket):
-            self.sock.sess.metadata.clear()
+        self.sock.set_proto(protocol, session)
         self.upgraded = True
         return response
 
