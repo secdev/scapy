@@ -418,6 +418,34 @@ except Scapy_Exception as e:
 
 conf.debug_dissector = _old_dbg
 
+= DNS - DNS over TCP with TCPSession
+
+ans = DNSTCP(id=1, qr=1, qd=DNSQR(qname="example.com", qtype="TXT"),
+             an=DNSRR(rrname="example.com", type="TXT", rdata=["A" * 200]))
+data = raw(ans)
+base = Ether(src="00:00:00:00:00:01", dst="00:00:00:00:00:02") / IP(src="10.0.0.1", dst="10.0.0.2")
+
+# One message split over two segments
+seg1 = base / TCP(sport=53, dport=40000, flags="A", seq=1) / data[:50]
+seg2 = base / TCP(sport=53, dport=40000, flags="PA", seq=51) / data[50:]
+with no_debug_dissector():
+    segs = [Ether(raw(seg1)), Ether(raw(seg2))]
+
+pkts = sniff(offline=segs, session=TCPSession)
+assert len(pkts) == 1
+assert pkts[0][DNS].id == 1
+assert pkts[0][DNS].an[0].rdata == [b"A" * 200]
+
+# Two messages in one segment
+two = base / TCP(sport=53, dport=40001, flags="PA", seq=1) / (data + data)
+pkts = sniff(offline=[Ether(raw(two))], session=TCPSession)
+assert len(pkts) == 1
+assert pkts[0][DNS].id == 1
+assert pkts[0][DNS].payload[DNS].id == 1
+
+# A length too short for a DNS header is kept as Raw
+assert isinstance(DNS.tcp_reassemble(b"\x00\x00"), Raw)
+
 = DNS - dns_compress on decompressed packet
 
 data = b'E\x00\x00n~\x82\x00\x00{\x11\xae\xeb\x08\x08\x08\x08\x01\x01\x01\x01\x005\x005\x00Z!\x17\x00\x00\x81\x80\x00\x01\x00\x00\x00\x01\x00\x00\x03www\x06google\x03com\x00\x00\x0f\x00\x01\xc0\x10\x00\x06\x00\x01\x00\x00\x002\x00&\x03ns1\xc0\x10\tdns-admin\xc0\x10\x14Po\x8f\x00\x00\x03\x84\x00\x00\x03\x84\x00\x00\x07\x08\x00\x00\x00<'
