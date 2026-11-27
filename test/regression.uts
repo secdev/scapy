@@ -2296,7 +2296,7 @@ receiver = StreamSocketPeekless(receiver_socket, HTTP)
 sender = StreamSocket(sender_socket, Raw)
 shared_session = sender.streamsession = receiver.streamsession
 try:
-    wire = bytes(IP(dst="192.0.2.1") / UDP(dport=12345) / b"Hello")
+    wire = bytes(IP(dst="192.0.2.1") / TCP(sport=12345, dport=12345, flags="PA") / b"Hello")
     sender.send(b"GET / HTTP/1.1\r\nHost: example.test\r\nContent-Length: 0\r\n\r\n" + wire)
     assert receiver.recv().Path == b"/"
     receiver.set_proto(IP, {"upgraded": True})
@@ -2304,7 +2304,7 @@ try:
     assert shared_session == {"upgraded": True}
     packet = receiver.recv()
     assert bytes(packet) == wire
-    assert packet[UDP].dport == 12345
+    assert packet[TCP].dport == 12345
 finally:
     receiver.close()
     sender.close()
