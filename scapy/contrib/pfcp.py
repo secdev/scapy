@@ -1549,12 +1549,20 @@ class IE_UE_IP_Address(IE_Base):
     name = "IE UE IP Address"
     ie_type = 93
     fields_desc = IE_Base.fields_desc + [
-        XBitField("spare", 0, 5),
+        XBitField("spare", 0, 1),
+        BitField("IP6PL", 0, 1),
+        BitField("CHV6", 0, 1),
+        BitField("CHV4", 0, 1),
+        BitField("IPv6D", 0, 1),
         BitField("SD", 0, 1),  # source or dest
         BitField("V4", 0, 1),
         BitField("V6", 0, 1),
         ConditionalField(IPField("ipv4", 0), lambda x: x.V4 == 1),
         ConditionalField(IP6Field("ipv6", 0), lambda x: x.V6 == 1),
+        ConditionalField(ByteField("ipv6_prefix_delegation_bits", 0),
+                         lambda x: x.IPv6D == 1),
+        ConditionalField(ByteField("ipv6_prefix_length", 0),
+                         lambda x: x.IP6PL == 1),
         ExtraDataField("extra_data"),
     ]
 
